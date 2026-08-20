@@ -57,6 +57,9 @@ class LoreVocabularyCoverageTest {
         assertTrue(lore.contains("attack_power") && StatVocabulary.isKnown("attack_power"),
                 "基準キー attack_power が両側に無い(比較が空振りしている疑い)");
         List<String> missing = new ArrayList<>();
+        // 2026-08-16: 除外リスト(BASE_STATS_ONLY_KEYS)は廃止した。中身はマナ基礎3キーだけで、
+        // その3キーが ArsPaper の config.yml (mana.*) へ移設された結果、除外すべきキーが無くなった。
+        // 以後は語彙の全キーに lore.yml の表示定義を課す(除外は「検査ごと無効化する」方向にしか壊れない)。
         for (String key : StatVocabulary.allKeys()) {
             if (!lore.contains(key)) {
                 missing.add(key);
@@ -67,6 +70,15 @@ class LoreVocabularyCoverageTest {
                         + "(効くがアイテムに表示されない)");
     }
 
+    /**
+     * 2026-08-13 に入れた除外リスト検査({@code baseStatsOnlyKeysAreRealAndAbsentFromShippedLore})は
+     * 2026-08-16 に削除した。除外対象だったマナ基礎3キー
+     * ({@code mana-max-base} / {@code mana-regen-base} / {@code mana-regen-interval-ticks})が
+     * ArsPaper の {@code config.yml} の {@code mana.*} へ移設され、語彙からも消えて除外リストが
+     * 空になったため（空の除外リストは検査を空振りさせるだけなので、集合ごと廃止した）。
+     * 移設が戻っていないことは {@code RetiredStatKeyDriftTest} と
+     * {@code ManaBaseKeysMigrationTest} が固定している。
+     */
     @Test
     void everyLoreEntryDeclaresANameAndAResolvableCategory() throws Exception {
         ConfigurationSection stats = shippedLoreStats();

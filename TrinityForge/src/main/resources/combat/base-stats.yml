@@ -38,7 +38,6 @@
 #    (誤って1.6等バニラ武器の速度をここへ書いてしまう事故が過去にあったため、根本的に排除した設計判断)。
 # 設定リファレンス(本文コメント移設先): docs/config-reference/combat/base-stats.md
 
-
 base-stats:
   attack-power: 0
   attack-speed-bonus: 0
@@ -55,7 +54,8 @@ base-stats:
   penetration: 0
   bleed-chance: 0
   bleed-damage: 0
-  armor-defense-rate: 0
+  bleed-damage-rate: 0
+  defense-rate: 0
   armor-strength: 0
   max-health: 0
   knockback-resistance: 0
@@ -66,12 +66,9 @@ base-stats:
   damage-reduction: 0
   dodge-chance: 0
   mining-fortune: 0
-  # 最終効率。2026-07-26 に tool-enchant-efficiency を統合したため、旧キーはここには書かないこと
-  # (StatKeys のエイリアスで gathering-efficiency に畳まれ、同一キーが2行になって片方が消える)。
   gathering-efficiency: 0
   fishing-luck: 0
   fishing-bonus: 0
-  # 経済連携(Vault対応): 釣りの売却額倍率 / 解体の戻り係数 / 海釣り限定fishing-bonus加算分
   fish-sell-price-bonus: 0
   disassembly-return-bonus: 0
   ocean-fishing-bonus: 0
@@ -82,44 +79,53 @@ base-stats:
   thread-slots: 0
   mana-cost-reduction-flat: 0
   mana-cost-reduction-percent: 0
-  mana-max-base: 100
-  mana-regen-base: 5
-  mana-regen-interval-ticks: 20
-  mana-onhit-percent: 0.03
-  mana-onhit-flat: 0
-  mana-onattack-percent: 0.03
-  mana-onattack-flat: 0
-  mana-idle-seconds: 5
-  mana-idle-bonus-percent: 0.01
+  # 2026-08-16: マナ基礎3キー(mana-max-base / mana-regen-base / mana-regen-interval-ticks)は
+  # ArsPaper の config.yml の mana.default-max / mana.default-regen-rate / mana.regen-interval-ticks
+  # へ移設した。設定エディタの「ArsPaper 全体設定 (config)」画面で編集する(ここに書いても効かない)。
+  mana-onhit-percent: 0
+  mana-onattack-percent: 0
+  mana-idle-seconds: 0
+  mana-idle-bonus-percent: 0
   mana-idle-bonus-flat: 0
   phys-flat-defense: 0
   magic-flat-defense: 0
   flat-defense: 0
   fixed-damage: 0
-  bow-accuracy: 0
   ammo-save-chance: 0
   distance-damage-bonus: 0
   arrow-piercing: 0
   arrow-velocity: 0
-  bow-cooldown-reduction: 0
   arrow-knockback: 0
   melee-knockback: 0
   stun-chance: 0
-  # 2026-07-26新設: stun-chance発動時のスタン継続時間への割合加算(絶対上限5秒=100tickでクランプ)。
   stun-duration-bonus: 0
   power-attack-damage: 0
   power-attack-radius: 0
   cooldown-reduction: 0
-  # 2026-07-25 CT設計一本化: ActiveSkill単位のCT短縮キー
   haste-active-mining-cooldown-reduction: 0
+  haste-active-digging-cooldown-reduction: 0
   tree-fell-cooldown-reduction: 0
   health-regen-bonus: 0
-  # 2026-07-25 課題2: 棘の鎧ステータス化(反射率)。実=固定値、割=被ダメージ割合。
   reflect-flat: 0
   reflect-percent: 0
   hunger-save-chance: 0
   mob-drop-bonus: 0
   skill-exp-bonus: 0
+  woodcutting-exp-bonus: 0
+  farming-exp-bonus: 0
+  digging-exp-bonus: 0
+  mining-exp-bonus: 0
+  fishing-exp-bonus: 0
+  alchemy-exp-bonus: 0
+  enchanting-exp-bonus: 0
+  smithing-exp-bonus: 0
+  ars-smithing-exp-bonus: 0
+  ars-magic-exp-bonus: 0
+  archery-exp-bonus: 0
+  light-weapons-exp-bonus: 0
+  heavy-weapons-exp-bonus: 0
+  light-armor-exp-bonus: 0
+  heavy-armor-exp-bonus: 0
   loot-luck: 0
   mob-drop-quality: 0
   gacha-rate-bonus: 0
@@ -128,6 +134,10 @@ base-stats:
   hive-harvest-fortune: 0
   kill-vanilla-exp-bonus: 0
   break-vanilla-exp-bonus: 0
+  mining-break-vanilla-exp-bonus: 0
+  woodcutting-break-vanilla-exp-bonus: 0
+  digging-break-vanilla-exp-bonus: 0
+  farming-break-vanilla-exp-bonus: 0
   vanilla-exp-bonus: 0
   breeding-vanilla-exp-bonus: 0
   woodcutting-extra-drop-chance: 0
@@ -139,30 +149,23 @@ base-stats:
   planted-crop-growth-bonus: 0
   ritual-quality-bonus: 0
   workbench-quality-bonus: 0
-  craft-upswing-bonus: 0
-  craft-downswing-reduction: 0
+  coating-charges-bonus: 0
+  workbench-upswing-bonus: 0
+  workbench-downswing-reduction: 0
+  ritual-upswing-bonus: 0
+  ritual-downswing-reduction: 0
   craft-roll-up-bonus: 0
   craft-roll-down-reduction: 0
   craft-roll-inset: 0
-  lapis-cost-reduction: 0
   material-refund-chance: 0
   ingredient-save-chance: 0
   source-cost-reduction: 0
-  # エンチャント/ポーション品質(2026-07-25、かまど・エンチャント・ポーションは実行者限定ステ)
   enchant-luck: 0
-  enchant-exp-gain-bonus: 0
-  # 2026-07-26新設: エンチャントテーブルのレベルコストと金床の修理コストを軽減する(0..0.9)。
   enchant-cost-reduction: 0
   potion-quality-bonus: 0
   brew-speed-bonus: 0
   ars-tier-bonus: 0
   glyph-slot-bonus: 0
-  # 2026-07-25 害悪グリフ強化(ars_magic.yml B-3): 特定グリフのダメージ倍率ボーナス(fraction)
   glyph-damage-multiplier-bonus: 0
-  # スキルツリー由来の条件付き装備効果(NativeAttributeBridgeが装備部位数を判定して消費)
-  light-armor-move-speed-per-piece: 0
-  heavy-armor-move-speed-per-piece: 0
-  light-armor-set-bonus-multiplier: 0
-  heavy-armor-set-bonus-multiplier: 0
-  light-armor-set-dodge-chance: 0
-  heavy-armor-set-knockback-resistance: 0
+  armor-set-bonus: 0
+  bow-accuracy: -0.3

@@ -1,0 +1,26 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "minecraft:item/bolt_armor_trim_smithing_template"
+    },
+    "entries": [
+      {
+        "threshold": 300018,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:item/bolt_armor_trim_smithing_template"
+        }
+      },
+      {
+        "threshold": 300035,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:item/bolt_armor_trim_smithing_template"
+        }
+      }
+    ]
+  }
+}

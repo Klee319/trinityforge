@@ -2,12 +2,17 @@ package com.trinityforge.listeners;
 
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.AlchemyQualityConfig;
+import com.trinityforge.config.domains.QualityConfig;
+import com.trinityforge.pdc.PdcKeys;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
 import com.trinityforge.progression.catalog.SkillCatalogEntry;
 import com.trinityforge.progression.core.SkillId;
+import com.trinityforge.stats.BrewRecipeSupport;
 import com.trinityforge.stats.StatKeys;
+import com.trinityforge.stats.VanillaLuckEffect;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.block.BrewingStand;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -21,6 +26,7 @@ import org.bukkit.inventory.BrewerInventory;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionType;
@@ -55,26 +61,47 @@ public final class PotionQualityListener implements Listener {
     private static final String BREW_SPEED_BONUS = StatKeys.canonical("brew_speed_bonus");
     /** Vanillaが醸造開始時にセットする満タンの醸造時間(tick)。この値そのものを「開始直後」の検出に使う。 */
     private static final int VANILLA_BREW_TIME_TICKS = 400;
-    /** 速度短縮の下限(短縮しすぎて0/負のtickにならないための安全弁)。90%短縮まで。 */
-    private static final double MAX_SPEED_REDUCTION = 0.9;
+    /**
+     * 速度短縮の下限(短縮しすぎて0/負のtickにならないための安全弁)。90%短縮まで。
+     * 段階1宣言(2026-07-27): {@code stats/lore.yml} の {@code brew-speed-bonus.limits.cap-ref} が
+     * 参照する昇格済み定数(可視性のみpublicへ変更、値・挙動は不変)。
+     */
+    public static final double MAX_SPEED_REDUCTION = 0.9;
 
     private final Plugin plugin;
     private final PlayerStatAggregator aggregator;
     private final AlchemyQualityConfig alchemyQuality;
     private final NativeSkillCatalog progressionCatalog;
     private final BrewOwnership brewOwnership;
+    /** 幸運のポーションぶんの換算レート({@code luck-potion-quality-per-level})の参照元。null可=幸運を加算しない。 */
+    private final QualityConfig quality;
 
     public PotionQualityListener(Plugin plugin, PlayerStatAggregator aggregator,
                                  AlchemyQualityConfig alchemyQuality, NativeSkillCatalog progressionCatalog) {
+        this(plugin, aggregator, alchemyQuality, progressionCatalog, null);
+    }
+
+    public PotionQualityListener(Plugin plugin, PlayerStatAggregator aggregator,
+                                 AlchemyQualityConfig alchemyQuality, NativeSkillCatalog progressionCatalog,
+                                 QualityConfig quality) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.aggregator = Objects.requireNonNull(aggregator, "aggregator");
         this.alchemyQuality = Objects.requireNonNull(alchemyQuality, "alchemyQuality");
         this.progressionCatalog = Objects.requireNonNull(progressionCatalog, "progressionCatalog");
         this.brewOwnership = new BrewOwnership(plugin);
+        this.quality = quality;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBrew(BrewEvent event) {
+        // 品質より先に「延長/強化」を見る。品質はここで二重に乗せない(下の return)。
+        if (rewriteCustomEffectUpgrade(event)) {
+            return;
+        }
+        // 同じ理由でスプラッシュ化/残留化も先に見る(容器が変わるだけで品質は既に乗っている)。
+        if (rewriteCustomEffectContainerMix(event)) {
+            return;
+        }
         if (!(event.getBlock().getState() instanceof BrewingStand stand)) {
             return;
         }
@@ -87,7 +114,10 @@ public final class PotionQualityListener implements Listener {
             return;
         }
         double damping = brewOwnership.isAutomated(stand) ? autoMult() : 1.0;
-        double qualityPoints = Math.max(0.0, aggregator.aggregate(owner).totalOf(POTION_QUALITY_BONUS)) * damping;
+        // 幸運のポーションぶんはステと同じ「品質ポイント」なので、自動醸造の減衰も同じく掛ける
+        // (片方だけ無減衰にするとホッパー放置が成立してしまう — このリスナの既存ポリシー)。
+        double statPoints = Math.max(0.0, aggregator.aggregate(owner).totalOf(POTION_QUALITY_BONUS));
+        double qualityPoints = (statPoints + luckPotionQualityBonus(owner)) * damping;
         if (qualityPoints <= 0.0) {
             return;
         }
@@ -99,6 +129,20 @@ public final class PotionQualityListener implements Listener {
         for (int slot = 0; slot < results.size(); slot++) {
             applyQuality(results.get(slot), durationAdd, amplifierAdd, qualityPoints);
         }
+    }
+
+    /**
+     * 幸運のポーションぶんの品質ポイント(2026-08-20 ユーザー要望「醸造・作業台・儀式の各品質ptも
+     * 幸運のポーションレベルに応じて上がるように」)。効果レベル ×
+     * {@code stats/quality.yml} の {@code luck-potion-quality-per-level}。
+     * config 未配線(テスト等)・0 設定・未付与なら 0。
+     */
+    private double luckPotionQualityBonus(Player brewer) {
+        if (quality == null) {
+            return 0.0;
+        }
+        double perLevel = quality.luckPotionQualityPerLevel();
+        return perLevel <= 0.0 ? 0.0 : VanillaLuckEffect.levelOf(brewer) * perLevel;
     }
 
     private void applyQuality(ItemStack result, double durationAdd, int amplifierAdd, double qualityPoints) {
@@ -126,17 +170,253 @@ public final class PotionQualityListener implements Listener {
             boosted.add(updated);
         }
         // 段階の異なる効果を一意に確定させるため、baseはWATERへ倒して全てcustom effectsで表現する
-        // (BrewUnlockListener#makeCustomPotion と同じ既存パターン)。
+        // (BrewRecipeSupport#customPotion と同じ既存パターン。2026-07-31 に
+        //  BrewUnlockListener#makeCustomPotion からそちらへ移設された)。
+        //
+        // ⚠️ 倒す【前】の種類を焼き付ける (2026-08-20 / W-170)。EXP を出す
+        //   NativeSkillExperienceListener#onBrew は MONITOR = このリスナ(HIGH)の【後】に走り、
+        //   完成品の base から alchemy_progression.yml の brew_result を引く。倒した後は常に WATER で
+        //   表に無いため、どの効果ポーションを作っても alchemy_brew_exp の定額へ落ちて【EXPが一律】に
+        //   なっていた。品質0のプレイヤーはここを通らないので、スキルツリーで品質を取った人だけ壊れる。
+        stampBrewSourcePotion(meta);
         meta.setBasePotionType(PotionType.WATER);
         meta.clearCustomEffects();
         for (PotionEffect effect : boosted) {
             meta.addCustomEffect(effect, true);
         }
+        // baseをWATERへ倒すと【名前も「水入り瓶」に化ける】。ポーション名はベースの種類からしか
+        // 引かれないので(PotionContents#getName)、効果を足しても名前は戻らない。
+        // 2026-08-18 実サーバ報告「進捗バーも動いて完了音も鳴るのに水入り瓶が完成する」の真因がこれ。
+        // 既に名前が付いている(ゲート付き醸造の完成品など)ならそちらを尊重する。
+        if (!meta.hasDisplayName()) {
+            meta.displayName(BrewRecipeSupport.potionDisplayName(result.getType(), boosted));
+        }
         result.setItemMeta(meta);
+    }
+
+    /**
+     * ベースを {@code WATER} へ倒す直前の {@link PotionType} を
+     * {@link PdcKeys#ITEM_BREW_SOURCE_POTION} へ焼き付ける (2026-08-20 / W-170)。
+     *
+     * <p>倒した後は {@code getBasePotionType()} が常に {@code WATER} を返すので、EXP 側
+     * ({@code NativeSkillExperienceListener#onBrew}) が {@code brew_result} を引けなくなる。
+     * <b>既に倒れている（＝WATER）ものには書かない</b> — 延長/強化のように「一度品質を乗せた
+     * ポーションをもう一度醸造する」経路で、上書きすると前の記録を消してしまうため。
+     */
+    private static void stampBrewSourcePotion(PotionMeta meta) {
+        if (!meta.hasBasePotionType()) {
+            return;
+        }
+        PotionType original = meta.getBasePotionType();
+        if (original == null || original == PotionType.WATER) {
+            return;
+        }
+        meta.getPersistentDataContainer()
+                .set(PdcKeys.ITEM_BREW_SOURCE_POTION, PersistentDataType.STRING, original.name());
     }
 
     private static boolean isSplashOrLingering(Material type) {
         return type == Material.SPLASH_POTION || type == Material.LINGERING_POTION;
+    }
+
+    // ---- スプラッシュ化(火薬) / 残留化(ドラゴンブレス) の救済 ------------------------------
+    //
+    // なぜ必要か(2026-08-21 実サーバ報告「ポーションをスプラッシュ化しようとすると水入り瓶になる」):
+    //   バニラの【容器 mix】は結果を1から組み直す。稼働サーバの paper-1.21.11.jar を逆アセンブルすると
+    //   PotionBrewing#mix の容器 mix 分岐は
+    //       PotionContents.createItemStack(mix.to.value(), contents.potion().get())
+    //   の1行だけで、入力のコンポーネントを【1つも引き継がない】(カスタム効果・表示名・PDC が全部落ちる)。
+    //   TF は品質を乗せるとき base を WATER へ倒して全部カスタム効果で表現する(#applyQuality)ので、
+    //   スプラッシュ化すると WATER だけが残った【スプラッシュ水入り瓶】になり中身が消える。
+    //   ＝ 錬金術の品質ステを持っている人だけ壊れる(0 の人は base が倒れないので正常)。
+    //   延長/強化(#rewriteCustomEffectUpgrade)と原因も対処も同じ形で、あちらだけ救済が入っていた。
+    //
+    // バニラの容器 mix はこの2組だけ(paper-1.21.11.jar の addVanillaMixes を実バイトコードで確認):
+    //   POTION + GUNPOWDER -> SPLASH_POTION / SPLASH_POTION + DRAGON_BREATH -> LINGERING_POTION
+    //
+    // 持続時間には手を入れない: バニラでもスプラッシュ化で持続は変わらず、残留の 1/4 は
+    // 【使用時に AreaEffectCloud 側が掛ける】ので、ここで縮めると二重に効く。
+    // 品質も乗せ直さない(容器が変わるだけで、そのポーションには既に乗っている)。
+
+    /** バニラの容器 mix の行き先。組み合わせが違えば {@code null}(バニラに任せる)。 */
+    private static Material containerMixTarget(Material ingredient, Material bottle) {
+        if (ingredient == Material.GUNPOWDER && bottle == Material.POTION) {
+            return Material.SPLASH_POTION;
+        }
+        if (ingredient == Material.DRAGON_BREATH && bottle == Material.SPLASH_POTION) {
+            return Material.LINGERING_POTION;
+        }
+        return null;
+    }
+
+    /**
+     * WATER ベース＋カスタム効果のポーションの容器だけを差し替え、中身を保ったまま書き戻す。
+     *
+     * @return この醸造を容器 mix として扱ったなら {@code true}(呼び出し側は品質適用へ進まない)
+     */
+    private boolean rewriteCustomEffectContainerMix(BrewEvent event) {
+        BrewerInventory inv = event.getContents();
+        // getIngredient() ではなく getItem(3) で読む理由は #rewriteCustomEffectUpgrade と同じ。
+        ItemStack ingredient = inv.getItem(3);
+        if (ingredient == null) {
+            return false;
+        }
+        Material ing = ingredient.getType();
+        if (ing != Material.GUNPOWDER && ing != Material.DRAGON_BREATH) {
+            return false;
+        }
+
+        List<ItemStack> results = event.getResults();
+        boolean handled = false;
+        for (int slot = 0; slot < 3; slot++) {
+            ItemStack bottle = inv.getItem(slot);
+            if (bottle == null || !(bottle.getItemMeta() instanceof PotionMeta meta)
+                    || meta.getBasePotionType() != PotionType.WATER
+                    || !meta.hasCustomEffects()) {
+                continue; // 素の水入り瓶やバニラのポーションはバニラの結果に任せる
+            }
+            Material target = containerMixTarget(ing, bottle.getType());
+            if (target == null) {
+                continue;
+            }
+            // PotionMeta は POTION / SPLASH_POTION / LINGERING_POTION で共通なので、器だけ替えれば
+            // カスタム効果も PDC(brew_upgrade / brew_source_potion)もそのまま持ち越せる。
+            ItemStack rebuilt = new ItemStack(target);
+            rebuilt.setItemMeta(meta);
+            if (rebuilt.getItemMeta() instanceof PotionMeta moved) {
+                // 器が変わったので名前を付け直す(「治癒のポーション」→「スプラッシュ治癒のポーション」)。
+                // バニラの容器 mix はそもそも名前を捨てるので、上書きで失うものは無い。
+                net.kyori.adventure.text.Component renamed =
+                        BrewRecipeSupport.potionDisplayName(target, moved.getCustomEffects());
+                if (renamed != null) {
+                    moved.displayName(renamed);
+                    rebuilt.setItemMeta(moved);
+                }
+            }
+            rebuilt.setAmount(1);
+            while (results.size() <= slot) {
+                results.add(null);
+            }
+            results.set(slot, rebuilt);
+            handled = true;
+        }
+        return handled;
+    }
+
+    // ---- 延長(レッドストーン) / 強化(グロウストーンダスト) の救済 -------------------------
+    //
+    // なぜ必要か(2026-08-18 / W-108):
+    //   TF は品質を乗せるときもゲート付き醸造の完成品を作るときも、段階の違う効果を一意に
+    //   確定させるためにベースを WATER へ倒して全部カスタム効果で表現する
+    //   (#applyQuality / BrewRecipeSupport#customPotion)。ところがバニラの醸造表は
+    //   「(ベースの PotionType, 素材) → PotionType」でしか引かないので、
+    //   WATER ベースのポーションにレッドストーンを入れると **ありふれたポーション(MUNDANE)**、
+    //   グロウストーンダストなら **濃厚なポーション(THICK)** になる。
+    //   バニラの mix はカスタム効果を引き継がないので、**効果が丸ごと消える**。
+    //   ＝ 錬金術ステを持っているプレイヤーほど、自分で作ったポーションを延長・強化できず、
+    //     しかも試すと中身を失う。0 のプレイヤーは WATER へ倒されないのでこの症状も出ない
+    //     (「一部の人だけ壊れる」に見える。W-83 と同じ現れ方)。
+    //
+    // なぜ PotionMix を登録しないのか:
+    //   WATER + レッドストーン / グロウストーンダストは **バニラに実在する組**なので、
+    //   醸造そのものは何もしなくても始まり BrewEvent も飛ぶ。必要なのは「結果の差し替え」だけで、
+    //   mix を足すと素の水入り瓶の挙動まで奪う危険が増えるだけ
+    //   (BrewPotionMixRegistrar#vanillaCollision がこの2素材を弾いているのと同じ理由)。
+    //
+    // 倍率はバニラに合わせる: 延長 3:00→8:00 (8/3倍)、強化 3:00→1:30 (1/2倍) + 効力+1。
+    // 即時効果(回復/ダメージ)には持続時間が無いので延長側は掛けない。
+
+    /** 延長 3:00 → 8:00 のバニラ比。 */
+    private static final double EXTEND_DURATION_RATIO = 8.0 / 3.0;
+    /** 強化 3:00 → 1:30 のバニラ比。 */
+    private static final double AMPLIFY_DURATION_RATIO = 0.5;
+
+    /** どちらの加工を受けたか。バニラ同様「延長と強化は排他・各1回まで」。 */
+    private enum BrewUpgrade { EXTENDED, AMPLIFIED }
+
+    private NamespacedKey upgradeKey() {
+        return new NamespacedKey(plugin, "brew_upgrade");
+    }
+
+    /**
+     * WATER ベース＋カスタム効果のポーションに対する延長/強化を、効果を保ったまま書き戻す。
+     *
+     * @return この醸造を延長/強化として扱ったなら {@code true}(呼び出し側は品質適用へ進まない)
+     */
+    private boolean rewriteCustomEffectUpgrade(BrewEvent event) {
+        BrewerInventory inv = event.getContents();
+        // ⚠️ getIngredient() ではなく getItem(3) で読む。実サーバでは等価(醸造台のスロット配置は
+        // 0..2=ビン / 3=素材 / 4=燃料 で固定)だが、MockBukkit の BrewerInventoryMock は
+        // 素材が未設定のとき getIngredient() が IllegalStateException を投げるため、
+        // 素材を置かない既存テスト(品質・速度側)を巻き添えで落としてしまう。
+        ItemStack ingredient = inv.getItem(3);
+        if (ingredient == null) {
+            return false;
+        }
+        BrewUpgrade upgrade = switch (ingredient.getType()) {
+            case REDSTONE -> BrewUpgrade.EXTENDED;
+            case GLOWSTONE_DUST -> BrewUpgrade.AMPLIFIED;
+            default -> null;
+        };
+        if (upgrade == null) {
+            return false;
+        }
+
+        List<ItemStack> results = event.getResults();
+        boolean handled = false;
+        for (int slot = 0; slot < 3; slot++) {
+            ItemStack bottle = inv.getItem(slot);
+            if (bottle == null || !BrewRecipeSupport.isPotionContainer(bottle.getType())
+                    || !(bottle.getItemMeta() instanceof PotionMeta meta)
+                    || meta.getBasePotionType() != PotionType.WATER
+                    || !meta.hasCustomEffects()) {
+                continue; // 素の水入り瓶やバニラのポーションはバニラの結果に任せる
+            }
+            ItemStack rebuilt = bottle.clone();
+            rebuilt.setAmount(1);
+            applyBrewUpgrade(rebuilt, upgrade);
+            while (results.size() <= slot) {
+                results.add(null);
+            }
+            results.set(slot, rebuilt);
+            handled = true;
+        }
+        return handled;
+    }
+
+    /**
+     * 1本ぶんの延長/強化。<b>既に加工済みなら中身を変えずにそのまま返す</b> —— バニラに任せると
+     * ありふれた/濃厚なポーションへ化けて効果が消えるので、「何も起きない」で止めるのが最小の被害。
+     */
+    private void applyBrewUpgrade(ItemStack stack, BrewUpgrade upgrade) {
+        if (!(stack.getItemMeta() instanceof PotionMeta meta)) {
+            return;
+        }
+        if (meta.getPersistentDataContainer().has(upgradeKey(), PersistentDataType.STRING)) {
+            return;
+        }
+        List<PotionEffect> upgraded = new ArrayList<>();
+        for (PotionEffect effect : meta.getCustomEffects()) {
+            PotionEffect updated = effect;
+            if (!effect.getType().isInstant()) {
+                double ratio = upgrade == BrewUpgrade.EXTENDED
+                        ? EXTEND_DURATION_RATIO : AMPLIFY_DURATION_RATIO;
+                updated = updated.withDuration(Math.max(1, (int) Math.round(updated.getDuration() * ratio)));
+            }
+            if (upgrade == BrewUpgrade.AMPLIFIED) {
+                updated = updated.withAmplifier(updated.getAmplifier() + 1);
+            }
+            upgraded.add(updated);
+        }
+        meta.clearCustomEffects();
+        for (PotionEffect effect : upgraded) {
+            meta.addCustomEffect(effect, true);
+        }
+        meta.getPersistentDataContainer().set(upgradeKey(), PersistentDataType.STRING, upgrade.name());
+        if (!meta.hasDisplayName()) {
+            meta.displayName(BrewRecipeSupport.potionDisplayName(stack.getType(), upgraded));
+        }
+        stack.setItemMeta(meta);
     }
 
     private double autoMult() {
@@ -146,8 +426,9 @@ public final class PotionQualityListener implements Listener {
     }
 
     // ---- 醸造速度(brew_speed_bonus): バニラが醸造を開始した直後(getBrewingTime()==満タン)を検出し、
-    //      所有者のstatに応じて残り時間を短縮する。BrewUnlockListenerのカスタム強制開始と同じく、
-    //      クリック/ドラッグ/ホッパー投入の直後を1tick遅延で確認する。 ----
+    //      所有者のstatに応じて残り時間を短縮する。クリック/ドラッグ/ホッパー投入の直後を
+    //      1tick遅延で確認する(2026-07-31: かつてここにあった「BrewUnlockListenerのカスタム強制開始と
+    //      同じ方式」という記述は、その強制開始が PotionMix 登録方式へ置き換わって消えたため削除)。 ----
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBrewerClick(InventoryClickEvent event) {

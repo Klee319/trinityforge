@@ -4,9 +4,10 @@ import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.config.domains.FoodGimmickConfig;
 import com.trinityforge.food.FoodGimmickPolicy;
-import com.trinityforge.mining.MiningGimmickPolicy;
 import com.trinityforge.stats.CrossPluginItemResolver;
 import com.trinityforge.stats.StatKeys;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -20,27 +21,39 @@ import org.bukkit.potion.PotionEffectType;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * 農業ツリーA-α/β系「食事」ギミック(skilltree/dedicated-effects.yml のflag/percent系consumer、
- * stats/food-gimmick.yml でチューニング)をまとめて処理する。各effectは保有プレイヤーのみ発火し、
+ * 農業ツリーA-α/β系「食事」ギミック(各 skilltree/*.yml ノードの dedicated-effects: フィールドで
+ * 付与される flag/percent 系 consumer、stats/food-gimmick.yml でチューニング)をまとめて処理する。各effectは保有プレイヤーのみ発火し、
  * 非保有/config未設定時はバニラ挙動据え置き(no-op gate)。
  *
  * <ul>
- *   <li>{@code junkfood-immunity}(flag): ゴミ食({@link FoodGimmickConfig#junkFoodMaterials()})を
+ *   <li>{@code junkfood-immunity}(flag): ゴミ食({@link FoodGimmickConfig#isJunkFood(ItemStack)})を
  *       食べた際にバニラが付与するデバフ系ポーション効果を打ち消す。{@link EntityPotionEffectEvent}の
  *       {@code Cause.FOOD}を使い、{@link FoodGimmickConfig#junkfoodImmunityCancelledEffects()}の
  *       許可リストに載っている種類のみキャンセルする(金リンゴ/金人参のバフ効果もCause.FOODで発火する
  *       ため、許可リスト方式でなければ誤って打ち消してしまう)。</li>
- *   <li>{@code junkfood-inversion}(flag): ゴミ食は隠し満腹度(saturation)回復量UP、非ゴミ食はDOWN。
- *       {@link FoodLevelChangeEvent#getItem()}で消費食料を特定し、{@link FoodGimmickPolicy}で
- *       ゴミ/非ゴミ判定した上でsaturationを直接補正する。</li>
- *   <li>{@code no-food-consume-chance}(percent): 食事してもアイテムを消費しない確率。
- *       {@link PlayerItemConsumeEvent#setReplacement}で消費前の全量スタックに差し替え、
+ *   <li>{@code junkfood-inversion}(LEVEL, %; 2026-07-27 農業「ゴミ食」段階化): ゴミ食は隠し満腹度
+ *       (saturation)回復量UP、非ゴミ食はDOWN。{@link FoodLevelChangeEvent#getItem()}で消費食料を特定し、
+ *       {@link FoodGimmickPolicy}でゴミ/非ゴミ判定した上でsaturationを直接補正する。基準量
+ *       ({@link FoodGimmickConfig#junkfoodInversionJunkSaturationBonus()} /
+ *       {@link FoodGimmickConfig#junkfoodInversionNonJunkSaturationPenalty()})に、保持ノード中の最大
+ *       {@code value}(%、{@link DedicatedEffectsConfig#valueMax})を倍率として掛ける
+ *       ({@code value:100}が基準量そのもの)。{@code junk-food-restore-boost}と同じ「保持ノードの最大
+ *       valueを採用する」流儀(A-alpha-1→A-alpha-2のprerequisite連結によりA-alpha-2保持者はA-alpha-1の
+ *       配置も保持しているため、tierテーブル無しでそのまま最大%が引ける)。</li>
+ *   <li>{@code no-food-consume-chance}(percent, stat key {@code food-save-chance}): 食事してもアイテムを
+ *       消費しない確率。{@link PlayerItemConsumeEvent#setReplacement}で消費前の全量スタックに差し替え、
  *       満腹度回復自体は通常通り(バニラの{@link FoodLevelChangeEvent}経路)与える。
- *       {@link org.bukkit.Material#isEdible()}が真のアイテムのみ対象(ポーション等の飲食は対象外)。</li>
+ *       {@link org.bukkit.Material#isEdible()}が真のアイテムのみ対象(ポーション等の飲食は対象外)。
+ *       2026-07-27: 以前は{@link com.trinityforge.stats.PercentStatNormalize}で既にフラクションへ矯正
+ *       済みの値を、さらに0-100スケール前提の{@code MiningGimmickPolicy.percentRoll}に通していたため
+ *       実効確率が設定値の100分の1になっていた確定バグがあった
+ *       ({@link BeekeepingListener}の{@code hive-harvest-fortune}と同じバグ種)。乱数と直接比較する方式
+ *       ({@link com.trinityforge.combat.CritResolver}と同じ流儀)に修正済み。</li>
  *   <li>{@code satiety-buff}(flag): 完全食の隠し満腹度(saturation)回復量UP。
  *       {@link FoodLevelChangeEvent}でsaturationに追加加算。</li>
  *   <li><strong>カスタム食料(custom-foods, どのperk/featureにもゲートされない)</strong>: 消費したアイテムが
@@ -86,8 +99,22 @@ public final class FoodGimmickListener implements Listener {
             return;
         }
         Player player = event.getPlayer();
-        double chancePercent = aggregator.aggregate(player).totalOf(FOOD_SAVE_CHANCE_KEY);
-        if (!MiningGimmickPolicy.percentRoll(chancePercent, ThreadLocalRandom.current().nextDouble())) {
+        if (foodGimmick.isBannedUnregisteredCustomFood(original)) {
+            // カスタムID付きだがcustom-foodsに未登録の食料(圧縮食料の81倍/729倍等)は、素材のバニラ栄養値
+            // で食べられてしまうと大量消費の事故になるため食用機能そのものを奪う(2026-08-09新設)。
+            event.setCancelled(true);
+            player.sendActionBar(Component.text(foodGimmick.unregisteredCustomFoodBanMessage(), NamedTextColor.RED));
+            return;
+        }
+        // PercentStatNormalize.RATE_KEYS already coerces this to a [0,1] fraction at aggregation time
+        // (e.g. 20 -> 0.2). Compare the fraction directly against the roll (same idiom as CritResolver /
+        // BreedingBonusListener#BREEDING_EXTRA_CHILD_CHANCE) instead of routing it through a
+        // percentRoll-style helper that expects a 0-100 scale, which would silently divide it by 100 again.
+        double foodSaveChanceFraction = aggregator.aggregate(player).totalOf(FOOD_SAVE_CHANCE_KEY);
+        if (!Double.isFinite(foodSaveChanceFraction) || foodSaveChanceFraction <= 0.0) {
+            return;
+        }
+        if (ThreadLocalRandom.current().nextDouble() >= Math.min(1.0, foodSaveChanceFraction)) {
             return;
         }
         // Roll succeeded: keep the full pre-consume stack in hand instead of the vanilla decremented
@@ -116,17 +143,19 @@ public final class FoodGimmickListener implements Listener {
         Optional<FoodGimmickConfig.CustomFood> customFood = CrossPluginItemResolver.idOf(item)
                 .flatMap(foodGimmick::customFood);
         if (customFood.isPresent()) {
-            applyCustomFood(event, player, customFood.get());
+            applyCustomFood(event, player, item, customFood.get());
             return; // カスタム食料は独自のREPLACE適用(下記メソッド内でjunkfood-inversion/satiety-buffの
                      // 追加補正も一緒に次tickへ折り込む)ので、この先の汎用加算経路には進まない。
         }
 
         double saturationAdjustment = 0.0;
-        if (dedicatedEffects.isActive(player, EFFECT_JUNKFOOD_INVERSION)) {
-            boolean junk = FoodGimmickPolicy.isJunkFood(item.getType(), foodGimmick.junkFoodMaterials());
+        OptionalDouble inversionPercent = dedicatedEffects.valueMax(player, EFFECT_JUNKFOOD_INVERSION);
+        if (inversionPercent.isPresent()) {
+            boolean junk = foodGimmick.isJunkFood(item);
+            double multiplier = inversionMultiplier(inversionPercent.getAsDouble());
             saturationAdjustment += FoodGimmickPolicy.inversionSaturationAdjustment(junk,
-                    foodGimmick.junkfoodInversionJunkSaturationBonus(),
-                    foodGimmick.junkfoodInversionNonJunkSaturationPenalty());
+                    foodGimmick.junkfoodInversionJunkSaturationBonus() * multiplier,
+                    foodGimmick.junkfoodInversionNonJunkSaturationPenalty() * multiplier);
         }
         if (dedicatedEffects.isActive(player, EFFECT_SATIETY_BUFF)) {
             saturationAdjustment += foodGimmick.satietyBuffSaturationBonus();
@@ -144,7 +173,8 @@ public final class FoodGimmickListener implements Listener {
      * 確定値へ再設定する。{@code junkfood-inversion}/{@code satiety-buff}を保有しているプレイヤーは
      * その追加補正もこの確定値に折り込む(「further-adjust」= 加算的に上乗せする想定)。
      */
-    private void applyCustomFood(FoodLevelChangeEvent event, Player player, FoodGimmickConfig.CustomFood customFood) {
+    private void applyCustomFood(FoodLevelChangeEvent event, Player player, ItemStack item,
+                                 FoodGimmickConfig.CustomFood customFood) {
         int preFood = player.getFoodLevel();
         double preSaturation = player.getSaturation();
 
@@ -152,11 +182,13 @@ public final class FoodGimmickListener implements Listener {
         event.setFoodLevel(targetFood);
 
         double perkAdjustment = 0.0;
-        if (dedicatedEffects.isActive(player, EFFECT_JUNKFOOD_INVERSION)) {
-            // custom-food is never in the junk-food material list by construction; treat as non-junk.
-            perkAdjustment += FoodGimmickPolicy.inversionSaturationAdjustment(false,
-                    foodGimmick.junkfoodInversionJunkSaturationBonus(),
-                    foodGimmick.junkfoodInversionNonJunkSaturationPenalty());
+        OptionalDouble inversionPercent = dedicatedEffects.valueMax(player, EFFECT_JUNKFOOD_INVERSION);
+        if (inversionPercent.isPresent()) {
+            boolean junk = foodGimmick.isJunkFood(item);
+            double multiplier = inversionMultiplier(inversionPercent.getAsDouble());
+            perkAdjustment += FoodGimmickPolicy.inversionSaturationAdjustment(junk,
+                    foodGimmick.junkfoodInversionJunkSaturationBonus() * multiplier,
+                    foodGimmick.junkfoodInversionNonJunkSaturationPenalty() * multiplier);
         }
         if (dedicatedEffects.isActive(player, EFFECT_SATIETY_BUFF)) {
             perkAdjustment += foodGimmick.satietyBuffSaturationBonus();
@@ -176,6 +208,18 @@ public final class FoodGimmickListener implements Listener {
             }
             online.setSaturation((float) targetSaturation);
         });
+    }
+
+    /**
+     * {@code junkfood-inversion}(LEVEL, %) の保持ノード最大valueを、food-gimmick.yml基準量への倍率に
+     * 変換する({@code value:100}で基準量そのもの、{@code value:150}で1.5倍)。負値/非有限値は0として扱う
+     * (設定ミスで補正が暴走しないためのガード、{@link FoodGimmickPolicy}の他のガードと同じ方針)。
+     */
+    private static double inversionMultiplier(double percentValue) {
+        if (!Double.isFinite(percentValue) || percentValue < 0.0) {
+            return 0.0;
+        }
+        return percentValue / 100.0;
     }
 
     /** {@code junkfood-immunity}: ゴミ食後にバニラが付与するデバフ系ポーション効果を打ち消す。 */

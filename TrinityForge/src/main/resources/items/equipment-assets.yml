@@ -1,0 +1,22 @@
+# 自動生成 — 直接編集しないこと (resourcepack/build_equipment_assets.py が書く)
+#
+# 装備したときの見た目を差し替えられる防具セットの一覧。
+# TF はここに載っている id にだけ minecraft:equippable の asset_id を書く。
+# 載っていない防具は asset_id を書かない = バニラの見た目のまま。
+#
+# ⚠ パックに定義が無い asset_id を書くと、その防具は着たときに透明になる。
+#   だから「パックに実物がある」ことをこのファイルで保証する。
+
+equipment-assets:
+  infinity:
+    items:
+      - infinity_boots
+      - infinity_chestplate
+      - infinity_helmet
+      - infinity_leggings
+  source_gem:
+    items:
+      - source_gem_boots
+      - source_gem_chestplate
+      - source_gem_helmet
+      - source_gem_leggings

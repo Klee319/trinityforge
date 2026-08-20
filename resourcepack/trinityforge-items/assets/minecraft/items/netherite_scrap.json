@@ -1,0 +1,33 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/netherite_scrap",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 108,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/hard_metal"
+        }
+      },
+      {
+        "threshold": 5316,
+        "model": {
+          "model": "minecraft:item/netherite_scrap",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5451,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/binder_fragment"
+        }
+      }
+    ]
+  }
+}

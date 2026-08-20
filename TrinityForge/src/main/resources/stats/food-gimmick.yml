@@ -1,11 +1,15 @@
-# TrinityForge - 農業ツリーA-α/β系「食事」ギミック(skilltree/dedicated-effects.yml のflag系consumer)
-# チューニング。対象effectId: junkfood-immunity / junkfood-inversion / satiety-buff
-# (skilltree/farming.yml ノード A-alpha-1 / B)。
+# TrinityForge - 農業ツリーA-α/β系「食事」ギミック(各skilltree/*.ymlノードの dedicated-effects: フィールド
+# に置かれたflag/percent系consumer。正典ファイルは実在しない — 読み込みは
+# com.trinityforge.config.domains.SkillTreeConfig#parseDedicatedEffects) チューニング。
+# 対象effectId: junkfood-immunity / junkfood-inversion / satiety-buff
+# (skilltree/farming.yml ノード A-alpha-1 / A-alpha-2 / B)。
 # no-food-consume-chance の確率(%)は他のpercent系effectと同じく skilltree/farming.yml のノード側
 # dedicated-effects[].value で持つため、このファイルには含まれない。
 # 数値・Material一覧は全て暫定(要調整)。
 
-# junkfood-immunity / junkfood-inversion 共通: 「ゴミ食」と判定するMaterial一覧。
+# junkfood-immunity / junkfood-inversion 共通: 「ゴミ食」と判定するアイテム一覧。
+# バニラMaterial名に加え、2026-07-27より custom:<id> トークン(TFカタログID/ArsPaper ID)も指定できる
+# (RecipeIngredient/MobOverrideDropEntryと同じcustom:接頭辞の語彙)。例: custom:tf_rotten_ration
 # 設定リファレンス(本文コメント移設先): docs/config-reference/stats/food-gimmick.md
 
 junk-food-materials:
@@ -14,24 +18,109 @@ junk-food-materials:
   - SPIDER_EYE
   - PUFFERFISH
   - CHICKEN
-
 junkfood-immunity:
   cancelled-debuff-effects:
     - HUNGER
     - POISON
     - NAUSEA
-
+    - BLINDNESS
+    - WEAKNESS
+    - WITHER
 junkfood-inversion:
-  junk-saturation-bonus: 2.0
-  non-junk-saturation-penalty: 1.0
-
+  junk-saturation-bonus: 2
+  non-junk-saturation-penalty: 2
 satiety-buff:
-  saturation-bonus: 4.0
-
+  saturation-bonus: 4
 custom-foods:
   compressed_bread_1x:
     food-level: 20
-    saturation: 18.0
+    saturation: 10
   compressed_cooked_beef_1x:
     food-level: 20
-    saturation: 20.0
+    saturation: 20
+  baked_potato_1x:
+    food-level: 16
+    saturation: 10
+  cooked_porkchop_1x:
+    food-level: 20
+    saturation: 20
+  cooked_mutton_1x:
+    food-level: 18
+    saturation: 15
+  cooked_chicken_1x:
+    food-level: 18
+    saturation: 13
+  cookie_1x:
+    food-level: 14
+    saturation: 7
+  pumpkin_pie_1x:
+    food-level: 18
+    saturation: 12
+  source_berry:
+    food-level: 0
+    saturation: 0
+  baked_salon_1x:
+    food-level: 16
+    saturation: 15
+  baked_cod_1x:
+    food-level: 16
+    saturation: 15
+  # 2026-08-19 W-131: 9倍圧縮の生鮮食品(_1x)が1件も登録されていなかったため、
+  # 下の unregistered-custom-food-ban が働いて【圧縮ニンジン等が一切食べられない】状態だった。
+  # ここに載っている＝食料、載っていない＝素材、という規則そのものが判定基準なので、
+  # 81倍(_2x)・729倍(_3x)は意図どおり登録しない(食べるには解凍する)。
+  #
+  # ⚠️ 2026-08-19 W-149: この14件は 12:33 の commit(48dc1cc)で入ったが、ワーキングツリーには
+  #   反映されておらず、config 配備が「HEAD にワーキングツリーを重ねる」方式のため
+  #   15:37 の配備で【commit 済みの修正が出荷されずに巻き戻った】(再報告「圧縮ご飯がまだ食べられない」)。
+  #   ここを消すと同じ事故が再発する。
+  carrot_1x:
+    food-level: 20
+    saturation: 20
+  potato_1x:
+    food-level: 9
+    saturation: 5
+  beetroot_1x:
+    food-level: 9
+    saturation: 10
+  apple_1x:
+    food-level: 20
+    saturation: 20
+  sweet_berries_1x:
+    food-level: 18
+    saturation: 4
+  glow_berries_1x:
+    food-level: 18
+    saturation: 4
+  # 生肉・生魚。焼くと栄養が上がるのはバニラと同じ関係を保つため、圧縮焼き物より控えめにする。
+  beef_1x:
+    food-level: 20
+    saturation: 16
+  porkchop_1x:
+    food-level: 20
+    saturation: 16
+  rabbit_1x:
+    food-level: 20
+    saturation: 16
+  chicken_1x:
+    food-level: 18
+    saturation: 10
+  mutton_1x:
+    food-level: 18
+    saturation: 10
+  cod_1x:
+    food-level: 18
+    saturation: 4
+  salmon_1x:
+    food-level: 18
+    saturation: 4
+  # クリスタルリンゴ。ベースはエンチャント金リンゴなので、バニラ相当の栄養を明示して
+  # 「未登録＝食べられない」側へ落ちないようにする(FoodGimmickConfig の設計コメントどおり、
+  # 例外はハードコードのID除外ではなく custom-foods への登録で表現する)。
+  tf_crystal_apple:
+    food-level: 4
+    saturation: 10
+unregistered-custom-food-ban:
+  enabled: true
+  excluded-materials: []
+  message: このアイテムは食料として登録されていません

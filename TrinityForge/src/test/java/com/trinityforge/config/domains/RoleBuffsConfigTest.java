@@ -17,7 +17,9 @@ import java.nio.file.Files;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Numeric ceiling coverage for {@link RoleBuffsConfig} (OPEN_DECISIONS C1b): {@code attack-buffs} /
@@ -281,5 +283,83 @@ class RoleBuffsConfigTest {
                 """);
 
         assertEquals(10.0, config.supportRole("miner").expMultiplier());
+    }
+
+    /**
+     * 交戦中ガードの既定は 0(=無効)。配備済みサーバの yml には新キーが生えない
+     * ({@code saveResource(PATH, false)} なので上書きしない)ため、<b>Java 側の既定値が
+     * そのまま本番挙動になる</b>。既定を 0 以外にすると「直したのに直っていない」になる。
+     */
+    @Test
+    void nearbyEnemyRadiusDefaultsToZeroSoTheGuardIsOff(@TempDir File tempDir) throws IOException {
+        RoleBuffsConfig config = loaded(tempDir, """
+                role-change:
+                  allow-change: true
+                  cooldown-minutes: 120
+                """);
+
+        assertEquals(0.0, config.nearbyEnemyRadius());
+    }
+
+    /**
+     * {@code allow-change} 未指定なら旧キー {@code allow-command} を読む(2026-08-05, W-28 で改名)。
+     * 配備済みの yml には新キーが生えない({@code saveResource(PATH, false)})ので、
+     * ここで旧キーを見落とすと「不許可にしてあった鯖が無言で許可へ反転する」。
+     */
+    @Test
+    void allowChangeFallsBackToTheLegacyAllowCommandKey(@TempDir File tempDir) throws IOException {
+        assertFalse(loaded(tempDir, """
+                role-change:
+                  allow-command: false
+                """).allowRoleChange(), "旧キーだけの config は旧キーの値で動く");
+
+        File both = new File(tempDir, "both");
+        assertTrue(loaded(both, """
+                role-change:
+                  allow-command: false
+                  allow-change: true
+                """).allowRoleChange(), "新キーがあれば新キーが勝つ");
+
+        File neither = new File(tempDir, "neither");
+        assertTrue(loaded(neither, """
+                role-change:
+                  cooldown-minutes: 120
+                """).allowRoleChange(), "どちらも無ければ既定は許可(=CT制)");
+    }
+
+    @Test
+    void nearbyEnemyRadiusIsReadWhenSet(@TempDir File tempDir) throws IOException {
+        RoleBuffsConfig config = loaded(tempDir, """
+                role-change:
+                  nearby-enemy-radius: 8.5
+                """);
+
+        assertEquals(8.5, config.nearbyEnemyRadius());
+    }
+
+    @Test
+    void nearbyEnemyRadiusIsClampedAndNegativesFallBackToDisabled(@TempDir File tempDir) throws IOException {
+        assertEquals(64.0, loaded(tempDir, """
+                role-change:
+                  nearby-enemy-radius: 100000.0
+                """).nearbyEnemyRadius(), "走査コストの歯止め");
+
+        File other = new File(tempDir, "negative");
+        assertEquals(0.0, loaded(other, """
+                role-change:
+                  nearby-enemy-radius: -5.0
+                """).nearbyEnemyRadius(), "不正値は「有効」ではなく「無効」側へ寄せる");
+    }
+
+    /** {@code role-change:} セクションそのものが無い yml でもガードは無効のまま。 */
+    @Test
+    void missingRoleChangeSectionLeavesTheGuardOff(@TempDir File tempDir) throws IOException {
+        RoleBuffsConfig config = loaded(tempDir, """
+                combat-roles:
+                  tank:
+                    label: Tank
+                """);
+
+        assertEquals(0.0, config.nearbyEnemyRadius());
     }
 }

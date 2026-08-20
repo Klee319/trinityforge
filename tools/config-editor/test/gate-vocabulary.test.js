@@ -106,6 +106,44 @@ test("釣りは fishing.groups.<group>.categories 形式から抽出する", () 
   ]);
 });
 
+test("釣りは unlock-groups.<group>.categories (機能解放追加用テーブル、任意キー) も groups と同じ形式で抽出する", () => {
+  const vocab = buildGateVocabulary({
+    gimmicks: {
+      fishing: {
+        fishing: {
+          groups: {
+            treasure: { categories: { tier1: { "display-name": "宝Tier1" } } }
+          },
+          "unlock-groups": {
+            treasure: { categories: { rare_gem: { "display-name": "宝石解放枠" } } },
+            junk: { categories: { seaweed: {} } }
+          }
+        }
+      }
+    }
+  });
+  assert.deepEqual(vocab.drops, [
+    { profession: "fishing", categoryId: "treasure:tier1", displayName: "宝Tier1" },
+    { profession: "fishing", categoryId: "treasure:rare_gem", displayName: "宝石解放枠" },
+    { profession: "fishing", categoryId: "junk:seaweed", displayName: "seaweed" }
+  ]);
+});
+
+test("釣りは unlock-groups キーが無くても groups だけで従来どおり抽出できる(後方互換)", () => {
+  const vocab = buildGateVocabulary({
+    gimmicks: {
+      fishing: {
+        fishing: {
+          groups: { junk: { categories: { tier1: {} } } }
+        }
+      }
+    }
+  });
+  assert.deepEqual(vocab.drops, [
+    { profession: "fishing", categoryId: "junk:tier1", displayName: "tier1" }
+  ]);
+});
+
 test("special-rewards.yml の titles/particles キーを和集合で返す", () => {
   const vocab = buildGateVocabulary({
     specialRewards: {
@@ -142,7 +180,9 @@ test("catalog.yml の作業台レシピと ArsPaper の儀式エフェクトを�
     items: { ritual_effects: { weather_clear: {}, flight: {} } }
   });
   assert.deepEqual(vocab.recipes, ["default_workbench", "explicit_workbench"]);
-  assert.deepEqual(vocab.rituals, ["flight", "weather_clear"]);
+  // 2026-08-16: カタログの method: ritual は ArsPaper 側で儀式レシピID tf_catalog_<id> として
+  // 登録されるので、儀式エフェクトと同じ ritual: 候補に並ぶ(素のカタログIDでは一致しない)。
+  assert.deepEqual(vocab.rituals, ["flight", "tf_catalog_ritual_staff", "weather_clear"]);
 });
 
 test("features は param=level を含むプログラム定義の固定語彙", () => {

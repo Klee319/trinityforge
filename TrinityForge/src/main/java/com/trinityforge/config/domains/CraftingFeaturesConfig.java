@@ -36,8 +36,89 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
 
     public record WoodRepairMaterial(int durability, boolean quickRepair) {}
 
-    /** A single return conversion for a disassembly target series. */
-    public record DisassemblyRule(String input, String output, double multiplier) {}
+    /**
+     * 解体の戻り先候補1件 (2026-07-27)。{@code weight} は同一ルール内の相対重みで、
+     * 1ルールにつき<b>1件だけ</b>当たる(全部が出るのではない)。
+     *
+     * @param item       戻すアイテム({@code Material} 名 または {@code custom:<カタログID>})
+     * @param weight     抽選の相対重み(0以下は候補から外れる)
+     * @param multiplier この候補が当たったときの戻り量倍率
+     */
+    public record DisassemblyOutput(String item, double weight, double multiplier) {}
+
+    /**
+     * A single return conversion for a disassembly target series.
+     *
+     * @param input      戻り量の基準にする「レシピ上の材料」({@code Material} / {@code list:<id>} /
+     *                   {@code custom:<id>})。{@code baseAmount} を指定した場合は参照されない。
+     * @param outputs    戻り先候補。1件なら従来どおり確定、複数なら {@code weight} で1件を抽選する。
+     * @param multiplier ルール既定の戻り量倍率(候補側が {@code multiplier} を持たない場合に使う)。
+     * @param baseAmount レシピを引かずに材料数を直接与える (2026-07-27)。{@code null} なら従来どおり
+     *                   レシピから数える。<b>クラフトレシピを持たないアイテム</b>(釣りのゴミ等)は
+     *                   レシピ由来の材料数が必ず 0 になり戻りが発生しないので、この指定が唯一の手段。
+     */
+    public record DisassemblyRule(String input, List<DisassemblyOutput> outputs, double multiplier,
+                                  Double baseAmount) {
+
+        public DisassemblyRule {
+            outputs = outputs == null ? List.of() : List.copyOf(outputs);
+        }
+
+        /** 旧2値コンストラクタ相当(単一 output・レシピ由来の材料数)。既存の呼び出し/テスト用。 */
+        public DisassemblyRule(String input, String output, double multiplier) {
+            this(input, List.of(new DisassemblyOutput(output, 1.0, multiplier)), multiplier, null);
+        }
+
+        /** 単一候補時代の互換アクセサ。候補が無ければ {@code null}。 */
+        public String output() {
+            return outputs.isEmpty() ? null : outputs.get(0).item();
+        }
+
+        /** {@code baseAmount} が指定されているか(＝レシピを引かない)。 */
+        public boolean hasBaseAmount() {
+            return baseAmount != null;
+        }
+
+        /**
+         * {@code roll} (0.0以上1.0未満) で候補を1件選ぶ。候補が1件ならその候補、
+         * 空なら {@code null}。重みの合計が0以下(全候補が無効重み)の場合も {@code null}
+         * — 呼び出し側は「戻りなし」として扱い、素材を消費してはいけない。
+         */
+        public DisassemblyOutput pick(double roll) {
+            if (outputs.isEmpty()) {
+                return null;
+            }
+            if (outputs.size() == 1) {
+                return outputs.get(0).weight() > 0.0 ? outputs.get(0) : null;
+            }
+            double total = 0.0;
+            for (DisassemblyOutput candidate : outputs) {
+                if (candidate.weight() > 0.0) {
+                    total += candidate.weight();
+                }
+            }
+            if (total <= 0.0) {
+                return null;
+            }
+            double cursor = Math.max(0.0, Math.min(roll, 1.0)) * total;
+            for (DisassemblyOutput candidate : outputs) {
+                if (candidate.weight() <= 0.0) {
+                    continue;
+                }
+                cursor -= candidate.weight();
+                if (cursor <= 0.0) {
+                    return candidate;
+                }
+            }
+            // 浮動小数の丸めで cursor が僅かに残った場合の保険(最後の有効候補)。
+            for (int i = outputs.size() - 1; i >= 0; i--) {
+                if (outputs.get(i).weight() > 0.0) {
+                    return outputs.get(i);
+                }
+            }
+            return null;
+        }
+    }
 
     public record BrewPotionSpec(String base, String ingredient, PotionEffectType type, int durationTicks, int amplifier) {}
 
@@ -56,14 +137,47 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
      */
     public record AddedRecipe(Material result, int amount, com.trinityforge.stats.RecipeSpec spec) {}
 
+    private static final int DEFAULT_XP_BOTTLE_STORE_AMOUNT = 100;
+    private static final double DEFAULT_XP_BOTTLE_RETURN_RATE = 1.0;
+
+    /** {@code xp-bottle-store-unlock}: ガラス瓶の右クリック1回で瓶1本に格納する経験値量(グローバル既定値)。 */
+    private volatile int xpBottleStoreAmount = DEFAULT_XP_BOTTLE_STORE_AMOUNT;
+    /** {@code xp-bottle-store.return-rate}: 取り出し時に返る割合(0.0-1.0、グローバル既定値)。 */
+    private volatile double xpBottleReturnRate = DEFAULT_XP_BOTTLE_RETURN_RATE;
+    /**
+     * {@code xp-bottle-store.tiers.<tier>.{store-amount,return-rate}} (2026-07-26 tier-expand。
+     * 2026-08-15 に stats/fishing-gimmick.yml から移設)。
+     */
+    private volatile TierTable<XpBottleTierValues> xpBottleTiers = TierTable.empty();
+
+    /** One {@code xp-bottle-store.tiers.<tier>} row. */
+    public record XpBottleTierValues(int storeAmount, double returnRate) {}
+
     private volatile int coatingBaseMaxStacks = 3;
     private volatile Map<String, CoatingMaterial> coatingMaterials = Map.of();
     /** Legacy fallback when PDC flat damage is absent (old items stamped with stacks only). */
     private volatile double coatingLegacyBonusPerStack = 2.0;
     private volatile Map<String, WoodRepairMaterial> woodRepairMaterials = Map.of();
     private volatile int disassemblyPercentPerLevel = 25;
+    /**
+     * {@code disassembly.tiers.<level>.percent} (2026-07-28 数値のギミックyml集約)。キーは解体レベル
+     * ({@code dismantle-unlock} の value、{@code FeatureEffectParam.LEVEL})の<b>完全一致のみ</b> —
+     * digging/smithingのtierテーブルと違い「以下で最大」フォールバックはしない({@link #disassemblyPercentFor}
+     * のjavadoc参照)。未定義キーは {@link #disassemblyPercentPerLevel} × level の線形式へ後方互換フォールバック。
+     */
+    private volatile Map<Integer, Integer> disassemblyPercentTiers = Map.of();
     /** Target-id/material wildcard → conversions. No fallback is intentionally provided. */
     private volatile Map<String, List<DisassemblyRule>> disassemblyItems = Map.of();
+    /**
+     * {@code scrap-conversion.<sourceId>} (2026-08-08新設): 「ただのスクラップ(tf_scrap)」のような
+     * 前進レシピを持たない素材を、重み付き抽選で別の素材へ変換するルール。{@link DisassemblyRule} の
+     * 構造(weight付き{@link DisassemblyOutput}リスト + {@code base-amount})をそのまま流用する
+     * ({@code input}は使わない=常にnull、消費量は{@code base-amount}で直接指定する)。
+     *
+     * <p>Bukkitのクラフトレシピにしない理由は {@link com.trinityforge.listeners.ScrapConversionListener}
+     * のクラス javadoc 参照(既存の materials.yml 側スクラップレシピと入力パターンが衝突するため)。
+     */
+    private volatile Map<String, DisassemblyRule> scrapConversions = Map.of();
     private volatile int potionMergeMaxEffects = 5;
     private volatile int potionMergeMaxDurationSeconds = 960;
     /** {@code potion-merge.tiers.<tier>.{max-effects,max-duration-seconds}} (2026-07-26 tier-expand)。 */
@@ -74,11 +188,16 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
     private volatile Map<String, BrewUnlockGroup> brewUnlocks = Map.of();
     /** dedicated-effect id → enchant → absolute max level */
     private volatile Map<String, Map<Enchantment, Integer>> overEnchantProfiles = Map.of();
-    private volatile Map<String, Integer> threadSlotMaxByCategory = Map.of(
-            EquipmentSlotResolver.CATEGORY_ARMOR, 5,
-            EquipmentSlotResolver.CATEGORY_WEAPON, 0,
-            EquipmentSlotResolver.CATEGORY_TOOL, 0,
-            EquipmentSlotResolver.CATEGORY_OTHER, 0);
+    /**
+     * {@code thread-slots.max-by-category} の既定値。
+     *
+     * <p>この初期値が実際に使われるのは <b>{@code thread-slots} セクションが無い/読めない config
+     * だけ</b>である(セクションがあれば {@link #loadThreadSlots} が seed 後に上書きする)。
+     * 出荷 yml は 4 キーすべてを明示しているので、稼働サーバではこの値は効かない。
+     * 詳しい経緯は {@link #DEFAULT_THREAD_SLOT_CAP} の javadoc。
+     */
+    private volatile Map<String, Integer> threadSlotMaxByCategory =
+            Collections.unmodifiableMap(defaultThreadSlotCaps());
     /** Vanilla/datapack recipe keys to unregister (e.g. {@code minecraft:iron_sword}). */
     private volatile List<String> removedVanillaRecipes = List.of();
     /**
@@ -88,9 +207,41 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
     private volatile List<String> removedVanillaItems = List.of();
     /** {@code added-recipes}: extra Bukkit recipes whose result is a plain vanilla Material. */
     private volatile List<AddedRecipe> addedRecipes = List.of();
+    /** {@code recipe-book.reveal-plugin-recipes} — 既定 true。 */
+    private volatile boolean recipeBookRevealPluginRecipes = true;
+    /** {@code recipe-book.hide-locked-recipes} — 既定 true。 */
+    private volatile boolean recipeBookHideLockedRecipes = true;
 
     public int coatingBaseMaxStacks() {
         return coatingBaseMaxStacks;
+    }
+
+    /** {@code xp-bottle-store-unlock}: ガラス瓶の右クリック1回で瓶1本に格納する経験値量。 */
+    public int xpBottleStoreAmount() {
+        return xpBottleStoreAmount;
+    }
+
+    /**
+     * {@code xp-bottle-store.return-rate}: 取り出し時に返る割合(0.0-1.0)。実際に返る量は
+     * {@code floor(格納量 × xpBottleReturnRate())}(呼び出し側の責務)。1.0=目減りなし。
+     */
+    public double xpBottleReturnRate() {
+        return xpBottleReturnRate;
+    }
+
+    /**
+     * {@code xp-bottle-store.store-amount} を {@code tier}(プレイヤーの解放済み最高tier、
+     * {@code DedicatedEffectsConfig#valueMax} の結果)で解決する。{@code xp-bottle-store.tiers} が
+     * 未定義、または {@code tier} 未満の行しか無い場合は {@link #xpBottleStoreAmount()}
+     * (グローバルscalar)へ完全後方互換フォールバックする。
+     */
+    public int xpBottleStoreAmount(int tier) {
+        return xpBottleTiers.resolve(tier).map(XpBottleTierValues::storeAmount).orElse(xpBottleStoreAmount);
+    }
+
+    /** {@link #xpBottleStoreAmount(int)}と同じ floor+フォールバック則で解決する還元率。 */
+    public double xpBottleReturnRate(int tier) {
+        return xpBottleTiers.resolve(tier).map(XpBottleTierValues::returnRate).orElse(xpBottleReturnRate);
     }
 
     public Map<String, CoatingMaterial> coatingMaterials() {
@@ -123,6 +274,22 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
         return disassemblyPercentPerLevel;
     }
 
+    /**
+     * 解体レベル {@code level} に対する戻り総%を解決する。{@code disassembly.tiers} に {@code level} と
+     * <b>完全一致</b>する行があればその {@code percent} を、無ければ {@link #disassemblyPercentPerLevel()}
+     * {@code × level}(従来の線形式)を返す。digging/smithingのtierテーブルと違い「level以下で最大の行へ
+     * フォールバック」はしない設計判断 — dismantle-unlock は既に線形式という連続的な既定を持つため、
+     * floorフォールバックを重ねると「未定義レベルの戻り率が近傍のtierへ勝手に引き寄せられる」曖昧さが
+     * 増えるだけで得るものが無い(tiersが完全に未設定なら数値は1ビットも変わらない — 既存テストで担保)。
+     */
+    public int disassemblyPercentFor(int level) {
+        Integer exact = disassemblyPercentTiers.get(level);
+        if (exact != null) {
+            return exact;
+        }
+        return disassemblyPercentPerLevel * level;
+    }
+
     public Map<String, List<DisassemblyRule>> disassemblyItems() {
         return disassemblyItems;
     }
@@ -145,6 +312,19 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
             }
         }
         return bestWildcard;
+    }
+
+    /** {@code scrap-conversion} の全ルール。source id(例: {@code tf_scrap}) → 変換ルール。 */
+    public Map<String, DisassemblyRule> scrapConversions() {
+        return scrapConversions;
+    }
+
+    /** id(例: {@code tf_scrap})に対応する変換ルール。無ければ {@code null}。 */
+    public DisassemblyRule scrapConversion(String sourceId) {
+        if (sourceId == null || sourceId.isBlank()) {
+            return null;
+        }
+        return scrapConversions.get(sourceId);
     }
 
     public int potionMergeMaxEffects() {
@@ -228,6 +408,29 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
         return addedRecipes;
     }
 
+    /**
+     * {@code recipe-book.reveal-plugin-recipes}(既定 {@code true}): ログイン時に TF / ArsPaper の
+     * 登録レシピをプレイヤーのレシピ帳へ解禁するか。
+     *
+     * <p><b>false へ戻しても既に解禁されたレシピは消えない</b>(レシピ帳の解禁状態は playerdata に
+     * 永続するため)。false は「今後新しく解禁しない」という意味であり、隠し直しはしない
+     * ({@code RecipeDiscoveryListener} の javadoc 参照)。
+     */
+    public boolean recipeBookRevealPluginRecipes() {
+        return recipeBookRevealPluginRecipes;
+    }
+
+    /**
+     * {@code recipe-book.hide-locked-recipes}(既定 {@code true}): {@code recipe:<id>} ゲートが
+     * 未解放のレシピをレシピ帳から隠すか({@code undiscoverRecipes})。
+     *
+     * <p>false にすると「レシピ帳に出るのにクラフトすると結果枠が空になる」状態
+     * ({@code CatalogCraftGateListener} が結果を消す)になるので、既定の true を推奨する。
+     */
+    public boolean recipeBookHideLockedRecipes() {
+        return recipeBookHideLockedRecipes;
+    }
+
     // --- Backward-compat accessors used by older call sites during migration ---
 
     /** @deprecated use {@link #coatingMaterial(String)} */
@@ -293,9 +496,11 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
             return false;
         }
 
+        loadXpBottleStore(yaml, log);
         loadCoating(yaml);
         loadWoodRepair(yaml);
-        loadDisassembly(yaml);
+        loadDisassembly(yaml, log);
+        loadScrapConversion(yaml, log);
         loadPotionMerge(yaml, log);
         loadBrewUnlocks(yaml, log);
         loadOverEnchant(yaml, log);
@@ -318,9 +523,89 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
         this.removedVanillaItems = List.copyOf(removedItems);
 
         loadAddedRecipes(yaml, log);
+        loadRecipeBook(yaml);
 
         log.info("[" + PATH + "] loaded OK");
         return true;
+    }
+
+    /**
+     * {@code xp-bottle-store}(2026-08-15 に stats/fishing-gimmick.yml から移設): クランプ規則は移設前と
+     * 完全に同一(store-amount は正の整数、return-rate は [0,1] へクランプ、tiers は floor 解決+
+     * 未定義ならグローバルscalarへフォールバック)。
+     */
+    private void loadXpBottleStore(YamlConfiguration yaml, Logger log) {
+        this.xpBottleStoreAmount = clampPositiveInt(
+                yaml.getInt("xp-bottle-store.store-amount", DEFAULT_XP_BOTTLE_STORE_AMOUNT),
+                "xp-bottle-store.store-amount", DEFAULT_XP_BOTTLE_STORE_AMOUNT, log);
+        this.xpBottleReturnRate = clampUnitInterval(
+                yaml.getDouble("xp-bottle-store.return-rate", DEFAULT_XP_BOTTLE_RETURN_RATE),
+                "xp-bottle-store.return-rate", DEFAULT_XP_BOTTLE_RETURN_RATE, log);
+        this.xpBottleTiers = parseXpBottleTiers(
+                yaml.getConfigurationSection("xp-bottle-store.tiers"), log);
+    }
+
+    /**
+     * {@code xp-bottle-store.tiers: {<tier>: {store-amount: N, return-rate: N}}} (2026-07-26
+     * tier-expand)。Absent/empty section yields {@link TierTable#empty()} (省略時は完全後方互換)。
+     * {@code tier} はスキルツリーのノード value から決まる(feature:xp-bottle-store-unlock は
+     * {@code FeatureEffectParam.SCALE} — value省略時はtier1が自動補完される)。
+     */
+    private static TierTable<XpBottleTierValues> parseXpBottleTiers(ConfigurationSection section, Logger log) {
+        if (section == null) {
+            return TierTable.empty();
+        }
+        Map<Integer, XpBottleTierValues> rows = new LinkedHashMap<>();
+        for (String tierKey : section.getKeys(false)) {
+            int tier;
+            try {
+                tier = Integer.parseInt(tierKey.trim());
+                if (tier <= 0) {
+                    log.warning("[" + PATH + "] 'xp-bottle-store.tiers." + tierKey + "' key must be a positive integer; skipped");
+                    continue;
+                }
+            } catch (NumberFormatException ex) {
+                log.warning("[" + PATH + "] 'xp-bottle-store.tiers." + tierKey + "' key is not an integer; skipped");
+                continue;
+            }
+            ConfigurationSection row = section.getConfigurationSection(tierKey);
+            if (row == null) {
+                log.warning("[" + PATH + "] 'xp-bottle-store.tiers." + tierKey + "' is not a map; row skipped");
+                continue;
+            }
+            int storeAmount = row.getInt("store-amount", 0);
+            double returnRate = row.getDouble("return-rate", -1.0);
+            if (storeAmount <= 0 || !Double.isFinite(returnRate) || returnRate < 0.0 || returnRate > 1.0) {
+                log.warning("[" + PATH + "] 'xp-bottle-store.tiers." + tierKey
+                        + "' must have positive store-amount and return-rate in [0,1]; row skipped");
+                continue;
+            }
+            rows.put(tier, new XpBottleTierValues(storeAmount, returnRate));
+        }
+        return TierTable.of(rows);
+    }
+
+    /** Non-finite/non-positive guard for a count value: falls back to {@code fallback}, never throws. */
+    private static int clampPositiveInt(int raw, String key, int fallback, Logger log) {
+        if (raw <= 0) {
+            log.warning("[" + PATH + "] '" + key + "' must be > 0 (was " + raw + "); using default " + fallback);
+            return fallback;
+        }
+        return raw;
+    }
+
+    /** Clamps a ratio value to {@code [0.0, 1.0]}; a non-finite value falls back to {@code fallback}. */
+    private static double clampUnitInterval(double raw, String key, double fallback, Logger log) {
+        if (!Double.isFinite(raw)) {
+            log.warning("[" + PATH + "] '" + key + "' is not a finite number (" + raw
+                    + "); using default " + fallback);
+            return fallback;
+        }
+        double clamped = Math.max(0.0, Math.min(raw, 1.0));
+        if (clamped != raw) {
+            log.warning("[" + PATH + "] '" + key + "' = " + raw + " is out of [0,1]; clamped to " + clamped);
+        }
+        return clamped;
     }
 
     private void loadCoating(YamlConfiguration yaml) {
@@ -389,12 +674,14 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
         this.woodRepairMaterials = Collections.unmodifiableMap(mats);
     }
 
-    private void loadDisassembly(YamlConfiguration yaml) {
+    private void loadDisassembly(YamlConfiguration yaml, Logger log) {
         ConfigurationSection dis = yaml.getConfigurationSection("disassembly");
         if (dis == null) {
+            this.disassemblyPercentTiers = Map.of();
             return;
         }
         this.disassemblyPercentPerLevel = Math.max(0, dis.getInt("percent-per-level", 25));
+        this.disassemblyPercentTiers = parseDisassemblyPercentTiers(dis.getConfigurationSection("tiers"), log);
 
         Map<String, List<DisassemblyRule>> items = new LinkedHashMap<>();
         ConfigurationSection itemSec = dis.getConfigurationSection("items");
@@ -403,21 +690,162 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
                 List<Map<?, ?>> rawRules = itemSec.getMapList(target);
                 List<DisassemblyRule> rules = new ArrayList<>();
                 for (Map<?, ?> raw : rawRules) {
-                    Object inputRaw = raw.get("input");
-                    Object outputRaw = raw.get("output");
-                    if (!(inputRaw instanceof String input) || input.isBlank()
-                            || !(outputRaw instanceof String output) || output.isBlank()) {
-                        continue;
-                    }
-                    double multiplier = raw.get("multiplier") instanceof Number n ? n.doubleValue() : 1.0;
-                    if (Double.isFinite(multiplier) && multiplier > 0.0) {
-                        rules.add(new DisassemblyRule(input.trim(), output.trim(), multiplier));
+                    DisassemblyRule rule = parseDisassemblyRule(raw);
+                    if (rule != null) {
+                        rules.add(rule);
                     }
                 }
                 if (!rules.isEmpty()) items.put(target, List.copyOf(rules));
             }
         }
         this.disassemblyItems = Collections.unmodifiableMap(items);
+    }
+
+    /**
+     * {@code scrap-conversion.<sourceId>} (2026-08-08新設)。1件のルール形は
+     * {@code disassembly.items.<target>} の1要素(=1つの{@link DisassemblyRule})と同じ形なので
+     * {@link #parseDisassemblyRule} をそのまま再利用する。{@code outputs} は
+     * {@code ConfigurationSection#getMapList} 経由で {@code List<Map<?,?>>} として組み立てる
+     * (disassembly側が {@code itemSec.getMapList(target)} で得るのと同じ形)。
+     *
+     * <p>{@code base-amount} を持たない(=消費量の指定が無い)行は、量を決める術が無いので
+     * 警告を出して読み込まない(disassemblyの「inputもbase-amountも無い行を捨てる」と同じ fail-soft 方針)。
+     */
+    private void loadScrapConversion(YamlConfiguration yaml, Logger log) {
+        Map<String, DisassemblyRule> rules = new LinkedHashMap<>();
+        ConfigurationSection root = yaml.getConfigurationSection("scrap-conversion");
+        if (root != null) {
+            for (String id : root.getKeys(false)) {
+                ConfigurationSection ruleSec = root.getConfigurationSection(id);
+                if (ruleSec == null) {
+                    continue;
+                }
+                Map<String, Object> raw = new LinkedHashMap<>();
+                if (ruleSec.contains("base-amount")) {
+                    raw.put("base-amount", ruleSec.get("base-amount"));
+                }
+                if (ruleSec.contains("multiplier")) {
+                    raw.put("multiplier", ruleSec.get("multiplier"));
+                }
+                raw.put("outputs", ruleSec.getMapList("outputs"));
+                DisassemblyRule rule = parseDisassemblyRule(raw);
+                if (rule == null || !rule.hasBaseAmount()) {
+                    log.warning("[" + PATH + "] 'scrap-conversion." + id
+                            + "' needs a positive 'base-amount' and at least one valid weighted 'outputs' entry; skipped");
+                    continue;
+                }
+                rules.put(id, rule);
+            }
+        }
+        this.scrapConversions = rules.isEmpty() ? Map.of() : Collections.unmodifiableMap(rules);
+    }
+
+    /**
+     * {@code disassembly.tiers: {<level>: {percent: N}}} (2026-07-28)。Absent/empty section yields an
+     * empty map(＝完全後方互換、線形式のみ使われる)。level キーが正の整数でない、または {@code percent}
+     * が欠落/負値の行は警告を出して skip する(他のtierテーブルparseと同じ fail-soft 方針)。
+     */
+    private static Map<Integer, Integer> parseDisassemblyPercentTiers(ConfigurationSection section, Logger log) {
+        if (section == null) {
+            return Map.of();
+        }
+        Map<Integer, Integer> rows = new LinkedHashMap<>();
+        for (String levelKey : section.getKeys(false)) {
+            int level;
+            try {
+                level = Integer.parseInt(levelKey.trim());
+                if (level <= 0) {
+                    log.warning("[" + PATH + "] 'disassembly.tiers." + levelKey + "' key must be a positive integer; skipped");
+                    continue;
+                }
+            } catch (NumberFormatException ex) {
+                log.warning("[" + PATH + "] 'disassembly.tiers." + levelKey + "' key is not an integer; skipped");
+                continue;
+            }
+            ConfigurationSection row = section.getConfigurationSection(levelKey);
+            int percent = row == null ? -1 : row.getInt("percent", -1);
+            if (percent < 0) {
+                log.warning("[" + PATH + "] 'disassembly.tiers." + levelKey + ".percent' must be >= 0; row skipped");
+                continue;
+            }
+            rows.put(level, percent);
+        }
+        return rows.isEmpty() ? Map.of() : Collections.unmodifiableMap(rows);
+    }
+
+    /**
+     * 解体ルール1件のパース (2026-07-27 拡張)。壊れた行は {@code null} を返して黙って捨てる
+     * (この節の従来からの fail-soft 方針を維持)。
+     *
+     * <p>受け付ける形:
+     * <pre>
+     *   - input: IRON_INGOT          # 従来形。レシピからこの材料の個数を数える
+     *     output: custom:iron_scrap
+     *     multiplier: 2
+     *
+     *   - base-amount: 1             # レシピを引かない(レシピの無いアイテム用)
+     *     outputs:                   # 重み付きで1件だけ当たる
+     *       - item: custom:plank_scrap
+     *         weight: 3
+     *       - item: custom:iron_ingot_scrap
+     *         weight: 1
+     *         multiplier: 0.5        # 省略時はルールの multiplier
+     * </pre>
+     * {@code input} と {@code base-amount} の両方が無い行は、戻り量を決める術が無いので捨てる。
+     */
+    private static DisassemblyRule parseDisassemblyRule(Map<?, ?> raw) {
+        double multiplier = raw.get("multiplier") instanceof Number n ? n.doubleValue() : 1.0;
+        if (!Double.isFinite(multiplier) || multiplier <= 0.0) {
+            return null;
+        }
+
+        Double baseAmount = null;
+        if (raw.get("base-amount") instanceof Number n) {
+            double value = n.doubleValue();
+            if (Double.isFinite(value) && value > 0.0) {
+                baseAmount = value;
+            }
+        }
+
+        String input = raw.get("input") instanceof String s && !s.isBlank() ? s.trim() : null;
+        if (input == null && baseAmount == null) {
+            return null; // 戻り量の基準が無い。
+        }
+
+        List<DisassemblyOutput> outputs = new ArrayList<>();
+        Object outputsRaw = raw.get("outputs");
+        if (outputsRaw instanceof List<?> list) {
+            for (Object element : list) {
+                if (!(element instanceof Map<?, ?> entry)) {
+                    continue;
+                }
+                if (!(entry.get("item") instanceof String item) || item.isBlank()) {
+                    continue;
+                }
+                double weight = entry.get("weight") instanceof Number w ? w.doubleValue() : 1.0;
+                if (!Double.isFinite(weight) || weight <= 0.0) {
+                    continue;
+                }
+                double entryMultiplier = entry.get("multiplier") instanceof Number m
+                        ? m.doubleValue() : multiplier;
+                if (!Double.isFinite(entryMultiplier) || entryMultiplier <= 0.0) {
+                    entryMultiplier = multiplier;
+                }
+                outputs.add(new DisassemblyOutput(item.trim(), weight, entryMultiplier));
+            }
+        }
+        // 単一 output は従来形。outputs と併記された場合は outputs を正とし、単一側は候補として足す。
+        if (raw.get("output") instanceof String output && !output.isBlank()) {
+            String trimmed = output.trim();
+            boolean alreadyListed = outputs.stream().anyMatch(o -> o.item().equals(trimmed));
+            if (!alreadyListed) {
+                outputs.add(new DisassemblyOutput(trimmed, 1.0, multiplier));
+            }
+        }
+        if (outputs.isEmpty()) {
+            return null;
+        }
+        return new DisassemblyRule(input, List.copyOf(outputs), multiplier, baseAmount);
     }
 
     private void loadPotionMerge(YamlConfiguration yaml, Logger log) {
@@ -468,6 +896,21 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
             rows.put(tier, new PotionMergeTierValues(maxEffects, maxDurationSeconds));
         }
         return TierTable.of(rows);
+    }
+
+    /**
+     * {@code recipe-book}(2026-07-31 D7 新設)。セクションを丸ごと省略しても既定 true のままなので、
+     * 既存の yml をそのまま読んでも挙動は「解禁する / 未解放は隠す」になる。
+     */
+    private void loadRecipeBook(YamlConfiguration yaml) {
+        ConfigurationSection section = yaml.getConfigurationSection("recipe-book");
+        if (section == null) {
+            this.recipeBookRevealPluginRecipes = true;
+            this.recipeBookHideLockedRecipes = true;
+            return;
+        }
+        this.recipeBookRevealPluginRecipes = section.getBoolean("reveal-plugin-recipes", true);
+        this.recipeBookHideLockedRecipes = section.getBoolean("hide-locked-recipes", true);
     }
 
     private void loadBrewUnlocks(YamlConfiguration yaml, Logger log) {
@@ -600,16 +1043,63 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
         return caps;
     }
 
+    /**
+     * {@code thread-slots} セクションを持つ config で、{@code max-by-category} に
+     * <b>書かれていないカテゴリ</b>へ敷く既定の枠上限。
+     *
+     * <h2>「武器・触媒のスレッド枠が機能しない」(2026-07-31 F2)の正しい因果</h2>
+     * <ol>
+     *   <li>出荷 yml の cap を 0→5 にしたのは本バッチ前段(Wave 0 / commit {@code 7dca432})の
+     *       変更で、これにより {@code ItemAssembler} が lore へ「スレッド枠 N枠」を焼くようになった。</li>
+     *   <li>しかし ArsPaper フォーク側の装着 GUI の入口が<b>防具限定</b>で、スレッドのステ収集も
+     *       {@code getArmorContents()} 限定だったため、非防具では枠が<b>飾り</b>だった。
+     *       <b>これが真因</b>(フォークの commit {@code 331b0c2} で {@code /ars thread} と
+     *       メイン/オフハンド収集を入れて解消)。</li>
+     *   <li>この定数を 0 から 5 へ揃えたのは<b>無害な防御的整合</b>であって、症状の原因ではない。
+     *       {@link #loadThreadSlots} は {@code thread-slots} セクションがあれば既定値を seed した上で
+     *       {@code max-by-category} で上書きするので、4 キーが揃っている出荷 yml では実行時の cap は
+     *       変更前も後も 5 ——<b>Java 側のフィールド既定値 0 は稼働サーバで一度も効いていない</b>。</li>
+     * </ol>
+     * ⚠ commit {@code 4c60833} の message には「Java 既定値の drift が症状の原因」という
+     * 誤った因果が残っているが、正はこの javadoc の 1〜3。
+     *
+     * <p>なお {@link com.trinityforge.stats.ThreadSlotPolicy#applyCategoryCap} は
+     * <b>cap&le;0 のとき {@code thread-slots} をマップから削除する</b>設計なので、
+     * 0 のカテゴリでは lore にも枠が出ない(=スレッド機構ごと無効)。カテゴリ別に違う値を
+     * 置くのは正当な調整であり、{@code ShippedThreadSlotCapDriftTest} が禁じるのは
+     * 「0 以下」と「Java が知らないカテゴリキー」だけである。
+     */
+    static final int DEFAULT_THREAD_SLOT_CAP = 5;
+
+    /**
+     * Java が知っているスレッド枠カテゴリのキー集合。
+     *
+     * <p>config に<b>綴りの違うキー</b>({@code weapons} など)を書いても
+     * {@link #loadThreadSlots} は素通しでマップへ入れるだけで、
+     * どの材質も解決されないので<b>無言で何も起きない</b>(本来直したかった側は既定値のまま)。
+     * これが実際に検出したい drift なので、{@code ShippedThreadSlotCapDriftTest} が
+     * 出荷 yml のキーをここへ突き合わせる。
+     */
+    static java.util.Set<String> knownThreadSlotCategories() {
+        return defaultThreadSlotCaps().keySet();
+    }
+
+    /** {@link #DEFAULT_THREAD_SLOT_CAP} を全カテゴリへ敷いた既定マップ。 */
+    private static Map<String, Integer> defaultThreadSlotCaps() {
+        Map<String, Integer> caps = new LinkedHashMap<>();
+        caps.put(EquipmentSlotResolver.CATEGORY_ARMOR, DEFAULT_THREAD_SLOT_CAP);
+        caps.put(EquipmentSlotResolver.CATEGORY_WEAPON, DEFAULT_THREAD_SLOT_CAP);
+        caps.put(EquipmentSlotResolver.CATEGORY_TOOL, DEFAULT_THREAD_SLOT_CAP);
+        caps.put(EquipmentSlotResolver.CATEGORY_OTHER, DEFAULT_THREAD_SLOT_CAP);
+        return caps;
+    }
+
     private void loadThreadSlots(YamlConfiguration yaml) {
         ConfigurationSection threadSlots = yaml.getConfigurationSection("thread-slots");
         if (threadSlots == null) {
             return;
         }
-        Map<String, Integer> caps = new LinkedHashMap<>();
-        caps.put(EquipmentSlotResolver.CATEGORY_ARMOR, 5);
-        caps.put(EquipmentSlotResolver.CATEGORY_WEAPON, 0);
-        caps.put(EquipmentSlotResolver.CATEGORY_TOOL, 0);
-        caps.put(EquipmentSlotResolver.CATEGORY_OTHER, 0);
+        Map<String, Integer> caps = defaultThreadSlotCaps();
         ConfigurationSection byCat = threadSlots.getConfigurationSection("max-by-category");
         if (byCat != null) {
             for (String key : byCat.getKeys(false)) {

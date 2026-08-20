@@ -27,11 +27,27 @@
       ]
     },
     {
+      title: "近接チャージ (連打減衰)",
+      fields: [
+        { id: "melee-charge.enabled", label: "有効", kind: "boolean", desc: "バニラのチャージ攻撃(クールダウン中の連打による減衰)をTFのダメージパイプラインへ再導入するか。近接プレイヤー攻撃のみに適用(弓/クロスボウ/トライデント/魔法/モブ攻撃には適用しない)。" },
+        { id: "melee-charge.min-multiplier", label: "下限倍率(t=0)", kind: "number", desc: "振った直後(未チャージ)のダメージ倍率の下限。既定0.1(2026-08-01調整、旧0.2=バニラ相当)。" },
+        { id: "melee-charge.exponent", label: "指数", kind: "number", desc: "冷却後の攻撃強度割合に掛ける指数。既定1.6(2026-08-01調整、旧2.0=バニラ相当)。低いほどカーブがなだらかになる。" }
+      ]
+    },
+    {
+      title: "攻撃速度",
+      fields: [
+        { id: "attack-speed.min-effective", label: "実効速度下限", kind: "number", desc: "attack-speed(絶対値)とattack-speed-bonus(割合)を合成した後の最終実効速度が割り込まない下限クランプ。デバフ過多でも0/負値にならない安全弁。既定0.1。" },
+        { id: "attack-speed.reconcile-interval-ticks", label: "再照合周期(ticks)", kind: "int", desc: "装備フィンガープリントの再照合周期(サーバtick、20=1秒)。既定10tick=0.5秒。" }
+      ]
+    },
+    {
       title: "魔法",
       fields: [
         { id: "magical.base-coefficient", label: "基本係数", kind: "number", desc: "魔法(spell/触媒)基本ダメージに掛かる倍率。" },
         { id: "magical.min-component-damage", label: "下限クランプ", kind: "number", desc: "魔法コンポーネントの step7 下限。負値なら最終的に敵を回復し得ます。" },
-        { id: "magical.scale-with-combat-level", label: "combatレベル倍率を適用", kind: "boolean", desc: "true: 魔法もレベル倍率で伸びる。false: bypass(グリフ/触媒のみ)。" }
+        { id: "magical.scale-with-combat-level", label: "combatレベル倍率を適用", kind: "boolean", desc: "true: 魔法もレベル倍率で伸びる。false: bypass(グリフ/触媒のみ)。" },
+        { id: "magical.attack-power-scale", label: "杖の攻撃力の加算係数", kind: "number", desc: "杖(触媒)の攻撃力を魔法の基礎ダメージへ何倍で加算するか。魔法基礎 = グリフ基礎ダメージ + 杖のattack-power×この係数。1.0=仕様どおり100%加算(近接と対等)。0で杖の攻撃力は魔法に一切乗らない。範囲0〜10。" }
       ]
     },
     {
@@ -53,7 +69,8 @@
       fields: [
         { id: "defense.max-mitigation-rate", label: "軽減率上限", kind: "number", desc: "貫通不可の耐性%/被ダメ軽減%の上限(0..1)。0.9で最低10%は通る。防御率%(貫通可)も同じ上限でキャップされる。" },
         { id: "defense.max-dodge-chance", label: "回避率上限", kind: "number", desc: "回避率の上限(0..1)。0.9で最低10%は命中する(無敵回避防止)。" },
-        { id: "defense.max-crit-reduction", label: "会心軽減率上限", kind: "number", desc: "防具強度(会心軽減率%)の上限(0..1)。既定1.0=キャップ無し(会心の増加分を最大100%軽減しうるが、相手の会心ダメージが0%未満へ反転することはない)。1.0未満で会心は必ず(1-上限)の増加を残す。" }
+        { id: "defense.max-crit-reduction", label: "会心軽減率上限", kind: "number", desc: "防具強度(会心軽減率%)の上限(0..1)。既定1.0=キャップ無し(会心の増加分を最大100%軽減しうるが、相手の会心ダメージが0%未満へ反転することはない)。1.0未満で会心は必ず(1-上限)の増加を残す。" },
+        { id: "defense.enchant-protection-scale", label: "防護エンチャント倍率", kind: "number", desc: "防護/プロジェクタイル防護エンチャントの再導出軽減率に掛ける倍率。1.0=バニラ準拠(防護IVフルセットで64%軽減)。既定0.5は意図的な調整値: 1.0だと軽減率上限(defense.max-mitigation-rate、既定0.9)の枠をこのエンチャント1種だけで71%も食い潰し、TF自前の防具ステ(守備力・耐性等)がほぼ無意味になるため半分に絞っている。" }
       ]
     },
     {
@@ -92,6 +109,69 @@
         { id: "pvp.enabled", label: "PvP抑制を有効にする", kind: "boolean", desc: "OFFにすると対人も従来どおりモブと同じ計算になる。TFのダメージ式はモブ向けに調整されており、Lv100帯の攻撃力 約1052 に対しプレイヤー最大体力は約33しかないため、OFFのままだと「先に当てた方が確定で即死」になる。" },
         { id: "pvp.damage-multiplier", label: "ダメージ倍率", kind: "number", desc: "PvPダメージに掛ける倍率。下の割合上限にまだ届かない低レベル帯の手触りを調整するつまみ。0にすると対人ダメージが完全に0=実質PvP禁止。" },
         { id: "pvp.max-damage-percent-of-max-health", label: "1発の上限(最大体力比)", kind: "number", desc: "1発で削れる量を被弾者の最大体力の何割までにするか。既定0.15=倒すのに最低7発かかる。倍率だけに頼らずこれを置いているのは、攻撃力が指数で伸びてもプレイヤーの体力はほぼ一定という構造が根本原因だから — 割合上限はスケールフリーなので攻撃カーブを触っても調整し直しが要らない。0で上限なし。" }
+      ]
+    },
+    {
+      title: "日光による炎上ダメージ (2026-07-28)",
+      fields: [
+        { id: "sunlight-burn.enabled", label: "最大HP割合へ置き換える", kind: "boolean", desc: "OFFでバニラ挙動(1発1.0固定)に戻る。TFのモブ最大HPはLv0のゾンビでも400あるため、バニラのままだと朝になっても敵が炎上で死なない(400秒以上燃え続ける)。" },
+        { id: "sunlight-burn.damage-percent-of-max-health", label: "1発のダメージ(最大HP比)", kind: "number", desc: "日光で燃えている間の1発を被弾モブの最大HPの何割にするか。既定0.10=バニラの炎上は1秒に1回なので約10秒で焼き切れる。算出値がバニラより小さい場合はバニラ値のまま(下げる方向には働かない)。対象EntityTypeの一覧は damage.yml の sunlight-burn.mobs を直接編集する(既定は日光焼却される種別のみ。空にすると火属性エンチャントで着火しただけのボスまで溶ける)。" }
+      ]
+    },
+    {
+      title: "序盤モブの火力緩和 (2026-07-28)",
+      fields: [
+        { id: "early-level-attack.enabled", label: "緩和を有効にする", kind: "boolean", desc: "モブ→プレイヤーの基本ダメージに後掛けする倍率。mob-types.yml の attack-power 指数カーブ自体は触らないので、baseを下げたときのように中盤以降の校正がやり直しにならない。" },
+        { id: "early-level-attack.until-level", label: "緩和が解けるレベル", kind: "int", desc: "このモブレベル以上は等倍(=従来どおり)。既定10。" },
+        { id: "early-level-attack.level-0-multiplier", label: "Lv0の火力倍率", kind: "number", desc: "レベル0のモブに掛かる倍率。ここから「緩和が解けるレベル」に向かって線形に1.0へ戻る。既定0.7(Lv0で0.7倍、Lv5で0.85倍)。1.0で緩和なし。" }
+      ]
+    },
+    {
+      title: "装備の耐久ペナルティ (2026-07-30)",
+      fields: [
+        { id: "durability.dungeon-only", label: "ダンジョン内だけ適用", kind: "boolean", desc: "既定ON=EliteMobsのインスタンスダンジョンの中だけで効く。OFFにすると全ワールドで効く。ダンジョンは致死ダメージをEliteMobs側でキャンセルして「ダウン」へ移すためPlayerDeathEventが一度も発火せず、死亡ペナルティも致死の一撃分のバニラ防具耐久消費も両方失われていた — この節はそれを補うもの。" },
+        { id: "durability.respect-unbreaking", label: "耐久力エンチャントを尊重する", kind: "boolean", desc: "ONで減少量を 1/(Lv+1) に縮める(端数は確率で切り上げ=バニラと同じ期待値)。OFFにすると耐久力エンチャントを無視して常に満額減る。" },
+        { id: "durability.prevent-break", label: "このペナルティでは壊さない", kind: "boolean", desc: "既定ON=残耐久1で止まる(ペナルティだけで装備が消滅しない)。OFFにするとペナルティで装備が壊れる。バニラの通常使用による破壊はこの設定と無関係。" },
+        { id: "durability.on-hit.enabled", label: "被弾時の上乗せを有効にする", kind: "boolean", desc: "被弾1回ごとに防具4部位(＋オフハンド)の耐久を追加で減らす。バニラの消費を置き換えるのではなく上乗せする。キャンセルされる致死の一撃はここでは減らさず、死亡ペナルティ側で回収する(二重取りにしない)。" },
+        { id: "durability.on-hit.percent-of-max", label: "被弾1回の減少量(最大耐久比)", kind: "number", desc: "既定0.001=0.1%。ダイヤ胸当て(528)なら0.528→切り捨て0なので、実際は下の下限が効いて1減る。" },
+        { id: "durability.on-hit.min-damage", label: "被弾1回の減少量の下限", kind: "int", desc: "割合が端数で0になる装備でも最低これだけ減らす。既定1。0にすると「割合が1点に届かない装備は減らない」設定になる。" },
+        { id: "durability.on-hit.include-offhand", label: "被弾時にオフハンドも対象", kind: "boolean", desc: "既定ON(盾など)。メインハンドの武器は被弾では減らさない。" },
+        { id: "durability.on-death.enabled", label: "死亡ペナルティを有効にする", kind: "boolean", desc: "死亡(ダンジョンのダウンを含む)時に防具4部位＋両手の耐久を減らす。EliteMobs自前のペナルティはEliteMobs製アイテムしか対象にしないため、これがOFFだとTF装備は死んでも無傷。" },
+        { id: "durability.on-death.percent-of-max", label: "死亡1回の減少量(最大耐久比)", kind: "number", desc: "既定0.1=10%。ダイヤ胸当て(528)なら52減る=10回死ぬと壊れる手前まで行く。" },
+        { id: "durability.on-death.min-damage", label: "死亡1回の減少量の下限", kind: "int", desc: "既定1。最大耐久が小さい装備で割合が0になる場合の保険。" },
+        { id: "durability.on-death.include-hands", label: "死亡時に両手も対象", kind: "boolean", desc: "既定ON=メインハンドの武器とオフハンドも減る。OFFにすると防具4部位だけになる。" }
+      ]
+    },
+    {
+      title: "レベル差による足きり (2026-08-09)",
+      fields: [
+        { id: "level-cutoff.over-level.threshold", label: "低レベル狩り判定のレベル差", kind: "int", desc: "(プレイヤーの戦闘Lv - モブのLv) がこの値以上で発動する。つまり【プレイヤーのほうが高レベル】なときに効く側で、自分より弱いモブを狩り続ける行為を抑制するもの(逆向きの「高レベルモブ判定のレベル差」と対になる)。-1(既定)でこの足きりは無効。以前は combat/mob-overrides.yml にあり、EliteMobsが刻印したダンジョンモブにしか効かなかったが、ここへ移して全モブ共通になった。レベル刻印の無い野良モブは対象外。" },
+        { id: "level-cutoff.over-level.exp-rate", label: "低レベル狩り時の経験値倍率", kind: "number", desc: "発動時に経験値へ掛ける倍率(0.0〜1.0)。1.0で無干渉、-1で経験値0(完全に入手不可)。バニラの経験値オーブとTFの戦闘スキルEXPの両方に掛かる。" },
+        { id: "level-cutoff.over-level.drop-rate", label: "低レベル狩り時のドロップ確率倍率", kind: "number", desc: "発動時にTF追加ドロップの確率へ掛ける倍率(0.0〜1.0)。1.0で無干渉、-1でTF追加ドロップを一切付けない。バニラ本来のドロップには一切関与しない(モブトラップが完全に死ぬのを防ぐため)。" },
+        { id: "level-cutoff.over-level.exp-decay-per-level", label: "経験値倍率の逓減量(レベル差1毎)", kind: "number", desc: "低レベル狩りの発動後、閾値を1レベル超えるごとに経験値倍率からこの値を引く(線形逓減)。既定0=従来どおり閾値到達で一律「低レベル狩り時の経験値倍率」に固定。" },
+        { id: "level-cutoff.over-level.drop-decay-per-level", label: "ドロップ確率倍率の逓減量(レベル差1毎)", kind: "number", desc: "低レベル狩りの発動後、閾値を1レベル超えるごとにドロップ確率倍率からこの値を引く(線形逓減)。既定0=逓減なし。" },
+        { id: "level-cutoff.over-level.rate-floor", label: "逓減の下限", kind: "number", desc: "経験値/ドロップ確率倍率が逓減し続けても、この値より下には下がらない下限。「低レベル狩り時の経験値倍率/ドロップ確率倍率」を-1にして完全遮断するのとは別軸(逓減を使わないなら無関係)。既定0。" },
+        { id: "level-cutoff.under-level.item-threshold", label: "高レベルモブ判定のレベル差", kind: "int", desc: "(モブのLv - プレイヤーの戦闘Lv) がこの値以上で発動する。つまり【モブのほうが高レベル】なときに効く側(上の「低レベル狩り判定のレベル差」と逆向き)。-1でこの足きりは無効。低レベルのままハメ殺しやデスルーラーで高レベルのモブを狩る行為の抑制がこちら側の狙い。※キー名は item-threshold だが、2026-08-18 以降はアイテムと経験値の両方の発動条件を兼ねる(配備済み設定の値が無言で既定に戻るのを避けるため改名していない)。※パーティでの同行は区別しない ─ 高レベルの人に連れて行ってもらった低レベルも同じだけ削られる(免除を入れると連れて行くだけで抑制を回避できるため)。" },
+        { id: "level-cutoff.under-level.exp-rate", label: "高レベルモブを狩ったときの経験値倍率", kind: "number", desc: "発動時に経験値へ掛ける倍率(0.0〜1.0)。1.0で無干渉、-1で経験値0(完全に入手不可)。バニラの経験値オーブとTFの戦闘スキルEXPの両方に掛かる。出荷値は1.0で、下の逓減で徐々に削る形。" },
+        { id: "level-cutoff.under-level.drop-rate", label: "高レベルモブを狩ったときのドロップ確率倍率", kind: "number", desc: "発動時にTF追加ドロップの確率へ掛ける倍率(0.0〜1.0)。1.0で無干渉、-1でTF追加ドロップを一切付けない(既定・2026-08-18以前の挙動と同じ)。バニラ本来のドロップには一切関与しない。" },
+        { id: "level-cutoff.under-level.exp-threshold", label: "経験値だけの発動レベル差(高レベルモブ側)", kind: "int", desc: "経験値の逓減だけを、上の「高レベルモブ判定のレベル差」とは別の起点から始めたいときに書く。-1(既定)なら上の閾値をそのまま使う。出荷値15 ── TF追加ドロップは20差で完全遮断のまま、経験値は15差から絞り始めて30差で0になる(15〜30差の区間をかけて0へ)。" },
+        { id: "level-cutoff.under-level.exp-decay-per-level", label: "経験値倍率の逓減量(レベル差1毎・高レベルモブ側)", kind: "number", desc: "発動後、閾値を1レベル超えるごとに経験値倍率からこの値を引く(線形逓減)。出荷値0.067なので、経験値の閾値15から15レベル差が開いた30差で経験値0になる。0にすると逓減なし。" },
+        { id: "level-cutoff.under-level.drop-decay-per-level", label: "ドロップ確率倍率の逓減量(レベル差1毎・高レベルモブ側)", kind: "number", desc: "発動後、閾値を1レベル超えるごとにドロップ確率倍率からこの値を引く(線形逓減)。既定0=逓減なし。ドロップ確率倍率が-1(完全遮断)ならこちらは無関係。" },
+        { id: "level-cutoff.under-level.rate-floor", label: "逓減の下限(高レベルモブ側)", kind: "number", desc: "高レベルモブ側の経験値/ドロップ確率倍率が逓減し続けても、この値より下には下がらない下限。既定0=0まで絞れる。" }
+      ]
+    },
+    {
+      title: "ダンジョンの挑戦レベルに応じた報酬の増減 (2026-08-18)",
+      fields: [
+        { id: "dungeon-level-reward.enabled", label: "報酬の増減を有効にする", kind: "boolean", desc: "EMダイナミックダンジョンで選んだ挑戦レベル・難易度が高いほど報酬を良くし、低いほど少なくする。⚠効くのはダンジョンインスタンス内で倒したモブだけで、オーバーワールドのモブには一切効かない。判定は「倒したモブのレベル」(=選んだ挑戦レベル±難易度補正)で、プレイヤーとのレベル差は見ない。出荷値は有効。" },
+        { id: "dungeon-level-reward.pivot-level", label: "等倍になるモブレベル", kind: "int", desc: "この帯のダンジョンがちょうど規定値(1.00倍)。これより低いダンジョンは規定値より少なく、高いダンジョンは多くなる。片側の上乗せだけにすると頭打ちの倍率を大きく取らないと差が出ないので、低い側を減らすことで頭打ちを下げている。出荷値35。" },
+        { id: "dungeon-level-reward.step", label: "何レベルごとに1段変えるか", kind: "int", desc: "報酬は連続ではなくこのレベル数ごとの階段で変わる。EMの難易度 normal/hard/mythic はモブレベルを -5/±0/+5 動かすので、5にしておくと「難易度1段=報酬1段」で対応し、3つの難易度を選び分ける理由になる。0で既定の5扱い。出荷値5。" },
+        { id: "dungeon-level-reward.drop-bonus-per-step", label: "TF追加ドロップ確率の増減(1段毎)", kind: "number", desc: "1段ごとにTF追加ドロップの確率へ足す/引く割合。0.08なら1段につき±8%。0でドロップ側の増減は無効。出荷値0.08。バニラ本来のドロップには一切関与しない。" },
+        { id: "dungeon-level-reward.drop-bonus-cap", label: "ドロップ側の増加の上限", kind: "number", desc: "ドロップ確率の増加の頭打ち。0.5なら最大+50%(=1.5倍)。0にすると増加側は無効。出荷値0.5(=モブレベル70で頭打ち)。" },
+        { id: "dungeon-level-reward.drop-penalty-cap", label: "ドロップ側の減少の下限", kind: "number", desc: "ドロップ確率の減少の頭打ち。0.3なら最小-30%(=0.7倍)。0にすると減少側は無効(=低レベルのダンジョンでも減らない)。出荷値0.3。" },
+        { id: "dungeon-level-reward.exp-bonus-per-step", label: "撃破EXPの増減(1段毎)", kind: "number", desc: "1段ごとに撃破EXPへ足す/引く割合。EXPはモブレベル自体でも伸びるのでドロップより緩やかにしてある。0でEXP側の増減は無効。出荷値0.04。" },
+        { id: "dungeon-level-reward.exp-bonus-cap", label: "EXP側の増加の上限", kind: "number", desc: "撃破EXPの増加の頭打ち。0.25なら最大+25%。0にすると増加側は無効。出荷値0.25。" },
+        { id: "dungeon-level-reward.exp-penalty-cap", label: "EXP側の減少の下限", kind: "number", desc: "撃破EXPの減少の頭打ち。0.2なら最小-20%(=0.8倍)。0にすると減少側は無効。出荷値0.2。" }
       ]
     },
     // 攻撃ステキー対応 / 防御ステキー対応 の欄は撤去(2026-07-24)。2026-07-26 に Java 側の

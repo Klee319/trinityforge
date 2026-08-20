@@ -50,7 +50,7 @@ class SkillExpDiminishingCurveTest {
 
     @Test
     void defaultConfigAlwaysReturnsOneForGatheringAndCombatSkills(@TempDir File tempDir) throws IOException {
-        SkillExpConfig config = loaded(tempDir, "combat:\n  exp-per-hit: 1.0\n");
+        SkillExpConfig config = loaded(tempDir, "{}\n");
         SkillExpDiminishingCurve curve = new SkillExpDiminishingCurve(config);
 
         assertEquals(1.0, curve.multiplierFor(SkillId.MINING, 1));

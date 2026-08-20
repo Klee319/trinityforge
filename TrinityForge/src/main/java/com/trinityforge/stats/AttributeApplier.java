@@ -41,9 +41,13 @@ import java.util.logging.Logger;
  * weapon/tool resolves to {@code MAINHAND} and an armor piece resolves to its matching armor slot,
  * so an armor stat cannot be double-counted by holding a second copy in hand while another is worn.
  * A material this plugin cannot categorize (blocks, food, materials with no clear equip slot, ...)
- * falls back to {@code ANY}, matching the previous behaviour for those materials. The constructor
- * also accepts an explicit {@link EquipmentSlotGroup} override that forces every item processed by
- * that instance onto one fixed slot scope regardless of material, for callers that want to bypass
+ * falls onto {@link EquipmentSlotResolver.Category#ANY}, which this class in turn maps onto
+ * {@code MAINHAND}/{@code HAND} (per {@code offhand-stats-apply}) rather than the real Bukkit
+ * {@code EquipmentSlotGroup.ANY} constant (2026-08-13, レーンC): {@code EquipmentSlotGroup} has no
+ * "every slot except offhand" constant, and these materials are equippable only in a hand slot to
+ * begin with, so this is how {@code offhand-stats-apply=false} reaches them. The constructor also
+ * accepts an explicit {@link EquipmentSlotGroup} override that forces every item processed by that
+ * instance onto one fixed slot scope regardless of material, for callers that want to bypass
  * inference entirely.
  *
  * <p>Since 1.20.5, an item's implicit material-default attribute modifiers (e.g. a diamond sword's
@@ -53,8 +57,13 @@ import java.util.logging.Logger;
  * modifiers for the resolved slot ({@link Material#getDefaultAttributeModifiers(EquipmentSlot)}) so
  * equipping an addon item never silently loses its vanilla weapon/armor baseline.
  *
- * <p><b>二重計上防止（防具値のみ）</b>: {@code armor-defense-rate}/{@code armor-strength} は
- * 「その防具のバニラ防具値/靭性そのもの」を著者指定する置換ステなので、TFがこれらの属性に
+ * <p><b>防具値(ARMOR)は常に空</b>: 2026-08-15 に {@code armor-defense-rate}(バニラ防具値の点数)を
+ * 廃止し防御率({@code defense-rate})へ一本化したので、TFスタンプ品では {@link Attribute#ARMOR} へ
+ * TFが値を書かないだけでなく<b>材質既定も復元しない</b>({@link #ALWAYS_SUPPRESSED_MATERIAL_DEFAULTS})。
+ * 復元すると材質既定がバニラ防具ミラー経由で TF の防御率と二重に軽減するため。HUDの防具バーは常に空になる。
+ *
+ * <p><b>二重計上防止（置換ステ）</b>: {@code armor-strength} は
+ * 「その防具のバニラ靭性そのもの」を著者指定する置換ステなので、TFがこの属性に
  * modifier を付けたときは材質既定の再付与を抑制する。一方 {@code max-health}/{@code move-speed}/
  * {@code attack-reach}/{@code knockback-resistance} はプレイヤー基礎値や材質既定の<em>上への加算</em>
  * なので、TF modifier を付けても材質既定は復元したまま重ねる（0指定は no-op で基礎のみ）。
@@ -79,8 +88,16 @@ public final class AttributeApplier {
      * 加算ステ（max_health / attack_speed 等）はここに含めない。
      */
     private static final Set<Attribute> REPLACE_MATERIAL_DEFAULTS = Set.of(
-            Attribute.ARMOR,
             Attribute.ARMOR_TOUGHNESS);
+
+    /**
+     * 材質既定を<b>常に</b>復元しない属性(2026-08-15)。{@code armor-defense-rate}(防具値)を廃止して
+     * 防御率へ一本化したので、TFスタンプ品の {@link Attribute#ARMOR} は「TFが値を書かない」だけでなく
+     * 「材質既定も戻さない」= 実効 0 でなければならない。戻すと革7/ネザライト11といった材質既定が
+     * 復活し、{@code SymmetricCombatService} のバニラ防具ミラー経由で TF の防御率と二重に軽減する。
+     * その結果 HUD の防具バーは TFスタンプ装備では常に空になる(ユーザー確定の挙動)。
+     */
+    private static final Set<Attribute> ALWAYS_SUPPRESSED_MATERIAL_DEFAULTS = Set.of(Attribute.ARMOR);
 
     /**
      * item-level では一切扱わない属性(2026-07-25)。{@code attack-speed}(絶対値・メインハンド専用)と
@@ -153,7 +170,16 @@ public final class AttributeApplier {
         // slot group's key (EquipmentSlotGroup#toString() just returns its stable "mainhand"/"head"/
         // "any" name; verified via javap) keeps modifier keys unique per worn slot, which is enough
         // because only one item can occupy a given non-HAND slot at a time.
-        String rollSeedSuffix = rollSeedSuffix(ItemData.of(meta).rollSeed(), slotGroup);
+        // 2026-08-13バグ修正: レーンCが ANY 分類を offhand-stats-apply=true のとき HAND へ落とした結果、
+        // rollSeedを持たない MAINHAND 分類アイテムと ANY 分類アイテムが同じ ".nosd.hand" サフィックスを
+        // 名乗るようになり、バニラが同一 modifier キーを1件として扱うため片方の寄与が無言で消えていた
+        // (変更前は ".nosd.hand" と ".nosd.any" で別キーだったので両方効いていた)。EquipmentSlotGroup
+        // だけでなく EquipmentSlotResolver.Category も混ぜて一意性を回復する。
+        // 注意: このサフィックスは流通済みアイテムの modifier キーに現れる。キー体系が変わると
+        // 再スタンプされるまで旧キーの modifier が残る — これは今日の ANY→HAND 変更で既に発生している
+        // 事象であり、この修正で新たな害が増えるわけではない(むしろ衝突を解消する側)。
+        String rollSeedSuffix = rollSeedSuffix(ItemData.of(meta).rollSeed(), slotGroup,
+                EquipmentSlotResolver.resolve(material));
 
         int applied = 0;
         // TFがこのapply呼び出しで実際にmodifierを付けたAttribute。restoreVanillaDefaultsでの二重計上防止に使う。
@@ -209,10 +235,11 @@ public final class AttributeApplier {
      * group's own stable key so two such items in different slots never collide (see the {@link #apply}
      * call site's CMB-19 comment for the full rationale).
      */
-    static String rollSeedSuffix(java.util.Optional<Long> rollSeed, EquipmentSlotGroup slotGroup) {
+    static String rollSeedSuffix(java.util.Optional<Long> rollSeed, EquipmentSlotGroup slotGroup,
+                                 EquipmentSlotResolver.Category category) {
         return rollSeed
                 .map(seed -> "." + Long.toHexString(seed))
-                .orElseGet(() -> ".nosd." + slotGroup);
+                .orElseGet(() -> ".nosd." + slotGroup + "." + category.name().toLowerCase(java.util.Locale.ROOT));
     }
 
     private EquipmentSlotGroup resolveSlotGroup(Material material, boolean offhandApplies,
@@ -239,7 +266,13 @@ public final class AttributeApplier {
             case CHEST -> EquipmentSlotGroup.CHEST;
             case LEGS -> EquipmentSlotGroup.LEGS;
             case FEET -> EquipmentSlotGroup.FEET;
-            case ANY -> EquipmentSlotGroup.ANY;
+            // レーンC(2026-08-13): EquipmentSlotResolverが頭装備(カボチャ/スカル類)をHEADへ分類した後に
+            // ANYへ落ちる素材は、実際に装備できるスロットとしては手にしか入らない(SHIELD/FISHING_ROD/
+            // SHEARS/FLINT_AND_STEEL/BOOK/食料/ブロック等)。「オフハンド以外の全スロット」を表す
+            // EquipmentSlotGroupが存在しないため、offhand-stats-applyの門をここへ効かせるにはMAINHAND/HANDへ
+            // 落とすしかない。失われるのはオフハンド適用だけ＝offhand-stats-apply=falseの仕様どおり。
+            // BODY/SADDLEは非プレイヤー用スロットなので考慮不要。
+            case ANY -> offhandApplies ? EquipmentSlotGroup.HAND : EquipmentSlotGroup.MAINHAND;
         };
     }
 
@@ -269,8 +302,9 @@ public final class AttributeApplier {
 
     /**
      * Pure filter behind {@link #restoreVanillaDefaults}: which of {@code defaults} still need to be
-     * added. Suppresses material defaults only for {@link #REPLACE_MATERIAL_DEFAULTS} attributes that
-     * TF authored this apply (防具値の置換)。加算ステは TF modifier と材質既定を両立させる。
+     * added. {@link #ALWAYS_SUPPRESSED_MATERIAL_DEFAULTS}(ARMOR)は TF が何を書いたかに関わらず常に
+     * 復元しない(防具バーを空にする)。{@link #REPLACE_MATERIAL_DEFAULTS} は TF がこの apply で
+     * 実際に書いた場合だけ材質既定を抑制する。加算ステは TF modifier と材質既定を両立させる。
      * {@link #ITEM_LEVEL_EXCLUDED_ATTRIBUTES}(ATTACK_SPEED)は無条件で常に除外する — TFが item-level で
      * その属性を管理しているかに関わらず、材質既定の復元自体を一切行わない(プレイヤー単位で一元管理する
      * ため; クラスjavadoc参照)。Also skips modifiers already present under the same key (idempotent
@@ -284,6 +318,10 @@ public final class AttributeApplier {
         for (Map.Entry<Attribute, AttributeModifier> entry : defaults.entries()) {
             Attribute attribute = entry.getKey();
             if (ITEM_LEVEL_EXCLUDED_ATTRIBUTES.contains(attribute)) {
+                continue;
+            }
+            if (ALWAYS_SUPPRESSED_MATERIAL_DEFAULTS.contains(attribute)) {
+                // 防具値(ARMOR)は TF の防御率へ一本化したので材質既定も戻さない = 防具バーは常に空。
                 continue;
             }
             if (REPLACE_MATERIAL_DEFAULTS.contains(attribute)

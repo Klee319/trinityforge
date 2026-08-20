@@ -30,10 +30,108 @@
       const err = new Error(json.error || res.statusText);
       // 変換エラーの明細をUI側で箇条書きにできるよう、Errorへ載せ替えて伝搬させる。
       if (Array.isArray(json.conversionErrors)) err.conversionErrors = json.conversionErrors;
+      // revision 楽観ロックの 409 を呼び出し側で判別するため、状態とペイロードも載せる
+      // (respack-view.js の apiCall と同じ契約に揃える)。
+      err.status = res.status;
+      err.payload = json;
       throw err;
     }
     return json;
   }
+
+  // revision付き楽観ロックPUT (app.js の putConfig / respack-view.js の同名関数と同じ契約)。
+  async function putConfigRevision(configId, data, expectedRevision) {
+    const body = { data };
+    if (expectedRevision != null) body.expectedRevision = expectedRevision;
+    try {
+      const r = await apiCall("PUT", `/api/config/${configId}`, body);
+      return { ok: true, revision: r.revision };
+    } catch (err) {
+      if (err.status === 409 && err.payload && err.payload.conflict) return { ok: false, conflict: true };
+      throw err;
+    }
+  }
+
+  /**
+   * カタログ品に CMD が未割当なら、その場で採番して catalog.yml へ即保存する。
+   *
+   * なぜ必要か: item-stats.yml のキーは `MATERIAL#CMD` で、CMD が空だと素の Material に退化する。
+   * すると (a) バニラの同素材アイテム全部にステが効いてしまい狙ったカタログ品を指せない、
+   * (b) 既存の素 Material エントリ(バニラ用の 77 件)と衝突して「同じキーが既に存在します」で
+   * 追加そのものができない。新規追加したカタログ品は CMD 未割当なので必ず後者を踏む。
+   * 単一アイテムを狙うには CMD が必須なので、ここで採番するのが唯一の正しい解決になる。
+   *
+   * catalog.yml へ即保存するのは、台帳と item-stats のキーだけ `#123` になって catalog.yml が
+   * 未割当のまま残ると、**そのステータスが実物のアイテムに一生マッチしない**半端な状態になるため。
+   *
+   * @returns {Promise<number|null>} 割り当て済み/新規採番した CMD。中止・失敗時は null。
+   */
+  window.cmdEnsureCatalogItemCmd = async function cmdEnsureCatalogItemCmd(opts) {
+    const options = opts || {};
+    const id = String(options.id || "").trim();
+    const material = String(options.material || "").trim().toUpperCase();
+    if (!id || !material) {
+      notify("カタログIDと material が確定していないためCMDを割り当てられません", "error");
+      return null;
+    }
+
+    const readCatalog = async () => {
+      const res = await apiCall("GET", "/api/config/catalog");
+      const data = res && res.data && typeof res.data === "object" ? res.data : {};
+      const items = data.items && typeof data.items === "object" ? data.items : {};
+      return { data, revision: res ? res.revision : null, entry: items[id] || null };
+    };
+
+    try {
+      const first = await readCatalog();
+      if (!first.entry) {
+        // functional-items / sourcejars / 触媒など catalog.yml 以外を出自とする候補。
+        notify(`catalog.yml に id "${id}" が見つかりません。出自のファイルでCMDを割り当ててください`, "error");
+        return null;
+      }
+      const already = first.entry["custom-model-data"];
+      if (typeof already === "number") return already; // 既に割当済み: 何も聞かずそのまま使う
+
+      if (!window.confirm(
+        `「${id}」(${material}) にはまだCMD(CustomModelData)が割り当てられていません。\n\n`
+        + `CMDが無いとステータスのキーが素の ${material} になり、バニラの ${material} すべてに\n`
+        + `効いてしまうため、このアイテム単体を指定できません。\n\n`
+        + "いま未使用のCMDを1つ採番して catalog.yml へ保存します。\n"
+        + "一度払い出した番号は再利用されません。よろしいですか？"
+      )) return null;
+
+      // 確認ダイアログの表示中に他画面が catalog.yml を保存していると revision が古くなる。
+      // 採番より前に revision を取り直す (先に採番すると 409 で台帳の番号だけ捨てることになる)。
+      const fresh = await readCatalog();
+      if (!fresh.entry) {
+        notify(`catalog.yml から id "${id}" が消えています。画面を再読込してください`, "error");
+        return null;
+      }
+      const raced = fresh.entry["custom-model-data"];
+      if (typeof raced === "number") return raced; // 待っている間に他画面が割り当てた
+
+      const alloc = await apiCall("POST", "/api/cmd/allocate", { material, id, source: "catalog" });
+      const cmd = alloc && alloc.cmd;
+      if (typeof cmd !== "number") {
+        notify("CMDの採番結果が不正でした", "error");
+        return null;
+      }
+      fresh.entry["custom-model-data"] = cmd;
+      const put = await putConfigRevision("catalog", fresh.data, fresh.revision);
+      if (!put.ok) {
+        // 台帳には番号が残る (respack-view の一括採番と同じ既知の限界)。番号は捨てても
+        // 再利用しない方針なので、実害は「欠番が1つ増える」だけに留まる。
+        notify(`CMD ${cmd} は採番しましたが、他で編集中のため catalog.yml に保存できませんでした。`
+          + "画面を再読込してやり直してください", "error");
+        return null;
+      }
+      notify(`CMD ${cmd} を「${id}」へ割り当てて catalog.yml に保存しました`, "ok");
+      return cmd;
+    } catch (err) {
+      notify(`CMDの割当に失敗しました: ${err.message}`, "error");
+      return null;
+    }
+  };
 
   // カタログを開き直しても、登録済みテクスチャの状態を台帳から復元する。
   // 以前は各コントロールが常に「未登録」で初期化され、POST直後だけ表示が正しかった。
@@ -361,22 +459,66 @@
     return wrap;
   };
 
+  /**
+   * 隠した <input type="file"> を包むドラッグ&ドロップ枠 (2026-07-27)。
+   * クリック / Enter / Space でファイル選択ダイアログを開き、ファイルを落とすと input に流し込んで
+   * change を発火させる — 呼び出し側は input の change ハンドラだけ書けばよく、
+   * 「ボタン経由」と「ドロップ経由」で処理が分岐しない。
+   */
+  function fileDropZone({ input, icon, label, hint, status }) {
+    const zone = h("div", { class: "cmd-dropzone", tabindex: "0", role: "button" }, [
+      input,
+      h("span", { class: "cmd-dropzone-icon", text: icon }),
+      h("div", { class: "cmd-dropzone-text" }, [
+        h("span", { class: "cmd-dropzone-label", text: label }),
+        h("span", { class: "cmd-dropzone-hint", text: hint })
+      ]),
+      status
+    ]);
+    const open = () => input.click();
+    zone.addEventListener("click", (e) => {
+      // input 自身のクリックを拾って無限ループにしない
+      if (e.target !== input) open();
+    });
+    zone.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        open();
+      }
+    });
+    for (const type of ["dragenter", "dragover"]) {
+      zone.addEventListener(type, (e) => {
+        e.preventDefault();
+        zone.classList.add("is-over");
+      });
+    }
+    zone.addEventListener("dragleave", () => zone.classList.remove("is-over"));
+    zone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      zone.classList.remove("is-over");
+      const dropped = e.dataTransfer && e.dataTransfer.files;
+      if (!dropped || !dropped.length) return;
+      input.files = dropped;
+      input.dispatchEvent(new Event("change"));
+    });
+    return zone;
+  }
+
   // B: 折りたたみ「上級: カスタムモデルJSON」欄。modelJsonファイル+テクスチャPNG複数選択+アップロード。
   function buildAdvancedCustomModelSection(options, chip, refreshWiredPreview) {
     const details = h("details", { class: "cmd-advanced-model" });
     details.appendChild(h("summary", { text: "上級: カスタムモデルJSON" }));
 
-    // 素のファイル入力は隠し、テクスチャ登録欄と同じ .btn-small トーンのボタンへ委譲する
-    // (上級欄だけ生の <input type="file"> が露出していたのを解消)。
+    // 素のファイル入力は隠し、ドロップゾーンへ委譲する
+    // (2026-07-27: 「.btn-small + 未選択ラベル」が羅列されるだけで何を入れる欄か分かりづらかったため、
+    //  ドラッグ&ドロップ対応の枠に置き換えた。クリック/Enter/Space でも従来どおりファイル選択が開く)。
     const modelFileInput = h("input", { type: "file", accept: "application/json,.json,.bbmodel", class: "cmd-tex-file-hidden" });
     const texFilesInput = h("input", { type: "file", accept: "image/png", multiple: true, class: "cmd-tex-file-hidden" });
-    const modelSelectBtn = h("button", { class: "btn-small", type: "button", text: "モデルJSONを選択..." });
-    const texSelectBtn = h("button", { class: "btn-small", type: "button", text: "テクスチャPNGを選択..." });
-    const modelNameLabel = h("span", { class: "cmd-tex-filename", text: "未選択" });
-    const texNameLabel = h("span", { class: "cmd-tex-filename", text: "未選択" });
+    const modelNameLabel = h("span", { class: "cmd-dropzone-file", text: "未選択" });
+    const texNameLabel = h("span", { class: "cmd-dropzone-file", text: "未選択" });
     const modelInfo = h("div", { class: "cmd-model-info" });
     const texThumbs = h("div", { class: "cmd-preview-thumbs" });
-    const uploadBtn = h("button", { class: "btn-small", type: "button", text: "カスタムモデルを登録" });
+    const uploadBtn = h("button", { class: "btn primary cmd-upload-btn", type: "button", text: "カスタムモデルを登録" });
 
     const body = h("div", { class: "cmd-advanced-model-body" });
     body.appendChild(h("div", {
@@ -385,15 +527,24 @@
         + "Blockbenchのプロジェクトファイル(.bbmodel形式)を選ぶと、Java版アイテムモデルへ自動変換し、"
         + "埋め込み画像もPNGとして取り出します。v1制約: この経路のテクスチャにアニメーション指定はできません。"
     }));
-    body.appendChild(h("div", { class: "cmd-file-row" }, [modelFileInput, modelSelectBtn, modelNameLabel]));
+    body.appendChild(fileDropZone({
+      input: modelFileInput,
+      icon: "{ }",
+      label: "モデルJSON / .bbmodel をドロップ",
+      hint: "クリックでファイル選択",
+      status: modelNameLabel
+    }));
     body.appendChild(modelInfo);
-    body.appendChild(h("div", { class: "cmd-file-row" }, [texFilesInput, texSelectBtn, texNameLabel]));
+    body.appendChild(fileDropZone({
+      input: texFilesInput,
+      icon: "🖼",
+      label: "テクスチャPNG をドロップ（複数可）",
+      hint: "クリックでファイル選択",
+      status: texNameLabel
+    }));
     body.appendChild(texThumbs);
     body.appendChild(uploadBtn);
     details.appendChild(body);
-
-    modelSelectBtn.addEventListener("click", () => modelFileInput.click());
-    texSelectBtn.addEventListener("click", () => texFilesInput.click());
 
     // 選択したモデルJSONをその場で解析し、形式と規模を出す。登録前に「これはプロジェクト
     // ファイルだ」と分かるようにするのが目的(送信して初めて気づく状況をなくす)。
@@ -401,6 +552,7 @@
       modelInfo.innerHTML = "";
       const file = modelFileInput.files && modelFileInput.files[0];
       modelNameLabel.textContent = file ? file.name : "未選択";
+      modelNameLabel.classList.toggle("has-file", !!file);
       if (!file) return;
       let json;
       try {
@@ -438,6 +590,7 @@
       texThumbs.innerHTML = "";
       const files = texFilesInput.files ? Array.from(texFilesInput.files) : [];
       texNameLabel.textContent = files.length ? `${files.length} 枚選択` : "未選択";
+      texNameLabel.classList.toggle("has-file", files.length > 0);
       for (const file of files.slice(0, 6)) {
         const img = h("img", { class: "cmd-preview-img", alt: file.name, title: file.name });
         const reader = new FileReader();

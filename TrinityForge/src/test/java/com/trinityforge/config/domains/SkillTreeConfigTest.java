@@ -96,14 +96,22 @@ class SkillTreeConfigTest {
         assertEquals("A", tree.node("B").orElseThrow().parent());
 
         // buffs are canonicalized to snake_case and allow-listed.
-        assertEquals(0.1, a.buffs().get("attack_power"), 0.0);
-        assertEquals(0.1, a.buffs().get("bleed_chance"), 0.0);
+        // 2026-07-30 の軽量武器ツリー改修で、A は全身加算(buffs)ではなく
+        // メインハンド限定(mainhand-multipliers / mainhand-buffs)へ移された。
+        assertEquals(1.1, a.mainhandMultipliers().get("layer_1").get("attack_power"), 0.0);
+        // 2026-08-15(W-31): 武器ツリーの倍率系を装備の土俵(≒1.5倍)まで引き下げた際に 0.05 → 0.03。
+        assertEquals(0.03, a.mainhandBuffs().get("crit_chance"), 0.0);
         // 2026-07-26 職業別草案(戦闘)適用: γ路線は「会心ダメージ」から「出血」へ性格を変えた
         // (α=火力/β=会心・手数 と役割が被っていたため)。crit_damage は載らなくなった。
+        // 2026-07-31: 出血系も A と同じくメインハンド限定(mainhand-buffs)へ移動。
+        // 2026-08-15(W-30): 出血ダメージは実数(bleed_damage)から率(bleed_damage_rate)へ移した。
+        // 実数はアイテムの帯に対して固定なので、ツリーが配ると低帯で壊れ高帯で no-op になる。
         SkillNode aGamma = tree.node("A-gamma-1").orElseThrow();
-        assertEquals(0.02, aGamma.buffs().get("bleed_chance"), 0.0);
-        assertEquals(0.4, aGamma.buffs().get("bleed_damage"), 0.0);
-        assertNull(aGamma.buffs().get("crit_damage"));
+        assertEquals(0.03, aGamma.mainhandBuffs().get("bleed_chance"), 0.0);
+        assertEquals(0.02, aGamma.mainhandBuffs().get("bleed_damage_rate"), 0.0);
+        assertNull(aGamma.mainhandBuffs().get("bleed_damage"));
+        assertNull(aGamma.mainhandBuffs().get("crit_damage"));
+        assertNull(aGamma.buffs().get("bleed_chance"));
 
         // greek exclusivity: all three A-* share the same group.
         assertEquals("A-greek", tree.node("A-alpha-1").orElseThrow().group());
@@ -123,9 +131,13 @@ class SkillTreeConfigTest {
         Prestige prestige = tree.prestige();
         assertTrue(prestige.enabled());
         assertEquals(100, prestige.atLevel());
-        assertEquals(0.15, prestige.buffs().get("attack_power"), 0.0);
-        assertEquals(0.1, prestige.buffs().get("crit_chance"), 0.0);
-        assertEquals(0.3, prestige.buffs().get("crit_damage"), 0.0);
+        // 2026-07-30 の軽量武器ツリー改修で、プレステージ報酬もノードと同じくメインハンド限定へ移された
+        // (全身加算の attack_power 永続+15% ではなく、メインハンド攻撃力の x1.15 倍率)。
+        assertEquals(1.15, prestige.mainhandMultipliers().get("layer_1").get("attack_power"), 0.0);
+        // 2026-08-15(W-31): プレステージは3回まで積めるので、ノード側と同じ比率で下げた。
+        assertEquals(0.05, prestige.mainhandBuffs().get("crit_chance"), 0.0);
+        assertEquals(0.15, prestige.mainhandBuffs().get("crit_damage"), 0.0);
+        assertTrue(prestige.buffs().isEmpty());
     }
 
     @Test
@@ -454,6 +466,61 @@ class SkillTreeConfigTest {
     }
 
     @Test
+    @DisplayName("2026-07-27 農業「ゴミ食」段階化: feature:junkfood-inversion is LEVEL(%), so a placement "
+            + "without 'value' is dropped at parse-time with a warning (load() returns false) — there is no "
+            + "SCALE-style 'defaults to 100%' fallback; the build itself enforces every placement carries a "
+            + "value (see AllSkillTreesLoadTest, which fails the whole suite on this exact warning)")
+    void junkfoodInversionFeatureRequiringValueWithoutOneIsDropped(@TempDir File dataFolder) throws IOException {
+        writeTree(dataFolder, "dedi_junkfood.yml", """
+                skill: DEDI_JUNKFOOD
+                nodes:
+                  A:
+                    name: "a"
+                    level: 10
+                    role: main
+                    dedicated-effects:
+                      - id: feature:junkfood-inversion
+                """);
+        SkillTreeConfig config = new SkillTreeConfig();
+
+        assertFalse(config.load(fakePlugin(dataFolder)));
+        assertTrue(config.tree("DEDI_JUNKFOOD").orElseThrow().node("A").orElseThrow()
+                .dedicatedEffects().isEmpty());
+    }
+
+    @Test
+    @DisplayName("2026-07-27 農業「ゴミ食」段階化: an explicit 'value' on feature:junkfood-inversion is kept "
+            + "verbatim (A-alpha-1:100 / A-alpha-2:150 style placements parse cleanly)")
+    void junkfoodInversionFeatureWithExplicitValueParsesCleanly(@TempDir File dataFolder) throws IOException {
+        writeTree(dataFolder, "dedi_junkfood_ok.yml", """
+                skill: DEDI_JUNKFOOD_OK
+                nodes:
+                  A:
+                    name: "a"
+                    level: 10
+                    role: main
+                    dedicated-effects:
+                      - id: feature:junkfood-inversion
+                        value: 100
+                  B:
+                    name: "b"
+                    level: 20
+                    role: branch
+                    parent: A
+                    dedicated-effects:
+                      - id: feature:junkfood-inversion
+                        value: 150
+                """);
+        SkillTreeConfig config = new SkillTreeConfig();
+
+        assertTrue(config.load(fakePlugin(dataFolder)));
+        assertEquals(100.0, config.tree("DEDI_JUNKFOOD_OK").orElseThrow().node("A").orElseThrow()
+                .dedicatedEffects().get(0).value());
+        assertEquals(150.0, config.tree("DEDI_JUNKFOOD_OK").orElseThrow().node("B").orElseThrow()
+                .dedicatedEffects().get(0).value());
+    }
+
+    @Test
     @DisplayName("2026-07-25 gather-rework-active-framework §1/§5: a SCALE feature placement (e.g. "
             + "feature:vein-mining) with no 'value' is kept and defaults to tier 1, not dropped like LEVEL")
     void scaleFeatureWithoutValueDefaultsToTierOneInsteadOfBeingDropped(@TempDir File dataFolder)
@@ -491,7 +558,7 @@ class SkillTreeConfigTest {
 
     @Test
     @DisplayName("2026-07-23 verifier指摘②: RATE_KEYS buffs are percent-normalized to [0,1]; FLAT/INTEGER buffs "
-            + "(mana_bonus, lapis_cost_reduction) are left untouched")
+            + "(mana_bonus, enchant_luck) are left untouched")
     void buffsAreNormalizedThroughPercentStatNormalize(@TempDir File dataFolder) throws IOException {
         writeTree(dataFolder, "normalize.yml", """
                 skill: NORMALIZE_TREE
@@ -503,7 +570,9 @@ class SkillTreeConfigTest {
                     buffs:
                       material-refund-chance: 15   # RATE_KEYS member: percent-points authoring -> 0.15
                       mana-bonus: 50                # FLAT, never coerced regardless of RATE_KEYS
-                      lapis-cost-reduction: 50       # 2026-07-23仕様確定: 個数(FLAT), RATE_KEYSから除外済み
+                      # 2026-08-14: 以前はここが lapis-cost-reduction だったが、当キーは廃止したので
+                      # 同じく FLAT でRATE_KEYS非対象の enchant-luck(エンチャント運のポイント)へ差し替えた。
+                      enchant-luck: 50
                 """);
         SkillTreeConfig config = new SkillTreeConfig();
 
@@ -511,7 +580,7 @@ class SkillTreeConfigTest {
         Map<String, Double> buffs = config.tree("NORMALIZE_TREE").orElseThrow().node("A").orElseThrow().buffs();
         assertEquals(0.15, buffs.get("material_refund_chance"), 0.0);
         assertEquals(50.0, buffs.get("mana_bonus"), 0.0);
-        assertEquals(50.0, buffs.get("lapis_cost_reduction"), 0.0);
+        assertEquals(50.0, buffs.get("enchant_luck"), 0.0);
     }
 
     @Test
@@ -531,5 +600,90 @@ class SkillTreeConfigTest {
         assertEquals(2, config.all().size());
         assertTrue(config.tree("MINI").isPresent());
         assertTrue(config.tree("LIGHT_WEAPONS").isPresent());
+    }
+
+    // --- set-buffs (armor-set-buffs migration §1) ---
+
+    @Test
+    void setBuffsTiersThreeAndFourAreParsedOnLightArmorTree(@TempDir File dataFolder) throws IOException {
+        writeTree(dataFolder, "light_armor.yml", """
+                skill: LIGHT_ARMOR
+                nodes:
+                  C:
+                    name: "c"
+                    level: 50
+                    role: main
+                    set-buffs:
+                      3: { dodge-chance: 0.1 }
+                      4: { dodge-chance: 0.15 }
+                """);
+        SkillTreeConfig config = new SkillTreeConfig();
+
+        assertTrue(config.load(fakePlugin(dataFolder)));
+        SkillNode c = config.tree("LIGHT_ARMOR").orElseThrow().node("C").orElseThrow();
+        assertEquals(0.1, c.setBuffs().get(3).get("dodge_chance"), 0.0);
+        assertEquals(0.15, c.setBuffs().get(4).get("dodge_chance"), 0.0);
+    }
+
+    @Test
+    void setBuffsTiersOtherThanThreeOrFourAreDroppedWithWarning(@TempDir File dataFolder) throws IOException {
+        writeTree(dataFolder, "heavy_armor.yml", """
+                skill: HEAVY_ARMOR
+                nodes:
+                  C:
+                    name: "c"
+                    level: 50
+                    role: main
+                    set-buffs:
+                      1: { dodge-chance: 0.1 }
+                      2: { dodge-chance: 0.1 }
+                      5: { dodge-chance: 0.1 }
+                """);
+        SkillTreeConfig config = new SkillTreeConfig();
+
+        assertFalse(config.load(fakePlugin(dataFolder)));
+        SkillNode c = config.tree("HEAVY_ARMOR").orElseThrow().node("C").orElseThrow();
+        assertTrue(c.setBuffs().isEmpty(), "1/2/5 は不正な段なので全て無視されるべき");
+    }
+
+    @Test
+    void setBuffsOnNonArmorTreeIsIgnoredWithWarningNodeKept(@TempDir File dataFolder) throws IOException {
+        writeTree(dataFolder, "not_armor.yml", """
+                skill: LIGHT_WEAPONS
+                nodes:
+                  C:
+                    name: "c"
+                    level: 50
+                    role: main
+                    set-buffs:
+                      3: { dodge-chance: 0.1 }
+                """);
+        SkillTreeConfig config = new SkillTreeConfig();
+
+        assertFalse(config.load(fakePlugin(dataFolder)));
+        SkillNode c = config.tree("LIGHT_WEAPONS").orElseThrow().node("C").orElseThrow();
+        assertTrue(c.setBuffs().isEmpty(), "light_armor/heavy_armor以外のツリーではset-buffsは無視されるべき");
+        assertEquals("c", c.name(), "ノード自体は維持されるべき");
+    }
+
+    @Test
+    void setBuffsOnPrestigeIsParsedOnHeavyArmorTree(@TempDir File dataFolder) throws IOException {
+        writeTree(dataFolder, "heavy_armor_prestige.yml", """
+                skill: HEAVY_ARMOR
+                prestige:
+                  enabled: true
+                  at-level: 100
+                  set-buffs:
+                    3: { knockback-resistance: 0.1 }
+                    4: { knockback-resistance: 0.2 }
+                nodes:
+                  A: { name: "a", level: 10, role: main }
+                """);
+        SkillTreeConfig config = new SkillTreeConfig();
+
+        assertTrue(config.load(fakePlugin(dataFolder)));
+        Prestige prestige = config.tree("HEAVY_ARMOR").orElseThrow().prestige();
+        assertEquals(0.1, prestige.setBuffs().get(3).get("knockback_resistance"), 0.0);
+        assertEquals(0.2, prestige.setBuffs().get(4).get("knockback_resistance"), 0.0);
     }
 }

@@ -57,7 +57,7 @@ class MiningGimmickConfigTest {
         assertEquals(600, config.hasteCooldownTicks());
         assertTrue(config.dropTables().isEmpty());
         assertEquals("MINING", config.fortuneSkillId());
-        assertEquals(0.02, config.fortunePerLevel(), 0.0);
+        assertEquals(0.006, config.fortunePerLevel(), 0.0);
         assertTrue(config.fortuneBlocks().isEmpty());
     }
 
@@ -133,7 +133,7 @@ class MiningGimmickConfigTest {
                 fortune:
                   fortune-per-level: .nan
                 """);
-        assertEquals(0.02, config.fortunePerLevel(), 0.0);
+        assertEquals(0.006, config.fortunePerLevel(), 0.0);
     }
 
     @Test

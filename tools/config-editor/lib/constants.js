@@ -24,9 +24,26 @@ const FIELD_SPECS = Object.freeze([
   // ---- combat/damage.yml ----
   { id: "physical.base-coefficient", file: "damage", path: ["physical", "base-coefficient"], kind: "number", min: 0, def: 1.0 },
   { id: "physical.min-component-damage", file: "damage", path: ["physical", "min-component-damage"], kind: "number", min: -1000000, max: 1000000, def: 1.0 },
+  // B2: バニラのチャージ攻撃(クールダウン中の連打減衰)をTFの近接プレイヤー攻撃に再導入する設定。
+  // min-multiplier/exponent は Java 側 (CombatDamageConfig#meleeChargeMinMultiplier/-Exponent) が
+  // それぞれ [0,1] / [0.01,100] にクランプする。
+  // 【2026-08-01】バランス調整(要件1a)で出荷既定を 0.2/2.0(バニラ相当)から 0.1/1.6 へ変更した
+  // (より顕著な連打ペナルティ + よりなだらかなカーブ立ち上がり。damage.yml 側コメント参照)。
+  { id: "melee-charge.enabled", file: "damage", path: ["melee-charge", "enabled"], kind: "boolean", def: true },
+  { id: "melee-charge.min-multiplier", file: "damage", path: ["melee-charge", "min-multiplier"], kind: "number", min: 0, max: 1, def: 0.1 },
+  { id: "melee-charge.exponent", file: "damage", path: ["melee-charge", "exponent"], kind: "number", min: 0.01, max: 100, def: 1.6 },
+  // 2026-07-25: attack-speed(絶対値)+attack-speed-bonus(割合)合成後の最終実効速度クランプ関連。
+  // min-effective は Java 側 CombatDamageConfig で [0.01,4.0] にクランプ(既定0.1)。
+  // reconcile-interval-ticks は PerkAttributeApplier の装備フィンガープリント再照合周期(tick)、[1,1200]。
+  { id: "attack-speed.min-effective", file: "damage", path: ["attack-speed", "min-effective"], kind: "number", min: 0.01, max: 4.0, def: 0.1 },
+  { id: "attack-speed.reconcile-interval-ticks", file: "damage", path: ["attack-speed", "reconcile-interval-ticks"], kind: "int", min: 1, max: 1200, def: 10 },
   { id: "magical.base-coefficient", file: "damage", path: ["magical", "base-coefficient"], kind: "number", min: 0, def: 1.0 },
   { id: "magical.min-component-damage", file: "damage", path: ["magical", "min-component-damage"], kind: "number", min: -1000000, max: 1000000, def: 1.0 },
   { id: "magical.scale-with-combat-level", file: "damage", path: ["magical", "scale-with-combat-level"], kind: "boolean", def: true },
+  // 2026-07-31 D6(魔法ダメージに杖の攻撃力が乗らない): 杖(触媒)の attack-power を魔法の
+  // 基礎ダメージへ加算するときの係数。Java 側 CombatDamageConfig#magicalAttackPowerScale が
+  // [0,10] にクランプする(既定 1.0 = 仕様どおり100%加算。0 で杖の攻撃力を魔法から外せる)。
+  { id: "magical.attack-power-scale", file: "damage", path: ["magical", "attack-power-scale"], kind: "number", min: 0, max: 10, def: 1.0 },
   { id: "weapon-base-formula.enabled", file: "damage", path: ["weapon-base-formula", "enabled"], kind: "boolean", def: true },
   { id: "weapon-base-formula.a", file: "damage", path: ["weapon-base-formula", "a"], kind: "number", min: 0, def: 2.0 },
   { id: "weapon-base-formula.b", file: "damage", path: ["weapon-base-formula", "b"], kind: "number", min: 0, minExclusive: true, def: 100.0 },
@@ -39,6 +56,13 @@ const FIELD_SPECS = Object.freeze([
   { id: "defense.max-rate", file: "damage", path: ["defense", "max-rate"], kind: "number", def: 1.0 },
   { id: "defense.min-flat", file: "damage", path: ["defense", "min-flat"], kind: "number", def: 0.0 },
   { id: "defense.max-flat", file: "damage", path: ["defense", "max-flat"], kind: "number", def: 1000000.0 },
+  // 防護エンチャント(Protection系)の再導出軽減率に掛ける倍率。既定0.5は意図的な調整値:
+  // 1.0(バニラ準拠、防護IVフルセット64%軽減)だと defense.max-mitigation-rate(0.9)の枠を
+  // このエンチャント1種だけで71%消費し、TF自前の防具ステが無意味になるため半分に絞っている
+  // (根拠: damage.yml本文コメント / DefenseEnchantmentBridge javadoc / CombatDamageConfig L242-250)。
+  // Java側スキーマは [0,10] でクランプ(CombatDamageConfig.java L125)しており max-mitigation-rate と
+  // 違い 1.0 上限ではない(バニラ超の軽減も許容する設計)ため、editor側もそれに合わせて上限10。
+  { id: "defense.enchant-protection-scale", file: "damage", path: ["defense", "enchant-protection-scale"], kind: "number", min: 0, max: 10, def: 0.5 },
   { id: "vanilla-armor.defense-rate-per-point", file: "damage", path: ["vanilla-armor", "defense-rate-per-point"], kind: "number", min: 0, def: 0.04 },
   { id: "vanilla-armor.defense-rate-max", file: "damage", path: ["vanilla-armor", "defense-rate-max"], kind: "number", min: 0, max: 1, def: 0.8 },
   { id: "vanilla-armor.armor-strength-per-point", file: "damage", path: ["vanilla-armor", "armor-strength-per-point"], kind: "number", min: 0, def: 0.0 },
@@ -51,6 +75,78 @@ const FIELD_SPECS = Object.freeze([
   { id: "pvp.enabled", file: "damage", path: ["pvp", "enabled"], kind: "boolean", def: true },
   { id: "pvp.damage-multiplier", file: "damage", path: ["pvp", "damage-multiplier"], kind: "number", min: 0, def: 0.5 },
   { id: "pvp.max-damage-percent-of-max-health", file: "damage", path: ["pvp", "max-damage-percent-of-max-health"], kind: "number", min: 0, def: 0.15 },
+  // 2026-07-28 日光炎上: バニラの1.0固定ではTFのモブHP(Lv0で400)に対して無意味だったので、
+  // 日光で燃えている間の1発だけを最大HP割合へ置き換える。
+  // 対象EntityType一覧(sunlight-burn.mobs)はリスト型のためeditorには出していない
+  // (未宣言キーは buildUpdatedData の deep clone で温存されるので、保存で消えることはない)。
+  { id: "sunlight-burn.enabled", file: "damage", path: ["sunlight-burn", "enabled"], kind: "boolean", def: true },
+  { id: "sunlight-burn.damage-percent-of-max-health", file: "damage", path: ["sunlight-burn", "damage-percent-of-max-health"], kind: "number", min: 0, max: 1, def: 0.10 },
+  // 2026-07-28 序盤モブ火力の緩和(mob-types の attack-power 指数カーブには触らない後掛け倍率)。
+  { id: "early-level-attack.enabled", file: "damage", path: ["early-level-attack", "enabled"], kind: "boolean", def: true },
+  { id: "early-level-attack.until-level", file: "damage", path: ["early-level-attack", "until-level"], kind: "int", min: 0, max: 1000, def: 10 },
+  { id: "early-level-attack.level-0-multiplier", file: "damage", path: ["early-level-attack", "level-0-multiplier"], kind: "number", min: 0, max: 1, def: 0.7 },
+  // 2026-07-30 装備の耐久ペナルティ。EliteMobsのダンジョンは致死ダメージをキャンセルして
+  // 「ダウン」へ移すため PlayerDeathEvent が発火せず、死亡ペナルティも致死の一撃分の
+  // バニラ防具耐久消費も両方失われていた。min/max/def は CombatDamageConfig の SchemaField と一致。
+  { id: "durability.dungeon-only", file: "damage", path: ["durability", "dungeon-only"], kind: "boolean", def: true },
+  { id: "durability.respect-unbreaking", file: "damage", path: ["durability", "respect-unbreaking"], kind: "boolean", def: true },
+  { id: "durability.prevent-break", file: "damage", path: ["durability", "prevent-break"], kind: "boolean", def: true },
+  { id: "durability.on-hit.enabled", file: "damage", path: ["durability", "on-hit", "enabled"], kind: "boolean", def: true },
+  { id: "durability.on-hit.percent-of-max", file: "damage", path: ["durability", "on-hit", "percent-of-max"], kind: "number", min: 0, max: 1, def: 0.001 },
+  { id: "durability.on-hit.min-damage", file: "damage", path: ["durability", "on-hit", "min-damage"], kind: "int", min: 0, max: 10000, def: 1 },
+  { id: "durability.on-hit.include-offhand", file: "damage", path: ["durability", "on-hit", "include-offhand"], kind: "boolean", def: true },
+  { id: "durability.on-death.enabled", file: "damage", path: ["durability", "on-death", "enabled"], kind: "boolean", def: true },
+  { id: "durability.on-death.percent-of-max", file: "damage", path: ["durability", "on-death", "percent-of-max"], kind: "number", min: 0, max: 1, def: 0.1 },
+  { id: "durability.on-death.min-damage", file: "damage", path: ["durability", "on-death", "min-damage"], kind: "int", min: 0, max: 10000, def: 1 },
+  { id: "durability.on-death.include-hands", file: "damage", path: ["durability", "on-death", "include-hands"], kind: "boolean", def: true },
+  // 2026-08-09 レベル差による足きり。combat/mob-overrides.yml の level-cutoff から移設した
+  // (旧実装はEliteMobsが刻印したダンジョンモブにしか効かず、野良モブが素通りしていた)。
+  // min/max/def は CombatDamageConfig の SchemaField と一致させること。
+  // 向きに注意: over-level は【プレイヤーのほうが高レベル】のとき発動する側(低レベル狩りの抑制)、
+  // under-level は【モブのほうが高レベル】のとき発動する側。キー名の over/under はモブではなく
+  // プレイヤーが主語なので、日本語のラベルでは「格上/格下」を使わない(主語が反転して読める)。
+  { id: "level-cutoff.over-level.threshold", file: "damage", path: ["level-cutoff", "over-level", "threshold"], kind: "int", min: -1, max: 10000, def: -1 },
+  { id: "level-cutoff.over-level.exp-rate", file: "damage", path: ["level-cutoff", "over-level", "exp-rate"], kind: "number", min: -1, max: 1, def: 1 },
+  { id: "level-cutoff.over-level.drop-rate", file: "damage", path: ["level-cutoff", "over-level", "drop-rate"], kind: "number", min: -1, max: 1, def: 1 },
+  // 2026-08-18 W-60: 低レベル狩り(over-level)の倍率を閾値超で急に切り替えるのでなく、レベル差1ごとに線形で
+  // 削っていくための減衰キー(すべて既定0=従来どおり無効)。rate-floor は「-1で完全遮断」とは
+  // 別軸で、減衰が続いても倍率がこれより下がらない下限。
+  { id: "level-cutoff.over-level.exp-decay-per-level", file: "damage", path: ["level-cutoff", "over-level", "exp-decay-per-level"], kind: "number", min: 0, max: 1, def: 0 },
+  { id: "level-cutoff.over-level.drop-decay-per-level", file: "damage", path: ["level-cutoff", "over-level", "drop-decay-per-level"], kind: "number", min: 0, max: 1, def: 0 },
+  { id: "level-cutoff.over-level.rate-floor", file: "damage", path: ["level-cutoff", "over-level", "rate-floor"], kind: "number", min: -1, max: 1, def: 0 },
+  // 2026-08-18 W-72: under-level も over-level と完全対称にした。以前は item-threshold 1本だけで
+  // 「TF追加ドロップを付けない」の全か無かしか無く、経験値には一切効かなかったので、低レベルのまま
+  // ハメ殺し/デスルーラーで高レベルのモブを倒すとバニラEXPもTF戦闘EXPも満額入っていた。
+  // 閾値のキー名は item-threshold のまま据え置き(リネームすると配備済み config の値が無言で既定値に
+  // 化けるため)。実際にはアイテムと経験値の両方の発動条件を兼ねる。
+  // def は【出荷 yml の値ではなく Java の SchemaField 既定値】に合わせる。ここがずれると
+  // 「editor で開いて保存しただけ」で yml の意味が変わる(キー未記載の環境で顕在化する)。
+  { id: "level-cutoff.under-level.item-threshold", file: "damage", path: ["level-cutoff", "under-level", "item-threshold"], kind: "int", min: -1, max: 10000, def: -1 },
+  { id: "level-cutoff.under-level.exp-rate", file: "damage", path: ["level-cutoff", "under-level", "exp-rate"], kind: "number", min: -1, max: 1, def: 1 },
+  { id: "level-cutoff.under-level.drop-rate", file: "damage", path: ["level-cutoff", "under-level", "drop-rate"], kind: "number", min: -1, max: 1, def: -1 },
+  { id: "level-cutoff.under-level.exp-decay-per-level", file: "damage", path: ["level-cutoff", "under-level", "exp-decay-per-level"], kind: "number", min: 0, max: 1, def: 0 },
+  { id: "level-cutoff.under-level.drop-decay-per-level", file: "damage", path: ["level-cutoff", "under-level", "drop-decay-per-level"], kind: "number", min: 0, max: 1, def: 0 },
+  { id: "level-cutoff.under-level.rate-floor", file: "damage", path: ["level-cutoff", "under-level", "rate-floor"], kind: "number", min: 0, max: 1, def: 0 },
+  // 2026-08-18: 経験値だけアイテムより手前から絞り始めるための追加キー。-1(既定)なら item-threshold を
+  // 使う=従来どおり1本の閾値で両方が発動する。出荷値は経験値15/アイテム20。
+  { id: "level-cutoff.under-level.exp-threshold", file: "damage", path: ["level-cutoff", "under-level", "exp-threshold"], kind: "int", min: -1, max: 10000, def: -1 },
+  // 2026-08-18 W-80: ダンジョンの挑戦レベルに応じた報酬の増減。EMダイナミックダンジョンで選んだ
+  // 挑戦レベルは敵の強さにしか効いておらず報酬には無関係だったので、一番低いレベルを選んで回すのが
+  // 常に最適だった。判定は【倒したモブのレベル】= 選んだレベル±難易度補正で、プレイヤーとのレベル差では
+  // ない。適用先もダンジョンワールドで倒したモブだけ(レベル差で書くとオーバーワールドの高レベルモブ
+  // にも効いて上の under-level と正面衝突する)。
+  // pivot-level で等倍、それより低いダンジョンは規定値より少なく、高いダンジョンは多くなる。
+  // step 刻みの階段にするのは、EMの難易度がモブレベルを ∓5 動かすので難易度1段=報酬1段にするため。
+  // def は【出荷 yml の値ではなく Java の SchemaField 既定値】に合わせる(enabled は false 側)。
+  { id: "dungeon-level-reward.enabled", file: "damage", path: ["dungeon-level-reward", "enabled"], kind: "boolean", def: false },
+  { id: "dungeon-level-reward.pivot-level", file: "damage", path: ["dungeon-level-reward", "pivot-level"], kind: "int", min: 0, max: 10000, def: 0 },
+  { id: "dungeon-level-reward.step", file: "damage", path: ["dungeon-level-reward", "step"], kind: "int", min: 0, max: 1000, def: 0 },
+  { id: "dungeon-level-reward.drop-bonus-per-step", file: "damage", path: ["dungeon-level-reward", "drop-bonus-per-step"], kind: "number", min: 0, max: 1, def: 0 },
+  { id: "dungeon-level-reward.drop-bonus-cap", file: "damage", path: ["dungeon-level-reward", "drop-bonus-cap"], kind: "number", min: 0, max: 10, def: 0 },
+  { id: "dungeon-level-reward.drop-penalty-cap", file: "damage", path: ["dungeon-level-reward", "drop-penalty-cap"], kind: "number", min: 0, max: 0.9, def: 0 },
+  { id: "dungeon-level-reward.exp-bonus-per-step", file: "damage", path: ["dungeon-level-reward", "exp-bonus-per-step"], kind: "number", min: 0, max: 1, def: 0 },
+  { id: "dungeon-level-reward.exp-bonus-cap", file: "damage", path: ["dungeon-level-reward", "exp-bonus-cap"], kind: "number", min: 0, max: 10, def: 0 },
+  { id: "dungeon-level-reward.exp-penalty-cap", file: "damage", path: ["dungeon-level-reward", "exp-penalty-cap"], kind: "number", min: 0, max: 0.9, def: 0 },
   // attack-stat-keys.* / defense-stat-keys.* は editor から撤去(2026-07-24)し、2026-07-26 に
   // Java 側(CombatDamageConfig schema / damage.yml)からも撤去済み(CMB-31)。キー名は
   // AttackStatKeys / DefenseStatKeys の定数が単一の真実で、config からは改名できない。
@@ -188,7 +284,7 @@ function validateField(spec, value, errors) {
   }
   if (spec.min !== undefined) {
     if (spec.minExclusive ? n <= spec.min : n < spec.min) {
-      errors.push(`${spec.id}: ${spec.min}${spec.minExclusive ? "より大きい" : "以上"}値が必要です`);
+      errors.push(`${spec.id}: ${spec.min}${spec.minExclusive ? "より大きい" : "以上の"}値が必要です`);
     }
   }
   if (spec.max !== undefined && n > spec.max) {

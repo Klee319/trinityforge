@@ -17,8 +17,8 @@
       {
         "threshold": 5318,
         "model": {
-          "model": "minecraft:item/turtle_scute",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/turtle_scute_scrap"
         }
       }
     ]

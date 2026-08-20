@@ -16,12 +16,15 @@ import org.bukkit.plugin.Plugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -44,11 +47,30 @@ import java.util.logging.Logger;
  * commented-out template an operator must opt into (2026-07-26 H4 レビュー指摘: 旧Javadocとymlヘッダの
  * 「overrides: が空(既定)」という記述は出荷ファイルの実態と矛盾していたため訂正).
  *
- * <p><b>Strength resolution</b> ({@link #resolve}): 項目単位マージ, three layers cascaded in order —
- * {@code mob-profiles.yml} base &lt; {@code default} scope &lt; the specific world's scope — each layer
- * only overwriting the fields it actually sets ({@link MobStatOverride#applyTo}). A world entry that only
- * sets {@code max-health} therefore still inherits every other field from {@code default} (if any) and
- * from the base profile, never blanking them.
+ * <p><b>Strength resolution</b> ({@link #resolve}): 項目単位マージ, five layers cascaded in order —
+ * {@code mob-profiles.yml} base &lt; {@code default} の scope 直下 &lt; {@code default} の mob 単位
+ * &lt; the specific world's scope 直下 &lt; that world's mob 単位 — each layer only overwriting the fields
+ * it actually sets ({@link MobStatOverride#applyTo}). A world entry that only sets {@code max-health}
+ * therefore still inherits every other field from {@code default} (if any) and from the base profile,
+ * never blanking them.
+ *
+ * <p><b>scope 直下の {@code stats:}</b> (2026-08-03 「ダンジョンごとに物魔のコンセプトを割り当てる」要望):
+ * {@code overrides.<worldName>.stats:} は {@code mobs:} と同じ階層に書く「そのダンジョン全体の既定値」で、
+ * キー体系は {@code mobs.<mobId>.stats} と完全に同一(同じ {@code parseStats} を通す)。これがある理由は、
+ * ダンジョンの敵は 396 体あり「このダンジョンの敵は魔法型」といったコンセプトを 1 体ずつ書くのは非現実的
+ * だから。解決は<b>項目単位マージ</b>である — scope 直下で {@code attack.magic-ratio} だけ書き、
+ * 特定のモブだけ {@code mobs.<id>.stats.max-health} を上書きする、という重ね方が意図した使い方。
+ *
+ * <p><b>倍率キー {@code max-health-multiplier} / {@code attack-power-multiplier}</b>
+ * (2026-08-14 「ダンジョンの難易度を敵の強さの差で表現する」要望): {@code stats:} 直下に書く
+ * 「元の値の何倍にするか」。絶対値と併記した場合は<b>絶対値を先に適用し、その結果に倍率を掛ける</b>
+ * (適用順序の仕様は {@link MobStatOverride#applyTo} の javadoc)。難易度をこれで表現するのは、
+ * ダイナミックダンジョン(プレイヤーが入場時にレベルを選ぶ)では絶対値が使えないため —— 倍率なら
+ * 「選んだレベルで本来決まる強さの N 倍」という相対差として成立する。値は<b>0 より大きい有限数</b>
+ * のみ有効(理由は {@code nullablePositiveMultiplier} の javadoc)。<b>倍率だけは 4 層のカスケードで
+ * 「後勝ち」ではなく掛け合わさる</b>({@link #resolve} が層ごとに {@code applyTo} を呼ぶため) ——
+ * {@code default} に書いた倍率は全ダンジョンに乗るので、ダンジョン間の差だけを付けたいなら
+ * {@code default} には書かない。
  *
  * <p><b>EXP resolution</b> ({@link #vanillaExpFor}): same replace-not-merge precedence as drops — the
  * world scope's {@code vanilla-exp:} ramp wins, else {@code default}'s, else "not configured" (the kill
@@ -63,6 +85,15 @@ import java.util.logging.Logger;
  * other, and neither is combined with {@code combat/mob-level-table.yml}'s own {@code add-drops}, which
  * remains an entirely separate additive table — see {@code MobOverrideDropListener} javadoc for the
  * coexistence decision).
+ *
+ * <p><b>「レベル差による足きり」はこのファイルには無い(2026-08-09 撤去)。</b> 2026-07-27 に
+ * {@code level-cutoff:} を scope 直下 / mob 単位の 4 段カスケードとしてここに実装したが、この設定は
+ * <b>EliteMobs が {@code MOB_PROFILE_ID} をスタンプしたモブ(= ダンジョンモブ)にしか掛からない</b>
+ * という構造的な穴があった — フィールドの野良モブはどれだけレベル差があっても素通りしていた。
+ * 全モブ共通の設定として {@code combat/damage.yml} の {@code level-cutoff:} へ移し、適用は
+ * {@code com.trinityforge.listeners.KillRewardAdjuster} 一点に集約している。ダンジョン別に足きりを
+ * 変える機能は<b>意図的に落とした</b>(ダンジョンへの入場制限は {@code dungeon/gates.yml} の
+ * {@code required-combat-level} が担当する)。
  */
 public final class MobOverridesConfig implements LoadableConfig {
 
@@ -75,6 +106,8 @@ public final class MobOverridesConfig implements LoadableConfig {
      * 表示専用のメタデータ — 戦闘パイプラインもスコープ解決も一切読まない。
      */
     private static final String DISPLAY_NAME_KEY = "display-name";
+    /** 特殊攻撃テンプレートIDの列(2026-07-31)。値は combat/mob-abilities.yml のキー。 */
+    private static final String ABILITIES_KEY = "abilities";
 
     /**
      * 2026-07-26 M1 レビュー指摘の実装で判明した副次バグへの対策: このファイル限定で{@code
@@ -90,6 +123,8 @@ public final class MobOverridesConfig implements LoadableConfig {
 
     private volatile Map<String, Map<String, MobOverrideEntry>> scopes = Map.of();
     private volatile Map<String, String> scopeDisplayNames = Map.of();
+    /** scope 直下の {@code stats:}(そのダンジョン全体の既定ステータス、2026-08-03)。class javadoc 参照。 */
+    private volatile Map<String, MobStatOverride> scopeStats = Map.of();
 
     public String resourcePath() {
         return PATH;
@@ -120,6 +155,7 @@ public final class MobOverridesConfig implements LoadableConfig {
         ParseResult result = parse(yaml, log);
         this.scopes = result.scopes();
         this.scopeDisplayNames = result.scopeDisplayNames();
+        this.scopeStats = result.scopeStats();
         if (result.skipped() > 0) {
             log.warning("[" + PATH + "] loaded " + result.mobCount() + " mob override(s), "
                     + result.skipped() + " skipped");
@@ -131,17 +167,20 @@ public final class MobOverridesConfig implements LoadableConfig {
 
     /**
      * Applies the resolved strength override for {@code (worldName, mobId)} to {@code base}, cascading
-     * default scope then the world-specific scope (each item-level, see class javadoc). Returns
-     * {@code base} unchanged when no matching scope carries any stats for this mob.
+     * default scope then the world-specific scope, and within each scope its 直下 {@code stats:} before
+     * its mob 単位 entry (each item-level, see class javadoc). Returns {@code base} unchanged when no
+     * matching scope carries any stats for this mob.
      */
     public MobProfile resolve(String worldName, String mobId, MobProfile base) {
         if (base == null || mobId == null) {
             return base;
         }
         MobProfile result = base;
+        result = applyScopeDefaults(DEFAULT_SCOPE, result);
         result = applyScope(DEFAULT_SCOPE, mobId, result);
         String worldScope = worldScopeKey(worldName);
         if (worldScope != null) {
+            result = applyScopeDefaults(worldScope, result);
             result = applyScope(worldScope, mobId, result);
         }
         return result;
@@ -164,11 +203,15 @@ public final class MobOverridesConfig implements LoadableConfig {
         if (worldName == null || worldName.equals(DEFAULT_SCOPE)) {
             return null;
         }
-        if (scopes.containsKey(worldName)) {
+        // 2026-08-03: scopes(mob単位のエントリを持つscope)だけでなく、scope直下にしか設定が無いscope
+        // (stats: / level-cutoff: だけ書いたダンジョン)も候補に含める。ここを scopes だけで見ていると、
+        // 「mobs: を1件も書かずダンジョン全体のコンセプトだけ指定した」scope が無言で一致しなくなる。
+        Set<String> candidates = knownScopeKeys();
+        if (candidates.contains(worldName)) {
             return worldName;
         }
         String best = null;
-        for (String key : scopes.keySet()) {
+        for (String key : candidates) {
             if (key.equals(DEFAULT_SCOPE) || !isInstanceOfBlueprint(worldName, key)) {
                 continue;
             }
@@ -177,6 +220,13 @@ public final class MobOverridesConfig implements LoadableConfig {
             }
         }
         return best;
+    }
+
+    /** 何らかの設定を持つ scope 名すべて(mob単位 / scope直下 stats の和集合)。 */
+    private Set<String> knownScopeKeys() {
+        Set<String> keys = new LinkedHashSet<>(scopes.keySet());
+        keys.addAll(scopeStats.keySet());
+        return keys;
     }
 
     /** True when {@code worldName} is {@code blueprint} plus EliteMobs' {@code _<digits>} instance suffix. */
@@ -200,6 +250,16 @@ public final class MobOverridesConfig implements LoadableConfig {
         }
         MobOverrideEntry entry = mobs.get(mobId);
         return entry == null ? base : entry.stats().applyTo(base);
+    }
+
+    /**
+     * scope 直下の {@code stats:}(そのダンジョン全体の既定)を適用する。mob 単位のエントリが
+     * <b>無い</b>モブにも効くのがこの層の存在意義 —— ダンジョン内の全モブに一括でコンセプト
+     * (物理型/魔法型)を乗せるために使う。
+     */
+    private MobProfile applyScopeDefaults(String scopeName, MobProfile base) {
+        MobStatOverride override = scopeStats.get(scopeName);
+        return override == null ? base : override.applyTo(base);
     }
 
     /**
@@ -297,6 +357,35 @@ public final class MobOverridesConfig implements LoadableConfig {
         return entry == null ? null : entry.vanillaExp();
     }
 
+    /**
+     * このモブが撃つ特殊攻撃テンプレートIDの列(2026-07-31)。解決規則は {@link #dropsFor} と同じ
+     * REPLACE — ワールドスコープが1件でも書いていればそれが全部で、default 側とは合成しない
+     * (合成すると「ダンジョンごとに技を差し替える」ができなくなる)。
+     */
+    public List<String> abilitiesFor(String worldName, String mobId) {
+        if (mobId == null) {
+            return List.of();
+        }
+        String id = MobIdNormalizer.normalize(mobId);
+        String worldScope = worldScopeKey(worldName);
+        if (worldScope != null) {
+            List<String> worldAbilities = abilitiesInScope(worldScope, id);
+            if (!worldAbilities.isEmpty()) {
+                return worldAbilities;
+            }
+        }
+        return abilitiesInScope(DEFAULT_SCOPE, id);
+    }
+
+    private List<String> abilitiesInScope(String scopeName, String mobId) {
+        Map<String, MobOverrideEntry> mobs = scopes.get(scopeName);
+        if (mobs == null) {
+            return List.of();
+        }
+        MobOverrideEntry entry = mobs.get(mobId);
+        return entry == null ? List.of() : entry.abilities();
+    }
+
     private List<MobOverrideDropEntry> dropsInScope(String scopeName, String mobId) {
         Map<String, MobOverrideEntry> mobs = scopes.get(scopeName);
         if (mobs == null) {
@@ -316,6 +405,7 @@ public final class MobOverridesConfig implements LoadableConfig {
             return new ParseResult(Map.of(), 0, 0);
         }
         Map<String, String> scopeDisplayNames = new LinkedHashMap<>();
+        Map<String, MobStatOverride> scopeStats = new LinkedHashMap<>();
         for (String scopeName : overridesSection.getKeys(false)) {
             ConfigurationSection scopeSection = overridesSection.getConfigurationSection(scopeName);
             if (scopeSection == null) {
@@ -331,11 +421,23 @@ public final class MobOverridesConfig implements LoadableConfig {
             if (scopeDisplayName != null) {
                 scopeDisplayNames.put(scopeName, scopeDisplayName);
             }
+            // scope 直下の stats:(ダンジョン全体の既定値、2026-08-03)。mob 単位とまったく同じパーサを
+            // 通すのでキー体系も検証もズレようがない。
+            StatsResult scopeStatsResult = parseStats(scopeSection.getConfigurationSection("stats"), scopeName,
+                    "<scope>", log);
+            skipped += scopeStatsResult.skipped();
+            if (!scopeStatsResult.stats().isEmpty()) {
+                scopeStats.put(scopeName, scopeStatsResult.stats());
+            }
             ConfigurationSection mobsSection = scopeSection.getConfigurationSection("mobs");
             if (mobsSection == null) {
-                log.warning("[" + PATH + "] overrides." + scopeName + " has no 'mobs:' section"
-                        + " (forgot to nest under 'mobs:'?); this scope was skipped");
-                skipped++;
+                // 2026-08-03: scope直下だけで完結する設定(stats:)を書いた場合は 'mobs:' が無くても
+                // 正しい記述なので警告しない。それも無いときだけ書き間違いとして扱う。
+                if (scopeStatsResult.stats().isEmpty()) {
+                    log.warning("[" + PATH + "] overrides." + scopeName + " has no 'mobs:' section"
+                            + " (forgot to nest under 'mobs:'?); this scope was skipped");
+                    skipped++;
+                }
                 continue;
             }
             Map<String, MobOverrideEntry> mobs = new LinkedHashMap<>();
@@ -369,15 +471,27 @@ public final class MobOverridesConfig implements LoadableConfig {
                 skipped += dropsResult.skipped();
                 Ramp vanillaExp = parseVanillaExp(mobSection, scopeName, rawMobId, log);
                 String displayName = trimToNull(mobSection.getString(DISPLAY_NAME_KEY));
+                // 2026-07-31: 特殊攻撃テンプレートIDの列。ここでは実在チェックをしない ——
+                // mob-abilities.yml のロード順に依存させたくないため。未定義IDは発動時に読み飛ばす。
+                List<String> abilities = new ArrayList<>();
+                for (String raw : mobSection.getStringList(ABILITIES_KEY)) {
+                    if (raw != null && !raw.isBlank()) {
+                        String normalized = raw.trim().toLowerCase(java.util.Locale.ROOT);
+                        if (!abilities.contains(normalized)) {
+                            abilities.add(normalized);
+                        }
+                    }
+                }
                 mobs.put(mobId, new MobOverrideEntry(statsResult.stats(), dropsResult.drops(), vanillaExp,
-                        displayName));
+                        displayName, abilities));
                 mobCount++;
             }
             if (!mobs.isEmpty()) {
                 scopes.put(scopeName, Map.copyOf(mobs));
             }
         }
-        return new ParseResult(Map.copyOf(scopes), Map.copyOf(scopeDisplayNames), skipped, mobCount);
+        return new ParseResult(Map.copyOf(scopes), Map.copyOf(scopeDisplayNames),
+                Map.copyOf(scopeStats), skipped, mobCount);
     }
 
     /** {@code null} for a null/blank string, the trimmed value otherwise. */
@@ -417,6 +531,24 @@ public final class MobOverridesConfig implements LoadableConfig {
     }
 
     /**
+     * Same contract as {@link #nullableValidatedDouble}, additionally requiring the value be either
+     * exactly {@code -1.0}(「入手不可」の特別値)or within {@code [0.0, 1.0]}. Anything else (e.g.
+     * {@code 2.0} or {@code -0.5}) is warned and treated as absent, mirroring the other fail-soft
+     * field parsers in this file.
+     */
+    private static Double nullableValidatedRate(ConfigurationSection section, String key, String scopeName,
+            String mobId, String fieldLabel, Logger log, int[] skipped) {
+        Double value = nullableValidatedDouble(section, key, scopeName, mobId, fieldLabel, log, skipped);
+        if (value == null || value == -1.0 || (value >= 0.0 && value <= 1.0)) {
+            return value;
+        }
+        log.warning("[" + PATH + "] " + scopeName + "." + mobId + " " + fieldLabel
+                + " must be -1 or within [0.0, 1.0] (was " + value + "); ignored");
+        skipped[0]++;
+        return null;
+    }
+
+    /**
      * 2026-07-26 H3 レビュー指摘への対応。以前は値を一切検証せず {@link MobStatOverride} を組み立てて
      * いたため、{@code level < 0} や {@code max-health < 0} を書くと {@link #resolve} 呼び出し時に
      * {@link MobProfile} のコンパクトコンストラクタが {@link IllegalArgumentException} を投げ、
@@ -451,6 +583,12 @@ public final class MobOverridesConfig implements LoadableConfig {
             skipped[0]++;
             maxHealth = null;
         }
+        // 2026-08-14 倍率キー。難易度を「そのレベルで本来決まる強さの N 倍」として表現するためのもの
+        // (絶対値だと level: dynamic のダンジョンと両立しない。MobStatOverride の javadoc 参照)。
+        Double maxHealthMultiplier = nullablePositiveMultiplier(stats, "max-health-multiplier", scopeName,
+                mobId, "stats.max-health-multiplier", log, skipped);
+        Double attackPowerMultiplier = nullablePositiveMultiplier(stats, "attack-power-multiplier", scopeName,
+                mobId, "stats.attack-power-multiplier", log, skipped);
         Double armorStrength = nullableValidatedDouble(stats, "armor-strength", scopeName, mobId,
                 "stats.armor-strength", log, skipped);
         MobStatOverride.DefenseFieldOverride physical =
@@ -459,8 +597,67 @@ public final class MobOverridesConfig implements LoadableConfig {
                 parseDefense(stats.getConfigurationSection("magical"), scopeName, mobId, "magical", log, skipped);
         MobStatOverride.AttackFieldOverride attack =
                 parseAttack(stats.getConfigurationSection("attack"), scopeName, mobId, log, skipped);
-        MobStatOverride result = new MobStatOverride(level, maxHealth, armorStrength, physical, magical, attack);
+        MobStatOverride result = new MobStatOverride(level, maxHealth, maxHealthMultiplier, armorStrength,
+                attackPowerMultiplier, physical, magical, attack);
         return new StatsResult(result, skipped[0]);
+    }
+
+    /**
+     * 倍率キー(2026-08-14)のパーサ。{@link #nullableValidatedDouble} の契約(未指定は静かに {@code null}、
+     * 非数値/非有限は警告して無視)に加えて<b>「0 より大きい」ことを要求</b>する。
+     *
+     * <p>0 と負値を通さない理由は「掛け算として無意味だから」ではなく<b>実害が真逆だから</b>:
+     * {@code max-health} が 0 は「未設定 = EliteMobs 自身の HP を使う」、{@code attack-power} が 0 は
+     * {@code MobProfile#hasAttack()} が false = 「TF の攻撃側を使わない」を意味する。つまり
+     * {@code max-health-multiplier: 0} と書いた人は「HP を 0 にする」つもりでも、実際には
+     * <b>そのモブの HP 設定ごと消えて EliteMobs 既定の HP に戻る</b>。負値に至っては
+     * {@link MobProfile} のコンパクトコンストラクタが例外を投げ、スポーンリスナーがそれを握り潰して
+     * モブが TF 戦闘パイプラインから丸ごと外れる(2026-07-26 H3 と同じ経路)。どちらも「無言で効かない」
+     * ではなく「無言で別のことが起きる」ので、ここで警告して捨てる。
+     *
+     * <p><b>クォートされた数値文字列({@code "2.5"})も受け付けない</b>(2026-08-14 に方針変更)。
+     * 他の数値キーは {@code toFiniteDouble} が文字列もパースするが、倍率キーだけは
+     * <b>config-editor と受理範囲を揃える</b>ことを優先した: editor 側のバリデータ
+     * ({@code tools/config-editor/lib/schema.js} の {@code isNumber} = {@code typeof value === "number"})
+     * は文字列を弾くので、Java だけが受け付けると「手書きで {@code "2.5"} と書いた yml を editor で開くと
+     * <b>ファイルごと保存できなくなる</b>」という非対称が生まれる。狭い側へ寄せても既存設定は壊れない
+     * ——2026-08-14 実測で出荷 {@code combat/mob-overrides.yml} の倍率キーは 40 件(scope 直下 18 /
+     * per-mob 22)あるが、<b>全件が素の数値でクォート文字列は 0 件</b>。件数は増えていくので、
+     * この判定を広げ直すときは実データを数え直すこと。
+     */
+    private static Double nullablePositiveMultiplier(ConfigurationSection section, String key, String scopeName,
+            String mobId, String fieldLabel, Logger log, int[] skipped) {
+        if (section.contains(key) && !(section.get(key) instanceof Number)) {
+            log.warning("[" + PATH + "] " + scopeName + "." + mobId + " " + fieldLabel
+                    + " must be numeric and unquoted (was '" + section.get(key) + "'); ignored");
+            skipped[0]++;
+            return null;
+        }
+        Double value = nullableValidatedDouble(section, key, scopeName, mobId, fieldLabel, log, skipped);
+        if (value == null || value > 0.0) {
+            return value;
+        }
+        log.warning("[" + PATH + "] " + scopeName + "." + mobId + " " + fieldLabel
+                + " must be > 0 (was " + value + "); ignored");
+        skipped[0]++;
+        return null;
+    }
+
+    /**
+     * 「正しいキーを間違った階層に書いた」を検出して警告する(2026-08-14)。倍率キーは
+     * {@code stats:} 直下だが、対になる絶対値 {@code attack-power} は {@code stats.attack:} の中に
+     * あるため、{@code attack:} の中へ書いてしまうのは十分あり得る書き間違い。Bukkit の
+     * {@link ConfigurationSection} は未知キーを黙って捨てるので、放置すると
+     * <b>「書いたのに何も起きない」が警告なしで成立する</b> —— このリポジトリで繰り返し事故になっている
+     * パターンなので、明示的に潰しておく。
+     */
+    private static void warnMisplacedKey(ConfigurationSection section, String key, String correctPath,
+            String scopeName, String mobId, String wrongPath, Logger log, int[] skipped) {
+        if (section.contains(key)) {
+            log.warning("[" + PATH + "] " + scopeName + "." + mobId + " " + wrongPath
+                    + " is not a valid key; write it as " + correctPath + " instead; ignored");
+            skipped[0]++;
+        }
     }
 
     private static MobStatOverride.DefenseFieldOverride parseDefense(ConfigurationSection section,
@@ -484,6 +681,16 @@ public final class MobOverridesConfig implements LoadableConfig {
         if (section == null) {
             return null;
         }
+        // 2026-08-14: 倍率キー 2 本はどちらも stats: 直下。attack-power-multiplier は対になる
+        // attack-power がこの attack: の中にあるので混同しやすく、ここに書くと黙って捨てられる
+        // (warnMisplacedKey 参照)。max-health-multiplier にも同じ検査を張るのは、難易度が
+        // 「HP 何倍・攻撃力何倍」の対で書かれるものだから ——【対のうち片方しか警告しないと、
+        // 警告に従って attack-power-multiplier だけ直したのに max-health-multiplier は
+        // attack: の中に残ったまま無言で不発、という一番たちの悪い直り方をする】。
+        warnMisplacedKey(section, "attack-power-multiplier", "stats.attack-power-multiplier", scopeName, mobId,
+                "stats.attack.attack-power-multiplier", log, skipped);
+        warnMisplacedKey(section, "max-health-multiplier", "stats.max-health-multiplier", scopeName, mobId,
+                "stats.attack.max-health-multiplier", log, skipped);
         return new MobStatOverride.AttackFieldOverride(
                 // "attack-power" (not "default-damage"): matches combat/mob-profiles.yml's/
                 // combat/mob-types.yml's own attack: key vocabulary for this same AttackStats.defaultDamage
@@ -503,6 +710,12 @@ public final class MobOverridesConfig implements LoadableConfig {
                 nullableValidatedDouble(section, "damage-modifier", scopeName, mobId,
                         "stats.attack.damage-modifier", log, skipped),
                 nullableValidatedDouble(section, "fixed-damage", scopeName, mobId, "stats.attack.fixed-damage",
+                        log, skipped),
+                // 2026-08-02: このモブの通常攻撃を魔法として解決する割合[0,1]。attack-power等の他フィールド
+                // を1件も書かなくても単独で設定できる(MobStatOverride.AttackFieldOverride javadoc参照)ので、
+                // EliteMobsダンジョンモブ(mob-profiles.ymlにattack:が無くEliteMobs自身の式のまま)にも
+                // 「魔法として解決する」ことだけを乗せられる。[0,1]範囲外は警告のうえ無視。
+                nullableValidatedRate(section, "magic-ratio", scopeName, mobId, "stats.attack.magic-ratio",
                         log, skipped));
     }
 
@@ -650,11 +863,19 @@ public final class MobOverridesConfig implements LoadableConfig {
 
     /** Parse outcome: the immutable scope map and how many mob entries/drops were skipped. */
     record ParseResult(Map<String, Map<String, MobOverrideEntry>> scopes,
-                       Map<String, String> scopeDisplayNames, int skipped, int mobCount) {
+                       Map<String, String> scopeDisplayNames,
+                       Map<String, MobStatOverride> scopeStats,
+                       int skipped, int mobCount) {
 
         /** Back-compat for tests written before ダンジョン表示名 (2026-07-26) existed. */
         ParseResult(Map<String, Map<String, MobOverrideEntry>> scopes, int skipped, int mobCount) {
-            this(scopes, Map.of(), skipped, mobCount);
+            this(scopes, Map.of(), Map.of(), skipped, mobCount);
+        }
+
+        /** Back-compat for callers written before scope直下の {@code stats:} (2026-08-03) existed. */
+        ParseResult(Map<String, Map<String, MobOverrideEntry>> scopes, Map<String, String> scopeDisplayNames,
+                    int skipped, int mobCount) {
+            this(scopes, scopeDisplayNames, Map.of(), skipped, mobCount);
         }
     }
 

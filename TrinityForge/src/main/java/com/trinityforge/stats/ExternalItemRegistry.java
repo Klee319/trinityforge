@@ -93,6 +93,31 @@ public final class ExternalItemRegistry {
                 .findFirst();
     }
 
+    /**
+     * The {@code source} name of the plugin layer that claims this material+CustomModelData, if any.
+     *
+     * <p>Unlike {@link #find(Material, Integer)} this deliberately ignores the <em>local</em> layer
+     * ({@code items/external-items.yml}): the question it answers is "which other plugin owns this
+     * stack", and TF describing a foreign item in its own yml does not make TF the owner. Returns
+     * empty for TF catalog items and for plain vanilla stacks.
+     *
+     * <p>Used by {@code CatalogWorkbenchListener} to decide whether the plugin that registered the
+     * currently selected recipe is also the owner of every custom stack on the grid — in that case
+     * TF must not clear the result, because that plugin's own per-slot guard is authoritative.
+     */
+    public static Optional<String> pluginSourceOf(Material material, Integer customModelData) {
+        if (material == null || customModelData == null) return Optional.empty();
+        for (Map.Entry<String, Map<String, Definition>> layer : pluginLayers.entrySet()) {
+            for (Definition definition : layer.getValue().values()) {
+                if (definition.material() == material
+                        && definition.customModelData() == customModelData) {
+                    return Optional.of(layer.getKey());
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
     public static boolean matches(String id, ItemStack stack, Integer cmd) {
         return find(id).map(definition -> definition.matches(stack, cmd)).orElse(false);
     }

@@ -38,6 +38,13 @@ import java.util.OptionalInt;
  * {@code droppedExp == 0} from the base game); without this gate the MONITOR-priority
  * {@code setDroppedExp} here unconditionally overwrote that 0 with the full ramp value regardless of who
  * (or what) landed the kill, turning any AFK/automated non-player kill into a free EXP farm.
+ *
+ * <p><b>レベル差による足きりはここには無い(2026-08-09):</b> 2026-07-27 に一度このクラスへ入れたが、
+ * {@code combat/mob-overrides.yml} 由来の設定だったためEliteMobsスタンプ済みモブ(=ダンジョンモブ)にしか
+ * 掛からなかった。共通設定({@code combat/damage.yml} の {@code level-cutoff})へ移し、全モブに効く
+ * {@link LevelCutoffExpListener} が担当する。適用順は「ランプ →
+ * {@link com.trinityforge.progression.LocationExpDiminishing} → 足きり倍率」で、後段の足きりは
+ * このリスナーより後に登録された別リスナーとして走る(どちらも乗算なので順序で結果は変わらない)。
  */
 public final class MobOverrideExpListener implements Listener {
 
@@ -61,12 +68,17 @@ public final class MobOverrideExpListener implements Listener {
         if (profileId.isEmpty()) {
             return;
         }
-        OptionalInt exp = mobOverrides.vanillaExpFor(entity.getWorld().getName(), profileId.get(),
-                mobData.level());
-        if (exp.isPresent()) {
-            // TT/放置対策: 同一地点で稼ぎ続けたぶんだけ経験値オーブを減らす(ダンジョンは既定で対象外)。
-            event.setDroppedExp(com.trinityforge.progression.LocationExpDiminishing
-                    .applyIfRunning(exp.getAsInt(), entity));
+        String worldName = entity.getWorld().getName();
+        int mobLevel = mobData.level();
+        OptionalInt ramp = mobOverrides.vanillaExpFor(worldName, profileId.get(), mobLevel);
+        if (ramp.isEmpty()) {
+            // ランプ未設定なら一切触らない — このキルのEXPが何であれ(EliteMobsフォークが既に計算した
+            // 値含め)そのまま生かす。2026-08-09: レベル差の足きりはこのクラスから外し、全モブに効く
+            // LevelCutoffExpListener(このリスナーより後に登録)へ移した。
+            return;
         }
+        // TT/放置対策: 同一地点で稼ぎ続けたぶんだけ経験値オーブを減らす(ダンジョンは既定で対象外)。
+        event.setDroppedExp(com.trinityforge.progression.LocationExpDiminishing
+                .applyIfRunning(Math.max(0, ramp.getAsInt()), entity));
     }
 }

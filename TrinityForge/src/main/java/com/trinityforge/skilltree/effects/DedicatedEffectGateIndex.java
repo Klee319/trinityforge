@@ -36,8 +36,17 @@ public final class DedicatedEffectGateIndex {
     public static final DedicatedEffectGateIndex EMPTY =
             new DedicatedEffectGateIndex(Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
 
-    /** One node's placement of an effect: the node's own perk id, plus the placement's value (may be {@code null}). */
-    public record PerkValue(String perkId, Double value) {
+    /**
+     * One node's placement of an effect: the skill tree it lives in, the node's own perk id, and the
+     * placement's value (may be {@code null}).
+     *
+     * <p>{@code skill} exists so a consumer can ask "is this effect unlocked <em>in this particular
+     * tree</em>" rather than "anywhere" — required whenever the same effect id is placed on several
+     * trees and the trigger is tree-specific (see
+     * {@link #isActiveByPerks(java.util.Set, String, String)} /
+     * {@link #valueMaxByPerks(java.util.Set, String, String)}).
+     */
+    public record PerkValue(String skill, String perkId, Double value) {
     }
 
     private final Map<String, Set<String>> glyphGatePerks;
@@ -88,11 +97,33 @@ public final class DedicatedEffectGateIndex {
 
     /**
      * True when {@code heldPerks} contains the perk id of at least one node placing {@code effectId},
-     * across every channel (unlike {@link #glyphGatePerks()} etc. this is not limited to one channel).
+     * across every channel (unlike {@link #glyphGatePerks()} etc. this is not limited to one channel)
+     * <b>and across every skill tree</b> — use {@link #isActiveByPerks(Set, String, String)} when the
+     * tree the effect was unlocked in has to match the trigger.
      * Fail-safe: {@code null}/empty {@code heldPerks}, a {@code null} {@code effectId}, or an
      * {@code effectId} unknown to this index all yield {@code false}.
      */
     public boolean isActiveByPerks(Set<String> heldPerks, String effectId) {
+        return isActiveByPerks(heldPerks, effectId, null);
+    }
+
+    /**
+     * {@link #isActiveByPerks(Set, String)} restricted to placements that live in the skill tree
+     * {@code skill} ({@code null}/blank = unrestricted, identical to the two-argument form).
+     *
+     * <p><b>2026-08-01 実サーバ報告の修正 (param:none 版)</b>: {@link #valueMaxByPerks(Set, String, String)}
+     * と同じ理由でツリー限定が要る効果は、値を持つ効果 (SCALE) だけではない。当時の
+     * {@code feature:break-vanilla-exp} は {@code mining.yml} / {@code woodcutting.yml} /
+     * {@code digging.yml} / {@code farming.yml} の<b>4ツリーすべてが A ノードに置く共有id</b>だったので、
+     * 「どこか1本で解放したら全部の採取で発動する」判定にすると<b>採掘ツリーだけ育てたプレイヤーが
+     * 作物や原木でもバニラEXPを得てしまう</b>。破壊したブロックが属する採取スキルでこちらを使って絞ること。
+     *
+     * <p><b>2026-08-18 (W-58) 追記</b>: {@code break-vanilla-exp} はスキルごとの id
+     * ({@code break-vanilla-exp-mining} 等、{@code BreakVanillaExpBonusKeys#featureId(String)})へ
+     * 分割済みで、共有id自体はもう存在しない。この3引数呼び出しは belt-and-suspenders として
+     * 引き続き維持されている(id分割だけでも同種の漏れは防げるが、二重の安全策として残す)。
+     */
+    public boolean isActiveByPerks(Set<String> heldPerks, String effectId, String skill) {
         if (heldPerks == null || heldPerks.isEmpty() || effectId == null) {
             return false;
         }
@@ -100,8 +131,10 @@ public final class DedicatedEffectGateIndex {
         if (placements == null) {
             return false;
         }
+        String scope = skill == null || skill.isBlank() ? null : skill.trim();
         for (PerkValue placement : placements) {
-            if (heldPerks.contains(placement.perkId())) {
+            if (heldPerks.contains(placement.perkId())
+                    && (scope == null || scope.equalsIgnoreCase(placement.skill()))) {
                 return true;
             }
         }
@@ -138,6 +171,20 @@ public final class DedicatedEffectGateIndex {
      * or a match set with no numeric value all yield {@link OptionalDouble#empty()}.
      */
     public OptionalDouble valueMaxByPerks(Set<String> heldPerks, String effectId) {
+        return valueMaxByPerks(heldPerks, effectId, null);
+    }
+
+    /**
+     * {@link #valueMaxByPerks(Set, String)} restricted to placements that live in the skill tree
+     * {@code skill} ({@code null}/blank = unrestricted, identical to the two-argument form).
+     *
+     * <p><b>2026-08-01 実サーバ報告の修正</b>: 同じ effect id を複数のツリーが置くのは正当な形
+     * ({@code feature:haste-active-mining} は {@code mining.yml} A-1 と {@code digging.yml} A-1 の
+     * 両方が置く)。しかし「どのツリーで解放したか」を無視して最大値を返すと、
+     * <b>ツルハシ側のノードしか取っていないプレイヤーがシャベルでも発動できてしまう</b>
+     * (逆も同様)。トリガーが持ち替えたツールのスキルに紐づく用途では必ずこちらを使うこと。
+     */
+    public OptionalDouble valueMaxByPerks(Set<String> heldPerks, String effectId, String skill) {
         if (heldPerks == null || heldPerks.isEmpty() || effectId == null) {
             return OptionalDouble.empty();
         }
@@ -145,8 +192,10 @@ public final class DedicatedEffectGateIndex {
         if (placements == null) {
             return OptionalDouble.empty();
         }
+        String scope = skill == null || skill.isBlank() ? null : skill.trim();
         return placements.stream()
                 .filter(placement -> heldPerks.contains(placement.perkId()) && placement.value() != null)
+                .filter(placement -> scope == null || scope.equalsIgnoreCase(placement.skill()))
                 .mapToDouble(PerkValue::value)
                 .max();
     }
@@ -183,7 +232,7 @@ public final class DedicatedEffectGateIndex {
                     // consumer needing isActive/valueSum/valueMax for any effect id (flag or gate alike) has
                     // one uniform query surface.
                     effectValues.computeIfAbsent(placement.id(), k -> new ArrayList<>())
-                            .add(new PerkValue(perkId, placement.value()));
+                            .add(new PerkValue(tree.skill(), perkId, placement.value()));
 
                     GateEffectId gate = parsed.get();
                     Map<String, Set<String>> bucket = switch (gate.channel()) {

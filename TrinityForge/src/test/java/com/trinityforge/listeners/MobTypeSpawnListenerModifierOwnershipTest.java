@@ -1,5 +1,6 @@
 package com.trinityforge.listeners;
 
+import com.trinityforge.config.ConfigManager;
 import com.trinityforge.config.domains.MobTypesConfig;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
@@ -41,7 +42,7 @@ class MobTypeSpawnListenerModifierOwnershipTest {
         server = MockBukkit.mock();
         tfPlugin = MockBukkit.createMockPlugin("TrinityForge");
         foreignPlugin = MockBukkit.createMockPlugin("EliteMobs");
-        listener = new MobTypeSpawnListener(tfPlugin, mock(MobTypesConfig.class));
+        listener = new MobTypeSpawnListener(tfPlugin, mock(MobTypesConfig.class), mock(ConfigManager.class));
     }
 
     @AfterEach

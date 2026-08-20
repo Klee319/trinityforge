@@ -8,10 +8,13 @@ import com.trinityforge.pdc.BindType;
 import com.trinityforge.pdc.ItemData;
 import com.trinityforge.stats.CatalogIdentity;
 import com.trinityforge.stats.CraftQualityPolicy;
+import com.trinityforge.stats.CraftQualityService;
 import com.trinityforge.stats.DerivedItemStats;
 import com.trinityforge.stats.ItemFactory;
 import com.trinityforge.stats.PlayerLootLuckSource;
 import com.trinityforge.stats.PreviewRollSeeds;
+import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -24,6 +27,7 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import io.papermc.paper.event.player.PlayerInventorySlotChangeEvent;
 
@@ -33,6 +37,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * 未刻印(hasRollSeed() == false)だが {@code stats/item-stats.yml} に設定のあるアイテムが、地面からの取得・
@@ -61,12 +67,39 @@ public final class PickupQualityListener implements Listener {
     private final QualityConfig quality;
     private final ItemCatalogConfig itemCatalog;
     private final PlayerLootLuckSource lootLuck;
+    // 品質未決定マーカー(儀式クラフト成果物)を回収者のステータスで解決するために使う。
+    // null 可: この経路を持たない構成/テストでは通常のドロップ品経路へフォールバックする。
+    private final CraftQualityService craftQuality;
     // 同一tick内での走査重複を防ぐ(イベントが連続で来ても1プレイヤー1tick1走査)。
     private final Set<UUID> pendingSweep = ConcurrentHashMap.newKeySet();
+    // ArsPaper スレッド(ThreadItem)専用の品質再刻印関数(W-53)。詳細は下の interface/defaultメソッド。
+    private final ArsThreadQualityRestamper arsThreadRestamper;
 
     public PickupQualityListener(Plugin plugin, ItemFactory itemFactory, ItemStatsConfig itemStats,
                                   QualityTiersConfig qualityTiers, QualityConfig quality,
                                   ItemCatalogConfig itemCatalog, PlayerLootLuckSource lootLuck) {
+        this(plugin, itemFactory, itemStats, qualityTiers, quality, itemCatalog, lootLuck, null);
+    }
+
+    public PickupQualityListener(Plugin plugin, ItemFactory itemFactory, ItemStatsConfig itemStats,
+                                  QualityTiersConfig qualityTiers, QualityConfig quality,
+                                  ItemCatalogConfig itemCatalog, PlayerLootLuckSource lootLuck,
+                                  CraftQualityService craftQuality) {
+        this(plugin, itemFactory, itemStats, qualityTiers, quality, itemCatalog, lootLuck, craftQuality,
+                PickupQualityListener::defaultArsThreadRestamp);
+    }
+
+    /**
+     * テスト用シーム。{@code arsThreadRestamper} は「ArsPaper のスレッド(ThreadItem)専用の品質再刻印」を
+     * 行う関数で、本番は必ず {@link #defaultArsThreadRestamp} が入る({@code CraftQualityService} 込み8引数
+     * コンストラクタ経由)。差し替え可能にしてある理由は {@code GiveItemCommand.ThreadQualityRestamper} と
+     * 同じ(本番実装が {@code Bukkit.getPluginManager().getPlugin("ArsPaper")} 越しのリフレクションで、
+     * ユニットテストからは実際の ArsPaper プラグイン/ThreadItem の実体を用意できないため)。
+     */
+    PickupQualityListener(Plugin plugin, ItemFactory itemFactory, ItemStatsConfig itemStats,
+                          QualityTiersConfig qualityTiers, QualityConfig quality,
+                          ItemCatalogConfig itemCatalog, PlayerLootLuckSource lootLuck,
+                          CraftQualityService craftQuality, ArsThreadQualityRestamper arsThreadRestamper) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.itemFactory = Objects.requireNonNull(itemFactory, "itemFactory");
         this.itemStats = Objects.requireNonNull(itemStats, "itemStats");
@@ -74,6 +107,82 @@ public final class PickupQualityListener implements Listener {
         this.quality = Objects.requireNonNull(quality, "quality");
         this.itemCatalog = Objects.requireNonNull(itemCatalog, "itemCatalog");
         this.lootLuck = Objects.requireNonNull(lootLuck, "lootLuck");
+        this.craftQuality = craftQuality;
+        this.arsThreadRestamper = Objects.requireNonNull(arsThreadRestamper, "arsThreadRestamper");
+    }
+
+    /** ArsPaper {@code ItemKeys.THREAD_ITEM_TYPE} と同じ名前空間/キー(コンパイル依存なしで読む)。 */
+    private static final NamespacedKey ARS_THREAD_ITEM_TYPE_KEY =
+            new NamespacedKey("arspaper", "thread_item_type");
+
+    /**
+     * {@code meta} が ArsPaper のスレッド(ThreadItem)かどうかの<b>安価な</b>事前判定(reflectionなし、
+     * PDCキーの有無だけ見る)。{@link #stampIfEligible} が「品質rollを行うかどうか」の分岐に使う —
+     * 通常アイテム(圧倒的多数)については、この判定だけで早期returnし、reflectionを一切呼ばない。
+     */
+    static boolean hasArsThreadMarker(ItemMeta meta) {
+        return meta.getPersistentDataContainer().has(ARS_THREAD_ITEM_TYPE_KEY, PersistentDataType.STRING);
+    }
+
+    /**
+     * {@link ArsThreadQualityRestamper} の本番実装。ArsPaper 側 {@code ThreadItem#restampWithQuality}
+     * (メソッド名/シグネチャは合わせて変更する契約。{@code GiveItemCommand#defaultThreadRestamp} と同じ
+     * 契約対象)へ reflection 経由で委譲する。
+     *
+     * <p><b>なぜ必要か(W-53、根本原因2/2)</b>: 各スレッドは {@code item-stats.yml} に
+     * {@code MATERIAL#cmd} の profile <b>を持つ</b>({@code socketed-only-stats: true} 等の
+     * フラグだけの薄いentryだが、{@code ItemStatsConfig#load} は fixed/per-quality/random が空でも
+     * 必ず {@code ItemStatProfile} を1件生成するので {@code profileFor(...)} は空にならない ——
+     * 「スレッドは profile を持たない」という誤診で {@code itemStats.profileFor(...).isEmpty()} を
+     * スレッド検出に使わないこと)。したがって {@code stampIfEligible} の通常ゲートは<b>スレッドも
+     * 通してしまう</b>。問題は「品質rollへ到達できるか」ではなく「刻印を汎用
+     * {@code ItemFactory#stamp}(lore 全体を {@code ItemAssembler#assemble} で再組み立てする経路)に
+     * 通してよいか」——スレッドの lore はスレッド専用体裁(効果説明/スロット案内/バックパック行、
+     * {@code ThreadItem#fullLore})なので、汎用stampをそのまま通すと上書きされる。そのため PDCマーカー
+     * ({@link #hasArsThreadMarker})でスレッドだと判れば、{@code itemFactory.stamp} には絶対に
+     * フォールスルーさせず、必ず {@code ThreadItem#restampWithQuality}(lore もスレッド専用体裁で
+     * 組み直す)経由にするか、それが失敗したら無刻印のまま諦める({@link #stampIfEligible} 末尾参照)。
+     */
+    static boolean defaultArsThreadRestamp(ItemStack stack, int quality) {
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null || !hasArsThreadMarker(meta)) {
+            return false;
+        }
+        String typeId = meta.getPersistentDataContainer()
+                .get(ARS_THREAD_ITEM_TYPE_KEY, PersistentDataType.STRING);
+        if (typeId == null) {
+            return false;
+        }
+        try {
+            Plugin ars = Bukkit.getPluginManager().getPlugin("ArsPaper");
+            if (ars == null) {
+                return false;
+            }
+            Object registry = ars.getClass().getMethod("getItemRegistry").invoke(ars);
+            Object opt = registry.getClass().getMethod("get", String.class)
+                    .invoke(registry, "thread_" + typeId);
+            if (!(opt instanceof Optional<?> optional) || optional.isEmpty()) {
+                return false;
+            }
+            Object customItem = optional.get();
+            java.lang.reflect.Method restamp =
+                    customItem.getClass().getMethod("restampWithQuality", ItemStack.class, int.class);
+            return (boolean) restamp.invoke(customItem, stack, quality);
+        } catch (ReflectiveOperationException ex) {
+            Logger.getLogger(PickupQualityListener.class.getName())
+                    .log(Level.FINE, "[pickup] ArsPaper thread quality restamp failed for " + typeId, ex);
+            return false;
+        }
+    }
+
+    /**
+     * {@link ArsThreadQualityRestamper} 本体。{@code stack} が ArsPaper のスレッド(ThreadItem)なら
+     * {@code quality} で再刻印して {@code true}、そうでなければ {@code false}
+     * (呼び出し側は通常の {@code itemStats} ゲートへフォールバックする)。
+     */
+    @FunctionalInterface
+    interface ArsThreadQualityRestamper {
+        boolean restampIfThread(ItemStack stack, int quality);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -185,6 +294,21 @@ public final class PickupQualityListener implements Listener {
             return false;
         }
         ItemData data = ItemData.of(meta);
+        // 儀式クラフト成果物の「品質未決定」マーカー(2026-08-04): 台座の上に置かれた時点では回収者が
+        // 確定していないので、最初にインベントリへ入ったこのプレイヤーの Ars鍛冶ステータスで品質を決め、
+        // itemFactory.stamp でフル再組み立て(lore/属性)してからマーカーを剥がす。
+        // 旧実装は儀式時点で PDC だけ書いて再組み立てを呼んでいなかったため「手に持つまでステータスが
+        // つかない」不具合になっていた。詳細は PdcKeys#ITEM_PENDING_CRAFT_QUALITY。
+        // craftQuality == null(この経路を配線していない構成/テスト)のときは印を残したまま素通りし、
+        // 下の通常ドロップ品経路に任せる ── 品質が付かないより loot 分布で付く方がまし。
+        if (data.pendingCraftQuality() && craftQuality != null) {
+            int crafted = craftQuality.rollArsSmithingQuality(player, stack);
+            data.setCraftRollMods(craftQuality.craftRollMods(player));
+            data.clearPendingCraftQuality();
+            stack.setItemMeta(meta);
+            itemFactory.stamp(stack, ThreadLocalRandom.current().nextLong(), crafted);
+            return true;
+        }
         if (data.hasRollSeed()) {
             // Prepare プレビュー刻印は「刻印済み」扱いだと永久に残る — 品質を保ったまま本物seedへ差し替え。
             Optional<Long> seed = data.rollSeed();
@@ -196,7 +320,19 @@ public final class PickupQualityListener implements Listener {
             return true;
         }
         Integer cmd = DerivedItemStats.customModelDataOf(meta);
-        if (itemStats.profileFor(stack.getType(), cmd).isEmpty()) {
+        // ArsPaper のスレッド(ThreadItem)は実は item-stats.yml に profile を持つ(各 MATERIAL#CMD の
+        // socketed-only-stats/offhand-stats-apply フラグ行だけの薄いentryだが、
+        // ItemStatsConfig#load はfixed/per-quality/randomが空でも常にItemStatProfileを1件生成するため、
+        // itemStats.profileFor(...) は空にならない)。だから profileFor だけでは非スレッドと区別できない —
+        // 区別が必要なのは「品質rollを行うか」ではなく「刻印を汎用 ItemFactory#stamp 経路に通してよいか」
+        // のほう(W-53、根本原因2/2)。スレッドの lore はスレッド専用体裁
+        // (ThreadItem#fullLore/equipmentStyleRollLore)なので、汎用stampの lore 再組み立て
+        // (ItemAssembler#assemble)を直接通すと上書きされてしまう。そのため PDCマーカー
+        // ({@link #hasArsThreadMarker})でスレッドを検出したら、成否に関わらず itemFactory.stamp
+        // には絶対に流さず、必ず ThreadItem#restampWithQuality 経由(またはfail-openで無刻印)にする。
+        boolean maybeArsThread = hasArsThreadMarker(meta);
+        boolean hasStatsProfile = itemStats.profileFor(stack.getType(), cmd).isPresent();
+        if (!hasStatsProfile && !maybeArsThread) {
             return false;
         }
         int tierCount = qualityTiers.tiers().size();
@@ -206,7 +342,9 @@ public final class PickupQualityListener implements Listener {
         int maxQuality = quality.maxQuality();
         ThreadLocalRandom rng = ThreadLocalRandom.current();
         // 品質基準値 (item-stats quality-mode-offset, 2026-07-23 stat-gate-overhaul §6.6 適用拡大):
-        // 幸運由来のmode加算に、このアイテムの基準値オフセットを加える。
+        // 幸運由来のmode加算に、このアイテムの基準値オフセットを加える。スレッドの薄いprofileエントリは
+        // quality-mode-offset を書いていないので、qualityModeOffsetFor は既定の0を返す
+        // (=幸運由来のmode加算だけが乗る)。
         int mode = quality.lootBaseQuality() + lootLuck.qualityModeBonus(player, rng)
                 + itemStats.qualityModeOffsetFor(stack.getType(), cmd);
         int rolled = CraftQualityPolicy.resolveQualityNormal(
@@ -215,6 +353,16 @@ public final class PickupQualityListener implements Listener {
                 quality.spreadUp(),
                 quality.spreadDown(),
                 maxQuality);
+        if (maybeArsThread) {
+            // スレッドは成否に関わらずここで確定させる — hasStatsProfileがtrueでも(実際は常にtrue)
+            // 下の汎用itemFactory.stampへは絶対にフォールスルーさせない(スレッド専用loreの上書き防止)。
+            // restamperがfalse(ArsPaper未ロード/reflection失敗)を返したら無刻印のまま諦める
+            // (品質が付かないより安全 — 汎用stampで実害あるlore破壊を起こすよりまし)。
+            return arsThreadRestamper.restampIfThread(stack, rolled);
+        }
+        if (!hasStatsProfile) {
+            return false;
+        }
         // Ensure meta is attached before stamp (creative default stacks may lack hasItemMeta()).
         stack.setItemMeta(meta);
         itemFactory.stamp(stack, ThreadLocalRandom.current().nextLong(), rolled);

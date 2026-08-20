@@ -43,9 +43,37 @@ public enum MaterialTier {
      * special armour helmets ({@code TURTLE_HELMET}) and the leather/chainmail armour classes handled
      * explicitly.
      */
+    /**
+     * 接頭辞だけでは足りないので、装備の「種類」を表す接尾辞も要求する。
+     *
+     * <p><b>2026-08-17 修正 (ユーザー報告「釣りで釣った鉱石がスタックできない」)</b>:
+     * 判定が材質名の接頭辞だけだったため、{@code IRON_INGOT} / {@code COPPER_INGOT} /
+     * {@code GOLD_INGOT} / {@code GOLDEN_APPLE} / {@code DIAMOND_BLOCK} などが軒並み
+     * 「ティア装備」に化けていた。釣果がこの判定で装備扱いされると
+     * {@code FishingQualityListener} が品質スタンプ(固有の rollSeed)を押すので、
+     * <b>釣った鉱石が1個ずつ別物になってスタックできなくなる</b>。
+     */
+    private static final java.util.Set<String> EQUIPMENT_SUFFIXES = java.util.Set.of(
+            "SWORD", "PICKAXE", "AXE", "SHOVEL", "HOE",
+            "HELMET", "CHESTPLATE", "LEGGINGS", "BOOTS", "HORSE_ARMOR");
+
+    private static boolean hasEquipmentSuffix(String name) {
+        int underscore = name.indexOf('_');
+        return underscore >= 0 && EQUIPMENT_SUFFIXES.contains(name.substring(underscore + 1));
+    }
+
     public static MaterialTier of(Material material) {
         Objects.requireNonNull(material, "material");
         String name = material.name();
+        if (!hasEquipmentSuffix(name)) {
+            // 接頭辞が一致しても装備でないもの(インゴット/ブロック/金リンゴ 等)はここで落とす。
+            // 接頭辞を持たない BOW などは下の switch が拾う。
+            return switch (name) {
+                case "BOW", "CROSSBOW", "TRIDENT", "MACE", "SHEARS", "FISHING_ROD",
+                     "FLINT_AND_STEEL" -> WOODEN;
+                default -> NONE;
+            };
+        }
         if (name.startsWith("NETHERITE_")) {
             return NETHERITE;
         }

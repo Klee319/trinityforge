@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/copper_nugget",
+  "textures": {
+    "layer0": "trinityforge:item/copper_ingot_scrap"
+  }
+}

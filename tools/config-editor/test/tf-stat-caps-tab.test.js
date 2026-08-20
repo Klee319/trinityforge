@@ -100,9 +100,21 @@ test("statCapsAllKeys: 対象外(アイテム個別ステ/CT短縮系/flat-defen
 
 // 87 → 92: 2026-07-27 に ATTRIBUTE チャネル5キー(move-speed / attack-speed-bonus /
 // attack-reach / knockback-resistance / max-health)が上限対応してUIへ加わった。
-test("statCapsAllKeys: yml側の効くキー一覧と重複なく92件ちょうど", () => {
+// 92 → 94: 2026-07-31 に craft-upswing-bonus / craft-downswing-reduction の2キーを
+// workbench-* / ritual-* の4キーへ分割した(作業台と儀式で同じパークが共有されていた)。
+// 94 → 97: 2026-08-02 にスキル別EXP倍率3キー(woodcutting/farming/digging-exp-bonus)を追加した
+// (単発装備の「伐採EXP+15%」を use-skill で表現すると斧で殴って伐採EXPが入るため)。
+// 2026-08-05: 職業EXP増加(スキル別)を3→15キーへ拡張したので 97 → 109。
+// 2026-08-14: enchant-exp-gain-bonus を廃止し enchanting-exp-bonus へ統合したので 109 → 108
+// (ENCHANTING へのEXP付与点が1箇所しかなく、職業EXP増加と同じ量に別経路で掛かる重複だった)。
+// 2026-08-14: lapis-cost-reduction を廃止したので 108 → 107(ArsPaper の消費リスナーごと削除)。
+// 2026-08-15: 破壊時バニラEXPを採取スキル別の4キーへ分割したので 107 → 111
+// (共通キーのままだと採掘で取った倍率が伐採・整地・農業の破壊EXPにも乗っていた)。
+// 2026-08-15(W-30): 出血ダメージ率(bleed-damage-rate)を新設したので 111 → 112
+// (実数の bleed-damage は帯に追随しないので、スキルツリー側の付与を率へ移した)。
+test("statCapsAllKeys: yml側の効くキー一覧と重複なく112件ちょうど", () => {
   const keys = statCapsAllKeys();
-  assert.equal(keys.length, 92, `件数不一致: ${keys.length}`);
+  assert.equal(keys.length, 112, `件数不一致: ${keys.length}`);
   assert.equal(new Set(keys).size, keys.length, "重複キーがある");
 });
 
@@ -203,9 +215,13 @@ test("上限タブのチェックボックスON操作で map にキー0が作ら
     "チェックOFF操作でもキーが削除されていない(「上限なし」に戻っていない)");
 });
 
-test("gathering-efficiency-max-enchant-level: 上限タブ内に1行として統合され、未設定/設定を区別する", () => {
+// 2026-08-05 ユーザー決定: 「採集効率 → 効率強化エンチャントの上限」行を削除した
+// (stats/gathering-efficiency.yml の max-enchant-level と二重管理で、優先順位の説明が要る状態
+// そのものが不要だった)。以前ここは「行が存在すること」を固定していたので、期待値を反転する。
+// 併せて「現場のファイルに残っている旧キーを保存で消さない(ロスレス)」ことも見る。
+test("gathering-efficiency-max-enchant-level: 上限タブから削除され、旧キーは保存で消えない", () => {
   setupStubs();
-  const statCapsData = { "stat-caps": {} };
+  const statCapsData = { "stat-caps": {}, "gathering-efficiency-max-enchant-level": 7 };
   const result = global.window.buildBaseStatsForm({}, { statCapsData });
   const buttons = [];
   (function walk(el) {
@@ -222,12 +238,15 @@ test("gathering-efficiency-max-enchant-level: 上限タブ内に1行として統
     if (el.props && typeof el.props.text === "string") texts.push(el.props.text);
     el.children.forEach(walk);
   })(result.element);
-  assert.ok(texts.some((t) => t.includes("効率強化エンチャントの上限")),
-    "gathering-efficiency-max-enchant-level 行が上限タブに見当たらない");
-  assert.ok(texts.some((t) => t.includes("旧ファイルより優先")),
-    "旧ファイルより優先されるという説明文が見当たらない");
+  // 空振り防止: 上限タブそのものは描画されている(他の行があることを確認してから不在を主張する)。
+  assert.ok(texts.length > 0 && texts.some((t) => t.includes("上限")),
+    "上限タブの描画自体が取れていない(この照合は空振りしている)");
+  assert.ok(!texts.some((t) => t.includes("効率強化エンチャントの上限")),
+    "削除したはずの「効率強化エンチャントの上限」行がまだ描画されている");
+  assert.ok(!texts.some((t) => t.includes("旧ファイルより優先")),
+    "削除したはずの優先順位の説明文がまだ描画されている");
 
   const saved0 = result.getExtraSaves().find((e) => e.id === "stat-caps").data;
-  assert.equal(saved0["gathering-efficiency-max-enchant-level"], undefined,
-    "未操作なら gathering-efficiency-max-enchant-level は作られないはず(旧ファイル任せ)");
+  assert.equal(saved0["gathering-efficiency-max-enchant-level"], 7,
+    "現場のファイルに残っている旧キーを editor 保存で消してはいけない(ロスレス)");
 });

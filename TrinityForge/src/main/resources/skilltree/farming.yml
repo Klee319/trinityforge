@@ -15,19 +15,23 @@
 # ============================================================================
 
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/farming.md
+
 skill: FARMING
 display-name: 農業
 icon: IRON_HOE
 starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  max-times: 5
   at-level: 100
   name: 大地主の栄光
   effect-text: 満腹度回復量 永続+10%・経験値獲得 永続+10%
   buffs:
-    food-restore-bonus: 0.10
-    vanilla-exp-bonus: 0.10
+    food-restore-bonus: 0.1
+    harvest-extra-drop-chance: 0.2
+  description: |-
+    満腹度回復+10%
+    幸運(収穫)+20%
 nodes:
   A:
     name: はじまりの百姓
@@ -42,7 +46,11 @@ nodes:
       - 収穫時にバニラEXPを獲得
     dedicated-effects:
       - id: feature:auto-replant
-      - id: feature:break-vanilla-exp
+      - id: feature:break-vanilla-exp-farming
+    description: |-
+      うえ直しと収穫が同時に行われる
+      &8/tf settings 設定でオン/オフ可能
+      破壊で少量のバニラEXP
   B:
     name: 家庭菜園の素人
     level: 30
@@ -50,15 +58,26 @@ nodes:
     parent: A
     icon: STONE_HOE
     cost: 1
-    effect-text: 作物の成長速度UP・ご飯の圧縮を可能に・満腹時に食べた量に応じた品質と時間でバフ
     effects:
       - 作物の成長速度UP
       - ご飯の圧縮を可能に
       - 満腹時に食べた量に応じた品質と時間でバフ
+    description: |-
+      食料を圧縮して食事が可能になる
+      成長効率(作物)+25%
+    buffs:
+      planted-crop-growth-bonus: 0.25
     dedicated-effects:
       - id: recipe:compressed_bread_1x
       - id: recipe:compressed_cooked_beef_1x
-      - id: feature:satiety-buff
+      - id: recipe:baked_potato_1x
+      - id: recipe:cooked_porkchop_1x
+      - id: recipe:cooked_mutton_1x
+      - id: recipe:cooked_chicken_1x
+      - id: recipe:cookie_1x
+      - id: recipe:pumpkin_pie_1x
+      - id: recipe:baked_cod_1x
+      - id: recipe:baked_salon_1x
   C:
     name: 近所の農家
     level: 50
@@ -66,13 +85,17 @@ nodes:
     parent: B
     icon: GOLDEN_HOE
     cost: 1
-    effect-text: 収穫量UP・バニラEXPを追加で獲得
     effects:
       - 収穫量UP
       - バニラEXPを追加で獲得
     buffs:
-      harvest-extra-drop-chance: 0.15
-      break-vanilla-exp-bonus: 0.50
+      farming-break-vanilla-exp-bonus: 0.5
+    description: |-
+      破壊で1.5倍のバニラEXP
+      範囲収穫 Lv1解放
+    dedicated-effects:
+      - id: feature:area-harvest
+        value: 1
   D:
     name: 村の豪農
     level: 70
@@ -85,10 +108,15 @@ nodes:
       - 範囲収穫
       - バニラEXPを追加で獲得
     buffs:
-      harvest-extra-drop-chance: 0.10
-      break-vanilla-exp-bonus: 0.50
+      harvest-extra-drop-chance: 0.2
     dedicated-effects:
       - id: feature:area-harvest
+        value: 2
+      - id: glyph:harvest
+    description: |-
+      幸運(収穫)+20%
+      範囲収穫 Lv2解放
+      収穫グリフ解放
   E:
     name: 大地主
     level: 90
@@ -102,9 +130,14 @@ nodes:
       - ベジタブルコアを解放
       - ミートコアを解放(A-4解放済みの場合)
     dedicated-effects:
-      - id: glyph:harvest
-      - id: recipe:tf_core_vegetable
-      - id: recipe:tf_core_meat
+      - id: glyph:grow
+      - id: recipe:core_vegetable
+      - id: feature:area-harvest
+        value: 3
+    description: |-
+      成長グリフ解放
+      範囲収穫 Lv3解放
+      ベジタブルコアのクラフト解放
   A-1:
     name: 鶏小屋の世話係
     level: 20
@@ -115,6 +148,13 @@ nodes:
     effect-text: 繁殖時低確率で2倍
     effects:
       - 繁殖時低確率で2倍
+    buffs:
+      breeding-extra-child-chance: 0.5
+    description: |-
+      双子率+25%
+      動物への与ダメ-ジが4倍になる
+    dedicated-effects:
+      - id: feature:animal-damage-4x
   A-2:
     name: 牧場の運営者
     level: 40
@@ -126,9 +166,15 @@ nodes:
     effects:
       - 動物の成長速度UP
       - 繁殖時バニラEXPを獲得
+    description: |-
+      成長効率(動物)+25%
+      繁殖時1.5倍のバニラEXP
+    buffs:
+      breeding-vanilla-exp-bonus: 0.5
+      bred-animal-growth-bonus: 0.25
   A-3:
     name: 養蜂の達人
-    level: 40
+    level: 60
     role: branch
     parent: A-2
     icon: HONEYCOMB
@@ -139,13 +185,17 @@ nodes:
       - 解呪のグリフを解放
       - ハニカム・ハチミツが確率で増える
     buffs:
-      hive_harvest_fortune: 20
+      hive-harvest-fortune: 1
     dedicated-effects:
       - id: glyph:dispel
       - id: feature:bee-no-aggro
+    description: |-
+      ハチが攻撃してこなくなる
+      解呪グリフ解放
+      養蜂効率+100%
   A-4:
     name: 屠殺場の管理人
-    level: 60
+    level: 80
     role: branch
     parent: A-3
     icon: BEEF
@@ -155,8 +205,15 @@ nodes:
       - 屠殺時ドロップ量アップ
       - 動物への与ダメージ4倍
       - バニラEXPを追加で獲得
+    buffs:
+      bred-animal-growth-bonus: 0.5
+      breeding-extra-child-chance: 0.5
+    description: |-
+      双子率+50%
+      成長効率(動物)+50%
+      ミートコアのクラフト解放
     dedicated-effects:
-      - id: feature:animal-damage-4x
+      - id: recipe:core_meat
   A-alpha-1:
     name: ゴミ食I
     level: 10
@@ -165,14 +222,16 @@ nodes:
     group: A-greek
     icon: ROTTEN_FLESH
     cost: 1
-    effect-text: ゴミのデバフを受けない・ゴミの満腹度回復量UP・ゴミ以外の満腹度回復量DOWN
+    effect-text: ゴミのデバフを受けない・ゴミの隠し満腹度回復量UP・ゴミ以外の隠し満腹度回復量DOWN
     effects:
       - ゴミのデバフを受けない
-      - ゴミの満腹度回復量UP
-      - ゴミ以外の満腹度回復量DOWN
+      - ゴミの隠し満腹度回復量UP
+      - ゴミ以外の隠し満腹度回復量DOWN
     dedicated-effects:
       - id: feature:junkfood-immunity
       - id: feature:junkfood-inversion
+        value: 100
+    description: ゴミを食べてもデバフを受けなくなる
   A-alpha-2:
     name: ゴミ食II
     level: 30
@@ -181,16 +240,22 @@ nodes:
     group: A-greek
     icon: ROTTEN_FLESH
     cost: 1
-    effect-text: ゴミの満腹度回復量UP・ゴミ以外の満腹度回復量を戻す
+    effect-text: ゴミの満腹度回復量+30%・ゴミの隠し満腹度回復量UP(1.5倍)・ゴミ以外の隠し満腹度回復量DOWN(1.5倍)
     effects:
-      - ゴミの満腹度回復量UP
-      - ゴミ以外の満腹度回復量を戻す
+      - ゴミの満腹度回復量+30%
+      - ゴミの隠し満腹度回復量UP(1.5倍)
+      - ゴミ以外の隠し満腹度回復量DOWN(1.5倍)
     dedicated-effects:
-      - id: "feature:junk-food-restore-boost"
+      - id: feature:junk-food-restore-boost
         value: 30
+      - id: feature:junkfood-inversion
+        value: 150
+    description: |-
+      ゴミの満腹度回復量+30%
+      ゴミの隠し満腹度回復量+50%
   A-beta-2:
     name: 健康食I
-    level: 30
+    level: 20
     role: greek
     parent: A
     group: A-greek
@@ -199,9 +264,12 @@ nodes:
     effect-text: 満腹度回復量UP
     effects:
       - 満腹度回復量UP
+    buffs:
+      food-restore-bonus: 0.25
+    description: 満腹度回復+25%
   A-beta-3:
     name: 健康食II
-    level: 50
+    level: 40
     role: greek
     parent: A-beta-2
     group: A-greek
@@ -212,7 +280,11 @@ nodes:
       - 満腹度回復量UP
       - ご飯を一定確率で消費しない
     buffs:
-      food-save-chance: 0.1
+      food-save-chance: 0.25
+      hunger-save-chance: 0.25
+    description: |-
+      食料効率+25%
+      満腹効率+25%
   A-alphabeta-3:
     name: 完全食
     level: 100
@@ -229,4 +301,9 @@ nodes:
       - "前提: 農業レベル100 & alpha/betaどちらかのMAX & 金リンゴ生活(伐採A-2)の解放"
     dedicated-effects:
       - id: glyph:saturation
-
+    description: |-
+      &5前提: 農業100&どちらかのMAX
+      満腹グリフ解放
+      隠し満腹度回復+25%
+    buffs:
+      hidden-saturation-bonus: 0.25

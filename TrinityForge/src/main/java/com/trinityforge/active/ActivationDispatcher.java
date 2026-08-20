@@ -50,6 +50,15 @@ import java.util.OptionalDouble;
  * 値の合算は {@link PlayerStatAggregator} の既存経路({@code aggregate(player).totalOf(...)}) に乗せ、
  * クランプは {@link CooldownManager#applyReduction} で {@code cooldown-reduction} と同じ流儀(揃えた上下限)
  * にする。
+ *
+ * <p><b>2026-08-18(W-59) CTバケツのキーは {@link ActiveSkill#id()} ではなく {@link ActiveSkill#cooldownGroup()}</b>:
+ * {@link CooldownManager#tryConsume}/{@link CooldownManager#remainingMillis} へ渡す第2引数はこのキー。
+ * 既定は {@code id()} と同じなので大半のスキルは今までどおりだが、{@code haste-active-mining} と
+ * {@code haste-active-digging} のように独立した2つの {@link ActiveSkill} が同じ定数を返すよう
+ * オーバーライドすると、CTバケツを共有しながら解放レベル・倍率・持続・CT長はそれぞれ独立に保てる
+ * (ツールを持ち替えて連発しても合計アップタイムが増えない — 実サーバ報告「持ち替えでCT無視できる」対策)。
+ * {@code CT短縮ステータス}(直上の段落)は引き続き {@link ActiveSkill#id()} 単位(スキル固有の短縮)であり、
+ * これと混同しないこと。
  */
 public final class ActivationDispatcher implements Listener {
 
@@ -58,24 +67,48 @@ public final class ActivationDispatcher implements Listener {
     private final CooldownManager cooldowns;
     private final FeedbackLayer feedback;
     private final PlayerStatAggregator aggregator;
+    private final ActiveEffectSessions sessions;
 
     public ActivationDispatcher(ActiveSkillRegistry registry, DedicatedEffectsConfig dedicatedEffects,
                                  CooldownManager cooldowns, FeedbackLayer feedback,
                                  PlayerStatAggregator aggregator) {
+        this(registry, dedicatedEffects, cooldowns, feedback, aggregator, new ActiveEffectSessions());
+    }
+
+    /**
+     * {@link ActiveEffectSessions} を明示注入する版(2026-08-18)。{@link ToolBoundEffectListener} と
+     * <b>同じインスタンス</b>を渡さないと、持ち替え検知が「セッションが開いていない」と見て何もしない。
+     * 引数省略版は自前のセッション台帳を作るので、テスト以外では使わないこと。
+     */
+    public ActivationDispatcher(ActiveSkillRegistry registry, DedicatedEffectsConfig dedicatedEffects,
+                                 CooldownManager cooldowns, FeedbackLayer feedback,
+                                 PlayerStatAggregator aggregator, ActiveEffectSessions sessions) {
         this.registry = Objects.requireNonNull(registry, "registry");
         this.dedicatedEffects = Objects.requireNonNull(dedicatedEffects, "dedicatedEffects");
         this.cooldowns = Objects.requireNonNull(cooldowns, "cooldowns");
         this.feedback = Objects.requireNonNull(feedback, "feedback");
         this.aggregator = Objects.requireNonNull(aggregator, "aggregator");
+        this.sessions = Objects.requireNonNull(sessions, "sessions");
     }
 
-    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+    /**
+     * <b>{@code ignoreCancelled} を付けてはいけない(2026-08-03)。</b>{@link PlayerInteractEvent} は
+     * クリックしたブロックが {@code null}(= {@code RIGHT_CLICK_AIR})のとき、誰もキャンセルしていなくても
+     * 生成時点から {@code isCancelled() == true} になるため、{@code ignoreCancelled = true} を付けると
+     * 空クリックが一切配送されない。アクティブスキルの正式トリガーは「スニーク+右クリック」なので、
+     * これが付いている間は<b>ブロックに向けて撃たない限りアクティブが一切発動しない</b>。
+     * 理由の詳細は {@code com.trinityforge.listeners.GachaListener#onInteract} の javadoc。
+     */
+    @EventHandler(priority = EventPriority.NORMAL)
     public void onInteract(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) {
             return;
         }
         Action action = event.getAction();
         if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+        if (event.useItemInHand() == org.bukkit.event.Event.Result.DENY) {
             return;
         }
         Player player = event.getPlayer();
@@ -95,7 +128,13 @@ public final class ActivationDispatcher implements Listener {
 
         long now = System.currentTimeMillis();
         for (ActiveSkill skill : candidates) {
-            OptionalDouble tierOpt = dedicatedEffects.valueMax(player, skill.gateEffectId());
+            // ゲートは「持っているツールのスキルツリー」に限定して解決する(2026-08-01 実サーバ報告
+            // 「シャベルを手に持っていても採掘速度上昇のバフが発動できる」の修正)。
+            // haste-active-mining は mining.yml A-1 と digging.yml A-1 の両方が置くゲートなので、
+            // ツリーを問わず最大値を取ると **ツルハシ側しか解放していないプレイヤーがシャベルでも
+            // 発動できて**しまい、逆も同様だった。CTは従来どおり ActiveSkill#id() 単位で共有する
+            // (ツリーごとに別CTにはしない)。
+            OptionalDouble tierOpt = dedicatedEffects.valueMax(player, skill.gateEffectId(), useSkill);
             if (tierOpt.isEmpty()) {
                 continue; // this candidate isn't unlocked for the player: try the next one, never cancel.
             }
@@ -103,8 +142,9 @@ public final class ActivationDispatcher implements Listener {
             double skillCooldownReduction = aggregator.aggregate(player)
                     .totalOf(ActiveSkillCooldownKeys.forSkill(skill.id()));
             long cooldownMillis = CooldownManager.applyReduction(skill.cooldownMillis(tier), skillCooldownReduction);
-            if (!cooldowns.tryConsume(player.getUniqueId(), skill.id(), cooldownMillis, now)) {
-                long remainingMillis = cooldowns.remainingMillis(player.getUniqueId(), skill.id(), cooldownMillis, now);
+            String cooldownKey = skill.cooldownGroup();
+            if (!cooldowns.tryConsume(player.getUniqueId(), cooldownKey, cooldownMillis, now)) {
+                long remainingMillis = cooldowns.remainingMillis(player.getUniqueId(), cooldownKey, cooldownMillis, now);
                 feedback.onCooldown(player, Math.max(1, Math.ceilDiv(remainingMillis, 1000L)));
                 return; // on cooldown: an activation attempt was made, but never cancel (brief, non-negotiable).
             }
@@ -112,6 +152,13 @@ public final class ActivationDispatcher implements Listener {
             ActivationResult result = skill.activate(player, new ActiveContext(tier, mainHand));
             event.setCancelled(true);
             if (result.success()) {
+                // 2026-08-18: ツール束縛の効果はセッションを開く。ToolBoundEffectListener が
+                // 「メインハンドが targetSkills() から外れた瞬間」に cancelEffect を呼ぶための土台で、
+                // これが無いと持ち替えても効果が残り、別ツールへ横流しできてしまう。
+                if (skill.toolBound()) {
+                    sessions.open(player.getUniqueId(), skill.id(), tier,
+                            now + skill.effectDurationTicks(tier) * 50L);
+                }
                 feedback.success(player, result.feedbackMessage());
             } else {
                 feedback.failure(player, result.feedbackMessage());

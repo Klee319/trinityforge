@@ -1,0 +1,7 @@
+# 影渡りの蜘蛛 (shadow_spider) — 通常攻撃の9割が魔法として解決される派生モブ(magic-ratio: 0.9)。
+# combat/mob-overrides.yml の overrides.default.mobs.shadow_spider が強さ/技/ドロップを上書きする。
+# 配備手順は ops/deploy-elitemobs-magic-mobs.md を参照。
+isEnabled: true
+entityType: SPIDER
+name: "&8影渡りの蜘蛛"
+level: 24

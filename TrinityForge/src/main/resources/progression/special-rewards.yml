@@ -7,7 +7,7 @@
 #   - アチーブメント(achievements.yml) achievements.<id>.rewards.special: [<id>...]
 #
 # titles.<id>:
-#   display: MiniMessage文字列。プレイヤー頭上に表示する称号テキスト。
+#   display: MiniMessage文字列。プレイヤーのネームタグ(名前)に連結して表示する称号テキスト。
 #     例: "<gradient:#ff0000:#ffff00>竜殺し</gradient>"
 #
 # particles.<id>:
@@ -22,23 +22,166 @@
 #   particle:  Bukkit Particle 名
 #   count:     ブロック破壊/攻撃時に発生させる数
 #
-# display.head-offset-y: (バグ報告B1)
-#   称号の頭上表示(TextDisplay)をプレイヤーのパッセンジャー既定マウント点から追加で持ち上げる高さ
-#   (ブロック単位)。実サーバで目視確認できない制約下での暫定値 0.75。
-#   ネームタグ(プレイヤー名)に重なって名前が見えない場合はこの値を上げること。
-#   逆に称号が高すぎる/離れすぎる場合はこの値を下げること。/trinityforge reload で
-#   次回の表示張り直し(参加/リスポーン/ワールド移動/テレポート)から反映される。
-display:
-  head-offset-y: 0.75
+# display.nametag-clearance: 称号の行を頭上のどこに出すか (2026-08-03)
+#   称号は「プレイヤー名(ネームタグ)の上の別行」に出す。この値は、そのネームタグの上端から
+#   さらに何ブロック上へ離すかの余白(既定 0.4)。0 で真上に接し、大きくするほど離れる。
+#   0未満を書いた場合は既定値へ戻す(負にすると名前へ重なって隠すため)。
+#
+#   【なぜ「余白」で持つのか】 バグ報告「称号を付けている人にネームタグが表示されなかった」の
+#   真因は、旧実装が値を「パッセンジャーのマウント点からの相対オフセット」として扱っていたこと。
+#   マウント点はバニラ既定で 高さ×0.75 = 1.35、ネームタグは 高さ+0.5 = 2.3 に出るので、
+#     ・0.35 → 称号は 1.70(ネームタグのはるか下)
+#     ・0.75 → 称号は 2.10。1行の文字高は約0.25なので 1.98〜2.23 に描かれ、
+#              ネームタグ(2.18〜2.43)と 2.18〜2.23 で重なって名前を隠していた
+#   ── どちらの当て推量も「ネームタグより上」に届いていなかった。
+#   現在は 高さ+0.5+この余白 という足元からの絶対座標へ毎tick追従させるので、
+#   マウント点という未知数が式から消え、余白が負でない限り必ず名前より上に出る。
+#   /trinityforge reload で反映される。
+#
+# prune-orphaned-grants: (安全弁)
+#   true(既定) にすると、このファイルから削除した報酬IDを、プレイヤーの保持分
+#   (直接付与リスト/装備中の称号・パーティクル)からも自動で取り除く(参加時 + /trinityforge reload 時)。
+#   YAML構文エラー等でこのファイル自体の読み込みに失敗した回は「全部未定義」と誤判定して
+#   全員の報酬を消し飛ばす事故を防ぐため、読み込み失敗時は自動でプルーン処理そのものをスキップする
+#   (直前の設定値を維持する既存の挙動と同じ安全側フォールバック)。
+#   運用上どうしても自動剥奪を止めたい場合は false にすること(削除したIDが古いまま残り続ける)。
 
+# 【パーティクル名の制約】 2026-07-31
+#   ここに書けるのは「追加データを要らない種類」だけ。演出側はデータ引数なしで spawnParticle を
+#   呼ぶので、FLASH / DUST / DUST_COLOR_TRANSITION / BLOCK / ITEM / ENTITY_EFFECT / SHRIEK /
+#   SCULK_CHARGE / VIBRATION / TRAIL のようにデータ必須の種類は指定しても弾かれる(WARNING)。
+#   実在する名前でも読み込み時に落ちるので、起動ログの
+#   「particle '<id>' has invalid/missing particle name」を必ず確認すること。
+#   Paper 1.21.11 で FLASH が Color 必須化したとき戦闘処理ごと落ちた実績があるため、
+#   SpecialRewardsConfig 側で設定を読む時点で弾いている。
+#
+# 【付与の憲法】 2026-07-31
+#   称号/パーティクルは「縦強化にしない報酬」の受け皿。図鑑(collection.yml reward-tiers)と
+#   アチーブメントの報酬をここへ集約し、戦闘ステータスは一切配らない。
+#   ⚠ prune-orphaned-grants: true なので、ここからIDを消すと保持している全員から剥奪される。
+#   一度出荷したIDは名前を変えず、要らなくなっても display を差し替えるだけにすること。
+
+prune-orphaned-grants: true
+display:
+  nametag-clearance: 0.2
 titles:
+  title_collector:
+    display: <color:gray><b>収集家</b></color>
+  title_seeker:
+    display: <color:white><b>探究者</b></color>
+  title_archivist:
+    display: <color:aqua><b>記録者</b></color>
+  title_worldwalker:
+    display: <gradient:#7f5af0:#2cb67d><b>世界渡り</b></gradient>
+  title_first_step:
+    display: <color:gray><b>はじまりの者</b></color>
+  title_gatherer:
+    display: <color:green><b>糧を得る者</b></color>
+  title_sourcewright:
+    display: <color:blue><b>ソースの職人</b></color>
+  title_delver:
+    display: <color:dark_aqua><b>深層に潜る者</b></color>
+  title_refiner:
+    display: <color:gold><b>厳選者</b></color>
+  title_worldbinder_slayer:
+    display: <gradient:#ff4d4d:#ffd166><b>世界を解いた者</b></gradient>
+  title_infinite_source:
+    display: <gradient:#00c2ff:#7f5af0><b>無限の器</b></gradient>
+  title_completionist:
+    display: <gradient:#ffd700:#ff8c00:#ffd700><b>万象を知る者</b></gradient>
+  title_warrior_path:
+    display: <color:red><b>練達</b></color>
+  title_armsmaster:
+    display: <gradient:#7df9ff:#ffffff><b>万刃の主</b></gradient>
+  title_secret_keeper:
+    display: <gradient:#8a2be2:#8f69b4><b>秘を知る者</b></gradient>
+  title_ironbearer:
+    display: <color:white><b>鉄を打つ者</b></color>
+  title_ritual_novice:
+    display: <color:dark_purple><b>儀式の徒</b></color>
+  title_vault_keeper:
+    display: <color:dark_aqua><b>深淵を蓄える者</b></color>
+  title_flamewalker:
+    display: <gradient:#ff8c00:#ffd166><b>灼熱を歩く者</b></gradient>
   new_title:
-    display: <color:light_purple><b>Server Booster</b></color>
+    display: <gradient:#8a2be2:#ff69b4><b>Patron</b></gradient>
 particles:
-  new_particle:
-    particle: FIREFLY
-    count: 7
-    radius: 0.6
+  particle_sparkle:
+    particle: END_ROD
+    count: 6
+    radius: 0.8
+    interval-ticks: 15
+    shape: aura
+  particle_ember_aura:
+    particle: FLAME
+    count: 8
+    radius: 0.9
+    interval-ticks: 12
+    shape: aura
+  particle_void_aura:
+    particle: PORTAL
+    count: 12
+    radius: 1
     interval-ticks: 10
     shape: aura
-particle-seeds: {}
+  particle_soul_ring:
+    particle: SOUL_FIRE_FLAME
+    count: 10
+    radius: 1.2
+    interval-ticks: 14
+    shape: circle
+  particle_snow_ring:
+    particle: SNOWFLAKE
+    count: 12
+    radius: 1.1
+    interval-ticks: 14
+    shape: circle
+  particle_petal_ring:
+    particle: CHERRY_LEAVES
+    count: 10
+    radius: 1.2
+    interval-ticks: 16
+    shape: circle
+  particle_spark_ring:
+    particle: ELECTRIC_SPARK
+    count: 14
+    radius: 1
+    interval-ticks: 12
+    shape: circle
+  particle_dragon_aura:
+    # 2026-08-16: DRAGON_BREATH は Paper 1.21.11 で「追加データ(Float)が必須の粒子」になっており、
+    # SpecialRewardsConfig#parseParticle の「データ不要(Void)のみ通す」判定で丸ごと弾かれていた
+    # (起動時に警告1行が出るだけで、この特殊報酬は存在しないのと同じ状態だった)。
+    # 見た目が近くてデータ不要な REVERSE_PORTAL(紫の粒が立ち昇る)へ差し替える。
+    # 追加データが要る粒子は他にも DUST / FLASH / ENTITY_EFFECT / VIBRATION などがある。
+    # ShippedSpecialRewardParticleDataTest がここを機械的に固定している。
+    particle: REVERSE_PORTAL
+    count: 10
+    radius: 1
+    interval-ticks: 12
+    shape: aura
+particle-seeds:
+  seed_flame:
+    seed-item: BLAZE_POWDER
+    particle: FLAME
+    count: 6
+  seed_frost:
+    seed-item: BLUE_ICE
+    particle: SNOWFLAKE
+    count: 6
+  seed_soul:
+    seed-item: SOUL_SAND
+    particle: SOUL
+    count: 6
+  seed_spark:
+    seed-item: COPPER_INGOT
+    particle: ELECTRIC_SPARK
+    count: 8
+  seed_void:
+    seed-item: ENDER_EYE
+    particle: PORTAL
+    count: 10
+  seed_bloom:
+    seed-item: PINK_PETALS
+    particle: CHERRY_LEAVES
+    count: 6

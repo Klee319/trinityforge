@@ -29,8 +29,26 @@
       {
         "threshold": 50,
         "model": {
-          "type": "minecraft:model",
-          "model": "trinityforge:item/source_gem_spear"
+          "cases": [
+            {
+              "model": {
+                "model": "trinityforge:item/source_gem_spear",
+                "type": "minecraft:model"
+              },
+              "when": [
+                "gui",
+                "ground",
+                "fixed",
+                "on_shelf"
+              ]
+            }
+          ],
+          "fallback": {
+            "model": "trinityforge:item/source_gem_spear__in_hand",
+            "type": "minecraft:model"
+          },
+          "property": "minecraft:display_context",
+          "type": "minecraft:select"
         }
       }
     ]

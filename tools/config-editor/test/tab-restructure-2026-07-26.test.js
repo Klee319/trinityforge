@@ -152,6 +152,7 @@ function setupDom() {
     el.trigger = (v) => onInput(v);
     return el;
   };
+  global.window.textInputOnCommit = global.window.textInput;
   global.window.materialInput = (value, listId, onInput) => {
     const el = makeEl("span", { value });
     el.trigger = (v) => onInput(v);
@@ -170,6 +171,15 @@ function setupDom() {
   global.window.catalogItemSuggest = (value, candidates, onChange) => {
     const el = makeEl("span", { value });
     el.trigger = (v) => onChange({ id: v });
+    return el;
+  };
+  // 2026-07-31: 醸造の材料ヒントが自前実装(custom: を解けない)から util.js の共通
+  // materialHintEl へ移った。util.js 本体は document を触る箱があるのでここでは読まず、
+  // 「update(v) を持つ要素」という契約だけを満たすスタブを置く。
+  global.window.materialHintEl = (initial) => {
+    const el = makeEl("span", { class: "mat-hint" });
+    el.textContent = initial == null ? "" : String(initial);
+    el.update = (v) => { el.textContent = v == null ? "" : String(v); };
     return el;
   };
   global.alert = () => {};

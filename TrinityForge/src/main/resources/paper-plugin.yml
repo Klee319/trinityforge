@@ -4,9 +4,36 @@ main: com.trinityforge.TrinityForge
 description: Native progression and integration core for the EliteMobs + ArsPaper MMO server.
 api-version: "1.21"
 author: Klee319
-# Vault は完全な任意依存(soft-depend)。未導入でも起動できる — 経済連携機能(釣り売却/EconomyBridge)が
-# 静かに無効化されるだけ。誤って depend にすると Vault 不在時に起動不能になるため厳禁。
-softdepend: [Vault]
+# 任意依存(soft-depend)。どちらも未導入で起動できる — 該当機能が静かに無効化されるだけ。
+# 誤って required: true にすると不在時に起動不能になるため厳禁。
+#
+# ※ paper-plugin.yml は Bukkit 形式の `softdepend:` を解釈しない(未知キーとして黙って捨てられる)。
+#    2026-07-28 まで `softdepend: [Vault]` と書いてあったが実際には何も宣言できておらず、
+#    Paper プラグインは宣言した依存以外のクラスを見られない(クラスローダ分離)ため、
+#    他プラグインの API を触るには必ずこの `dependencies:` 形式で書くこと。
+#  - load: BEFORE  … 相手を先にロードさせる(TF の onEnable 時点で相手の API が使える)
+#  - required: false … 不在でも起動する
+#  - join-classpath: true … 相手のクラスを参照できるようにする(これが無いと NoClassDefFoundError)
+dependencies:
+  server:
+    Vault:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    # combat/display.yml の damage-indicator-particles(バニラ被弾パーティクルの個数上限)専用。
+    # バニラの被弾パーティクルはどの Bukkit イベントにも乗らないためパケット層が必須。
+    packetevents:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    # ランキング系プラグインへ値を供給する PlaceholderAPI 拡張(識別子 trinityforge)専用。
+    # 未導入なら拡張の登録だけをスキップする(TrinityForge.onEnable の getPlugin(...) != null ガード)。
+    # 提供する値: スキル別レベル / グリフ解放数 / 図鑑登録数 / 討伐数。
+    # これらはメイン・資源のどちらから引いても同じ値になる(共有 DB 経由)。
+    PlaceholderAPI:
+      load: BEFORE
+      required: false
+      join-classpath: true
 
 permissions:
   trinityforge.admin:
@@ -18,3 +45,7 @@ permissions:
   trinityforge.elitemobs.commands:
     description: Bypass EliteMobs/AdventurersGuild player-command gate (dungeon tooling)
     default: op
+  # 統合版(Bedrock)プレイヤーには常に有効なので、この権限は Java 版から動作確認するためだけのもの
+  trinityforge.smithing.bedrock-assist:
+    description: Force the Bedrock smithing-table assist (server-side base-slot insert) on Java clients too
+    default: false

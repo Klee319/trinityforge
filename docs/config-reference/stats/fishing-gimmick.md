@@ -40,13 +40,15 @@ exploit対策(#5 exploit fixの教訓。AFK釣り機/自動釣りマクロでの
 ### 直後: `xp-bottle-store:`
 
 ```
-xp-bottle-store-unlock (flag, enchanting.yml B-3): 経験値瓶への経験値の格納/取出。
+xp-bottle-store-unlock (flag, enchanting.yml B-3): 経験値の瓶詰め。
+格納 = ガラス瓶の通常右クリック / 取出 = 充填済み経験値瓶の右クリック(ガラス瓶が戻る)。
+2026-08-05 に格納の起点を経験値瓶の sneak+右クリックから変更した。
 ```
 
 ### 直後: `store-amount: 100`
 
 ```
-sneak+右クリックで経験値瓶1本に格納する経験値量(格納量 > 保有経験値の場合は保有量が上限)。
+ガラス瓶の右クリック1回で瓶1本に格納する経験値量(格納量 > 保有経験値の場合は保有量が上限)。
 ```
 
 ### 直後: `return-rate: 1.0`

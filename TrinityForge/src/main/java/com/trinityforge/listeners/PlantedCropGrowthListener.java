@@ -49,9 +49,21 @@ public final class PlantedCropGrowthListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent event) {
-        Block block = event.getBlock();
+        trackPlanted(event.getBlock(), event.getPlayer());
+    }
+
+    /**
+     * この作物を「そのプレイヤーが植えたもの」として追跡に載せる。
+     *
+     * <p><b>2026-08-17 (ユーザー報告「自動植えつけの作物と自分で植えた作物で成長速度が違う」)</b>:
+     * 以前は {@link BlockPlaceEvent} からしか登録していなかった。自動植え直し(auto-replant /
+     * area-harvest)はコードから直接ブロックを置くので {@code BlockPlaceEvent} が発火せず、
+     * <b>自動で植えた作物にだけ成長ボーナスが乗っていなかった</b>。
+     * 植え直し経路からもここを呼ぶこと。
+     */
+    public void trackPlanted(Block block, Player player) {
+        if (block == null || player == null) return;
         if (!FarmingCropCatalog.isCrop(block.getType())) return;
-        Player player = event.getPlayer();
         double bonus = aggregator.aggregate(player).totalOf(PLANTED_CROP_GROWTH_BONUS);
         if (bonus <= 0.0) return;
         ownedCrops.put(key(block), player.getUniqueId());

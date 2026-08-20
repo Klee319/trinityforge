@@ -45,11 +45,15 @@ class DiggingDurabilityExpListenerTest {
         server = MockBukkit.mock();
         dedicatedEffects = mock(DedicatedEffectsConfig.class);
         gimmickConfig = mock(DiggingGimmickConfig.class);
-        when(gimmickConfig.durabilityPerPercent()).thenReturn(100.0);
-        // 2026-07-26 tier-expand: bonusFraction() は tier 版(内部でC-1/C-2のcap値をtierとして流用)を
-        // 呼ぶようになったため、既存の no-arg スタブに加えて全tierで同値(100.0)を返すよう固定する
-        // (durability-exp.tiers 未定義時の後方互換動作そのものを検証する意図)。
-        when(gimmickConfig.durabilityPerPercent(org.mockito.ArgumentMatchers.anyInt())).thenReturn(100.0);
+        // 2026-07-28(数値のギミックyml集約): digging-durability-vanilla-exp/job-exp は SCALE化され、
+        // dedicatedEffects.valueMax はもう %(直接cap) ではなく tier番号を返す。gimmickConfig側の
+        // vanillaExpCapPercent(tier)/jobExpCapPercent(tier) + durabilityPerPercentForXxx(tier) を
+        // tierに関わらず固定値で返すようスタブし、旧テストが検証していた数値(cap 50%/25%,
+        // durability-per-percent 100)をそのまま再現する。
+        when(gimmickConfig.durabilityPerPercentForVanillaExp(org.mockito.ArgumentMatchers.anyInt())).thenReturn(100.0);
+        when(gimmickConfig.durabilityPerPercentForJobExp(org.mockito.ArgumentMatchers.anyInt())).thenReturn(100.0);
+        when(gimmickConfig.vanillaExpCapPercent(org.mockito.ArgumentMatchers.anyInt())).thenReturn(50.0);
+        when(gimmickConfig.jobExpCapPercent(org.mockito.ArgumentMatchers.anyInt())).thenReturn(25.0);
         listener = new DiggingDurabilityExpListener(dedicatedEffects, gimmickConfig);
         player = server.addPlayer();
     }
@@ -105,8 +109,9 @@ class DiggingDurabilityExpListenerTest {
         when(dedicatedEffects.valueMax(eq(player), eq(EFFECT_VANILLA_EXP))).thenReturn(OptionalDouble.empty());
         assertEquals(0.0, listener.vanillaExpBonusFraction(player), 1e-9);
 
-        // Node held with cap 50%: 10000/100=100% raw, clamped to 50%.
-        when(dedicatedEffects.valueMax(eq(player), eq(EFFECT_VANILLA_EXP))).thenReturn(OptionalDouble.of(50.0));
+        // Node held at tier 1 (gimmickConfig stubbed: cap 50%, durability-per-percent 100):
+        // 10000/100=100% raw, clamped to 50%.
+        when(dedicatedEffects.valueMax(eq(player), eq(EFFECT_VANILLA_EXP))).thenReturn(OptionalDouble.of(1.0));
         assertEquals(0.5, listener.vanillaExpBonusFraction(player), 1e-9);
     }
 
@@ -114,7 +119,7 @@ class DiggingDurabilityExpListenerTest {
     void jobExpBonusHasIndependentCapFromVanilla() {
         player.getPersistentDataContainer().set(
                 PdcKeys.PLAYER_DIGGING_DURABILITY_ACCUM, PersistentDataType.LONG, 10_000L);
-        when(dedicatedEffects.valueMax(eq(player), eq(EFFECT_JOB_EXP))).thenReturn(OptionalDouble.of(25.0));
+        when(dedicatedEffects.valueMax(eq(player), eq(EFFECT_JOB_EXP))).thenReturn(OptionalDouble.of(1.0));
         assertEquals(0.25, listener.jobExpBonusFraction(player), 1e-9);
     }
 
@@ -122,7 +127,7 @@ class DiggingDurabilityExpListenerTest {
     void onVanillaExpGainAppliesBonusMultiplicatively() {
         player.getPersistentDataContainer().set(
                 PdcKeys.PLAYER_DIGGING_DURABILITY_ACCUM, PersistentDataType.LONG, 5_000L);
-        when(dedicatedEffects.valueMax(eq(player), eq(EFFECT_VANILLA_EXP))).thenReturn(OptionalDouble.of(50.0));
+        when(dedicatedEffects.valueMax(eq(player), eq(EFFECT_VANILLA_EXP))).thenReturn(OptionalDouble.of(1.0));
 
         PlayerExpChangeEvent event = new PlayerExpChangeEvent(player, 10);
         listener.onVanillaExpGain(event);
@@ -132,7 +137,7 @@ class DiggingDurabilityExpListenerTest {
 
     @Test
     void onVanillaExpGainNoOpWhenNoAccumulation() {
-        when(dedicatedEffects.valueMax(any(), eq(EFFECT_VANILLA_EXP))).thenReturn(OptionalDouble.of(50.0));
+        when(dedicatedEffects.valueMax(any(), eq(EFFECT_VANILLA_EXP))).thenReturn(OptionalDouble.of(1.0));
         PlayerExpChangeEvent event = new PlayerExpChangeEvent(player, 10);
         listener.onVanillaExpGain(event);
 

@@ -15,8 +15,9 @@ import java.util.Objects;
  * ({@link ActivationDispatcher}があらゆるアクティブスキルに対して読む) — このため、ある採掘スキルツリーの
  * ノードで得たCT短縮が、無関係の別アクティブスキルにも波及していた(伐採ツリーの類似ノードを本設計の対象外に
  * した理由もこれ)。この波及を断つため、CT短縮ステータスを {@link ActiveSkill#id()} 単位のキーへ分割する
- * ({@code <id>-cooldown-reduction}、既存の {@code bow-cooldown-reduction}/{@code cooldown-reduction} と同じ
- * {@code <領域>-cooldown-reduction} 命名規約)。
+ * ({@code <id>-cooldown-reduction}、既存の {@code cooldown-reduction}(アイテムCT)と同じ
+ * {@code <領域>-cooldown-reduction} 命名規約。2026-07-31 に廃止した {@code bow-cooldown-reduction} も
+ * この規約の一員だった)。
  *
  * <p><b>キーは自動導出(手打ちマッピング表を持たない)</b>: {@link #forSkill(String)} は
  * {@link ActiveSkill#id()} から機械的にキーを組み立てるので、新しい {@link ActiveSkill} を実装しても

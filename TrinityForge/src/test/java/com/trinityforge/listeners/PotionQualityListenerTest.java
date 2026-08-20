@@ -3,9 +3,12 @@ package com.trinityforge.listeners;
 import com.trinityforge.combat.PlayerCombatAggregate;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.AlchemyQualityConfig;
+import com.trinityforge.config.domains.QualityConfig;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
 import com.trinityforge.progression.catalog.SkillCatalogEntry;
 import com.trinityforge.progression.core.SkillId;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BrewingStand;
@@ -22,6 +25,7 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
@@ -32,6 +36,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -157,6 +163,99 @@ class PotionQualityListenerTest {
         return new BrewEvent(stand.getBlock(), inv, results, 20);
     }
 
+    // ------------------------------------------------------------------ 幸運のポーション (2026-08-20)
+
+    /**
+     * ユーザー要望(2026-08-20)「醸造・作業台・儀式の各品質ptも幸運のポーションレベルに応じて上がるように」。
+     * 換算レートは {@code stats/quality.yml} の {@code luck-potion-quality-per-level}(既定 1.0)。
+     */
+    @Test
+    @DisplayName("幸運のポーションを飲んでいると、そのレベルぶん醸造の品質ptが乗る")
+    void luckPotionAddsBrewQualityPoints() {
+        writeManualOwner(player);
+        stubQuality(0.0); // ステ由来は 0 —— 幸運だけで品質が付くことを見る
+        player.addPotionEffect(new PotionEffect(PotionEffectType.LUCK, 1200, 1)); // 幸運II
+        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
+        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.0);
+        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(0.0);
+        PotionQualityListener listener = new PotionQualityListener(
+                plugin, aggregator, alchemyQuality, progressionCatalog, new QualityConfig());
+
+        List<ItemStack> results = new ArrayList<>();
+        results.add(strengthPotion(3600, 0));
+        listener.onBrew(brewEvent(results));
+
+        PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
+        assertEquals(3640, meta.getCustomEffects().get(0).getDuration(),
+                "3600 + 20 * (幸運II = 品質2pt)");
+    }
+
+    @Test
+    @DisplayName("幸運ぶんはステの品質ptに加算される(片方だけになったりしない)")
+    void luckPotionAddsOnTopOfTheStatPoints() {
+        writeManualOwner(player);
+        stubQuality(2.0);
+        player.addPotionEffect(new PotionEffect(PotionEffectType.LUCK, 1200, 0)); // 幸運I
+        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
+        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.0);
+        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(0.0);
+        PotionQualityListener listener = new PotionQualityListener(
+                plugin, aggregator, alchemyQuality, progressionCatalog, new QualityConfig());
+
+        List<ItemStack> results = new ArrayList<>();
+        results.add(strengthPotion(3600, 0));
+        listener.onBrew(brewEvent(results));
+
+        PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
+        assertEquals(3660, meta.getCustomEffects().get(0).getDuration(),
+                "3600 + 20 * (ステ2pt + 幸運I 1pt)");
+    }
+
+    /**
+     * 自動(ホッパー)醸造の減衰は幸運ぶんにも掛かる。片方だけ無減衰にすると
+     * 「幸運を飲んでホッパーへ放置」が成立してしまうため、既存の品質ptと同じ扱いに揃えてある。
+     */
+    @Test
+    @DisplayName("自動醸造では幸運ぶんも alchemy.auto_mult で減衰する")
+    void luckPotionIsDampedOnAutomatedBrews() {
+        writeAutomatedOwner(player);
+        stubQuality(0.0);
+        player.addPotionEffect(new PotionEffect(PotionEffectType.LUCK, 1200, 3)); // 幸運IV = 4pt
+        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
+        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.0);
+        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(0.0);
+        PotionQualityListener listener = new PotionQualityListener(
+                plugin, aggregator, alchemyQuality, progressionCatalog, new QualityConfig());
+
+        List<ItemStack> results = new ArrayList<>();
+        results.add(strengthPotion(1000, 0));
+        listener.onBrew(brewEvent(results));
+
+        PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
+        assertEquals(1020, meta.getCustomEffects().get(0).getDuration(),
+                "幸運IV(4pt) * 0.25 auto_mult = 実効1pt");
+    }
+
+    @Test
+    @DisplayName("luck-potion-quality-per-level: 0 なら幸運は一切乗らない(機能を切れる)")
+    void luckPotionCanBeDisabledByConfig() {
+        writeManualOwner(player);
+        stubQuality(0.0);
+        player.addPotionEffect(new PotionEffect(PotionEffectType.LUCK, 1200, 1));
+        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
+        QualityConfig disabled = mock(QualityConfig.class);
+        when(disabled.luckPotionQualityPerLevel()).thenReturn(0.0);
+        PotionQualityListener listener = new PotionQualityListener(
+                plugin, aggregator, alchemyQuality, progressionCatalog, disabled);
+
+        List<ItemStack> results = new ArrayList<>();
+        results.add(strengthPotion(3600, 0));
+        listener.onBrew(brewEvent(results));
+
+        PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
+        assertEquals(3600, meta.getCustomEffects().get(0).getDuration(), "品質0なら一切触らない");
+    }
+
     @Test
     void zeroQualityLeavesPotionUntouched() {
         writeManualOwner(player);
@@ -194,6 +293,36 @@ class PotionQualityListenerTest {
         PotionEffect effect = meta.getCustomEffects().get(0);
         assertEquals(3640, effect.getDuration(), "3600 + 20*2 quality points");
         assertEquals(1, effect.getAmplifier(), "floor(0.5 * 2 quality points) == 1 (2品質ごとに+1)");
+    }
+
+    /**
+     * 2026-08-18 実サーバ報告「進捗バーも動いて完了音も鳴るのに、出てくるのが水入り瓶」の再発防止。
+     *
+     * <p>品質を適用するときに base を {@code WATER} へ倒すのは効果を一意に確定させるために必要だが、
+     * <b>Minecraft のポーション名はベースの種類からしか引かれない</b>ため、名前を焼き直さないと
+     * 全ての完成品が画面上「水入り瓶」になる。効果は正しく付いたままなので<b>ログにも例外にも出ない</b>。
+     *
+     * <p>このクラスの他のテストは(MockBukkit 回避のため)最初から base を {@code WATER} にした
+     * ポーションを渡しているので、<b>名前の破壊を構造的に観測できなかった</b>。
+     * ここだけは明示的に名前をアサートする。
+     */
+    @Test
+    void 品質適用後のポーションは水入り瓶のままにならず効果名が付く() {
+        writeManualOwner(player);
+        stubQuality(2.0);
+        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
+        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.5);
+        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(10.0);
+        PotionQualityListener listener = new PotionQualityListener(plugin, aggregator, alchemyQuality, progressionCatalog);
+
+        List<ItemStack> results = new ArrayList<>();
+        results.add(strengthPotion(3600, 0));
+        listener.onBrew(brewEvent(results));
+
+        Component name = results.get(0).getItemMeta().displayName();
+        assertNotNull(name, "表示名が付いていない(= 画面上は『水入り瓶』のまま)");
+        assertTrue(PlainTextComponentSerializer.plainText().serialize(name).endsWith("のポーション"),
+                "実際の名前: " + PlainTextComponentSerializer.plainText().serialize(name));
     }
 
     @Test
@@ -331,5 +460,254 @@ class PotionQualityListenerTest {
         assertEquals(1040, meta.getCustomEffects().get(0).getDuration(),
                 "HIGH-priority quality listener must read the owner before the MONITOR-priority clear runs");
         assertTrue(ownership.ownerOf(stand).isEmpty(), "the clearer still ran afterward and removed the owner PDC");
+    }
+
+    // ---- 延長(レッドストーン) / 強化(グロウストーンダスト) の救済 (2026-08-18 / W-108) ----------
+    //
+    // TF は品質を乗せるときベースを WATER へ倒す。バニラの醸造表は (ベースの PotionType, 素材) で
+    // しか引かないので、WATER + レッドストーン → ありふれたポーション、WATER + グロウストーンダスト
+    // → 濃厚なポーションになり、**カスタム効果が丸ごと消える**。＝ 品質ステを持つプレイヤーほど
+    // 自分のポーションを延長・強化できず、試すと中身を失う。
+    //
+    // ここは素の ItemStack を使う(spy 不要)。救済コードが読むのは getCustomEffects() /
+    // getBasePotionType() / hasCustomEffects() だけで、MockBukkit 未実装の getAllEffects() は
+    // 通らないため。
+
+    private PotionQualityListener upgradeListener() {
+        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
+        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.5);
+        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(10.0);
+        return new PotionQualityListener(plugin, aggregator, alchemyQuality, progressionCatalog);
+    }
+
+    /** spy を掛けない素のカスタム効果ポーション(スタンドへ入れる用)。 */
+    private static ItemStack rawStrengthPotion(int durationTicks, int amplifier) {
+        ItemStack potion = new ItemStack(Material.POTION);
+        PotionMeta meta = (PotionMeta) potion.getItemMeta();
+        meta.setBasePotionType(PotionType.WATER);
+        meta.clearCustomEffects();
+        meta.addCustomEffect(new PotionEffect(PotionEffectType.STRENGTH, durationTicks, amplifier), true);
+        potion.setItemMeta(meta);
+        return potion;
+    }
+
+    /**
+     * バニラが返す「ありふれた/濃厚なポーション」相当(カスタム効果なし)。救済されなければこれが残る。
+     *
+     * <p><b>spy で包むのが重要。</b>救済を外すとこの結果は品質側({@code applyQuality})まで流れ、
+     * MockBukkit 未実装の {@code getAllEffects()} に当たって<b>テストが SKIPPED に化ける</b>。
+     * そうなると「アサーションが落ちる」ことを確認できず、RED を証明したことにならない。
+     */
+    private ItemStack vanillaMundaneResult() {
+        ItemStack potion = new ItemStack(Material.POTION);
+        PotionMeta meta = (PotionMeta) potion.getItemMeta();
+        meta.setBasePotionType(PotionType.MUNDANE);
+        meta.clearCustomEffects();
+        potion.setItemMeta(meta);
+        return potionSpyItem(potion);
+    }
+
+    private BrewEvent upgradeBrew(ItemStack bottle, Material ingredient, List<ItemStack> results) {
+        BrewerInventory inv = stand.getInventory();
+        inv.setItem(0, bottle);
+        inv.setIngredient(new ItemStack(ingredient));
+        return new BrewEvent(stand.getBlock(), inv, results, 20);
+    }
+
+    @Test
+    void レッドストーンはカスタム効果を消さずに持続時間を延ばす() {
+        writeManualOwner(player);
+        stubQuality(2.0);
+        List<ItemStack> results = new ArrayList<>();
+        results.add(vanillaMundaneResult()); // バニラが書いた結果(効果ゼロ)
+
+        upgradeListener().onBrew(upgradeBrew(rawStrengthPotion(3600, 0), Material.REDSTONE, results));
+
+        PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
+        assertEquals(1, meta.getCustomEffects().size(),
+                "延長でカスタム効果が消えている(バニラの MUNDANE 化に負けている)");
+        PotionEffect effect = meta.getCustomEffects().get(0);
+        assertEquals(9600, effect.getDuration(), "3600 * 8/3 (バニラの 3:00→8:00 と同じ比)");
+        assertEquals(0, effect.getAmplifier(), "延長では効力を上げない");
+    }
+
+    @Test
+    void グロウストーンダストは効力を1段上げて持続を半分にする() {
+        writeManualOwner(player);
+        stubQuality(2.0);
+        List<ItemStack> results = new ArrayList<>();
+        results.add(vanillaMundaneResult());
+
+        upgradeListener().onBrew(upgradeBrew(rawStrengthPotion(3600, 0), Material.GLOWSTONE_DUST, results));
+
+        PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
+        assertEquals(1, meta.getCustomEffects().size(), "強化でカスタム効果が消えている");
+        PotionEffect effect = meta.getCustomEffects().get(0);
+        assertEquals(1, effect.getAmplifier(), "効力 +1");
+        assertEquals(1800, effect.getDuration(), "3600 * 1/2 (バニラの 3:00→1:30 と同じ比)");
+    }
+
+    @Test
+    void 二度目の延長は何も起こさないが中身は失われない() {
+        writeManualOwner(player);
+        stubQuality(2.0);
+        PotionQualityListener listener = upgradeListener();
+
+        List<ItemStack> first = new ArrayList<>();
+        first.add(vanillaMundaneResult());
+        listener.onBrew(upgradeBrew(rawStrengthPotion(3600, 0), Material.REDSTONE, first));
+        ItemStack once = first.get(0);
+
+        List<ItemStack> second = new ArrayList<>();
+        second.add(vanillaMundaneResult());
+        listener.onBrew(upgradeBrew(once, Material.REDSTONE, second));
+
+        PotionMeta meta = (PotionMeta) second.get(0).getItemMeta();
+        assertEquals(1, meta.getCustomEffects().size(),
+                "2回目でバニラの MUNDANE 化に落ちて効果が消えている(バニラ同様「何も起きない」で止める)");
+        assertEquals(9600, meta.getCustomEffects().get(0).getDuration(),
+                "延長は1回きり(バニラの『長い』が二重に掛からないのと同じ)");
+    }
+
+    @Test
+    void 素の水入り瓶はバニラの結果のまま触らない() {
+        writeManualOwner(player);
+        stubQuality(2.0);
+        ItemStack plainWater = new ItemStack(Material.POTION);
+        PotionMeta waterMeta = (PotionMeta) plainWater.getItemMeta();
+        waterMeta.setBasePotionType(PotionType.WATER);
+        waterMeta.clearCustomEffects();
+        plainWater.setItemMeta(waterMeta);
+
+        List<ItemStack> results = new ArrayList<>();
+        results.add(vanillaMundaneResult());
+
+        upgradeListener().onBrew(upgradeBrew(plainWater, Material.REDSTONE, results));
+
+        PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
+        assertEquals(PotionType.MUNDANE, meta.getBasePotionType(),
+                "水入り瓶+レッドストーン→ありふれたポーションというバニラの挙動を奪ってはいけない");
+    }
+
+    // ------------------------------------------ スプラッシュ化 / 残留化 (2026-08-21 実サーバ報告)
+    //
+    // 「ポーションをスプラッシュ化しようとすると水入り瓶になる」。バニラの容器 mix は結果を
+    // PotionContents.createItemStack(器, base) で【1から組み直す】ので、入力のカスタム効果も
+    // 表示名も PDC も引き継がない。TF は品質を乗せると base を WATER へ倒すため、
+    // 残るのは WATER だけ = スプラッシュ水入り瓶になる。
+    // 救済を外すと下の4件が落ちることを実走で確認すること(RED の証明)。
+
+    /** バニラが返すスプラッシュ水入り瓶(カスタム効果なし)。救済されなければこれが残る。 */
+    private ItemStack vanillaSplashWaterResult() {
+        ItemStack potion = new ItemStack(Material.SPLASH_POTION);
+        PotionMeta meta = (PotionMeta) potion.getItemMeta();
+        meta.setBasePotionType(PotionType.WATER);
+        meta.clearCustomEffects();
+        potion.setItemMeta(meta);
+        return potionSpyItem(potion);
+    }
+
+    /** spy を掛けない素のカスタム効果スプラッシュポーション(残留化の入力用)。 */
+    private static ItemStack rawSplashStrengthPotion(int durationTicks, int amplifier) {
+        ItemStack potion = new ItemStack(Material.SPLASH_POTION);
+        PotionMeta meta = (PotionMeta) potion.getItemMeta();
+        meta.setBasePotionType(PotionType.WATER);
+        meta.clearCustomEffects();
+        meta.addCustomEffect(new PotionEffect(PotionEffectType.STRENGTH, durationTicks, amplifier), true);
+        potion.setItemMeta(meta);
+        return potion;
+    }
+
+    @Test
+    @DisplayName("火薬でスプラッシュ化しても中身が消えない(水入り瓶にならない)")
+    void gunpowderKeepsCustomEffectsWhenSplashing() {
+        writeManualOwner(player);
+        stubQuality(2.0);
+        List<ItemStack> results = new ArrayList<>();
+        results.add(vanillaSplashWaterResult()); // バニラが書いた結果(効果ゼロ)
+
+        upgradeListener().onBrew(upgradeBrew(rawStrengthPotion(3600, 1), Material.GUNPOWDER, results));
+
+        ItemStack out = results.get(0);
+        assertEquals(Material.SPLASH_POTION, out.getType(), "器がスプラッシュになっていない");
+        PotionMeta meta = (PotionMeta) out.getItemMeta();
+        assertEquals(1, meta.getCustomEffects().size(),
+                "スプラッシュ化でカスタム効果が消えている(=水入り瓶になる報告そのもの)");
+        PotionEffect effect = meta.getCustomEffects().get(0);
+        assertEquals(3600, effect.getDuration(),
+                "スプラッシュ化で持続は変わらない(バニラも変えない)");
+        assertEquals(1, effect.getAmplifier(), "スプラッシュ化で効力は変わらない");
+    }
+
+    @Test
+    @DisplayName("スプラッシュ化すると名前も『スプラッシュ〜のポーション』に付け替わる")
+    void gunpowderRenamesToSplash() {
+        writeManualOwner(player);
+        stubQuality(2.0);
+        List<ItemStack> results = new ArrayList<>();
+        results.add(vanillaSplashWaterResult());
+
+        upgradeListener().onBrew(upgradeBrew(rawStrengthPotion(3600, 0), Material.GUNPOWDER, results));
+
+        Component name = results.get(0).getItemMeta().displayName();
+        assertNotNull(name, "名前が無いと『水入り瓶』のまま見える");
+        String plain = PlainTextComponentSerializer.plainText().serialize(name);
+        assertTrue(plain.startsWith("スプラッシュ"), "器に合った接頭辞が付いていない: " + plain);
+    }
+
+    @Test
+    @DisplayName("ドラゴンブレスでスプラッシュ→残留にしても中身が消えない")
+    void dragonBreathKeepsCustomEffectsWhenLingering() {
+        writeManualOwner(player);
+        stubQuality(2.0);
+        List<ItemStack> results = new ArrayList<>();
+        results.add(vanillaSplashWaterResult());
+
+        upgradeListener().onBrew(
+                upgradeBrew(rawSplashStrengthPotion(3600, 0), Material.DRAGON_BREATH, results));
+
+        ItemStack out = results.get(0);
+        assertEquals(Material.LINGERING_POTION, out.getType(), "器が残留になっていない");
+        PotionMeta meta = (PotionMeta) out.getItemMeta();
+        assertEquals(1, meta.getCustomEffects().size(), "残留化でカスタム効果が消えている");
+        assertEquals(3600, meta.getCustomEffects().get(0).getDuration(),
+                "残留の 1/4 は使用時に AreaEffectCloud 側が掛けるので、ここで縮めてはいけない");
+    }
+
+    @Test
+    @DisplayName("素の水入り瓶＋火薬はバニラの結果のまま触らない")
+    void plainWaterBottleSplashIsLeftToVanilla() {
+        writeManualOwner(player);
+        stubQuality(2.0);
+        ItemStack plainWater = new ItemStack(Material.POTION);
+        PotionMeta waterMeta = (PotionMeta) plainWater.getItemMeta();
+        waterMeta.setBasePotionType(PotionType.WATER);
+        waterMeta.clearCustomEffects();
+        plainWater.setItemMeta(waterMeta);
+
+        List<ItemStack> results = new ArrayList<>();
+        ItemStack vanilla = vanillaSplashWaterResult();
+        results.add(vanilla);
+
+        upgradeListener().onBrew(upgradeBrew(plainWater, Material.GUNPOWDER, results));
+
+        assertSame(vanilla, results.get(0),
+                "素の水入り瓶のスプラッシュ化というバニラの挙動を奪ってはいけない");
+    }
+
+    @Test
+    @DisplayName("組み合わせが違う容器 mix(ポーション+ドラゴンブレス)はバニラに任せる")
+    void wrongContainerPairIsLeftToVanilla() {
+        writeManualOwner(player);
+        stubQuality(2.0);
+        List<ItemStack> results = new ArrayList<>();
+        ItemStack vanilla = vanillaSplashWaterResult();
+        results.add(vanilla);
+
+        // バニラの容器 mix は POTION+火薬 と SPLASH+ドラゴンブレス の2組だけ。
+        upgradeListener().onBrew(
+                upgradeBrew(rawStrengthPotion(3600, 0), Material.DRAGON_BREATH, results));
+
+        assertSame(vanilla, results.get(0), "実在しない組で勝手に器を替えている");
     }
 }

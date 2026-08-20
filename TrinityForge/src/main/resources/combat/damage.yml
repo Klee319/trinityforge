@@ -6,14 +6,13 @@
 # global, tunable knobs that feed it. Per-item / per-mob stats live in PDC, not here.
 # 設定リファレンス(本文コメント移設先): docs/config-reference/combat/damage.md
 
-
 physical:
   base-coefficient: 1
   min-component-damage: 1
 melee-charge:
   enabled: true
-  min-multiplier: 0.2
-  exponent: 2.0
+  min-multiplier: 0.1
+  exponent: 1.6
 attack-speed:
   min-effective: 0.1
   reconcile-interval-ticks: 10
@@ -21,6 +20,7 @@ magical:
   base-coefficient: 1
   min-component-damage: 1
   scale-with-combat-level: true
+  attack-power-scale: 1
 weapon-base-formula:
   enabled: false
   a: 2
@@ -35,40 +35,12 @@ defense:
   max-rate: 1
   min-flat: 0
   max-flat: 1000000
-  # 防護エンチャント(Protection/Projectile Protection)の再導出軽減率に掛ける倍率。
-  # 1.0 = バニラ準拠(防護IVフルセット4部位で64%軽減)。
-  # 既定を0.5にしている理由: max-mitigation-rate(上の0.9、被ダメ軽減%の全体上限)の枠を
-  # 防護エンチャント1種だけで71%も食い潰し、TF自前の防具ステ(守備力・耐性等)が
-  # ほぼ無意味になってしまうため。0.5なら防護IVフルセットでも32%に収まり、
-  # 残りの枠をTFの防具ステに残せる。
   enchant-protection-scale: 0.5
 bleed:
   tick-interval-ticks: 20
   ticks: 5
 aoe:
   hit-players: false
-# ---------------------------------------------------------------------------
-# 【2026-07-27】PvP(player→player)専用の抑制
-# ---------------------------------------------------------------------------
-# TFのダメージ式はモブ向けに調整されており、それがそのまま対人にも乗っていた。
-# モブはHPを 150×1.066^L で釣り合わせているのに対し、プレイヤーの最大体力は
-# バニラ20＋powerツリー(+10)＋プレステージで概ね33が上限。一方 Lv100帯のプレイヤー攻撃力は
-# 約1052あるため、この節が無いと「先に当てた側が確定で即死させる」状態になる。
-#
-# enabled: false にすると下の2つは一切参照されず、対人も従来どおりモブと同じ計算になる。
-#
-# damage-multiplier: PvPダメージに掛ける倍率。低レベル帯(下の割合上限にまだ届かない帯)の
-#   手触りを調整するためのつまみ。0 にすると対人ダメージが完全に0になる(=実質PvP禁止)。
-#
-# max-damage-percent-of-max-health: 1発で削れる量を「被弾者の最大体力の◯割」までに制限する。
-#   既定0.15 = 最大体力の15%までなので、どれだけ攻撃力が伸びても倒すのに最低7発かかる。
-#   倍率だけに頼らずこの上限を置いているのは、根本原因が「攻撃力は指数で伸びるのに
-#   プレイヤーの体力はほぼ一定」という構造だから — 倍率は攻撃カーブを触るたびに調整し直しに
-#   なるが、割合上限はスケールフリーなので調整漏れで即死ゲーに戻ることがない。
-#   0 にすると上限なし(倍率だけが効く)。
-#
-# 適用範囲: 主命中・AoEスプラッシュの両方。出血DoTは主命中の最終ダメージから算出されるので
-#   自動的に抑制後の値を引き継ぐ。モブ→プレイヤーのダメージには掛からない。
 pvp:
   enabled: true
   damage-multiplier: 0.5
@@ -77,10 +49,123 @@ vanilla-armor:
   defense-rate-per-point: 0.015
   defense-rate-max: 0.8
   armor-strength-per-point: 0
-# 2026-07-25 (CMB-31): attack-stat-keys / defense-stat-keys ブロックは削除した。
-# 14個すべてが「スキーマ既定値 == 出荷yml値 == ハードコード名」で一致しており、
-# StatCategoryInference/PercentStatNormalize/StatVocabulary/editorがキー名変更に追随しないため
-# 実質リネーム不可能だった(見せかけのconfig駆動)。ステキー名は
-# combat/AttackStatKeys.java・combat/DefenseStatKeys.java の定数として固定されている。
-# 旧バージョンのこのファイルにこれらのブロックが残っていても、スキーマに存在しないキーは
-# 無視されるだけで読み込みエラーにはならない。
+sunlight-burn:
+  enabled: true
+  damage-percent-of-max-health: 0.1
+  mobs:
+    - ZOMBIE
+    - ZOMBIE_VILLAGER
+    - DROWNED
+    - GIANT
+    - SKELETON
+    - STRAY
+    - BOGGED
+    - PHANTOM
+    - ZOMBIE_HORSE
+    - SKELETON_HORSE
+early-level-attack:
+  enabled: true
+  until-level: 10
+  level-0-multiplier: 0.7
+# レベル差による経験値・ドロップの足きり(低レベル狩りの抑制 / 高レベルモブのドロップ制限)。
+# ⚠ over/under はモブではなく【プレイヤー】が主語。over-level はプレイヤーのほうが高レベルなときに
+#   効く側で、「格上狩り」と読むと向きが逆になるのでその言い方はしない。
+# over-level: 自分(戦闘レベル)が threshold 以上モブより高いと発動。exp-rate/drop-rate は発動直後の初期倍率
+# (-1で完全遮断、1で無干渉)。exp-decay-per-level/drop-decay-per-level は閾値超過1レベルごとに
+# その初期倍率からさらに引く量(既定0=減衰なし=従来どおり固定レートのまま)。rate-floor は減衰後の下限。
+# under-level: モブが自分より item-threshold 以上高いと発動。2026-08-18 に over-level と完全対称にした
+# (以前は「TF追加ドロップを一切付けない」の全か無かだけで、経験値には一切効かなかった)。狙いは
+# 低レベルのままハメ殺しやデスルーラーで高レベルのモブを狩る行為の抑制。撃破EXPはモブのレベルで伸びるので、
+# 経験値に効かないことが一番大きな抜け穴だった。
+# ⚠ アイテム側の閾値のキー名は item-threshold のまま据え置き(リネームすると配備済み config の値が
+#   無言で既定値に化けるため)。経験値だけ別の起点から絞りたいときは exp-threshold を書く
+#   (未設定/-1 なら item-threshold を使う = 従来どおり1本の閾値で両方が発動する)。
+# ⚠ パーティでの同行は区別しない。レベル差だけで判定するので、高レベルの人にダンジョンへ連れて行って
+#   もらった低レベルも同じだけ削られる(免除を入れると低レベルを連れて行くだけで抑制を回避できるため)。
+# ⚠⚠ ここが比較するのは【戦闘レベル】であって【スキルレベル】ではない (2026-08-19 W-148 の真因)。
+#   戦闘レベルは progression/combat-level.yml の pillar 写像で決まり、単一特化のプレイヤーでは
+#   最高スキルの約 2/3 にしかならない(top1 の divisor が 1.5)。つまり「軽武器スキル78」の人の
+#   戦闘レベルは 52 前後で、Lv80 モブとのレベル差は 2 ではなく【28】になる。
+#   W-148 では「エンダーマンとのレベル差は2だから足きりは不発」と判断して原因候補から外したが、
+#   これが誤りだった ── 実際には配備先DBの実データで、戦闘Lv53の人が約1000、戦闘Lv50以下の人が
+#   きっかり0 になっており、報告「みんな1000程度か0」と完全に一致していた。
+#   閾値をいじるときは必ず /tf status の戦闘レベルを基準に考えること。スキルレベルで考えると
+#   常に 1/3 ぶん甘く見積もることになる。
+#
+# 下の既定値: TF追加ドロップは20レベル差で完全遮断。経験値は25差から絞り始め、超過1レベルごとに
+# 0.04ずつ落ちて50差で0になる(=25〜50差の区間をかけて0へ)。
+# 目安: 25差=満額 / 30差=0.8倍 / 35差=0.6倍 / 40差=0.4倍 / 50差以上=0。
+#
+# 2026-08-19: 旧値(15差から絞り始め0.067ずつ/30差で0)から緩めた。旧値は上記のスキルレベルと
+# 戦闘レベルの取り違えの上に置かれており、「戦闘レベルは構造的にスキルレベルより約1/3低い」ぶんが
+# そのまま足きりの発動量になっていた。極端な例として、軽武器を100まで上げた純特化プレイヤーの
+# 戦闘レベルは 67(=100/1.5)なので、旧値では【Lv97以上のモブから経験値が一切入らない】。
+# 新値の 25 は「純特化ぶんの構造的なズレ(最高スキルの 1/3)」を吸収する幅で、
+# 50差での完全遮断は低レベルを高レベルダンジョンへ連れて行くハメ狩りの抑制という当初の狙いを維持する。
+level-cutoff:
+  over-level:
+    threshold: -1
+    exp-rate: 1
+    drop-rate: 1
+    exp-decay-per-level: 0
+    drop-decay-per-level: 0
+    rate-floor: 0
+  under-level:
+    item-threshold: 20
+    exp-threshold: 25
+    exp-rate: 1
+    drop-rate: -1
+    exp-decay-per-level: 0.04
+    drop-decay-per-level: 0
+    rate-floor: 0
+    bonus-per-level: 0
+    bonus-cap: 0
+# ダンジョンの挑戦レベルに応じた報酬の増減(2026-08-18 W-80)。
+# EMダイナミックダンジョンは入場時に挑戦レベルと難易度を自分で選ぶ。選んだレベルはインスタンス内の
+# モブ全員のレベルになるので敵の強さには効いていたが、報酬にはほとんど効いていなかった ── TF追加ドロップの
+# chance は combat/mob-overrides.yml の固定値でレベル項が無く、撃破EXPもモブレベルに対して
+# 1.008 乗の緩い傾斜しか持たない。結果「選べる中で一番低いレベルを選んで最速で回す」のが常に最適で、
+# 高いレベルを選ぶ理由がどこにも無かった。
+# ⚠ ここが効くのはダンジョンワールド(EMのインスタンス)で倒したモブだけ。オーバーワールドの
+#   高レベルモブを倒しても一切効かない。判定に使うのは「倒したモブのレベル」= 選んだレベル±難易度補正で、
+#   プレイヤーとのレベル差ではない(レベル差で書くと上の under-level の狙いと正面衝突するため)。
+# ⚠ 上の足きりを掛けたあとに乗る。足きりが完全遮断(0)を返したキルは増減しても0のまま。
+# ⚠ 難易度 normal/hard/mythic は EM 側でモブレベルを -5/±0/+5 動かす(fork の DynamicDungeonInstance)。
+#   step を 5 にしてあるので「難易度1段 = 報酬1段」で対応する。
+# 出荷値でのモブレベル別の倍率(ドロップ / EXP):
+#   15以下 0.70 / 0.80(下限)  20 0.76 / 0.88  30 0.92 / 0.96  35 1.00 / 1.00(等倍)
+#   40 1.08 / 1.04  50 1.24 / 1.12  60 1.40 / 1.20  70以上 1.50 / 1.25(上限)
+dungeon-level-reward:
+  enabled: true
+  # 倍率がちょうど1.00(規定値)になるモブレベル。これより低いダンジョンは規定値より少なく、
+  # 高いダンジョンは多くなる。片側の上乗せだけにすると頭打ちの倍率を大きく取らないと差が出ないので、
+  # 低い側を減らすことで頭打ちを下げている(2026-08-18 ユーザー指示)。
+  pivot-level: 35
+  # 何レベルごとに1段変えるか。EMの難易度が相対 levelSync ±5 で定義されているので5にしてある。
+  step: 5
+  # 1段ごとにTF追加ドロップ確率へ足す/引く割合。0.08 なら1段につき ±8%。
+  drop-bonus-per-step: 0.08
+  # ドロップ側の増加の頭打ち。0.5 なら最大 +50%(=1.5倍)。0 にすると増加側は無効。
+  drop-bonus-cap: 0.5
+  # ドロップ側の減少の頭打ち。0.3 なら最小 -30%(=0.7倍)。0 にすると減少側は無効。
+  drop-penalty-cap: 0.3
+  # 撃破EXPの1段あたりの割合。EXPはモブレベル自体でも伸びるのでドロップより緩やかにしてある。
+  exp-bonus-per-step: 0.04
+  # EXP側の増加の頭打ち。0.25 なら最大 +25%。
+  exp-bonus-cap: 0.25
+  # EXP側の減少の頭打ち。0.2 なら最小 -20%(=0.8倍)。
+  exp-penalty-cap: 0.2
+durability:
+  dungeon-only: true
+  respect-unbreaking: true
+  prevent-break: true
+  on-hit:
+    enabled: true
+    percent-of-max: 0.001
+    min-damage: 1
+    include-offhand: true
+  on-death:
+    enabled: true
+    percent-of-max: 0.1
+    min-damage: 1
+    include-hands: true

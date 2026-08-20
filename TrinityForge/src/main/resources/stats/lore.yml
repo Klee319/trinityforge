@@ -15,12 +15,14 @@
 # category: attack/defense/craft/gathering/utility/ars/other (2026-07-23 7分類再編。旧 support は
 # utility へ改名統合。"support" 文字列は後方互換のため引き続き utility として読み込める)
 # unit: PERCENT以外の末尾単位（例: m / 秒）。PERCENTは自動で%。
+# display-scale: 内部値→表示値の換算係数（既定 1.0 = 換算なし）。unit が内部値の単位と一致しない
+#   ステだけに書く。base-stats / item-stats / skilltree / stat-caps に書く値と PDC は内部値のままで、
+#   lore と /tf stats・/tf status の表示だけがこの係数を掛ける（換算は StatDisplaySpec に一本化）。
 # 設定リファレンス(本文コメント移設先): docs/config-reference/stats/lore.md
 
-
 layout:
-  line-template: <gray><icon><name>：<value></gray>
-  score-line-template: <tier><gray>:</gray>  <aqua><score>pt</aqua>
+  line-template: <color:gray><icon><name>：<value></color>
+  score-line-template: <tier><color:gray>:</color>  <color:aqua><score>pt</color>
   positive-color: white
   negative-color: red
   header: []
@@ -33,7 +35,7 @@ bind:
   show-owner: true
   owner-line: "<gray>所有者: <white><owner></white></gray>"
   show-use-requirement: true
-  use-requirement-line: "<gray>必要Lv: <white><level></white> <gray><skill></gray>"
+  use-requirement-line: "<gray>必要Lv: <white><level></white> <skill></gray>"
 stats:
   attack-power:
     name: 攻撃力
@@ -43,7 +45,13 @@ stats:
     order: 1
     show-sign: true
     hide-when-zero: true
+    unit: ダメ
     category: attack
+    trigger:
+      when: ON_ANY_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
   attack-speed:
     name: 攻撃速度
     icon: ""
@@ -52,7 +60,13 @@ stats:
     order: 2
     show-sign: true
     hide-when-zero: true
+    unit: 回/s
     category: attack
+    trigger:
+      when: PASSIVE_ATTRIBUTE
+      sources: MAINHAND_ONLY
+      applies-to:
+        - PLAYER
   attack-speed-bonus:
     name: 攻撃速度加算
     icon: ""
@@ -62,6 +76,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
+    trigger:
+      when: PASSIVE_ATTRIBUTE
+      sources: ALL
+      applies-to:
+        - PLAYER
   attack-reach:
     name: リーチ
     icon: ""
@@ -72,6 +91,12 @@ stats:
     hide-when-zero: true
     unit: m
     category: attack
+    trigger:
+      when: PASSIVE_ATTRIBUTE
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
   aoe-radius:
     name: ダメージ半径
     icon: ""
@@ -82,6 +107,11 @@ stats:
     hide-when-zero: true
     unit: m
     category: attack
+    trigger:
+      when: ON_MELEE_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
   aoe-max-targets:
     name: 対象上限
     icon: ""
@@ -92,17 +122,27 @@ stats:
     hide-when-zero: true
     unit: 体
     category: attack
+    trigger:
+      when: ON_MELEE_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
   aoe-damage-rate:
     name: 範囲ダメージ
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 9
+    order: 10
     show-sign: true
     hide-when-zero: true
     category: attack
+    trigger:
+      when: ON_MELEE_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
   percent-bonus-damage:
-    name: 追加ダメ
+    name: 追加ダメージ率
     icon: ""
     format: PERCENT
     decimals: 0
@@ -110,6 +150,12 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
+    trigger:
+      when: ON_ANY_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
   damage-modifier:
     name: ダメージ補正
     icon: ""
@@ -119,16 +165,30 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
+    trigger:
+      when: ON_ANY_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
   item-cooldown:
     name: CT
     icon: ""
     format: FLAT
     decimals: 1
-    order: 3
+    order: 1
     show-sign: true
     hide-when-zero: true
     unit: 秒
     category: other
+    trigger:
+      when: ON_MELEE_HIT
+      sources: MAINHAND_ONLY
+      applies-to:
+        - PLAYER
+    limits:
+      max-duration-ticks: 72000
+      max-duration-ticks-ref: java:com.trinityforge.listeners.CombatListener#ITEM_COOLDOWN_MAX_TICKS
   crit-chance:
     name: 会心率
     icon: ""
@@ -138,6 +198,14 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
+    trigger:
+      when: ON_ANY_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
+    limits:
+      cap: 1
   crit-damage:
     name: 会心ダメージ
     icon: ""
@@ -147,6 +215,12 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
+    trigger:
+      when: ON_ANY_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
   penetration:
     name: 貫通率
     icon: ""
@@ -156,6 +230,14 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
+    trigger:
+      when: ON_ANY_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
+    limits:
+      cap: 1
   bleed-chance:
     name: 出血率
     icon: ""
@@ -173,242 +255,432 @@ stats:
     order: 42
     show-sign: true
     hide-when-zero: true
+    unit: ダメ
     category: attack
-  armor-defense-rate:
-    name: 防御力
+  # 2026-08-15(W-30): 出血ダメージの割合版。出血させた一撃の最終ダメージに対する比を
+  # 1tickあたりのダメージへ足す(上の実数 bleed-damage と合算)。
+  # 実数はアイテム向け(帯とともに指数的に伸びるので実数のままで意味を持つ)、
+  # 率はスキルツリー向け ── 固定値をツリーが配ると低帯で壊れ高帯で no-op になる
+  # (軽剣ツリー全取りの150は Lv0 で武器の+440%、Lv100 で+3.3%だった)。
+  bleed-damage-rate:
+    name: 出血ダメージ率
     icon: ""
-    format: FLAT
+    format: PERCENT
     decimals: 1
-    order: 50
+    order: 43
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+    trigger:
+      when: ON_ANY_HIT
+      sources: MAINHAND_ONLY
+      applies-to:
+        - PLAYER
+  # 2026-08-15: 防具値(armor-defense-rate)を廃止し、この防御率へ 1点=1.5%軽減 で統合した。
+  # 防具値の order 2(防御ブロックの先頭)をそのまま引き継ぐ。
+  defense-rate:
+    name: 防御率
+    icon: ""
+    format: PERCENT
+    decimals: 1
+    order: 2
     show-sign: true
     hide-when-zero: true
     category: defense
+    trigger:
+      when: ON_DAMAGE_TAKEN
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
+    limits:
+      cap: 0.9
+      cap-ref: combat/damage.yml#defense.max-mitigation-rate
   armor-strength:
     name: 防具強度
     icon: ""
     format: PERCENT
     decimals: 1
-    order: 51
+    order: 3
     show-sign: true
     hide-when-zero: true
     category: defense
+    trigger:
+      when: ON_ANY_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
+    limits:
+      cap: 1
+      cap-ref: combat/damage.yml#defense.max-crit-reduction
   max-health:
     name: 体力増強
     icon: ""
     format: FLAT
     decimals: 1
-    order: 52
+    order: 1
     show-sign: true
     hide-when-zero: true
+    unit: HP
     category: defense
+    trigger:
+      when: PASSIVE_ATTRIBUTE
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
   knockback-resistance:
-    name: K耐性
+    name: ノックバック耐性
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 53
+    order: 13
     show-sign: true
     hide-when-zero: true
     category: defense
+    trigger:
+      when: PASSIVE_ATTRIBUTE
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
   move-speed:
     name: 移動速度
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 54
+    order: 1
     show-sign: true
     hide-when-zero: true
     category: utility
+    trigger:
+      when: PASSIVE_ATTRIBUTE
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
   durability:
     name: 耐久値
     icon: ""
     format: INTEGER
     decimals: 0
-    order: 1000
+    order: 4
     show-sign: false
     hide-when-zero: true
+    unit: 回
     category: other
   phys-resistance:
     name: 物理耐性
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 60
+    order: 4
     show-sign: true
     hide-when-zero: true
     category: defense
+    trigger:
+      when: ON_DAMAGE_TAKEN
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
+    limits:
+      cap: 0.9
+      cap-ref: combat/damage.yml#defense.max-mitigation-rate
   magic-resistance:
     name: 魔法耐性
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 61
+    order: 5
     show-sign: true
     hide-when-zero: true
     category: defense
+    trigger:
+      when: ON_DAMAGE_TAKEN
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
+    limits:
+      cap: 0.9
+      cap-ref: combat/damage.yml#defense.max-mitigation-rate
   damage-reduction:
     name: 被ダメ軽減
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 65
+    order: 11
     show-sign: true
     hide-when-zero: true
     category: defense
+    trigger:
+      when: ON_DAMAGE_TAKEN
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
+    limits:
+      cap: 0.9
+      cap-ref: combat/damage.yml#defense.max-mitigation-rate
   dodge-chance:
     name: 回避率
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 66
+    order: 12
     show-sign: true
     hide-when-zero: true
     category: defense
+    trigger:
+      when: ON_DAMAGE_TAKEN
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
+    limits:
+      cap: 0.9
+      cap-ref: combat/damage.yml#defense.max-dodge-chance
   reflect-flat:
-    # 2026-07-25 課題2: 棘の鎧ステータス化。被弾時にこの固定値分だけ相手にダメージを与える。
-    name: 反射率（実）
+    name: 反射ダメ追加
     icon: ""
     format: FLAT
     decimals: 1
-    order: 67
+    order: 10
     show-sign: true
     hide-when-zero: true
+    unit: ダメ
     category: defense
+    trigger:
+      when: ON_DAMAGE_TAKEN
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
   reflect-percent:
-    # 棘の鎧レベルL(装備全体の合計)は10%×Lをこの値へ寄与する(ReflectDamageBridge)。
-    # バニラの棘の鎧ダメージ自体は二重にならないよう抑止し、反射はこちらへ一本化する
-    # (バニラの耐久値消費は維持)。
-    name: 反射率（割）
+    name: 反射率
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 68
+    order: 9
     show-sign: true
     hide-when-zero: true
     category: defense
+    trigger:
+      when: ON_DAMAGE_TAKEN
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
+      cap: 1
   gathering-efficiency:
-    name: 最終効率
+    name: 効率強化増幅
     icon: ""
     format: FLAT
     decimals: 1
-    order: 80
+    order: 5
     show-sign: true
     hide-when-zero: true
+    unit: Lv
     category: gathering
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
   mining-fortune:
-    name: 採掘運
-    icon: ""
-    format: FLAT
-    decimals: 1
-    order: 81
-    show-sign: true
-    hide-when-zero: true
-    category: gathering
-  fishing-luck:
-    name: 釣り運
+    name: 幸運(採掘)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 82
+    order: 6
     show-sign: true
     hide-when-zero: true
     category: gathering
-  fishing-bonus:
-    name: 釣りボーナス
+    trigger:
+      when: ON_BLOCK_BREAK
+      sources: ALL
+      applies-to:
+        - PLAYER
+  fishing-luck:
+    name: 宝釣り
     icon: ""
-    format: FLAT
-    decimals: 1
-    order: 83
+    format: PERCENT
+    decimals: 0
+    order: 14
     show-sign: true
     hide-when-zero: true
     category: gathering
-  # tool-enchant-efficiency は 2026-07-26 に gathering-efficiency(最終効率)へ統合したため削除。
-  # StatKeys のエイリアスで畳まれるので、ここに残すと同じステが2行表示される。
-  # 旧キーを書いた yml はそのまま動く(読み替えられる)。
+    trigger:
+      when: ON_FISH
+      sources: ALL
+      applies-to:
+        - PLAYER
+  fishing-bonus:
+    name: 二本釣り
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 15
+    show-sign: true
+    hide-when-zero: true
+    category: gathering
+    trigger:
+      when: ON_FISH
+      sources: ALL
+      applies-to:
+        - PLAYER
   mana-bonus:
-    name: 最大マナ
+    name: マナ上限
     icon: ""
     format: FLAT
     decimals: 0
-    order: 70
+    order: 1
     show-sign: true
     hide-when-zero: true
+    unit: MP
     category: ars
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
   mana-regen:
-    name: 時間マナ回復
+    name: マナ回復量
     icon: ""
     format: FLAT
     decimals: 1
-    order: 71
+    order: 2
     show-sign: true
     hide-when-zero: true
     unit: /秒
     category: ars
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
   hit-mana-recovery:
-    name: 命中マナ回復
+    name: 被弾マナ回復(実)
     icon: ""
     format: FLAT
     decimals: 1
-    order: 72
+    order: 3
     show-sign: true
     hide-when-zero: true
+    unit: MP
     category: ars
+    trigger:
+      when: ON_DAMAGE_TAKEN
+      sources: ALL
+      applies-to:
+        - PLAYER
   damage-mana-recovery:
-    name: 被弾マナ回復
+    name: 攻撃マナ回復(実)
     icon: ""
     format: FLAT
     decimals: 1
-    order: 73
+    order: 5
     show-sign: true
     hide-when-zero: true
+    unit: MP
     category: ars
+    trigger:
+      when: ON_MELEE_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
   thread-slots:
     name: スレッド枠
     icon: ""
     format: INTEGER
     decimals: 0
-    order: 74
+    order: 3
     show-sign: false
     hide-when-zero: true
     unit: 枠
-    category: ars
+    category: other
+    trigger:
+      when: PASSIVE
+      sources: WORN_ARMOR_ONLY
+      applies-to:
+        - PLAYER
   mana-cost-reduction-flat:
-    name: マナ消費軽減
+    name: マナ消費効率(実)
     icon: ""
     format: FLAT
     decimals: 0
-    order: 75
+    order: 7
     show-sign: true
     hide-when-zero: true
+    unit: MP
     category: ars
+    trigger:
+      when: ON_SPELL_CAST
+      sources: ALL
+      applies-to:
+        - PLAYER
   mana-cost-reduction-percent:
-    name: マナ消費軽減
+    name: マナ消費効率(率)
     icon: ""
-    format: FLAT
-    decimals: 0
-    order: 76
+    format: PERCENT
+    decimals: 1
+    order: 8
     show-sign: true
     hide-when-zero: true
-    unit: "%"
     category: ars
+    trigger:
+      when: ON_SPELL_CAST
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      cap: 1
   phys-flat-defense:
     name: 物理守備力
     icon: ""
     format: FLAT
     decimals: 1
-    order: 62
+    order: 7
     show-sign: true
     hide-when-zero: true
+    unit: ダメ
     category: defense
+    trigger:
+      when: ON_DAMAGE_TAKEN
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
+    limits:
+      floor: 0
+      floor-ref: combat/damage.yml#defense.min-flat
+      cap: 1000000
+      cap-ref: combat/damage.yml#defense.max-flat
   magic-flat-defense:
     name: 魔法守備力
     icon: ""
     format: FLAT
     decimals: 1
-    order: 63
+    order: 8
     show-sign: true
     hide-when-zero: true
+    unit: ダメ
     category: defense
+    trigger:
+      when: ON_DAMAGE_TAKEN
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
+    limits:
+      floor: 0
+      floor-ref: combat/damage.yml#defense.min-flat
+      cap: 1000000
+      cap-ref: combat/damage.yml#defense.max-flat
   fixed-damage:
     name: 固定ダメージ
     icon: ""
@@ -417,7 +689,14 @@ stats:
     order: 13
     show-sign: true
     hide-when-zero: true
+    unit: ダメ
     category: attack
+    trigger:
+      when: ON_ANY_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
   bow-accuracy:
     name: 弓精度
     icon: ""
@@ -445,6 +724,15 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
+    trigger:
+      when: ON_PROJECTILE_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
+    limits:
+      max-distance: 64
+      max-distance-ref: java:com.trinityforge.listeners.CombatListener#MAX_DISTANCE_DAMAGE_BLOCKS
   arrow-piercing:
     name: 矢貫通
     icon: ""
@@ -453,6 +741,7 @@ stats:
     order: 103
     show-sign: true
     hide-when-zero: true
+    unit: 体
     category: attack
   arrow-velocity:
     name: 矢速度
@@ -463,26 +752,40 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-  bow-cooldown-reduction:
-    name: 弓CT短縮
-    icon: ""
-    format: PERCENT
-    decimals: 0
-    order: 105
-    show-sign: true
-    hide-when-zero: true
-    category: attack
   arrow-knockback:
     name: 矢ノックバック
     icon: ""
     format: FLAT
+    unit: m
+    display-scale: 4.4
+    decimals: 1
+    order: 105
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+    trigger:
+      when: ON_PROJECTILE_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
+  melee-knockback:
+    name: 追撃ノックバック
+    icon: ""
+    format: FLAT
+    unit: m
+    display-scale: 3.9
     decimals: 1
     order: 106
     show-sign: true
     hide-when-zero: true
     category: attack
-  melee-knockback:
-    name: 追撃ノックバック
+    trigger:
+      when: ON_MELEE_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
+  stun-chance:
+    name: スタン率
     icon: ""
     format: PERCENT
     decimals: 0
@@ -490,26 +793,32 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-  stun-chance:
-    name: スタン率
-    icon: ""
-    format: PERCENT
-    decimals: 0
-    order: 108
-    show-sign: true
-    hide-when-zero: true
-    category: attack
+    trigger:
+      when: ON_MELEE_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      cap: 0.75
   stun-duration-bonus:
-    # 2026-07-26新設。stun-chance発動時のスタン(鈍化/採掘速度低下/移動凍結)の継続時間への割合加算。
-    # NativeCombatPerkListener側で絶対上限(5秒=100tick)にクランプされる。
     name: スタン時間
     icon: ""
-    format: PERCENT
+    format: FLAT
+    unit: tick
     decimals: 0
     order: 108
     show-sign: true
     hide-when-zero: true
     category: attack
+    trigger:
+      when: ON_MELEE_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
+    limits:
+      max-duration-ticks: 100
+      max-duration-ticks-ref: java:com.trinityforge.skilltree.runtime.NativeCombatPerkListener#MAX_STUN_DURATION_TICKS
   power-attack-damage:
     name: 空中攻撃ダメージ
     icon: ""
@@ -519,6 +828,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
+    trigger:
+      when: ON_MELEE_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
   power-attack-radius:
     name: 空中攻撃半径
     icon: ""
@@ -529,619 +843,1033 @@ stats:
     hide-when-zero: true
     unit: m
     category: attack
+    trigger:
+      when: ON_MELEE_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
   cooldown-reduction:
-    name: アイテムCT短縮
+    name: CT効率
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 111
+    order: 2
     show-sign: true
     hide-when-zero: true
-    category: attack
+    category: other
+    trigger:
+      when: ON_MELEE_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      cap: 0.9
   haste-active-mining-cooldown-reduction:
-    name: 高速破壊CT短縮
+    name: 高速破壊CT効率
     icon: ""
     format: PERCENT
     decimals: 0
     order: 112
     show-sign: true
     hide-when-zero: true
-    category: attack
+    category: utility
+  haste-active-digging-cooldown-reduction:
+    name: 高速掘削CT効率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    # 2026-08-18: utilityカテゴリの order は 112(直上)/113(直下のtree-fell)が既に埋まっているため、
+    # 同カテゴリ内の最大値(30、line ~1316)より大きい31を採番(orderはカテゴリ内で一意が必須)。
+    order: 31
+    show-sign: true
+    hide-when-zero: true
+    category: utility
   tree-fell-cooldown-reduction:
-    name: 一括伐採CT短縮
+    name: 一括伐採CT効率
     icon: ""
     format: PERCENT
     decimals: 0
     order: 113
     show-sign: true
     hide-when-zero: true
-    category: attack
+    category: utility
+    trigger:
+      when: ON_BLOCK_BREAK
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      cap: 0.9
   health-regen-bonus:
     name: 自然回復量
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 91
+    order: 15
     show-sign: true
     hide-when-zero: true
     category: defense
   coating-charges:
-    name: コーティング回数
+    name: コーティング数
     icon: ""
     format: INTEGER
     decimals: 0
-    order: 1001
+    order: 5
     show-sign: true
     hide-when-zero: true
+    unit: 回
     category: other
   hunger-save-chance:
-    name: 空腹節約率
+    name: 満腹効率
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 120
+    order: 2
     show-sign: true
     hide-when-zero: true
     category: utility
   mob-drop-bonus:
-    name: 討伐ドロップ増加
+    name: ドロップ増加
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 121
+    order: 4
     show-sign: true
     hide-when-zero: true
-    category: utility
+    category: gathering
+    trigger:
+      when: ON_KILL
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      cap: 2
   skill-exp-bonus:
-    name: スキル経験値増加
+    name: 職業EXP増加
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 122
+    order: 11
     show-sign: true
     hide-when-zero: true
     category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  woodcutting-exp-bonus:
+    name: 職業EXP増加(伐採)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 12
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  farming-exp-bonus:
+    name: 職業EXP増加(農業)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 13
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  digging-exp-bonus:
+    name: 職業EXP増加(掘削)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 14
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  mining-exp-bonus:
+    name: 職業EXP増加(採掘)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 15
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  fishing-exp-bonus:
+    name: 職業EXP増加(釣り)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 16
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  alchemy-exp-bonus:
+    name: 職業EXP増加(錬金)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 17
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  enchanting-exp-bonus:
+    name: 職業EXP増加(エンチャント)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 18
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  smithing-exp-bonus:
+    name: 職業EXP増加(鍛冶)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 19
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  ars-smithing-exp-bonus:
+    name: 職業EXP増加(Ars鍛冶)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 20
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  ars-magic-exp-bonus:
+    name: 職業EXP増加(Ars魔法)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 21
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  archery-exp-bonus:
+    name: 職業EXP増加(弓術)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 22
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  light-weapons-exp-bonus:
+    name: 職業EXP増加(軽量武器)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 23
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  heavy-weapons-exp-bonus:
+    name: 職業EXP増加(重量武器)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 24
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  light-armor-exp-bonus:
+    name: 職業EXP増加(軽装備)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 25
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  heavy-armor-exp-bonus:
+    name: 職業EXP増加(重装備)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 26
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
   loot-luck:
-    name: 幸運
+    name: 開運
     icon: ""
     format: FLAT
     decimals: 1
-    order: 123
+    order: 1
     show-sign: true
     hide-when-zero: true
-    category: utility
+    category: gathering
   mob-drop-quality:
     name: ドロップ品質
     icon: ""
     format: FLAT
     decimals: 1
-    order: 124
+    order: 2
     show-sign: true
     hide-when-zero: true
-    category: utility
+    unit: pt
+    category: gathering
+    trigger:
+      when: ON_KILL
+      sources: ALL
+      applies-to:
+        - PLAYER
   gacha-rate-bonus:
-    name: ガチャ確率UP
+    name: ガチャ運
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 125
-    show-sign: true
-    hide-when-zero: true
-    category: utility
-  food-save-chance:
-    name: 食料節約率
-    icon: ""
-    format: PERCENT
-    decimals: 0
-    order: 126
-    show-sign: true
-    hide-when-zero: true
-    category: utility
-  suspicious-respawn-chance:
-    name: 怪しいブロック復活
-    icon: ""
-    format: PERCENT
-    decimals: 0
-    order: 84
+    order: 3
     show-sign: true
     hide-when-zero: true
     category: gathering
-  hive-harvest-fortune:
-    name: 養蜂幸運
+  food-save-chance:
+    name: 食料効率
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 85
+    order: 3
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: ON_CONSUME
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      cap: 1
+  suspicious-respawn-chance:
+    name: 磨き効率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 18
+    show-sign: true
+    hide-when-zero: true
+    category: gathering
+    trigger:
+      when: ON_BLOCK_BREAK
+      sources: ALL
+      applies-to:
+        - PLAYER
+  hive-harvest-fortune:
+    name: 養蜂効率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 10
     show-sign: true
     hide-when-zero: true
     category: gathering
   kill-vanilla-exp-bonus:
-    name: 討伐時バニラEXP
+    name: EXP増加(討伐)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 127
+    order: 7
     show-sign: true
     hide-when-zero: true
     category: utility
+    trigger:
+      when: ON_KILL
+      sources: ALL
+      applies-to:
+        - PLAYER
   break-vanilla-exp-bonus:
-    name: 破壊時バニラEXP
+    name: EXP増加(破壊)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 128
+    order: 8
     show-sign: true
     hide-when-zero: true
     category: utility
+    trigger:
+      when: ON_BLOCK_BREAK
+      sources: ALL
+      applies-to:
+        - PLAYER
+  mining-break-vanilla-exp-bonus:
+    name: EXP増加(採掘の破壊)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 27
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: ON_BLOCK_BREAK
+      sources: ALL
+      applies-to:
+        - PLAYER
+  woodcutting-break-vanilla-exp-bonus:
+    name: EXP増加(伐採の破壊)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 28
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: ON_BLOCK_BREAK
+      sources: ALL
+      applies-to:
+        - PLAYER
+  digging-break-vanilla-exp-bonus:
+    name: EXP増加(整地の破壊)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 29
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: ON_BLOCK_BREAK
+      sources: ALL
+      applies-to:
+        - PLAYER
+  farming-break-vanilla-exp-bonus:
+    name: EXP増加(農業の破壊)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 30
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: ON_BLOCK_BREAK
+      sources: ALL
+      applies-to:
+        - PLAYER
   vanilla-exp-bonus:
-    name: 常時バニラEXP
+    name: EXP増加
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 129
+    order: 6
     show-sign: true
     hide-when-zero: true
     category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
   breeding-vanilla-exp-bonus:
-    name: 繁殖時バニラEXP
+    name: EXP増加(繁殖)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 130
+    order: 9
     show-sign: true
     hide-when-zero: true
     category: utility
   woodcutting-extra-drop-chance:
-    name: 伐採追加ドロップ率
+    name: 幸運(伐採)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 131
+    order: 7
     show-sign: true
     hide-when-zero: true
-    category: utility
+    category: gathering
+    trigger:
+      when: ON_BLOCK_BREAK
+      sources: ALL
+      applies-to:
+        - PLAYER
   harvest-extra-drop-chance:
-    name: 収穫追加ドロップ率
+    name: 幸運(収穫)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 132
+    order: 8
     show-sign: true
     hide-when-zero: true
-    category: utility
+    category: gathering
+    trigger:
+      when: ON_BLOCK_BREAK
+      sources: ALL
+      applies-to:
+        - PLAYER
   food-restore-bonus:
-    name: 満腹度回復量
+    name: 満腹度回復
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 133
+    order: 4
     show-sign: true
     hide-when-zero: true
     category: utility
+    trigger:
+      when: ON_CONSUME
+      sources: ALL
+      applies-to:
+        - PLAYER
   hidden-saturation-bonus:
-    name: 隠し満腹度回復量
+    name: 隠し満腹度回復
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 134
+    order: 5
     show-sign: true
     hide-when-zero: true
     category: utility
+    trigger:
+      when: ON_CONSUME
+      sources: ALL
+      applies-to:
+        - PLAYER
   breeding-extra-child-chance:
-    name: 繁殖追加子供率
+    name: 双子率
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 135
+    order: 11
     show-sign: true
     hide-when-zero: true
-    category: utility
+    category: gathering
   bred-animal-growth-bonus:
-    name: 動物成長速度
+    name: 成長効率(動物)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 136
+    order: 12
     show-sign: true
     hide-when-zero: true
-    category: utility
+    category: gathering
   planted-crop-growth-bonus:
-    name: 作物成長速度
+    name: 成長効率(作物)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 137
+    order: 9
     show-sign: true
     hide-when-zero: true
-    category: utility
+    category: gathering
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      cap: 1
   ritual-quality-bonus:
     name: 儀式品質
     icon: ""
     format: FLAT
     decimals: 1
-    order: 210
+    order: 4
     show-sign: true
     hide-when-zero: true
     unit: pt
     category: craft
+    trigger:
+      when: ON_CRAFT
+      sources: ALL
+      applies-to:
+        - PLAYER
   workbench-quality-bonus:
     name: 作業台品質
     icon: ""
     format: FLAT
     decimals: 1
-    order: 211
+    order: 1
     show-sign: true
     hide-when-zero: true
     unit: pt
     category: craft
-  craft-upswing-bonus:
-    name: 上振れ拡大
+    trigger:
+      when: ON_CRAFT
+      sources: ALL
+      applies-to:
+        - PLAYER
+  workbench-upswing-bonus:
+    name: 品質運(作業台)
     icon: ""
     format: FLAT
     decimals: 1
-    order: 201
+    order: 2
     show-sign: true
     hide-when-zero: true
     category: craft
-  craft-downswing-reduction:
-    name: 下振れ抑制
+    trigger:
+      when: ON_CRAFT
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
+  workbench-downswing-reduction:
+    name: 品質効率(作業台)
     icon: ""
     format: FLAT
     decimals: 1
-    order: 202
+    order: 3
     show-sign: true
     hide-when-zero: true
     category: craft
+    trigger:
+      when: ON_CRAFT
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
+  ritual-upswing-bonus:
+    name: 品質運(儀式)
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 5
+    show-sign: true
+    hide-when-zero: true
+    category: craft
+    trigger:
+      when: ON_CRAFT
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
+  ritual-downswing-reduction:
+    name: 品質効率(儀式)
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 6
+    show-sign: true
+    hide-when-zero: true
+    category: craft
+    trigger:
+      when: ON_CRAFT
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
   craft-roll-up-bonus:
-    name: ロール上振れ
+    name: ロール運
     icon: ""
     format: FLAT
     decimals: 1
-    order: 203
+    order: 7
     show-sign: true
     hide-when-zero: true
+    unit: "%"
     category: craft
+    trigger:
+      when: ON_CRAFT
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
   craft-roll-down-reduction:
-    name: ロール下振れ抑制
+    name: ロール効率
     icon: ""
     format: FLAT
     decimals: 1
-    order: 204
+    order: 8
     show-sign: true
     hide-when-zero: true
+    unit: "%"
     category: craft
+    trigger:
+      when: ON_CRAFT
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
   craft-roll-inset:
     name: ロール収束
     icon: ""
     format: FLAT
     decimals: 1
-    order: 205
+    order: 9
     show-sign: true
     hide-when-zero: true
+    unit: "%"
     category: craft
-  lapis-cost-reduction:
-    name: ラピス消費軽減
-    icon: ""
-    format: INTEGER
-    decimals: 0
-    order: 207
-    show-sign: true
-    hide-when-zero: true
-    unit: 個
-    category: craft
+    trigger:
+      when: ON_CRAFT
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
   material-refund-chance:
-    name: 素材返還率
+    name: 素材効率(儀式)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 208
+    order: 10
     show-sign: true
     hide-when-zero: true
     category: craft
+    trigger:
+      when: ON_CRAFT
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
+      cap: 1
   ingredient-save-chance:
-    name: 材料節約率
+    name: 素材効率(醸造)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 209
+    order: 18
     show-sign: true
     hide-when-zero: true
     category: craft
+    trigger:
+      when: ON_BREW
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
+      floor-ref: java:com.trinityforge.listeners.BrewIngredientSaveListener#MIN_INGREDIENT_SAVE_CHANCE
+      cap: 1
+      cap-ref: java:com.trinityforge.listeners.BrewIngredientSaveListener#MAX_INGREDIENT_SAVE_CHANCE
   source-cost-reduction:
-    name: ソース消費軽減
+    name: ソース効率
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 77
-    show-sign: true
-    hide-when-zero: true
-    category: ars
-  enchant-cost-reduction:
-    # 2026-07-26新設。エンチャントテーブルの提示/実消費レベルコストと金床の修理コストを軽減する
-    # (EnchantCostReductionListener消費)。ランタイム側で0..0.9にクランプ、最低1レベルは残る。
-    name: エンチャント費用軽減
-    icon: ""
-    format: PERCENT
-    decimals: 0
-    order: 213
+    order: 12
     show-sign: true
     hide-when-zero: true
     category: craft
-
-  # ---- 2026-07-26 タスク3: StatVocabulary登録済みだがlore.yml未登録だった29キーを追加登録 ----
-  # (機能はしていたがアイテムに一切表示されない状態だった。表示定義追加のみで挙動は変えない)
+    trigger:
+      when: ON_CRAFT
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
+      cap: 0.95
+  enchant-cost-reduction:
+    name: エンチャント効率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 14
+    show-sign: true
+    hide-when-zero: true
+    category: craft
   flat-bonus-damage:
-    # 最終ダメージへ加算される固定値。item-stats.ymlでの直接記述は廃止済みだが、パーク/base-stats/
-    # モブ攻撃・コーティング内部経路からは引き続き供給されうるためStatVocabulary登録は維持されている。
-    name: 追加ダメ(実)
+    name: 追加ダメージ(実数)
     icon: ""
     format: FLAT
     decimals: 1
     order: 12
     show-sign: true
     hide-when-zero: true
+    unit: ダメ
     category: attack
+    trigger:
+      when: ON_ANY_HIT
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
   flat-defense:
-    # phys-flat-defense/magic-flat-defenseに分岐する前の汎用守備力キー(レガシー統合経路、
-    # DefenseStatBridge/PlayerDefenseResolverの legacyFlat 処理で読まれる)。
-    name: 守備力(汎用)
+    name: 守備力
     icon: ""
     format: FLAT
     decimals: 1
-    order: 55
+    order: 6
     show-sign: true
     hide-when-zero: true
+    unit: ダメ
     category: defense
+    trigger:
+      when: ON_DAMAGE_TAKEN
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
+    limits:
+      floor: 0
+      floor-ref: combat/damage.yml#defense.min-flat
+      cap: 1000000
+      cap-ref: combat/damage.yml#defense.max-flat
   fish-sell-price-bonus:
     name: 釣果売却額増加
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 140
+    order: 17
     show-sign: true
     hide-when-zero: true
     category: gathering
+    trigger:
+      when: ON_FISH
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
   disassembly-return-bonus:
-    name: 解体戻り量増加
+    name: 解体効率
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 141
+    order: 13
     show-sign: true
     hide-when-zero: true
-    category: utility
+    category: craft
+    trigger:
+      when: ON_DISASSEMBLE
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
   ocean-fishing-bonus:
-    name: 海釣り加算
+    name: 海釣り
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 86
+    order: 16
     show-sign: true
     hide-when-zero: true
     category: gathering
+    trigger:
+      when: ON_FISH
+      sources: ALL
+      applies-to:
+        - PLAYER
   ars-tier-bonus:
-    name: Ars Tier追加
+    name: 詠唱レベル
     icon: ""
     format: INTEGER
     decimals: 0
-    order: 78
+    order: 13
     show-sign: true
     hide-when-zero: true
     unit: ティア
     category: ars
+    trigger:
+      when: PASSIVE
+      sources: NON_ITEM_ONLY
+      applies-to:
+        - PLAYER
   glyph-slot-bonus:
-    name: グリフ枠追加
+    name: グリフ枠
     icon: ""
     format: INTEGER
     decimals: 0
-    order: 79
+    order: 14
     show-sign: true
     hide-when-zero: true
     unit: 枠
     category: ars
+    trigger:
+      when: PASSIVE
+      sources: NON_ITEM_ONLY
+      applies-to:
+        - PLAYER
   glyph-damage-multiplier-bonus:
-    # 特定グリフ(現状: 害悪)のダメージに乗るfraction倍率ボーナス。harmに決め打ちしない汎用stat。
-    name: グリフダメ倍率
+    name: グリフダメージ
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 80
+    order: 15
     show-sign: true
     hide-when-zero: true
     category: ars
-  # 2026-07-27: charged-shot-unlocked(チャージ射撃解放)を撤去。「解放フラグ」を名乗りながら、
-  # 解放対象の効果(貫通/初速/弓CT短縮/矢ノックバック)がいずれも自分自身のステの非0判定を
-  # 個別に持っており、フラグのOR条件にも同じステが並ぶ同語反復だった＝挙動に一切影響しない
-  # 死にキーだったため。弓の「チャージ時間」を縮めるバニラのレバーは 1.21.11 に存在しない
-  # (Attribute に draw 系が無く、引き絞りはクライアント側予測)。クロスボウの装填時間だけは
-  # QUICK_CHARGE エンチャントで縮められるので、必要になったらそちらで別途新設すること。
-  light-armor-move-speed-per-piece:
-    # 値は割合(0.0-1.0)ではなく「percent-like」な直値(NativeAttributeBridge側で内部×0.01される)。
-    # 例: 0.5 → 装備部位ごとに+0.5%移動速度。PERCENT(×100表示)にすると10倍の誤表示になるためFLAT+%単位。
-    name: 軽装部位速度
-    icon: ""
-    format: FLAT
-    decimals: 2
-    order: 56
-    show-sign: true
-    hide-when-zero: true
-    unit: "%"
-    category: defense
-  heavy-armor-move-speed-per-piece:
-    name: 重装部位速度
-    icon: ""
-    format: FLAT
-    decimals: 2
-    order: 57
-    show-sign: true
-    hide-when-zero: true
-    unit: "%"
-    category: defense
-  light-armor-set-bonus-multiplier:
-    # 軽装2部位以上のセット効果(light-armor-set-dodge-chance)を増幅するfraction倍率。
-    name: 軽装セット倍率
+  armor-set-bonus:
+    name: セット効果増幅
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 58
-    show-sign: true
-    hide-when-zero: true
-    category: defense
-  heavy-armor-set-bonus-multiplier:
-    # 重装2部位以上のセット効果(heavy-armor-set-knockback-resistance)を増幅するfraction倍率。
-    name: 重装セット倍率
-    icon: ""
-    format: PERCENT
-    decimals: 0
-    order: 59
-    show-sign: true
-    hide-when-zero: true
-    category: defense
-  light-armor-set-dodge-chance:
-    # 軽装2部位以上を着たときだけdodge-chanceへ加算される基礎値。
-    name: 軽装セット回避
-    icon: ""
-    format: PERCENT
-    decimals: 0
-    order: 267
-    show-sign: true
-    hide-when-zero: true
-    category: defense
-  heavy-armor-set-knockback-resistance:
-    # 重装2部位以上を着たときだけknockback-resistanceへ加算される基礎値。
-    name: 重装セットKB耐性
-    icon: ""
-    format: PERCENT
-    decimals: 0
-    order: 268
+    order: 14
     show-sign: true
     hide-when-zero: true
     category: defense
   enchant-luck:
-    # エンチャントテーブル使用時、確定したエンチャントのレベルを格上げ抽選する確率(luck1.0あたり)に
-    # 使うポイント(EnchantLuckListener消費)。loot-luck等と同じ整数ポイント蓄積でありPERCENTではない。
     name: エンチャント運
     icon: ""
     format: FLAT
     decimals: 1
-    order: 214
+    order: 15
     show-sign: true
     hide-when-zero: true
     category: craft
-  enchant-exp-gain-bonus:
-    # エンチャント実行時に得るENCHANTINGスキルEXPを増減する(符号付き、%)。skill-exp-bonusと同じ
-    # utilityカテゴリ(EXP系はutilityへ集約する既存の分類ルールに合わせる)。
-    name: エンチャEXP増減
-    icon: ""
-    format: PERCENT
-    decimals: 0
-    order: 142
-    show-sign: true
-    hide-when-zero: true
-    category: utility
+    trigger:
+      when: ON_ENCHANT
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
   potion-quality-bonus:
-    # 醸造したポーションの効果時間・強度(amplifier)へ換算されるポイント(alchemy-quality.yml消費)。
     name: 醸造品質
     icon: ""
     format: FLAT
     decimals: 1
-    order: 215
+    order: 16
     show-sign: true
     hide-when-zero: true
     unit: pt
     category: craft
+    trigger:
+      when: ON_BREW
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
   brew-speed-bonus:
-    name: 醸造速度
+    name: 醸造効率
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 216
+    order: 17
     show-sign: true
     hide-when-zero: true
     category: craft
-  mana-max-base:
-    # base-stats.yml専用のマナ初期値キー(ArsPaper config.yml の mana.default-max 等の移設先)。
-    # アイテムには通常付与されない基礎値だが、StatVocabulary登録キーとしてlore表示定義も揃えておく。
-    name: マナ上限(基礎)
-    icon: ""
-    format: FLAT
-    decimals: 0
-    order: 81
-    show-sign: true
-    hide-when-zero: true
-    category: ars
-  mana-regen-base:
-    name: マナ回復(基礎)
-    icon: ""
-    format: FLAT
-    decimals: 1
-    order: 82
-    show-sign: true
-    hide-when-zero: true
-    unit: /秒
-    category: ars
-  mana-regen-interval-ticks:
-    name: マナ回復間隔
+    trigger:
+      when: ON_BREW
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
+      cap: 0.9
+      cap-ref: java:com.trinityforge.listeners.PotionQualityListener#MAX_SPEED_REDUCTION
+  coating-charges-bonus:
+    name: コート上限
     icon: ""
     format: INTEGER
     decimals: 0
-    order: 83
-    show-sign: false
+    order: 19
+    show-sign: true
     hide-when-zero: true
-    unit: tick
-    category: ars
+    unit: 回
+    category: craft
   mana-onhit-percent:
-    name: 命中マナ回復率
+    name: 被弾マナ回復(率)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 84
-    show-sign: true
-    hide-when-zero: true
-    category: ars
-  mana-onhit-flat:
-    name: 命中マナ回復(実)
-    icon: ""
-    format: FLAT
-    decimals: 1
-    order: 87
+    order: 4
     show-sign: true
     hide-when-zero: true
     category: ars
   mana-onattack-percent:
-    name: 攻撃マナ回復率
+    name: 攻撃マナ回復(率)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 88
-    show-sign: true
-    hide-when-zero: true
-    category: ars
-  mana-onattack-flat:
-    name: 攻撃マナ回復(実)
-    icon: ""
-    format: FLAT
-    decimals: 1
-    order: 89
+    order: 6
     show-sign: true
     hide-when-zero: true
     category: ars
   mana-idle-seconds:
-    name: 待機マナ秒数
+    name: 待機マナ速度
     icon: ""
     format: INTEGER
     decimals: 0
-    order: 90
+    order: 9
     show-sign: false
     hide-when-zero: true
     unit: 秒
     category: ars
   mana-idle-bonus-percent:
-    name: 待機マナ回復率
+    name: 待機マナ回復(率)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 92
+    order: 10
     show-sign: true
     hide-when-zero: true
     category: ars
@@ -1150,8 +1878,24 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 93
+    order: 11
     show-sign: true
     hide-when-zero: true
+    unit: MP
     category: ars
-multiplier-layers: []
+multiplier-layers:
+  - id: layer_1
+    name: 攻撃力％
+    stat: attack-power
+  - id: layer_2
+    name: 出血ダメージ%
+    stat: bleed-damage
+  - id: layer_3
+    name: 固定ダメージ%
+    stat: fixed-damage
+  # 2026-08-15(W-30): 出血ダメージ率(bleed-damage-rate)用のレイヤ。乗算レイヤは
+  # 「1レイヤ=1ステ」なので、実数(layer_2)の定義に率を書いても実行時に無言で捨てられる
+  # (PerkBuffResolver#withValidMultiplierLayers が基準ステ不一致を落とす)。
+  - id: layer_4
+    name: 出血ダメージ率%
+    stat: bleed-damage-rate

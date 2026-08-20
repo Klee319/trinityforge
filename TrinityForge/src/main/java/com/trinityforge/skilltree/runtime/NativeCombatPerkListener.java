@@ -4,6 +4,7 @@ import com.trinityforge.combat.PlayerCombatAggregate;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.combat.ProjectileWeapon;
 import com.trinityforge.stats.StatKeys;
+import com.trinityforge.stats.StunDurationStatNormalize;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
@@ -40,7 +41,10 @@ public final class NativeCombatPerkListener implements Listener {
     // 同一 priority の登録順に依存して毎回上書き消去されていたため)。定数も CombatListener 側にある。
     private static final String ARROW_PIERCING = StatKeys.canonical("arrow_piercing");
     private static final String ARROW_VELOCITY = StatKeys.canonical("arrow_velocity");
-    private static final String BOW_COOLDOWN_REDUCTION = StatKeys.canonical("bow_cooldown_reduction");
+    // 2026-07-31: bow_cooldown_reduction を撤去。アイテムCT短縮(cooldown_reduction)と同じ
+    // Player#setCooldown を二重に掛ける設計で、しかも item-stats.yml の BOW/CROSSBOW に
+    // item-cooldown が無いため shooter.getCooldown(bow) が常に0 = 完全な no-op だった。
+    // 弓のCT短縮はアイテムCT短縮(CombatListener.startItemCooldown)へ一本化する。
     private static final String ARROW_KNOCKBACK = StatKeys.canonical("arrow_knockback");
     private static final String MELEE_KNOCKBACK = StatKeys.canonical("melee_knockback");
     private static final String STUN_CHANCE = StatKeys.canonical("stun_chance");
@@ -52,10 +56,34 @@ public final class NativeCombatPerkListener implements Listener {
     // 撤去しても挙動は一切変わらない(挙動の変化を伴わないキー削除)。
 
     /**
-     * スタン継続時間の絶対上限(tick)。5秒 = 100tick。{@code stun_duration_bonus} でどれだけ延ばしても
-     * これを超えない — 上限なしにするとハメ殺し(行動不能の連続化)になるため。
+     * スタン継続時間の絶対上限(tick)。5秒 = 100tick。{@code stun_duration_bonus} を加算しても
+     * これを超えない — 上限なしにするとハメ殺し(行動不能の連続化)になるため。stats/lore.yml
+     * {@code stats.stun-duration-bonus.limits} から {@code java:} cap-ref で参照される
+     * (CapRefResolver 拘束テスト対象)。{@code public} でないと cap-ref から参照できない。
      */
-    static final int MAX_STUN_DURATION_TICKS = 100;
+    public static final int MAX_STUN_DURATION_TICKS = 100;
+
+    /**
+     * ノックバック内部値1あたりの初速(blocks/tick)。近接と矢で係数が違う。
+     *
+     * <p>2026-07-31 レビュー指摘4: {@code stats/lore.yml} の単位は {@code m} だが内部値は
+     * <b>距離ではなく velocity への加算</b>なので、表示側で
+     * {@code display-scale} を掛けて桁を合わせている。空中の水平減衰 0.91/tick を等比級数で
+     * 積むと総移動距離は初速の {@link #VELOCITY_TO_BLOCKS} 倍なので、
+     * lore の {@code display-scale} は「この係数 × {@link #VELOCITY_TO_BLOCKS}」で決めること
+     * (整合は {@code KnockbackDisplayScaleDriftTest} が機械照合する)。接地中は摩擦が強い
+     * (0.6×0.91)ため実距離は表示より短くなる概算値である点は docs/config-reference に明記済み。
+     */
+    public static final double MELEE_KNOCKBACK_VELOCITY_PER_UNIT = 0.35;
+
+    /** 矢ノックバック内部値1あたりの初速(blocks/tick)。{@link #MELEE_KNOCKBACK_VELOCITY_PER_UNIT} 参照。 */
+    public static final double ARROW_KNOCKBACK_VELOCITY_PER_UNIT = 0.4;
+
+    /**
+     * 初速(blocks/tick)→総移動距離(blocks)の換算係数。バニラの空中水平減衰 0.91/tick を
+     * 等比級数で積んだ {@code 1/(1-0.91)}。
+     */
+    public static final double VELOCITY_TO_BLOCKS = 1.0 / (1.0 - 0.91);
 
     /**
      * 「実際に殴った」と見なすDamageCause。{@code CombatListener} の同名の集合と意図的に同一に保つこと
@@ -95,13 +123,14 @@ public final class NativeCombatPerkListener implements Listener {
         double knock = agg.totalOf(MELEE_KNOCKBACK);
         if (knock > 0.0) {
             Vector vel = victim.getVelocity();
-            Vector push = attacker.getLocation().getDirection().normalize().multiply(0.35 * knock);
+            Vector push = attacker.getLocation().getDirection().normalize()
+                    .multiply(MELEE_KNOCKBACK_VELOCITY_PER_UNIT * knock);
             victim.setVelocity(vel.add(push));
         }
 
         double stunChance = agg.totalOf(STUN_CHANCE);
         if (stunChance > 0.0 && rng.nextDouble() < Math.min(0.75, stunChance)) {
-            int ticks = stunTicks(stunChance, agg.totalOf(STUN_DURATION_BONUS));
+            int ticks = stunTicks(agg.totalOf(STUN_DURATION_BONUS));
             victim.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, ticks, 5, false, true, true));
             victim.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, ticks, 2, false, true, true));
             victim.setFreezeTicks(Math.max(victim.getFreezeTicks(), ticks));
@@ -117,7 +146,10 @@ public final class NativeCombatPerkListener implements Listener {
         if (!(event.getEntity() instanceof LivingEntity)) return;
 
         ItemStack bow = firingWeapon(projectile, shooter);
-        PlayerCombatAggregate agg = aggregator.aggregate(shooter, bow);
+        // 2026-08-13バグ修正: オフハンドから撃たれた弓/クロスボウでも offhand-stats-apply の門が正しく
+        // 掛かるよう、発射時に retain された値を渡す(トライデントは常に false、CombatListener.
+        // resolveContributorIsOffhand と同じ理由)。
+        PlayerCombatAggregate agg = aggregator.aggregate(shooter, bow, ProjectileWeapon.readFiredFromOffhand(projectile));
 
         // 2026-07-26 バグ修正: distance-damage-bonus の適用をここから CombatListener のパイプライン内
         // ({@code CombatListener.distanceDamage}) へ移設した。
@@ -139,7 +171,8 @@ public final class NativeCombatPerkListener implements Listener {
         // 効いていた(=フラグはあってもなくても挙動が変わらない死にキーだった)。
         double chargedKb = agg.totalOf(ARROW_KNOCKBACK);
         if (chargedKb > 0.0 && projectile.getVelocity().lengthSquared() > 1.0) {
-            Vector push = projectile.getVelocity().normalize().multiply(0.4 * chargedKb);
+            Vector push = projectile.getVelocity().normalize()
+                    .multiply(ARROW_KNOCKBACK_VELOCITY_PER_UNIT * chargedKb);
             event.getEntity().setVelocity(event.getEntity().getVelocity().add(push));
         }
     }
@@ -150,8 +183,19 @@ public final class NativeCombatPerkListener implements Listener {
         Random rng = ThreadLocalRandom.current();
 
         ItemStack bow = event.getBow();
+        // 2026-08-13バグ修正: onProjectileDamage と同じ理由(offhand-stats-apply 門迂回防止)。ここでは
+        // PDC 経由ではなく event.getHand() から直接判定できる(EntityShootBowEvent 本体を持っているため)。
+        //
+        // 2026-08-13再修正: EntityShootBowEvent#getBow() は @Nullable であり、bow が null のときの
+        // 寄与アイテムは(下の三項演算子で)常に「実メインハンドのアイテム」にフォールバックする。
+        // そのフォールバック経路で hand == OFF_HAND だった場合、寄与アイテムはメインハンドなのに
+        // フラグだけ true になり、集計器がオフハンドスロットを不要に除外してしまう(オフハンド側の
+        // 寄与が無言で落ちる)。bow != null のとき「実際にオフハンドの武器を寄与アイテムとして渡している」
+        // ときだけ true にする。
+        boolean firedFromOffhand = bow != null && ProjectileWeapon.isOffhand(event.getHand());
         PlayerCombatAggregate agg = aggregator.aggregate(shooter,
-                bow != null ? bow : shooter.getInventory().getItemInMainHand());
+                bow != null ? bow : shooter.getInventory().getItemInMainHand(),
+                firedFromOffhand);
 
         double ammoSave = agg.totalOf(AMMO_SAVE_CHANCE);
         if (ammoSave > 0.0 && rng.nextDouble() < Math.min(0.9, ammoSave)) {
@@ -165,7 +209,7 @@ public final class NativeCombatPerkListener implements Listener {
         // 弓精度(bow_accuracy)は符号反転済み語彙: 正の値ほど高精度 → jitter = max(0, 基準0.08 − 精度)。
         double accuracy = agg.totalOf(BOW_ACCURACY);
         // 2026-07-27: 旧 chargedUnlocked ゲートを撤去。OR 条件に並んでいた4ステ
-        // (ARROW_PIERCING / ARROW_VELOCITY / BOW_COOLDOWN_REDUCTION / ARROW_KNOCKBACK)は、
+        // (ARROW_PIERCING / ARROW_VELOCITY / 旧 BOW_COOLDOWN_REDUCTION / ARROW_KNOCKBACK)は、
         // ゲートの内側でそれぞれ「自分が非0か」を再度検査していたため、ゲートは常に無条件で
         // 開いているのと同じだった(同語反復)。各ステ自身の判定だけを残す。
 
@@ -189,19 +233,6 @@ public final class NativeCombatPerkListener implements Listener {
         if (pierce > 0 && event.getProjectile() instanceof org.bukkit.entity.AbstractArrow arrow) {
             arrow.setPierceLevel(Math.min(127, arrow.getPierceLevel() + pierce));
         }
-
-        // bow_cooldown_reduction は符号反転済み語彙: 正の値ほど短縮 → reduced = current × (1 − v)。
-        double cdReduce = agg.totalOf(BOW_COOLDOWN_REDUCTION);
-        if (cdReduce > 0.0) {
-            ItemStack heldBow = event.getBow();
-            if (heldBow != null && !heldBow.getType().isAir()) {
-                int current = shooter.getCooldown(heldBow);
-                if (current > 0) {
-                    int reduced = Math.max(0, (int) Math.round(current * (1.0 - Math.min(1.0, cdReduce))));
-                    shooter.setCooldown(heldBow, reduced);
-                }
-            }
-        }
     }
 
     static double bowJitter(double accuracy) {
@@ -210,16 +241,16 @@ public final class NativeCombatPerkListener implements Listener {
     }
 
     /**
-     * スタン継続時間(tick)。基準値は従来どおり {@code stunChance} だけで決まる 25〜45tick
-     * (25 + 20×min(1, stunChance))。{@code stun_duration_bonus}(割合加算、負値も許容)をその基準へ
-     * 乗算したうえで、{@link #MAX_STUN_DURATION_TICKS} を超えないようクランプする(ハメ殺し防止の絶対上限)。
-     * 最低でも1tickは残す(0tick以下のPotionEffectは無効なため)。
+     * スタン継続時間(tick)。{@code combat/base-stats.yml} の初期値、装備、パークを
+     * {@code stun_duration_bonus} として加算した総tick数を直接使う。発動確率
+     * ({@code stun_chance})は継続時間へ影響しない。{@link #MAX_STUN_DURATION_TICKS} を超えないよう
+     * クランプし、最低でも1tickは残す(0tick以下のPotionEffectは無効なため)。
      */
-    static int stunTicks(double stunChance, double durationBonus) {
-        int base = 25 + (int) Math.round(20 * Math.min(1.0, Math.max(0.0, stunChance)));
-        double bonus = Double.isFinite(durationBonus) ? durationBonus : 0.0;
-        int scaled = (int) Math.round(base * (1.0 + bonus));
-        return Math.max(1, Math.min(MAX_STUN_DURATION_TICKS, scaled));
+    static int stunTicks(double durationTicks) {
+        double finiteTicks = Double.isNaN(durationTicks)
+                ? StunDurationStatNormalize.DEFAULT_TICKS : durationTicks;
+        double clamped = Math.max(1.0, Math.min(MAX_STUN_DURATION_TICKS, finiteTicks));
+        return (int) Math.round(clamped);
     }
 
     /** The firing bow/crossbow/trident retained on {@code projectile} at launch, falling back to mainhand. */

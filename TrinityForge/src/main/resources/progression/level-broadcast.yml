@@ -1,0 +1,65 @@
+# ============================================================================
+# progression/level-broadcast.yml — 節目レベルアップの全体アナウンス
+# ----------------------------------------------------------------------------
+# 【何のための機構か】
+# 誰かがキリのよいレベル(既定は10の倍数)へ到達したとき、サーバ全体へ1行流す。
+# 元は ValhallaMMO アドオン ValTopBoard が持っていた機能で、TF 本体へ移した。
+# TF は自分のスキルレベルアップを知っている(TrinitySkillLevelUpEvent)ので、
+# 外部プラグインを挟まずここで完結させるのが自然。
+#
+# 【本人向けの通知とは別物】
+# 「レベルが上がった」というチャット/効果音/タイトルの<b>本人向け</b>通知は
+# stats/skill-exp.yml の level-up.* が担当している(SkillExpFeedbackService)。
+# このファイルは<b>全体アナウンス</b>専用で、両者は独立して有効化できる。
+#
+# 【反映】 /trinityforge reload で即反映される(リスナーは都度この設定を読む)。
+# ============================================================================
+
+# 全体アナウンスそのものの ON/OFF。false なら以下の設定は一切効かない。
+enabled: true
+
+# 何の倍数レベルでアナウンスするか。10 なら Lv10/20/30... で流れる。
+# 0 以下を書くと 0 除算・全レベル通知のどちらにも倒せないので、警告を出して既定(10)へ戻す。
+multiple-of: 10
+
+# アナウンス本文。<b>MiniMessage 記法</b>で書く(レガシーの & カラーコードは解釈されない)。
+# 差し込みは network.yml の chat.format と同じ %...% 形式:
+#   %player% … プレイヤー名(名前に含まれる文字はタグとして解釈されない)
+#   %skill%  … スキルの表示名(skilltree/*.yml の display_name。色付きでもよい)
+#   %level%  … 到達レベル(数値のみ。"Lv" などの飾りは書式側に書く)
+# %player% と %level% は必須。どちらかを欠くと警告を出して既定の書式で表示する
+# (書式の設定ミスで「誰が何レベルになったのか分からない行」が流れるのを防ぐため)。
+message: "<gold><bold>[祝!]</bold></gold> <yellow>%player%</yellow><gray> が </gray><aqua>%skill%</aqua><gray> で </gray><green>Lv%level%</green><gray> に到達しました!</gray>"
+
+# 総合(POWER)のレベルアップもアナウンスするか。<b>既定は false</b>。
+# POWER は各スキルのレベルアップから<b>派生して積み上がる導出値</b>であって、
+# プレイヤーが直接稼ぐ経路が無い(NativeProgressionService#derivePowerProgress の項を参照)。
+# true にすると「採掘 Lv30 到達」と「総合 Lv30 到達」が同じ行動で連続して流れることがあり、
+# 1回のレベルアップに対して2連続アナウンスになる。祝う対象は本人が直接上げたスキルでよい、
+# という判断で既定を false にしている。総合の到達も見せたい運用なら true にする。
+include-power: false
+
+# 1回のフラッシュ(=同一tickにまとまった通知)で流す最大行数。
+# アナウンスは (プレイヤー, スキル) ごとに<b>最高到達レベルだけ</b>へ畳んでから流すので、
+# 「1回のEXP付与で Lv9→Lv31」でも 1 行(Lv30)にしかならない。それでも管理コマンドで
+# 全スキルを一括で上げた場合はスキル数だけ行が出るため、ここで頭を押さえる。
+# 超過分は黙って捨てる(件数はサーバログへ FINE で残す)。1 未満は 1 として扱う。
+max-announcements-per-batch: 3
+
+# アナウンスと同時に鳴らす効果音。
+sound:
+  enabled: true
+  # 音名は enum 風(UI_TOAST_CHALLENGE_COMPLETE)でも
+  # レジストリキー(ui.toast.challenge_complete / minecraft:ui.toast.challenge_complete)でもよい。
+  # 解決できない名前を書いても例外にはせず、警告を1回だけ出して<b>無音</b>で続行する。
+  key: UI_TOAST_CHALLENGE_COMPLETE
+  volume: 1.0
+  # ピッチは Minecraft の有効域 0.5〜2.0 へ丸める。
+  pitch: 1.0
+
+# アナウンス対象から外すスキルID(大文字/小文字は問わない)。例: [FISHING, ALCHEMY]
+# POWER をここに書く必要は無い(上の include-power で制御する)。
+excluded-skills: []
+
+# アナウンス対象から外すレベル。例: [10, 20] と書くと Lv10/Lv20 だけ静かになる。
+excluded-levels: []

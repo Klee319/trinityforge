@@ -1,6 +1,7 @@
 package com.trinityforge.mobs;
 
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.entity.EntityType;
 
 import java.util.Objects;
@@ -34,9 +35,111 @@ import java.util.Set;
  * @param max       maximum stack size (inclusive), &gt;= {@code min}
  * @param targets   which mobs this entry applies to ({@code mobs:} EntityType axis + {@code mob-ids:}
  *                  EliteMobsモブid axis); {@link MobTargetFilter#EMPTY} = every mob (back-compat default)
+ * @param roles     {@code roles:} — キルしたプレイヤーの職業がこの集合に含まれるときだけロールする
+ *                  (2026-08-02 柱7)。空 = 職業を問わない(後方互換の既定)。IDは
+ *                  {@code progression/role-buffs.yml} のキーと同じ正規化(小文字)で保持する
+ * @param chanceByLevel {@code chance-by-level:} — 討伐したモブのレベルで確率を線形補間する
+ *                  (2026-08-14 フィールドドロップ配線)。{@code null} なら {@link #chance()} を
+ *                  そのまま使う(後方互換)。詳細は {@link ChanceCurve}
+ * @param where     {@code where:} — このエントリを適用する場所(フィールド/ダンジョン/両方)。
+ *                  {@code null} は {@link DropScope#ANY} に丸める(後方互換の既定)
+ * @param baby      {@code baby:} — 子供個体だけ({@code true})／大人個体だけ({@code false})に絞る。
+ *                  {@code null} = 区別しない(後方互換の既定)。判定は
+ *                  {@link org.bukkit.entity.Ageable#isAdult()} なので、{@code Ageable} を実装しない
+ *                  モブに書くと<b>常に不一致</b>(1個も落ちない)になる
+ * @param environments {@code environment:} — 討伐したワールドのディメンションで絞る(2026-08-19)。
+ *                  空 = ディメンションを問わない(後方互換の既定)。{@link #where()} とは<b>別の軸</b>で、
+ *                  あちらは「ダンジョンインスタンスか」しか見ないためオーバーワールドとジ・エンドを
+ *                  区別できない(エンダードラゴンのように両方に出るモブで必要になる)
  */
 public record LevelTierDropEntry(Material material, String catalogId, double chance, int min, int max,
-                                  MobTargetFilter targets) {
+                                  MobTargetFilter targets, Set<String> roles,
+                                  ChanceCurve chanceByLevel, DropScope where, Boolean baby,
+                                  Set<World.Environment> environments) {
+
+    /**
+     * {@code where:} — このドロップを適用する場所。判定は「討伐したワールドが
+     * {@code DungeonWorldRegistry} に登録されたダンジョンインスタンスか」の一点で、
+     * {@code MOB_TYPE_STAMPED} や {@code MOB_PROFILE_ID} の有無では判定しない。
+     *
+     * <p>そうしている理由: {@code combat/mob-import.yml} の {@code unknown-mobs.synthesize: true} に
+     * より、EliteMobs のダンジョンモブにも {@code MOB_LEVEL} が合成付与される。つまり
+     * {@code mobs: [RAVAGER]} と書いただけでは、ダンジョン内の「見た目替え RAVAGER」にも当たってしまう。
+     * ワールドで切るのが、フィールド専用ドロップを構造的に保証できる唯一の手段。
+     */
+    public enum DropScope {
+        /** ダンジョンインスタンスワールド<b>以外</b>の討伐だけに適用する。 */
+        FIELD,
+        /** ダンジョンインスタンスワールド<b>内</b>の討伐だけに適用する。 */
+        DUNGEON,
+        /** 場所を問わない(既定。従来どおりの挙動)。 */
+        ANY;
+
+        /**
+         * {@code "field"} / {@code "dungeon"} / {@code "any"}(大文字小文字・前後空白は無視)を解釈する。
+         * 未知の値は {@code null} を返す — 呼び出し側が警告して {@link #ANY} へ倒すため、
+         * ここで例外を投げたり黙って ANY を返したりはしない(タイプミスが無言で全ワールド適用に
+         * 化けるのを防ぐ)。
+         */
+        public static DropScope parse(String raw) {
+            if (raw == null) {
+                return null;
+            }
+            return switch (raw.trim().toLowerCase(java.util.Locale.ROOT)) {
+                case "field" -> FIELD;
+                case "dungeon" -> DUNGEON;
+                case "any" -> ANY;
+                default -> null;
+            };
+        }
+    }
+
+    /**
+     * {@code chance-by-level:} — モブのレベルに対する確率の線形カーブ(2026-08-14)。
+     *
+     * <p>これが無いと「レベルが高いほど落ちやすい」を帯(tier)の数だけエントリを複製して近似するしかなく、
+     * 17素材 × 6帯 = 102 エントリに膨れるうえ帯境界で確率が段差になる。カーブなら
+     * {@code min-level: 0} の帯へ1本書くだけで滑らかに上がる。
+     *
+     * <p>範囲外はクランプする({@code level <= fromLevel} なら {@code fromChance}、
+     * {@code level >= toLevel} なら {@code toChance})。外挿はしない —— レベル0のモブに負の確率、
+     * レベル200のモブに100%超、といった事故を防ぐため。
+     *
+     * @param fromLevel  カーブの下端レベル(0以上)
+     * @param fromChance 下端での確率 [0,1]
+     * @param toLevel    カーブの上端レベル({@code fromLevel} より大きいこと。等しいと傾きが定義できない)
+     * @param toChance   上端での確率 [0,1]
+     */
+    public record ChanceCurve(int fromLevel, double fromChance, int toLevel, double toChance) {
+
+        public ChanceCurve {
+            if (fromLevel < 0) {
+                throw new IllegalArgumentException("from-level must be >= 0: " + fromLevel);
+            }
+            if (toLevel <= fromLevel) {
+                throw new IllegalArgumentException("to-level must be > from-level: from-level=" + fromLevel
+                        + " to-level=" + toLevel);
+            }
+            if (!Double.isFinite(fromChance) || fromChance < 0.0 || fromChance > 1.0) {
+                throw new IllegalArgumentException("from-chance must be in [0,1]: " + fromChance);
+            }
+            if (!Double.isFinite(toChance) || toChance < 0.0 || toChance > 1.0) {
+                throw new IllegalArgumentException("to-chance must be in [0,1]: " + toChance);
+            }
+        }
+
+        /** {@code level} における確率。両端の外側はクランプ(外挿しない)。 */
+        public double chanceAt(int level) {
+            if (level <= fromLevel) {
+                return fromChance;
+            }
+            if (level >= toLevel) {
+                return toChance;
+            }
+            double ratio = (double) (level - fromLevel) / (double) (toLevel - fromLevel);
+            return fromChance + (toChance - fromChance) * ratio;
+        }
+    }
 
     public LevelTierDropEntry {
         int itemSet = (material != null ? 1 : 0) + (catalogId != null ? 1 : 0);
@@ -56,16 +159,63 @@ public record LevelTierDropEntry(Material material, String catalogId, double cha
             throw new IllegalArgumentException("min must be <= max: min=" + min + " max=" + max);
         }
         targets = targets == null ? MobTargetFilter.EMPTY : targets;
+        roles = roles == null ? Set.of() : Set.copyOf(roles);
+        // 2026-08-14: where は null を ANY へ丸める(既存の yml/呼び出し側は where を書かない)。
+        where = where == null ? DropScope.ANY : where;
+        // 2026-08-19: environment は null/空を「問わない」に丸める(既存の yml は書かない)。
+        environments = environments == null || environments.isEmpty() ? Set.of() : Set.copyOf(environments);
     }
 
     public static LevelTierDropEntry ofMaterial(Material material, double chance, int min, int max,
                                                  MobTargetFilter targets) {
-        return new LevelTierDropEntry(Objects.requireNonNull(material, "material"), null, chance, min, max, targets);
+        return ofMaterial(material, chance, min, max, targets, Set.of());
     }
 
     public static LevelTierDropEntry ofCatalog(String catalogId, double chance, int min, int max,
                                                 MobTargetFilter targets) {
-        return new LevelTierDropEntry(null, Objects.requireNonNull(catalogId, "catalogId"), chance, min, max, targets);
+        return ofCatalog(catalogId, chance, min, max, targets, Set.of());
+    }
+
+    public static LevelTierDropEntry ofMaterial(Material material, double chance, int min, int max,
+                                                 MobTargetFilter targets, Set<String> roles) {
+        return ofMaterial(material, chance, min, max, targets, roles, null, DropScope.ANY, null);
+    }
+
+    public static LevelTierDropEntry ofCatalog(String catalogId, double chance, int min, int max,
+                                                MobTargetFilter targets, Set<String> roles) {
+        return ofCatalog(catalogId, chance, min, max, targets, roles, null, DropScope.ANY, null);
+    }
+
+    /** 2026-08-14 フィールドドロップ配線: {@code chance-by-level} / {@code where} / {@code baby} 込み。 */
+    public static LevelTierDropEntry ofMaterial(Material material, double chance, int min, int max,
+                                                 MobTargetFilter targets, Set<String> roles,
+                                                 ChanceCurve chanceByLevel, DropScope where, Boolean baby) {
+        return ofMaterial(material, chance, min, max, targets, roles, chanceByLevel, where, baby, Set.of());
+    }
+
+    /** 2026-08-14 フィールドドロップ配線: {@code chance-by-level} / {@code where} / {@code baby} 込み。 */
+    public static LevelTierDropEntry ofCatalog(String catalogId, double chance, int min, int max,
+                                                MobTargetFilter targets, Set<String> roles,
+                                                ChanceCurve chanceByLevel, DropScope where, Boolean baby) {
+        return ofCatalog(catalogId, chance, min, max, targets, roles, chanceByLevel, where, baby, Set.of());
+    }
+
+    /** 2026-08-19 ディメンション絞り込み: 上の 9 引数版に {@code environment:} を足したもの。 */
+    public static LevelTierDropEntry ofMaterial(Material material, double chance, int min, int max,
+                                                 MobTargetFilter targets, Set<String> roles,
+                                                 ChanceCurve chanceByLevel, DropScope where, Boolean baby,
+                                                 Set<World.Environment> environments) {
+        return new LevelTierDropEntry(Objects.requireNonNull(material, "material"), null, chance, min, max,
+                targets, roles, chanceByLevel, where, baby, environments);
+    }
+
+    /** 2026-08-19 ディメンション絞り込み: 上の 9 引数版に {@code environment:} を足したもの。 */
+    public static LevelTierDropEntry ofCatalog(String catalogId, double chance, int min, int max,
+                                                MobTargetFilter targets, Set<String> roles,
+                                                ChanceCurve chanceByLevel, DropScope where, Boolean baby,
+                                                Set<World.Environment> environments) {
+        return new LevelTierDropEntry(null, Objects.requireNonNull(catalogId, "catalogId"), chance, min, max,
+                targets, roles, chanceByLevel, where, baby, environments);
     }
 
     /** Back-compat overload for callers/tests that only narrow by {@link EntityType}. */
@@ -100,5 +250,72 @@ public record LevelTierDropEntry(Material material, String catalogId, double cha
     /** Back-compat: matches on the {@link EntityType} axis only (no mob id available at the call site). */
     public boolean appliesTo(EntityType type) {
         return appliesTo(type, null);
+    }
+
+    /**
+     * 討伐したモブのレベルにおけるドロップ確率(2026-08-14)。{@code chance-by-level:} が無ければ
+     * {@link #chance()} をそのまま返す(後方互換)。
+     */
+    public double chanceAt(int level) {
+        return chanceByLevel == null ? chance : chanceByLevel.chanceAt(level);
+    }
+
+    /**
+     * {@code where:} の判定。{@code inDungeonWorld} は
+     * {@code DungeonWorldRegistry#isDungeonWorld(worldUid)} の結果を渡す。
+     */
+    public boolean appliesInWorld(boolean inDungeonWorld) {
+        return switch (where) {
+            case FIELD -> !inDungeonWorld;
+            case DUNGEON -> inDungeonWorld;
+            case ANY -> true;
+        };
+    }
+
+    /**
+     * {@code environment:} の判定(2026-08-19)。空の {@code environment:} は常に一致する
+     * (ディメンションを問わない従来どおりの挙動)。
+     *
+     * <p>{@code null}(ワールドが取れない)を渡した場合、{@code environment:} を書いたエントリは
+     * <b>一致しない</b>。{@code baby:} と同じ判断で、「指定したのに全ディメンションで落ちる」より
+     * 「1個も落ちない」ほうが設定ミスとして気づけるため。
+     */
+    public boolean appliesInEnvironment(World.Environment environment) {
+        if (environments.isEmpty()) {
+            return true;
+        }
+        return environment != null && environments.contains(environment);
+    }
+
+    /**
+     * {@code baby:} の判定。{@code isBaby} には討伐した個体の子供判定を渡す。判定できないモブ
+     * ({@link org.bukkit.entity.Ageable} を実装しない) は {@code null} を渡すこと —— その場合
+     * {@code baby:} を書いたエントリは<b>一致しない</b>(＝落ちない)。「子供限定と書いたのに
+     * 大人にも落ちる」より「1個も落ちない」ほうが、設定ミスとして気づけるため。
+     */
+    public boolean appliesToAge(Boolean isBaby) {
+        if (baby == null) {
+            return true;
+        }
+        return isBaby != null && baby.booleanValue() == isBaby.booleanValue();
+    }
+
+    /**
+     * {@code true} when the killer's roles satisfy {@code roles:} — 空の {@code roles:} は常に一致する
+     * (職業を問わない従来どおりの挙動)。{@code killerRoles} は戦闘職・補助職の両方を渡してよい。
+     */
+    public boolean allowsRoles(Set<String> killerRoles) {
+        if (roles.isEmpty()) {
+            return true;
+        }
+        if (killerRoles == null || killerRoles.isEmpty()) {
+            return false;
+        }
+        for (String role : killerRoles) {
+            if (role != null && roles.contains(role.trim().toLowerCase(java.util.Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
     }
 }

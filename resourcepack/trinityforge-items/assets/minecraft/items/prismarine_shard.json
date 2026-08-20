@@ -8,6 +8,13 @@
     },
     "entries": [
       {
+        "threshold": 5410,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/guardian_spine"
+        }
+      },
+      {
         "threshold": 100011,
         "model": {
           "type": "minecraft:model",

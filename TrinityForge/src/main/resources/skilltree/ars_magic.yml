@@ -14,340 +14,311 @@
 # ============================================================================
 
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/ars_magic.md
+
 skill: ARS_MAGIC
-display-name: "Ars魔法"
+display-name: Ars魔法
 icon: LECTERN
-starting-coords: "2,10"
+starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  max-times: 3
   at-level: 100
-  name: "大魔導師の栄光"
-  effect-text: "利用可能なTierが 永続+1・マナ回復速度 永続+10%・マナ最大値+50・グリフの配置数が 永続+1"
+  name: 大魔導師の栄光
+  effect-text: 利用可能なTierが 永続+1・マナ回復速度 永続+10%・マナ最大値+50・グリフの配置数が 永続+1
   buffs:
-    mana_regen: 0.1
-    mana_bonus: 50
+    mana-idle-bonus-percent: 0.1
+    mana-bonus: 50
     ars-tier-bonus: 1
     glyph-slot-bonus: 1
-
+  description: |-
+    待機マナ回復+10%
+    マナ上限+50
+    詠唱レベル+1
+    グリフ配置数+1
 nodes:
   A:
-    name: "魔法の探求者"
+    name: 魔法の探求者
     level: 10
     role: main
-    parent: null
+    parent:
     icon: WOODEN_HOE
     cost: 1
-    effect-text: "マナ最大値+50・発動時バニラ経験値を少量獲得・利用可能なTierが+1"
+    effect-text: マナ最大値+50・発動時バニラ経験値を少量獲得・利用可能なTierが+1
     buffs:
-      mana_bonus: 50
+      mana-bonus: 50
       ars-tier-bonus: 1
     effects:
-      - "発動時バニラ経験値を少量獲得"
+      - 発動時バニラ経験値を少量獲得
     dedicated-effects:
-      - id: "ars-tier"
+      - id: ars-tier
         value: 1
+    description: |-
+      マナ最大値+50
+      詠唱レベル+1
   B:
-    name: "マナの操り手"
+    name: マナの操り手
     level: 30
     role: main
     parent: A
     icon: LAPIS_LAZULI
     cost: 1
-    effect-text: "時間マナ回復+5%・命中時マナ回復+1・グリフの配置数+1"
+    effect-text: 時間マナ回復+5%・被弾時マナ回復+1・グリフの配置数+1
     buffs:
-      mana_regen: 0.05
-      hit-mana-recovery: 1
+      mana-idle-bonus-percent: 0.05
+      damage-mana-recovery: 3
       glyph-slot-bonus: 1
+    description: |-
+      待機マナ回復+5%
+      攻撃時マナ回復+3
+      グリフ配置数+1
   C:
-    name: "魔導の熟達者"
+    name: 魔導の熟達者
     level: 50
     role: main
     parent: B
     icon: AMETHYST_SHARD
     cost: 1
-    effect-text: "マナ最大値+50・被弾時マナ回復+1"
+    effect-text: マナ最大値+50・被弾時マナ回復+1
     buffs:
-      mana_bonus: 50
-      damage-mana-recovery: 1
+      mana-bonus: 50
+      hit-mana-recovery: 3
+    description: |-
+      マナ最大値+50
+      被弾マナ回復+3
   D:
-    name: "秘術の使い手"
+    name: 秘術の使い手
     level: 70
     role: main
     parent: C
     icon: BUDDING_AMETHYST
     cost: 1
-    effect-text: "グリフの配置数+1・詠唱コスト-5%"
+    effect-text: グリフの配置数+1・詠唱コスト-5%
     buffs:
       glyph-slot-bonus: 1
-      mana-cost-reduction-percent: 5
+      mana-cost-reduction-percent: 0.05
+    description: |-
+      グリフ配置数+1
+      マナ消費効率-5%
   E:
-    name: "大魔導師"
+    name: 大魔導師
     level: 90
     role: main
     parent: D
     icon: NETHER_STAR
     cost: 1
-    effect-text: "利用可能なTierが+1・グリフの配置数+1・詠唱コスト-2(固定)"
+    effect-text: 利用可能なTierが+1・グリフの配置数+1・詠唱コスト-2(固定)
     buffs:
       ars-tier-bonus: 1
       glyph-slot-bonus: 1
       mana-cost-reduction-flat: 2
     dedicated-effects:
-      - id: "ars-tier"
+      - id: ars-tier
         value: 1
-
-  A-1-1:
-    name: "騎馬召喚"
+    description: |-
+      詠唱レベル+1
+      グリフ配置数+1
+      マナ消費効率-2
+  A-1:
+    name: ユーティリティー
     level: 20
     role: branch
-    parent: A        # 線不明
-    icon: SADDLE
-    cost: 1
-    effect-text: "騎馬召喚グリフ解放"
-    effects:
-      - "騎馬召喚グリフを解放"
-    dedicated-effects:
-      - id: "glyph:summon_steed"
-  A-1-2:
-    name: "滑空・疾風"
-    level: 20
-    role: branch
-    parent: A-1-1    # 直列連結。線不明
-    icon: ELYTRA
-    cost: 1
-    effect-text: "滑空・疾風グリフ解放"
-    effects:
-      - "滑空・疾風グリフを解放"
-    dedicated-effects:
-      - id: "glyph:glide"
-  A-1-3:
-    name: "指向"
-    level: 40
-    role: branch
-    parent: A-1-2    # 直列連結。線不明
-    icon: ARROW
-    cost: 1
-    effect-text: "指向グリフ解放"
-    effects:
-      - "指向グリフを解放"
-    dedicated-effects:
-      - id: "glyph:speed_boost"
-  A-1-4:
-    name: "瞬間移動"
-    level: 60
-    role: branch
-    parent: A-1-3    # 直列連結。線不明
-    icon: ENDER_PEARL
-    cost: 1
-    effect-text: "瞬間移動グリフ解放"
-    effects:
-      - "瞬間移動グリフを解放"
-    dedicated-effects:
-      - id: "glyph:blink"
-  A-2-1:
-    name: "仮想ブロック・設置"
-    level: 20
-    role: branch
-    parent: A        # A系サブ系列2。線不明
+    parent: A
     icon: SCAFFOLDING
     cost: 1
-    effect-text: "仮想ブロック・設置グリフ解放"
+    effect-text: 仮想ブロック・設置グリフ解放
     effects:
-      - "仮想ブロック・設置グリフを解放"
+      - 仮想ブロック・設置グリフを解放
     dedicated-effects:
-      - id: "glyph:phantom_block"
-      - id: "glyph:place_block"
-  A-2-2:
-    name: "スケール"
-    level: 20
-    role: branch
-    parent: A-2-1    # 直列連結。線不明
-    icon: SLIME_BALL
-    cost: 1
-    effect-text: "スケール解放"
-    effects:
-      - "スケールを解放"
-    dedicated-effects:
-      - id: "glyph:scale"
-
-  C-1-1:
-    name: "残留・伝播"
-    level: 40
-    role: branch
-    parent: C        # 線不明
-    icon: DRAGON_BREATH
-    cost: 1
-    effect-text: "残留・伝播グリフ解放"
-    effects:
-      - "残留・伝播グリフを解放"
-    dedicated-effects:
-      - id: "glyph:linger"
-      - id: "glyph:propagate"
-  C-2-1:
-    name: "炸裂"
-    level: 60
-    role: branch
-    parent: C        # C系サブ系列2。線不明
-    icon: FIRE_CHARGE
-    cost: 1
-    effect-text: "炸裂グリフ解放"
-    effects:
-      - "炸裂グリフを解放"
-    dedicated-effects:
-      - id: "glyph:burst"
-
+      - id: glyph:phantom_block
+      - id: glyph:place_block
+      - id: glyph:scale
+    description: |-
+      仮想ブロックグリフ解放
+      設置グリフ解放
+      スケール解放
   E-1:
-    name: "超増強・照射"
-    level: 80         # 転写推定Lv80(E列上)。派生元=E(転写通り)。Lv80<E主軸Lv90だが親ゲートで実質90に整合
+    name: 超増強・照射
+    level: 100
     role: branch
     parent: E
     icon: BEACON
     cost: 1
-    effect-text: "超増強系グリフ解放・照射グリフ解放"
+    effect-text: 超増強系グリフ解放・照射グリフ解放
     effects:
-      - "超増強系グリフを解放"
-      - "照射グリフを解放"
+      - 超増強系グリフを解放
+      - 照射グリフを解放
     dedicated-effects:
-      - id: "glyph:beam"
-      - id: "glyph:super_amplify"
-      - id: "glyph:super_dampen"
-      - id: "glyph:super_accelerate"
-      - id: "glyph:super_decelerate"
-      - id: "glyph:super_split"
-      - id: "glyph:super_pierce"
-      - id: "glyph:super_aoe_radius"
-      - id: "glyph:super_extend_reach"
-      - id: "glyph:super_propagate"
-      - id: "glyph:super_extend_time"
-      - id: "glyph:super_duration_down"
-      - id: "glyph:super_fortune"
-      - id: "glyph:super_shrink_reach"
-      - id: "glyph:super_linger"
-      - id: "glyph:super_delay"
-
-  B-1-1:
-    name: "焦熱"
-    level: 40
-    role: branch
-    parent: B        # 線不明
-    icon: BLAZE_POWDER
-    cost: 1
-    effect-text: "焦熱解放"
-    effects:
-      - "焦熱を解放"
-    dedicated-effects:
-      - id: "glyph:scorch"
-  B-1-2:
-    name: "雷撃"
-    level: 40
-    role: branch
-    parent: B-1-1    # 直列連結。線不明
-    icon: LIGHTNING_ROD
-    cost: 1
-    effect-text: "雷撃解放"
-    effects:
-      - "雷撃を解放"
-    dedicated-effects:
-      - id: "glyph:lightning"
-  B-2-1:
-    name: "凍裂"
-    level: 40
-    role: branch
-    parent: B        # B系サブ系列2。線不明
-    icon: BLUE_ICE
-    cost: 1
-    effect-text: "凍裂解放"
-    effects:
-      - "凍裂を解放"
-    dedicated-effects:
-      - id: "glyph:cold_snap"
-  B-2-2:
-    name: "拘束"
-    level: 40
-    role: branch
-    parent: B-2-1    # 直列連結。線不明
-    icon: COBWEB
-    cost: 1
-    effect-text: "拘束解放"
-    effects:
-      - "拘束を解放"
-    dedicated-effects:
-      - id: "glyph:snare"
-  B-3:
-    name: "害悪強化"
+      - id: glyph:beam
+      - id: glyph:super_amplify
+      - id: glyph:super_dampen
+      - id: glyph:super_accelerate
+      - id: glyph:super_decelerate
+      - id: glyph:super_split
+      - id: glyph:super_pierce
+      - id: glyph:super_aoe_radius
+      - id: glyph:super_extend_reach
+      - id: glyph:super_propagate
+      - id: glyph:super_extend_time
+      - id: glyph:super_duration_down
+      - id: glyph:super_fortune
+      - id: glyph:super_shrink_reach
+      - id: glyph:super_linger
+      - id: glyph:super_delay
+    description: |-
+      超増強系グリフ解放
+      照射グリフ解放
+  C-1-1:
+    name: 残留・伝播
     level: 60
     role: branch
-    parent: B        # 効果ノード(グリフ解放ではない)。線不明
-    icon: FERMENTED_SPIDER_EYE
+    parent: C
+    icon: DRAGON_BREATH
     cost: 1
-    effect-text: "害悪が強力に(ダメージ+30%)"
+    effect-text: 残留・伝播グリフ解放
     effects:
-      - "害悪が強力に(ダメージ+30%)"
-    buffs:
-      glyph_damage_multiplier_bonus: 0.3
-  B-3-1:
-    name: "烈風"
-    level: 40         # B-3(Lv60)より低いためB主軸に接続(B-3プレフィックスだが別系統)。線不明
-    role: branch
-    parent: B
-    icon: FEATHER
-    cost: 1
-    effect-text: "烈風解放"
-    effects:
-      - "烈風を解放"
+      - 残留・伝播グリフを解放
     dedicated-effects:
-      - id: "glyph:windshear"
-  B-3-2:
-    name: "引寄"
-    level: 40
-    role: branch
-    parent: B-3-1    # 直列連結。線不明
-    icon: FISHING_ROD
-    cost: 1
-    effect-text: "引寄解放"
-    effects:
-      - "引寄を解放"
-    dedicated-effects:
-      - id: "glyph:pull"
-
-  C-4-1:
-    name: "狼召喚・生命化"
-    level: 40
-    role: branch
-    parent: C        # C系サブ系列4。線不明
-    icon: BONE
-    cost: 1
-    effect-text: "狼召喚・生命化解放"
-    effects:
-      - "狼召喚・生命化を解放"
-    dedicated-effects:
-      - id: "glyph:summon_wolves"
-      - id: "glyph:animate"
-  C-4-2:
-    name: "不死召喚"
-    level: 60
-    role: branch
-    parent: C-4-1    # 直列連結。線不明
-    icon: ZOMBIE_HEAD
-    cost: 1
-    effect-text: "不死召喚解放"
-    effects:
-      - "不死召喚を解放"
-    dedicated-effects:
-      - id: "glyph:summon_undead"
-  C-4-3:
-    name: "囮・妖精召喚"
+      - id: glyph:linger
+      - id: glyph:propagate
+    description: |-
+      残留グリフ解放
+      伝播グリフ解放
+  C-1-2:
+    name: 炸裂
     level: 80
     role: branch
-    parent: C-4-2    # 直列連結。線不明
-    icon: ALLAY_SPAWN_EGG
+    parent: C
+    icon: FIRE_CHARGE
     cost: 1
-    effect-text: "囮解放・妖精召喚開放"
+    effect-text: 炸裂グリフ解放
     effects:
-      - "囮を解放"
-      - "妖精召喚を解放"
+      - 炸裂グリフを解放
     dedicated-effects:
-      - id: "glyph:summon_decoy"
-      - id: "glyph:summon_vex"
-
+      - id: glyph:burst
+  C-2-1:
+    name: 魔法ダメージ強化Ⅰ
+    level: 60
+    role: branch
+    parent: B
+    icon: FERMENTED_SPIDER_EYE
+    cost: 1
+    effect-text: 害悪が強力に(ダメージ+30%)
+    effects:
+      - 害悪が強力に(ダメージ+30%)
+    buffs:
+      glyph-damage-multiplier-bonus: 0.25
+    description: 魔法ダメージ強化+25%
+  C-2-2:
+    role: branch
+    parent: C
+    name: 魔法ダメージ強化Ⅱ
+    buffs:
+      glyph-damage-multiplier-bonus: 0.25
+    description: グリフダメージ+25%
+    level: 80
+  B-1-1:
+    name: 氷風Ⅰ
+    level: 40
+    role: intermediate
+    parent: B
+    icon: BLUE_ICE
+    cost: 1
+    effect-text: 凍裂解放
+    effects:
+      - 凍裂を解放
+    dedicated-effects:
+      - id: glyph:cold_snap
+      - id: glyph:windshear
+    description: |-
+      凍裂グリフ解放
+      烈風グリフ解放
+  B-1-2:
+    name: 氷風Ⅱ
+    level: 60
+    role: branch
+    parent: B-1-1
+    icon: COBWEB
+    cost: 1
+    effect-text: 拘束解放
+    effects:
+      - 拘束を解放
+    dedicated-effects:
+      - id: glyph:snare
+      - id: glyph:pull
+    description: |-
+      拘束グリフ解放
+      引寄グリフ解放
+  B-2-1:
+    name: 転送Ⅰ
+    level: 40
+    role: branch
+    parent: A
+    icon: ELYTRA
+    cost: 1
+    effect-text: 滑空・疾風グリフ解放
+    effects:
+      - 滑空・疾風グリフを解放
+    dedicated-effects:
+      - id: glyph:glide
+      - id: glyph:gale
+    description: |-
+      滑空グリフ解放
+      疾風グリフ解放
+  B-2-2:
+    name: 転送Ⅱ
+    level: 60
+    role: branch
+    parent: B-2-1
+    icon: ARROW
+    cost: 1
+    effect-text: 指向グリフ解放
+    effects:
+      - 指向グリフを解放
+    dedicated-effects:
+      - id: glyph:speed_boost
+  B-2-3:
+    name: 転送Ⅲ
+    level: 80
+    role: branch
+    parent: B-2-2
+    icon: ENDER_PEARL
+    cost: 1
+    effect-text: 瞬間移動グリフ解放
+    effects:
+      - 瞬間移動グリフを解放
+    dedicated-effects:
+      - id: glyph:blink
+  D-1-1:
+    name: 焦熱・雷撃
+    level: 80
+    role: branch
+    parent: B
+    icon: BLAZE_POWDER
+    cost: 1
+    effect-text: 焦熱解放
+    effects:
+      - 焦熱を解放
+    dedicated-effects:
+      - id: glyph:scorch
+      - id: glyph:lightning
+    description: |-
+      焦熱グリフ解放
+      雷撃グリフ解放
+  D-2-1:
+    role: branch
+    parent: B-2-3
+    level: 80
+    cost: 1
+    buffs:
+      mana-cost-reduction-flat: 10
+    description: マナ消費効率-10
+    name: マナ効率Ⅰ
+  D-2-2:
+    role: branch
+    parent: D-2-1
+    level: 100
+    cost: 1
+    buffs:
+      mana-cost-reduction-percent: 0.1
+    description: マナ消費効率+10%
+    name: マナ効率Ⅱ

@@ -50,7 +50,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * 必ず{@code shrink(1)}する」ことが前提であり、<strong>誰かがこの後に{@link BrewEvent}をキャンセル
  * すると+1だけが残って純粋な増殖になる</strong>。TF内には実際にキャンセルする
  * {@link BrewUnlockListener#onBrew}(未解放のゲート付きTF醸造レシピを弾く)が存在し、しかも
- * こちらの方が登録順が後(={@code TrinityForge}での登録位置が下)であるため、同じ HIGH に置くと
+ * こちらの方が登録順が後(={@code TrinityForge}での登録位置が下)であるため、同じ優先度に置くと
  * 「+1 → キャンセル → shrinkされない」の順で毎周回1個ずつ増える無限増殖装置になっていた
  * (2026-07-26 のレビューで検出・修正)。よってこのハンドラは
  * <strong>キャンセル判定がすべて終わった後の {@code HIGHEST}</strong> で、かつ
@@ -58,18 +58,37 @@ import java.util.concurrent.ThreadLocalRandom;
  * HIGHEST より後にキャンセルされる経路は残らない。
  * <br>下限側の制約もある: {@link NativeSkillExperienceListener#onBrew} が MONITOR で所有者PDCを
  * 消去するため、MONITOR まで下げることはできない。HIGHEST はこの上下の制約を同時に満たす唯一の点。
+ * <br><b>2026-07-31 (D10)</b>: 同じ型の複製経路がもう1本残っていた —
+ * {@link CatalogVanillaOperationGuardListener#onBrew} が HIGHEST・かつ登録順が後だったため、
+ * カタログ品を醸造素材/ビン枠に入れると「+1 → キャンセル」で素材が純増していた。
+ * あちらを HIGH へ下げて解消済み。<b>この不変条件は「キャンセラは全て HIGHEST より前」</b>であり、
+ * {@code BrewUnlockIngredientGateTest} が4本の優先度をまとめて固定している。
  *
  * <p><b>確率スケール</b>: {@code ingredient_save_chance}は{@link com.trinityforge.stats.PercentStatNormalize}
  * の{@code RATE_KEYS}に登録済みのため、config側で{@code 15}と書いても{@code 0.15}(フラクション)へ
  * 矯正されて集計に載る。この集計フラクション値は{@link com.trinityforge.combat.CritResolver}/
  * {@code ammo_save_chance}({@link com.trinityforge.skilltree.runtime.NativeCombatPerkListener})と
- * 同じ「乱数と直接比較」で消費する — 分母100で割る{@link com.trinityforge.mining.MiningGimmickPolicy#percentRoll}
- * は使わない(そちらは既にフラクション化された値を渡すと二重に100分の1へ縮小してしまう食い違いが
- * 見つかったため、意図的に避けた。詳細はタスク報告を参照)。
+ * 同じ「乱数と直接比較」で消費する — 分母100で割る {@code MiningGimmickPolicy.percentRoll} 相当の
+ * ヘルパーは意図的に使わない(そちらは既にフラクション化された値を渡すと二重に100分の1へ縮小して
+ * しまう食い違いがあった)。2026-07-27: この{@code percentRoll}自体は同じ理由で他2箇所
+ * ({@code suspicious-respawn-chance}/{@code food-save-chance})にも実在した確定バグと判明し修正・
+ * ヘルパーごと削除された({@link com.trinityforge.mining.MiningGimmickPolicy}の
+ * クラスJavadoc参照)。ここでの「意図的に避けた」判断はその削除より前から正しかったことになる。
  */
 public final class BrewIngredientSaveListener implements Listener {
 
     private static final String INGREDIENT_SAVE_CHANCE = StatKeys.canonical("ingredient-save-chance");
+
+    /**
+     * 段階1宣言(2026-07-27): {@code ingredient-save-chance} の下限(0%)。負値は捨てる。
+     * {@code stats/lore.yml} の {@code limits.floor-ref} が参照する昇格済み定数(可視性のみpublicへ変更)。
+     */
+    public static final double MIN_INGREDIENT_SAVE_CHANCE = 0.0;
+    /**
+     * 段階1宣言(2026-07-27): {@code ingredient-save-chance} の上限(100%=1.0)。
+     * {@code stats/lore.yml} の {@code limits.cap-ref} が参照する昇格済み定数(可視性のみpublicへ変更)。
+     */
+    public static final double MAX_INGREDIENT_SAVE_CHANCE = 1.0;
 
     private final PlayerStatAggregator aggregator;
     private final BrewOwnership brewOwnership;
@@ -102,7 +121,7 @@ public final class BrewIngredientSaveListener implements Listener {
         if (owner == null) {
             return;
         }
-        double chance = Math.max(0.0, Math.min(1.0,
+        double chance = Math.max(MIN_INGREDIENT_SAVE_CHANCE, Math.min(MAX_INGREDIENT_SAVE_CHANCE,
                 aggregator.aggregate(owner).totalOf(INGREDIENT_SAVE_CHANCE)));
         if (chance <= 0.0) {
             return;

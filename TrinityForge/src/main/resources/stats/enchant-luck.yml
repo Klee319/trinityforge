@@ -13,10 +13,7 @@
 # バニラ上限(Enchantment#getMaxLevel)に達するまでの格上げにのみ使う。
 # 設定リファレンス(本文コメント移設先): docs/config-reference/stats/enchant-luck.md
 
-level-boost-chance-per-luck: 0.01
-
-level-boost-max-steps: 2
-
+level-boost-chance-per-luck: 0.02
+level-boost-max-steps: 3
 overenchant-bonus-chance-per-luck: 0.02
-
-extra-enchant-chance-per-luck: 0.005
+extra-enchant-chance-per-luck: 0.01

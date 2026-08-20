@@ -46,6 +46,25 @@ class MaterialTierTest {
         assertFalse(MaterialTier.of(Material.DIRT).isEquipment());
     }
 
+    /**
+     * 2026-08-17 回帰 (ユーザー報告「釣りで釣った鉱石がスタックできない」)。
+     *
+     * <p>接頭辞だけで判定していたため、インゴットやブロック、金リンゴまで「ティア装備」に化けていた。
+     * 釣果が装備扱いになると品質スタンプ(固有 rollSeed)が押されて、
+     * 1個ずつ別物になりスタックできなくなる。
+     */
+    @Test
+    void materialsThatMerelyShareTheTierPrefixAreNotEquipment() {
+        assertEquals(MaterialTier.NONE, MaterialTier.of(Material.IRON_INGOT));
+        assertEquals(MaterialTier.NONE, MaterialTier.of(Material.GOLD_INGOT));
+        assertEquals(MaterialTier.NONE, MaterialTier.of(Material.COPPER_INGOT));
+        assertEquals(MaterialTier.NONE, MaterialTier.of(Material.GOLDEN_APPLE));
+        assertEquals(MaterialTier.NONE, MaterialTier.of(Material.DIAMOND_BLOCK));
+        assertEquals(MaterialTier.NONE, MaterialTier.of(Material.IRON_NUGGET));
+        assertEquals(MaterialTier.NONE, MaterialTier.of(Material.NETHERITE_SCRAP));
+        assertEquals(MaterialTier.NONE, MaterialTier.of(Material.LEATHER));
+    }
+
     @Test
     void equipmentTiersReportIsEquipment() {
         assertTrue(MaterialTier.NETHERITE.isEquipment());

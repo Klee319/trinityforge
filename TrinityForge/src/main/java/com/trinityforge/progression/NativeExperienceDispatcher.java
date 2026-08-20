@@ -34,6 +34,16 @@ public final class NativeExperienceDispatcher implements AutoCloseable {
      * 未配線可(null=ブーストなし)。呼び出し失敗はバッチ全体を絶対に妨げない({@link #drain}参照)。
      */
     private volatile java.util.function.BiFunction<UUID, String, Double> jobExpMultiplierResolver;
+    /**
+     * ゲームプレイ由来のEXP付与を丸ごと止める述語 (2026-07-27、AFK対策)。{@code true} を返した
+     * プレイヤーの {@link #grant} は<b>バッチに積まれる前に</b>捨てられる。
+     *
+     * <p>ここが唯一のゲームプレイEXPの合流点なので、経路ごとに抑止を書き足す必要がない。
+     * 管理コマンド({@code /tf progression exp} 等)は {@code NativeProgressionService} を直接叩く
+     * 別経路なので、この述語の影響を受けない — これは意図した線引きで、放置中でも運営付与は通る。
+     * 未配線(null)なら抑止なし。
+     */
+    private volatile java.util.function.Predicate<UUID> grantSuppressor;
 
     public NativeExperienceDispatcher(Plugin plugin, NativeProgressionService progression) {
         this.progression = progression;
@@ -57,10 +67,33 @@ public final class NativeExperienceDispatcher implements AutoCloseable {
         this.jobExpMultiplierResolver = resolver;
     }
 
+    /** ゲームプレイEXPの抑止述語を設定する(2026-07-27、AFK対策)。null で無効化。 */
+    public void setGrantSuppressor(java.util.function.Predicate<UUID> suppressor) {
+        this.grantSuppressor = suppressor;
+    }
+
     public void grant(UUID playerId, String skillId, double amount) {
         if (closed || playerId == null || skillId == null
                 || !Double.isFinite(amount) || amount == 0.0) return;
+        if (isSuppressed(playerId)) return;
         pending.get().merge(new Key(playerId, skillId), amount, Double::sum);
+    }
+
+    /**
+     * 抑止述語の評価。述語側の例外でEXP付与経路そのものを落とさない — 抑止は付加機能なので、
+     * 判定に失敗したら「抑止しない」(＝従来どおり付与する)へ倒す。
+     */
+    private boolean isSuppressed(UUID playerId) {
+        java.util.function.Predicate<UUID> suppressor = this.grantSuppressor;
+        if (suppressor == null) {
+            return false;
+        }
+        try {
+            return suppressor.test(playerId);
+        } catch (RuntimeException ex) {
+            LOG.log(Level.WARNING, "[progression] grant suppressor failed for " + playerId, ex);
+            return false;
+        }
     }
 
     /**

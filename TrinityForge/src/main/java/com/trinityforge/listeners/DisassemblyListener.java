@@ -117,13 +117,26 @@ public final class DisassemblyListener implements Listener {
 
         List<ItemStack> returns = new ArrayList<>();
         for (DisassemblyRule rule : rules) {
-            double ingredientCount = template == null ? vanillaIngredientCount(stack, rule.input())
-                    : ingredientCount(template.recipes(), rule.input());
-            long amount = returnAmount(ingredientCount, level, features.disassemblyPercentPerLevel(), rule.multiplier(),
-                    buffMultiplier);
+            // 2026-07-27: base-amount を書いたルールはレシピを一切引かない。クラフトレシピを持たない
+            // アイテム(釣りのゴミ等)はレシピ由来の材料数が必ず 0 になり、従来は永久に戻りが出なかった。
+            double ingredientCount;
+            if (rule.hasBaseAmount()) {
+                ingredientCount = rule.baseAmount();
+            } else {
+                ingredientCount = template == null ? vanillaIngredientCount(stack, rule.input())
+                        : ingredientCount(template.recipes(), rule.input());
+            }
+            // 2026-07-27: 戻り先が複数あるルールは weight で1件だけ当てる(全部は出さない)。
+            CraftingFeaturesConfig.DisassemblyOutput chosen =
+                    rule.pick(ThreadLocalRandom.current().nextDouble());
+            if (chosen == null) continue; // 有効な戻り先が無いルールは何もしない(素材も消費しない)。
+            // 2026-07-28: 戻り総%は features.disassemblyPercentFor(level) が解決する(disassembly.tiers
+            // の完全一致優先、無ければ従来どおり percentPerLevel × level の線形式)。
+            int totalPercent = features.disassemblyPercentFor(level);
+            long amount = returnAmount(ingredientCount, totalPercent, chosen.multiplier(), buffMultiplier);
             if (amount < 0) return; // malformed or excessive config must never consume the source item.
             if (amount == 0) continue;
-            List<ItemStack> returned = resolveReturnStacks(rule.output(), amount);
+            List<ItemStack> returned = resolveReturnStacks(chosen.item(), amount);
             if (returned == null) return;
             returns.addAll(returned);
         }
@@ -263,11 +276,33 @@ public final class DisassemblyListener implements Listener {
     static long returnAmount(double ingredientCount, int level, int percentPerLevel, double multiplier,
                              double buffMultiplier) {
         long base = returnAmount(ingredientCount, level, percentPerLevel, multiplier);
+        return applyBuffMultiplier(base, buffMultiplier);
+    }
+
+    /**
+     * 2026-07-28: {@code CraftingFeaturesConfig#disassemblyPercentFor} が解決した戻り総%(tierの
+     * 完全一致 or 従来の線形式)を直接受け取る版。旧4引数版({@code level, percentPerLevel}を別々に受ける)
+     * は既存テストが直接呼んでいるため残し、こちらは新しい呼び出し経路(DisassemblyListener本体)専用。
+     * 計算式は旧来と等価: {@code floor(floor(ingredientCount × totalPercent / 100) × multiplier)}。
+     * tiers未設定時は totalPercent = level × percentPerLevel と等しくなるため、数値は1ビットも変わらない。
+     */
+    static long returnAmount(double ingredientCount, int totalPercent, double multiplier, double buffMultiplier) {
+        double base = Math.floor(ingredientCount * (double) totalPercent / 100.0);
+        double amount = Math.floor(base * multiplier);
+        long baseAmount = (!Double.isFinite(amount) || amount < 0 || amount > Integer.MAX_VALUE) ? -1 : (long) amount;
+        return applyBuffMultiplier(baseAmount, buffMultiplier);
+    }
+
+    /**
+     * T3(2026-07-25経済連携): {@code disassembly_return_bonus} プレイヤーバフを {@code base} に対する
+     * 追加乗算項として適用する。{@code base < 0}(不正/過大)なら安全弁が既に発火済みとしてそのまま伝播する。
+     */
+    private static long applyBuffMultiplier(long base, double buffMultiplier) {
         if (base < 0) {
-            return -1; // 安全弁は基礎計算側で既に発火済み: バフでは救わない。
+            return -1;
         }
         if (!Double.isFinite(buffMultiplier) || buffMultiplier <= 0.0) {
-            return base; // バフ無し/不正値は無視するだけで、基礎の戻り量には一切影響しない。
+            return base;
         }
         double boosted = Math.floor(base * (1.0 + buffMultiplier));
         if (!Double.isFinite(boosted) || boosted < 0 || boosted > Integer.MAX_VALUE) {

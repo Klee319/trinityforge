@@ -26,17 +26,28 @@ public final class FurnaceSmeltPolicy {
     }
 
     /**
-     * New {@code totalCookTime} (ticks) after applying a speed-up percent (e.g. 30.0 = -30% cook time).
-     * Clamped to a minimum of 1 tick so a generous config value can never make an item smelt instantly
-     * (0-tick) or negative.
+     * 精錬にかかる tick 数。<b>{@code speedPercent} は「精錬速度が何%増えるか」</b>で、
+     * {@code 新しい時間 = 基準 ÷ (1 + speedPercent/100)}。
+     * 100 なら 2 倍速(=時間は半分)、170 なら 2.7 倍速。最低 1 tick でクランプする。
+     *
+     * <p><b>2026-08-19 (W-150) に意味を変えた。</b>それまでは同じ数値を「調理時間を何%短縮するか」と
+     * 解釈していた({@code 基準 × (1 - percent/100)})。この解釈だと
+     * <ul>
+     *   <li>出荷 tier3 の {@code percent: 100} が<b>短縮100% = 1 tick</b>になり、
+     *       原木1スタックが約3.2秒で焼き終わる(実サーバ報告の症状そのもの)、</li>
+     *   <li>スキルツリーが謳う「精錬速度+100%」(=2倍速)を<b>表現できない</b>
+     *       (短縮は100%が上限で、その100%が無限倍速を意味してしまう)</li>
+     * </ul>
+     * という2点が同時に起きていた。ユーザー判断で「+X% = 速度がX%増える」に統一した
+     * (「170%上昇なら2.7倍」という自然な読みに合わせる)。100 を超える値も意味を持つ。
      */
-    public static int reducedCookTime(int baseCookTime, double reductionPercent) {
+    public static int cookTimeWithSpeedBonus(int baseCookTime, double speedPercent) {
         if (baseCookTime <= 0) {
             return baseCookTime;
         }
-        double clampedPercent = Math.min(Math.max(reductionPercent, 0.0), 100.0);
-        int reduced = (int) Math.round(baseCookTime * (1.0 - clampedPercent / 100.0));
-        return Math.max(1, reduced);
+        double percent = Double.isFinite(speedPercent) ? Math.max(0.0, speedPercent) : 0.0;
+        int adjusted = (int) Math.round(baseCookTime / (1.0 + percent / 100.0));
+        return Math.max(1, adjusted);
     }
 
     private static double clamp01(double raw) {

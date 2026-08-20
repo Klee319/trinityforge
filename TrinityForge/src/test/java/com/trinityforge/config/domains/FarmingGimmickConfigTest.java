@@ -98,6 +98,10 @@ class FarmingGimmickConfigTest {
         assertEquals(1, config.areaHarvestRadius(99));
     }
 
+    // 2026-08-01 に新設した drop-tables(採取トリガー型の追加ドロップ)は 2026-08-09 に機構ごと撤去した。
+    // 対応するテスト(dropTablesAreEmptyWhenSectionAbsent / dropTableCategoriesAreParsedLikeTheOtherThreeProfessions /
+    // shippedFarmingGimmickShipsAtLeastOneDropTableCategory)も削除済み。
+
     @Test
     void areaHarvestTierResolvesFloorEntryFromTiersTable(@TempDir File tempDir) throws IOException {
         FarmingGimmickConfig config = loaded(tempDir, """

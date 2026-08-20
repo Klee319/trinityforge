@@ -7,142 +7,809 @@
 # dungeon-only-exp: true にすると、下記の戦闘系スキル
 #   重武器(HEAVY)/軽武器(LIGHT)/弓術(ARCHERY)/重装甲/軽装甲/ARS_MAGIC
 # のEXPは「EliteMobsダンジョンのインスタンスワールド内」でのみ加算され、オーバーワールド等では
-# 加算されない(トリガ自体は従来どおり: 武器=命中/防具=被弾/魔法=詠唱。範囲だけをゲートする)。
-# ※2026-07-26: このうち ARS_MAGIC は長らく実装側でゲートされておらず素通りしていた
-#   (ArsProgressionBridge.grantMagicExp がワールドを見ていなかった)。記述どおりになるよう
-#   実装を修正済み。魔法だけ他の戦闘スキルより速く伸びる状態は解消されている。
+# 加算されない(トリガ: 軽・重武器と弓術と魔法=討伐、防具=被弾)。
+# ※N5(2026-07-31): 以前は弓術だけが「命中ごとに与ダメージ比例」だったが、軽・重武器と同じ
+#   討伐時ベースへ統一した(combat.kill-exp.base の ARCHERY 行が基礎値)。
 # ダンジョンワールド判定は fork が生成/破棄時に TF の DungeonWorldRegistry へ登録した world UUID による。
 # false = 従来どおりどこでも加算。※ars-smithing(クラフト)/採取/釣り等の非戦闘EXPはこのゲートの対象外。
 # 設定リファレンス(本文コメント移設先): docs/config-reference/stats/skill-exp.md
 
 dungeon-only-exp: false
-
-# ---------------------------------------------------------------------------
-# 【2026-07-26 オーバーワールドEXP開放】ダンジョン外の戦闘スキルEXP倍率
-# ---------------------------------------------------------------------------
-# dungeon-only-exp: false のとき、ダンジョンワールドの「外」で得られる戦闘スキルEXP
-# (武器=命中 / 防具=被弾 / 魔法=詠唱)に掛かる倍率。ダンジョン内は常に 1.0 のまま。
-#   1.0 = ダンジョンと同率(オーバーワールドで育て切れてしまうので非推奨)
-#   0.25(既定) = ダンジョンの1/4。オーバーワールドでも育つが、4倍速いダンジョンが主戦場になる
-#   0.0 = dungeon-only-exp: true と同じ完全遮断
-# ※dungeon-only-exp: true のときはそちらが優先され、この値は参照されない。
-# ※採取/釣り/クラフト等の非戦闘EXPは元々このゲートの対象外なので、ここの影響も受けない。
 outside-dungeon-exp-rate: 0.25
-
-# ---------------------------------------------------------------------------
-# 【2026-07-26 TT・放置対策】同一地点の逓減
-# ---------------------------------------------------------------------------
-# 「直近 window-seconds 秒のあいだに、半径 radius ブロック以内で何回EXPを得たか」を数え、
-# threshold 回を超えたぶんだけ1回あたり decay-per-kill ずつ倍率を下げる(floor で下げ止まり)。
-# 武器EXP(命中)・防具EXP(被弾)・バニラ経験値オーブ(撃破)の3経路が同じカウンタを共有する
-# — 経路ごとに別勘定にすると、経路を混ぜるだけで逓減を回避できてしまうため。
+# 【日次逓減】直近 window-hours 時間にそのスキルで稼いだ量に応じて取得量を薄める。
+#   per-amount を稼ぐたびに1段落ち、1段ごとに decay-per-amount 倍になり floor で止まる。
 #
-# 狙いはTTを「潰す」ことではなく「割に合わなくする」こと。floor を0にしないのはそのため。
-# 既定値(threshold 30 / decay 0.05 / floor 0.1)の意味:
-#   同じ場所で5分以内に30回まではフルEXP。31回目から5%ずつ落ち、48回目で下限10%に到達する。
-#   探索しながら戦う普通のプレイでは1箇所に30回も留まらないので、まず引っかからない。
+# 2026-08-19 W-154(ユーザー指示「一度かかったら24時間で強制解除(100%)に戻す。
+# 修正時に全員の既にかかっているロックを解除したい」):
+#   lock-release-hours: 逓減が【発動した時刻】から数えて、この時間が経ったら蓄積ごとゼロに戻し
+#     取得量を100%へ戻す。0 を書くと期限なし(＝下の指数減衰だけで戻る従来の挙動)。
+#     ※ window-hours(指数減衰の時定数)だけでは【戻り切らない】。24時間放置しても e^-1 ≒ 37% が
+#       残るので、一度下がった人はいつまでも下がったままに感じる。これがその報告への対処。
+#     ※ 数え始めは「最後にEXPを得た時刻」ではなく「逓減が発動した時刻」。稼ぎ続けていても
+#       24時間経てば必ず解除される(ユーザー選択)。等倍へ自然回復した時点で時計は捨てる。
+#   reset-id: この文字列を書き換えると、次回起動時に【全員の蓄積を1回だけ】削除する。
+#     適用済みの値をDBへ記録するので、再起動を繰り返しても2度は消えない。
+#     フラグ(true/false)ではなく合言葉にしてあるのは、true のままだと再起動のたびに消えて
+#     逓減が永久に効かなくなり、false へ戻し忘れてもその事故が誰にも気づかれないため。
+#     もう一度全員解除したくなったら、日付など別の文字列へ書き換えること。
+daily-diminishing:
+  enabled: true
+  window-hours: 24
+  lock-release-hours: 24
+  reset-id: "2026-08-19-w154"
+  per-amount: 100000
+  decay-per-amount: 0.9
+  floor: 0.5
+  exempt-skills: []
+# 【同一地点の逓減】TT・放置狩り対策。半径 radius 以内・直近 window-seconds 秒の【撃破数】で決まる。
+# threshold 体までは倍率1.0、超えた1体につき decay-per-kill ずつ下がり floor で止まる。
 #
-# exempt-dungeon-worlds: true(既定) = ダンジョン内では逓減しない。ダンジョンは湧き潰しではなく
-#   有限のスポーンを消化する場所で、アリーナ型だと1箇所に留まって戦うのが正常な遊び方なので、
-#   ここで逓減させると本来推奨したい遊び方を罰することになる。
+# 2026-08-19 W-117「経験値がもらえない」の緩和(ユーザー指示「同一地点狩りを緩和する。
+# TTを作っていなくてもエンダーマンやピグリンなど集めて刈り取りやすいモブで発生していそう」):
+#   旧値 threshold:30 / decay:0.05 / floor:0.1 は【5分・半径16で30体】で減り始め【48体で10%】。
+#   エンドのエンダーマンやネザーのピグリンを「集めて刈る」正常なプレイがこの密度に普通に届くため、
+#   TTを作っていないプレイヤーが下限10%に張り付いていた。ダンジョン外倍率0.25と掛け合わさると
+#   重量Lv39で25レベのピグリン ≒ 170EXP が 170×0.25×0.1 ≒ 4EXP まで落ちる(報告の「1〜10」に一致)。
+#   新値は【80体までフルEXP・110体目で下限40%】。80体/5分 = 3.75秒に1体を1箇所から動かずに
+#   維持し続ける密度で、手動で「集めて刈る」プレイでは届かず、湧き機構のある farm では確実に届く。
+# ※下限を0.1→0.4へ上げたのは、この機構の狙いが「稼げなくする」ではなく「割に合わなくする」ため。
+#   総量の頭打ちは daily-diminishing 側の役目で、こちらは1箇所固定を相対的に不利にするだけでよい。
 spot-diminishing:
   enabled: true
-  radius: 24.0
-  window-seconds: 300.0
-  threshold: 30
-  decay-per-kill: 0.05
-  floor: 0.1
+  radius: 16
+  window-seconds: 300
+  threshold: 80
+  decay-per-kill: 0.02
+  floor: 0.4
   exempt-dungeon-worlds: true
-
-# ---------------------------------------------------------------------------
-# 【2026-07-26 EXP調整タスク1】採取EXPの算出方式
-# ---------------------------------------------------------------------------
-# 鉱石側の値(skills/base/mining_progression.yml の experience.mining_break、47種類)は元々
-# 存在するが、旧実装は「ブロックが対象として登録されているか」の判定だけに使い、実際に付与する量は
-# 常に「ドロップ品(素材側)の値の合計」だった。そのため DIAMOND_ORE(ブロック側400) も
-# DEEPSLATE_DIAMOND_ORE(ブロック側600) も、ドロップが同じ DIAMOND(素材側200) なのでどちらも
-# 200になり、「深層岩バリアントは掘るのが大変な分EXPが高い」という設計が死んでいた。
-# exp-mode でこれを選べるようにする(採取全スキル=MINING/FARMING/WOODCUTTING/DIGGING 共通)。
-#   drop_sum(既定)   : 従来どおりドロップ品の値の合計。現行の実サーバ挙動と完全に同じ結果になる。
-#   block_value       : ブロックそのものに設定された値をそのまま使う(DEEPSLATE系が高くなる等、
-#                        ブロック側の意図がそのまま反映される)。
-#   max               : ドロップ合計とブロック値の大きい方。
-# どのモードでも次の2点は変わらない(壊さないこと、という制約どおり):
-#   ・同一素材のドロップは1回だけ加算(スタック数は無視=幸運エンチャで増殖しない)
-#   ・素手等、要求ツールを満たさずドロップが空になった破壊はEXP 0
 gathering:
-  exp-mode: drop_sum
-
+  exp-mode: block_value
+# 【破壊時バニラEXP】2026-08-18 ユーザー要望「もらえるバニラ経験値が多すぎる。現状の1/4程度にして
+# 設定もできるようにして」。スキルツリーの feature:break-vanilla-exp-<スキル> を解放したプレイヤーが
+# 採取扱いのブロックを壊したときに落ちる【バニラのEXPオーブ】の量。TFのスキルEXPとは別物。
+#
+# base-exp: 1回の破壊あたりのベース量。実際の付与量は base-exp × (1 + 倍率ステの合計)。
+#   0.25 = 旧実装(1.0)の1/4。0 にすると解放しても一切増えない(機能OFFと同じ)。
+#   小数を書いてよい —— giveExp は整数しか受け取れないが、端数はプレイヤーごとに持ち越して
+#   1貯まったぶんだけ渡す(0.25 なら「4回壊して1EXP」)。四捨五入ではないので、
+#   小さな値にしても「常に0に丸められて機能が死ぬ」ことは無い。
+# per-skill-base-exp: 採取スキル別の上書き(省略可)。書いたスキルだけ base-exp より優先される。
+#   例: 採掘だけ多めにする  ->  per-skill-base-exp: { MINING: 0.5 }
+break-vanilla-exp:
+  base-exp: 0.25
+  per-skill-base-exp: {}
+  # 【連鎖破壊分にも配る上限ブロック数】(2026-08-19 W-143 実サーバ報告
+  # 「一括伐採発動時に1個分しか経験値が入らない」)
+  # 一括伐採 / 一括破壊 / 範囲収穫 の連鎖分にも破壊時バニラEXPを配る。1バースト
+  # (=同tick・同プレイヤー = 斧1振りぶん)でここまでのブロック数を数える。
+  # 【0 を書くと連鎖分には配らない】= 2026-07-28 以来の旧挙動へ戻る。
+  # 上限を設けている理由: 無制限にすると一括破壊がそのままバニラEXP増殖装置になる
+  # (これが旧仕様で連鎖分を切っていた理由そのもの)。
+  # 64 の根拠: 出荷 tier の一括伐採は tier1=16 / tier2=64 / tier3=128 本なので、
+  # 通常の伐採はほぼ全部数えつつ、最上位の1振りでも 64 ブロック分で止まる。
+  # 段階破壊される葉はそもそも採取扱いにならない(出荷ymlに葉の行が無い)ので数に入らない。
+  chain-max-blocks: 64
+power:
+  # 総合(POWER)を何レベル進めるごとにスキルポイントを1点与えるか。
+  # 1 = 1レベルごとに1点(従来の挙動)。2 なら2レベルで1点、5 なら5レベルで1点。
+  # ポイント総数 = 初期3点 + 総合レベル ÷ この値(切り捨て)。
+  # 0 以下を書いても 1 として扱う(ゼロ除算とポイント無限増加の防止)。
+  # ⚠️ この値を大きくすると既存プレイヤーの獲得済みポイントが減る。既に使った分が新しい上限を
+  # 超える場合は「使った分はそのまま・残りを0」に整えられる(取得済みパークは剥がさない)。
+  # ⚠️ 変更後は必ず /trinityforge reload を打つこと。全員のポイント残高を新しい値で書き直すのは
+  # reload の中の再計算処理だけで、ログインでは走らない(打たないと次のレベルアップまで旧残高のまま)。
+  levels-per-skill-point: 1
 ars-smithing:
-  exp-per-craft: 100
-
-# SMITHING (2026-07-25 PRG-13): 耐久消耗による付与を廃止し、武器/防具/ツールをクラフトした瞬間に
-# exp-per-craft を1回だけ付与する方式に一本化した(ars-smithingと同じ仕組み)。耐久消耗ベースだと
-# 「壊れる寸前まで使って修理」を繰り返すだけで実質無限にEXPを稼げてしまうため。
-# シフトクリックでの一括クラフトでも、クラフトイベント1回につき exp-per-craft ぶんのみ付与される
-# (作成した個数には比例しない — ars-smithingと同じ挙動)。
+  # 儀式で実際に消費したソース1あたりの追加EXP。0 = ソースを加味しない。
+  # 下の exp-per-material の合計に「消費ソース量 × この値」を足したものが儀式1回のEXP。
+  # ⚠️ ソース要求量は階梯とともに桁で増える(ソースの欠片100 → 無限のソース核45,000,000)ので、
+  # 1.0 のような値を入れると上位儀式1回で最大レベルに届く。0.001 程度から様子を見ること。
+  exp-per-source: 0.01
+  # 儀式・Ars作業台で消費した素材1個あたりのEXP。表に無い素材は 0(＝その素材ぶんが乗らないだけ)。
+  #
+  # ⚠️ この表は通常鍛冶(smithing.exp-per-material)とは【別物】。2026-08-17 に分離した
+  #    ―― それまで共用だったので、editor で通常鍛冶の素材リストを編集すると Ars 側の
+  #    儀式EXPまで一緒に動いていた。初期値は分離時点の通常鍛冶の表の複製なので、
+  #    以後はどちらか片方だけ編集して構わない。
+  #
+  # ⚠️ 定額 exp-per-craft は 2026-08-17 に機能ごと廃止した(書いても読まれない)。
+  #    定額があった間は「1つでも表に無い素材があれば合計を捨てて定額へ戻す」という
+  #    全か無かの分岐が必要で、素材を1つ足すとEXPが100分の1に落ちる向きの不整合が出ていた。
+  #    いまは「消費ソースぶん + この表の合計」の2項だけで決まる。
+  #
+  # キーの語彙: バニラは Material 名 / カスタム品は custom:<id>(大小を潰さない)。
+  # 圧縮素材(custom:<id>_Nx)は 0。圧縮するだけでEXPが増える経路を作らないため(J-12)。
+  exp-per-material:
+    STICK: 10
+    OAK_PLANKS: 10
+    SPRUCE_PLANKS: 10
+    BIRCH_PLANKS: 10
+    JUNGLE_PLANKS: 10
+    ACACIA_PLANKS: 10
+    DARK_OAK_PLANKS: 10
+    MANGROVE_PLANKS: 10
+    CHERRY_PLANKS: 10
+    PALE_OAK_PLANKS: 10
+    BAMBOO_PLANKS: 10
+    CRIMSON_PLANKS: 10
+    WARPED_PLANKS: 10
+    STRING: 10
+    LEATHER: 10
+    COBBLESTONE: 10
+    STONE: 10
+    COBBLED_DEEPSLATE: 10
+    DEEPSLATE: 10
+    BLACKSTONE: 10
+    COPPER_INGOT: 10
+    IRON_INGOT: 10
+    GOLD_INGOT: 10
+    AMETHYST_SHARD: 10
+    # アメジストブロック(=欠片4個)。魔術師段の魔導防具の儀式で消費するので行が要る
+    # (この表に無い素材は 0 として積まれ、無言でEXPを取りこぼす)。
+    AMETHYST_BLOCK: 40
+    DIAMOND: 25
+    NETHERITE_SCRAP: 30
+    NETHERITE_INGOT: 120
+    BLAZE_ROD: 30
+    BREEZE_ROD: 30
+    PHANTOM_MEMBRANE: 10
+    PRISMARINE_SHARD: 10
+    PRISMARINE_CRYSTALS: 10
+    SHULKER_SHELL: 20
+    ECHO_SHARD: 30
+    HEART_OF_THE_SEA: 60
+    NETHER_STAR: 200
+    # 2026-08-03: 賢者(Lv80)の儀式で使うので追加。エンドラ討伐が要る＝BREEZE_ROD より上、
+    # ECHO_SHARD(深層都市の探索)と同格に置いている。
+    DRAGON_BREATH: 30
+    custom:thread_empty: 10
+    custom:magebloom_fiber: 10
+    custom:reinforced_fiber: 10
+    custom:reinforced_leather: 12
+    custom:source_gem: 20
+    custom:hard_metal: 40
+    custom:heavy_metal: 40
+    custom:elder_guardian_spike: 40
+    custom:bogged_mossy_bone: 20
+    custom:guardian_spine: 20
+    custom:hoglin_fang: 20
+    custom:parched_sandy_bone: 20
+    custom:piglin_ear: 20
+    custom:witch_elixir: 20
+    # 2026-08-14: スレッド儀式10本で消費するので追加。同格の討伐素材(bogged_mossy_bone /
+    # guardian_spine / hoglin_fang / parched_sandy_bone / piglin_ear / witch_elixir)に合わせて 20。
+    # ⚠ ravager_hide / pillager_plate は thread_hit_mana_recovery、endermite_soot は
+    #    thread_night_vision、stray_cloth は thread_speed が要求する。1行でも欠けると
+    #    ArsProgressionBridge#grantSmithingCraftExp が素材合計を捨てて定額100へ落ちる。
+    custom:ravager_hide: 20
+    custom:pillager_plate: 20
+    custom:endermite_soot: 20
+    custom:stray_cloth: 20
+    # 下の3種は今回のスレッド儀式では使わないが、討伐素材カテゴリ(collection.yml の mob_parts)の
+    # 残りで表から抜けていた分。フィールドドロップが配線されれば儀式素材になり得るので、
+    # 「使い始めた瞬間に定額EXPへ落ちる」穴を先に塞いでおく。値は同格に合わせて 20。
+    custom:husk_cloth: 20
+    custom:piglin_brute_plate: 20
+    custom:skeleton_horse_bone: 20
+    custom:wither_skull_fragment: 40
+    custom:core_jewelry: 5000
+    custom:dragon_scale: 80
+    custom:warden_tendril: 90
+    custom:source_gem_block: 180
+    # 2026-08-19(W-120): 魔導防具の大魔導士以上がソース階梯そのものを要求するので追加。
+    # 目安は「作るのに要るソース」ではなく「焼べたときの価値」に対する相場:
+    #   ソース結晶 = 18,000 ソース相当 → source_gem_block(180) の倍以上、
+    #   ソース凝縮核 = 700,000 ソース相当 → core_jewelry(5000) の一段下。
+    custom:source_crystal: 400
+    custom:source_condenser: 3500
+    # 2026-08-10(J-12): 圧縮素材(_Nx)は鍛冶EXPの対象外。ユーザー判断「圧縮素材は経験値不要」。
+    # 2026-08-19 訂正: ここには「行を消すと素材合計を丸ごと捨てて定額(100)へ戻る」と書いてあったが、
+    #    その全か無かの分岐は【2026-08-17 に定額 exp-per-craft ごと廃止済み】で、もう存在しない。
+    #    現在の ArsProgressionBridge#sumMaterialExp / CraftQualityListener#arsSmithingBaseExp は
+    #    どちらも「表に無い素材は 0 を積む」だけの単調な合計なので、
+    #    **0 の行を消しても挙動は 1 ミリも変わらない**(0 を積むか何も積まないかの違いしかない)。
+    #    値のある行を消した場合は「その素材ぶんが乗らなくなる」だけで、他の素材には波及しない。
+    # ⚠️ ただし ShippedRitualMaterialExpCoverageTest は今も「儀式で消費する素材は全て表にある」ことを
+    #    要求する。意図して無報酬にする素材があるなら、行を消すのではなく 0 を書くのが安全
+    #    (消すと「意図的に0」と「足し忘れ」を機械的に区別できなくなる)。
+    LAPIS_LAZULI: 20
+    LAPIS_BLOCK: 10
+    REDSTONE: 10
+    REDSTONE_BLOCK: 10
+    QUARTZ: 10
+    QUARTZ_BLOCK: 10
+    EMERALD: 10
+    EMERALD_BLOCK: 90
+    IRON_BLOCK: 72
+    GOLD_BLOCK: 72
+    DIAMOND_BLOCK: 225
+    NETHERITE_BLOCK: 2000
+    WHEAT: 10
+    HAY_BLOCK: 10
+    WHITE_WOOL: 10
+    FEATHER: 10
+    FLINT: 10
+    SUGAR: 10
+    SLIME_BALL: 10
+    GLOWSTONE_DUST: 10
+    BLAZE_POWDER: 10
+    MAGMA_CREAM: 10
+    PUFFERFISH: 10
+    GOLDEN_CARROT: 10
+    GOLDEN_APPLE: 72
+    RABBIT_FOOT: 10
+    CHEST: 10
+    TRIPWIRE_HOOK: 10
+    SHIELD: 20
+    ENDER_PEARL: 10
+    CHORUS_FRUIT: 10
+    ENDER_EYE: 10
+    ENDER_CHEST: 90
+    CRYING_OBSIDIAN: 12
+    GHAST_TEAR: 20
+    END_CRYSTAL: 90
+    SEA_LANTERN: 25
+    NAUTILUS_SHELL: 20
+    TOTEM_OF_UNDYING: 200
+    ELYTRA: 250
+    HEAVY_CORE: 1500
+    DRAGON_EGG: 3000
+    OAK_LOG: 10
+    ACACIA_LOG: 10
+    BIRCH_LOG: 10
+    CHERRY_LOG: 10
+    CRIMSON_STEM: 10
+    DARK_OAK_LOG: 10
+    JUNGLE_LOG: 10
+    MANGROVE_LOG: 10
+    PALE_OAK_LOG: 10
+    SPRUCE_LOG: 10
+    WARPED_STEM: 10
+    PAPER: 10
+    BOOK: 10
+    NAME_TAG: 10
+    TURTLE_EGG: 10
+    OCHRE_FROGLIGHT: 12
+    PEARLESCENT_FROGLIGHT: 12
+    VERDANT_FROGLIGHT: 12
+    COOKED_BEEF: 10
+    DIRT: 5
+    custom:core_wood: 5000
+    custom:core_meat: 5000
+    custom:core_vegetable: 5000
+    custom:core_ground: 5000
+    custom:abyssal_ingot: 250
+    custom:dungeon_seal_binder: 300
+    custom:reality_thread_core: 350
+    custom:binder_fragment: 400
+    # 一般的なモブドロップ / 松明。LEATHER(3) より安い帯に置く。
+    SPIDER_EYE: 20
+    TORCH: 10
+    custom:stone_2x: 0
+    custom:netherrack_2x: 0
+    custom:wither_rose_1x: 0
+    custom:amethyst_block_2x: 0
+    custom:blaze_rod_2x: 0
+    custom:shulker_shell_1x: 0
+    custom:blaze_rod_3x: 0
+    custom:dragon_breath_3x: 0
+    custom:breeze_rod_2x: 0
+    custom:shulker_shell_2x: 0
+    custom:diamond_block_2x: 0
+    custom:dragon_breath_2x: 0
+    custom:gold_block_2x: 0
+    custom:iron_block_2x: 0
+    IRON_HELMET: 40
+    IRON_CHESTPLATE: 64
+    IRON_LEGGINGS: 56
+    IRON_BOOTS: 32
+    GOLDEN_HELMET: 40
+    GOLDEN_CHESTPLATE: 64
+    GOLDEN_LEGGINGS: 56
+    GOLDEN_BOOTS: 32
+    DIAMOND_HELMET: 125
+    DIAMOND_CHESTPLATE: 200
+    DIAMOND_LEGGINGS: 175
+    DIAMOND_BOOTS: 100
+    custom:stone_5x: 0
+    custom:wither_rose_2x: 0
+    custom:breeze_rod_3x: 0
+    custom:emerald_block_4x: 0
+    custom:netherite_block_1x: 0
+    custom:echo_shard_2x: 0
+    custom:spell_book_novice: 40
+    custom:spell_book_apprentice: 80
+    custom:mage_arcane_novice_helmet: 60
+    custom:mage_arcane_novice_chestplate: 90
+    custom:mage_arcane_novice_leggings: 80
+    custom:mage_arcane_novice_boots: 50
+    custom:mage_arcane_apprentice_helmet: 120
+    custom:mage_arcane_apprentice_chestplate: 180
+    custom:mage_arcane_apprentice_leggings: 160
+    custom:mage_arcane_apprentice_boots: 100
+    # 2026-08-09: 魔導シリーズの大魔導士がこの表から丸ごと抜けていた(魔織・守護には 240/360/320/200 が
+    # ある)。賢者/星詠みを足すのに合わせて、EXPが 0 -> 480 と飛ぶ穴を埋める。値は他2シリーズと同一。
+    custom:mage_arcane_archmage_helmet: 240
+    custom:mage_arcane_archmage_chestplate: 360
+    custom:mage_arcane_archmage_leggings: 320
+    custom:mage_arcane_archmage_boots: 200
+    custom:mage_arcane_sage_helmet: 480
+    custom:mage_arcane_sage_chestplate: 720
+    custom:mage_arcane_sage_leggings: 640
+    custom:mage_arcane_sage_boots: 400
+    custom:mage_arcane_starseer_helmet: 960
+    custom:mage_arcane_starseer_chestplate: 1440
+    custom:mage_arcane_starseer_leggings: 1280
+    custom:mage_arcane_starseer_boots: 800
+    custom:mage_weaver_novice_helmet: 60
+    custom:mage_weaver_novice_chestplate: 90
+    custom:mage_weaver_novice_leggings: 80
+    custom:mage_weaver_novice_boots: 50
+    custom:mage_weaver_apprentice_helmet: 120
+    custom:mage_weaver_apprentice_chestplate: 180
+    custom:mage_weaver_apprentice_leggings: 160
+    custom:mage_weaver_apprentice_boots: 100
+    custom:mage_guardian_novice_helmet: 60
+    custom:mage_guardian_novice_chestplate: 90
+    custom:mage_guardian_novice_leggings: 80
+    custom:mage_guardian_novice_boots: 50
+    custom:mage_guardian_apprentice_helmet: 120
+    custom:mage_guardian_apprentice_chestplate: 180
+    custom:mage_guardian_apprentice_leggings: 160
+    custom:mage_guardian_apprentice_boots: 100
+    # 2026-08-03: 大魔導士(Lv60)以上が表に無く、儀式で作っても魔法EXPが0だった。
+    # 賢者(Lv80)/星詠み(Lv100)を追加するにあたり、段ごとに倍増する形で大魔導士から埋めている。
+    # mage_arcane_* は catalog.yml に定義が無い(CMDとステだけ残った未配線シリーズ)ので載せない。
+    custom:mage_weaver_archmage_helmet: 240
+    custom:mage_weaver_archmage_chestplate: 360
+    custom:mage_weaver_archmage_leggings: 320
+    custom:mage_weaver_archmage_boots: 200
+    custom:mage_weaver_sage_helmet: 480
+    custom:mage_weaver_sage_chestplate: 720
+    custom:mage_weaver_sage_leggings: 640
+    custom:mage_weaver_sage_boots: 400
+    custom:mage_weaver_starseer_helmet: 960
+    custom:mage_weaver_starseer_chestplate: 1440
+    custom:mage_weaver_starseer_leggings: 1280
+    custom:mage_weaver_starseer_boots: 800
+    custom:mage_guardian_archmage_helmet: 240
+    custom:mage_guardian_archmage_chestplate: 360
+    custom:mage_guardian_archmage_leggings: 320
+    custom:mage_guardian_archmage_boots: 200
+    custom:mage_guardian_sage_helmet: 480
+    custom:mage_guardian_sage_chestplate: 720
+    custom:mage_guardian_sage_leggings: 640
+    custom:mage_guardian_sage_boots: 400
+    custom:mage_guardian_starseer_helmet: 960
+    custom:mage_guardian_starseer_chestplate: 1440
+    custom:mage_guardian_starseer_leggings: 1280
+    custom:mage_guardian_starseer_boots: 800
+    # 2026-08-17: 儀式で消費するのに表に無かった素材(ShippedRitualMaterialExpCoverageTest が検出)。
+    # 圧縮素材(_Nx)は J-12 の規約どおり 0。
+    custom:oak_wood_2x: 0
+    custom:cod_2x: 0
+    custom:hay_block_2x: 0
 smithing:
-  exp-per-craft: 15
-
+  exp-per-craft: 20
+  exp-per-material:
+    STICK: 0.5
+    OAK_PLANKS: 1
+    SPRUCE_PLANKS: 1
+    BIRCH_PLANKS: 1
+    JUNGLE_PLANKS: 1
+    ACACIA_PLANKS: 1
+    DARK_OAK_PLANKS: 1
+    MANGROVE_PLANKS: 1
+    CHERRY_PLANKS: 1
+    PALE_OAK_PLANKS: 1
+    BAMBOO_PLANKS: 1
+    CRIMSON_PLANKS: 1
+    WARPED_PLANKS: 1
+    STRING: 1
+    LEATHER: 5
+    COBBLESTONE: 2
+    STONE: 2
+    COBBLED_DEEPSLATE: 2
+    DEEPSLATE: 2
+    BLACKSTONE: 2
+    COPPER_INGOT: 8
+    IRON_INGOT: 12
+    GOLD_INGOT: 16
+    AMETHYST_SHARD: 10
+    DIAMOND: 25
+    NETHERITE_SCRAP: 30
+    NETHERITE_INGOT: 120
+    BLAZE_ROD: 10
+    BREEZE_ROD: 20
+    PHANTOM_MEMBRANE: 10
+    PRISMARINE_SHARD: 5
+    PRISMARINE_CRYSTALS: 5
+    SHULKER_SHELL: 20
+    ECHO_SHARD: 30
+    HEART_OF_THE_SEA: 100
+    NETHER_STAR: 500
+    # 2026-08-03: 賢者(Lv80)の儀式で使うので追加。エンドラ討伐が要る＝BREEZE_ROD より上、
+    # ECHO_SHARD(深層都市の探索)と同格に置いている。
+    DRAGON_BREATH: 30
+    custom:magebloom_fiber: 10
+    custom:reinforced_fiber: 10
+    custom:reinforced_leather: 12
+    custom:source_gem: 20
+    custom:hard_metal: 40
+    custom:heavy_metal: 40
+    custom:elder_guardian_spike: 40
+    custom:bogged_mossy_bone: 20
+    custom:guardian_spine: 20
+    custom:hoglin_fang: 20
+    custom:parched_sandy_bone: 20
+    custom:piglin_ear: 20
+    custom:witch_elixir: 20
+    # 2026-08-14: スレッド儀式10本で消費するので追加。同格の討伐素材(bogged_mossy_bone /
+    # guardian_spine / hoglin_fang / parched_sandy_bone / piglin_ear / witch_elixir)に合わせて 20。
+    # ⚠ ravager_hide / pillager_plate は thread_hit_mana_recovery、endermite_soot は
+    #    thread_night_vision、stray_cloth は thread_speed が要求する。1行でも欠けると
+    #    ArsProgressionBridge#grantSmithingCraftExp が素材合計を捨てて定額100へ落ちる。
+    custom:ravager_hide: 20
+    custom:pillager_plate: 20
+    custom:endermite_soot: 20
+    custom:stray_cloth: 20
+    # 下の3種は今回のスレッド儀式では使わないが、討伐素材カテゴリ(collection.yml の mob_parts)の
+    # 残りで表から抜けていた分。フィールドドロップが配線されれば儀式素材になり得るので、
+    # 「使い始めた瞬間に定額EXPへ落ちる」穴を先に塞いでおく。値は同格に合わせて 20。
+    custom:husk_cloth: 20
+    custom:piglin_brute_plate: 20
+    custom:skeleton_horse_bone: 20
+    custom:wither_skull_fragment: 40
+    custom:core_jewelry: 5000
+    custom:dragon_scale: 80
+    custom:warden_tendril: 90
+    custom:source_gem_block: 180
+    # 2026-08-10(J-12): 圧縮素材(_Nx)は鍛冶EXPの対象外。ユーザー判断「圧縮素材は経験値不要」。
+    # 2026-08-19 訂正: ここには「行を消すと素材合計を丸ごと捨てて定額(100)へ戻る」と書いてあったが、
+    #    その全か無かの分岐は【2026-08-17 に定額 exp-per-craft ごと廃止済み】で、もう存在しない。
+    #    現在の ArsProgressionBridge#sumMaterialExp / CraftQualityListener#arsSmithingBaseExp は
+    #    どちらも「表に無い素材は 0 を積む」だけの単調な合計なので、
+    #    **0 の行を消しても挙動は 1 ミリも変わらない**(0 を積むか何も積まないかの違いしかない)。
+    #    値のある行を消した場合は「その素材ぶんが乗らなくなる」だけで、他の素材には波及しない。
+    # ⚠️ ただし ShippedRitualMaterialExpCoverageTest は今も「儀式で消費する素材は全て表にある」ことを
+    #    要求する。意図して無報酬にする素材があるなら、行を消すのではなく 0 を書くのが安全
+    #    (消すと「意図的に0」と「足し忘れ」を機械的に区別できなくなる)。
+    LAPIS_LAZULI: 5
+    LAPIS_BLOCK: 9
+    REDSTONE: 5
+    REDSTONE_BLOCK: 9
+    QUARTZ: 2
+    QUARTZ_BLOCK: 8
+    EMERALD: 10
+    EMERALD_BLOCK: 90
+    IRON_BLOCK: 72
+    GOLD_BLOCK: 72
+    DIAMOND_BLOCK: 225
+    NETHERITE_BLOCK: 1080
+    WHEAT: 1
+    HAY_BLOCK: 9
+    WHITE_WOOL: 4
+    FEATHER: 1
+    FLINT: 2
+    SUGAR: 0.5
+    SLIME_BALL: 2
+    GLOWSTONE_DUST: 2
+    BLAZE_POWDER: 4
+    MAGMA_CREAM: 6
+    PUFFERFISH: 4
+    GOLDEN_CARROT: 10
+    GOLDEN_APPLE: 72
+    RABBIT_FOOT: 8
+    CHEST: 8
+    TRIPWIRE_HOOK: 5
+    SHIELD: 20
+    ENDER_PEARL: 5
+    CHORUS_FRUIT: 4
+    ENDER_EYE: 10
+    ENDER_CHEST: 90
+    CRYING_OBSIDIAN: 12
+    GHAST_TEAR: 20
+    END_CRYSTAL: 90
+    SEA_LANTERN: 25
+    NAUTILUS_SHELL: 20
+    TOTEM_OF_UNDYING: 200
+    ELYTRA: 250
+    HEAVY_CORE: 150
+    DRAGON_EGG: 300
+    OAK_LOG: 4
+    ACACIA_LOG: 4
+    BIRCH_LOG: 4
+    CHERRY_LOG: 4
+    CRIMSON_STEM: 4
+    DARK_OAK_LOG: 4
+    JUNGLE_LOG: 4
+    MANGROVE_LOG: 4
+    PALE_OAK_LOG: 4
+    SPRUCE_LOG: 4
+    WARPED_STEM: 4
+    PAPER: 0.5
+    BOOK: 2
+    NAME_TAG: 8
+    TURTLE_EGG: 6
+    OCHRE_FROGLIGHT: 12
+    PEARLESCENT_FROGLIGHT: 12
+    VERDANT_FROGLIGHT: 12
+    COOKED_BEEF: 4
+    DIRT: 0.5
+    custom:core_wood: 5000
+    custom:core_meat: 5000
+    custom:core_vegetable: 5000
+    custom:core_ground: 5000
+    custom:abyssal_ingot: 250
+    custom:dungeon_seal_binder: 300
+    custom:reality_thread_core: 350
+    custom:binder_fragment: 400
+    custom:stone_2x: 0
+    custom:netherrack_2x: 0
+    custom:thread_empty: 4
+    custom:wither_rose_1x: 0
+    custom:amethyst_block_2x: 0
+    custom:blaze_rod_2x: 0
+    custom:shulker_shell_1x: 0
+    custom:blaze_rod_3x: 0
+    custom:dragon_breath_3x: 0
+    custom:breeze_rod_2x: 0
+    custom:shulker_shell_2x: 0
+    custom:diamond_block_2x: 0
+    custom:dragon_breath_2x: 0
+    custom:gold_block_2x: 0
+    custom:iron_block_2x: 0
+    IRON_HELMET: 40
+    IRON_CHESTPLATE: 64
+    IRON_LEGGINGS: 56
+    IRON_BOOTS: 32
+    GOLDEN_HELMET: 40
+    GOLDEN_CHESTPLATE: 64
+    GOLDEN_LEGGINGS: 56
+    GOLDEN_BOOTS: 32
+    DIAMOND_HELMET: 125
+    DIAMOND_CHESTPLATE: 200
+    DIAMOND_LEGGINGS: 175
+    DIAMOND_BOOTS: 100
+    custom:stone_5x: 0
+    custom:wither_rose_2x: 0
+    custom:breeze_rod_3x: 0
+    custom:emerald_block_4x: 0
+    custom:netherite_block_1x: 0
+    custom:echo_shard_2x: 0
+    custom:spell_book_novice: 40
+    custom:spell_book_apprentice: 80
+    custom:mage_arcane_novice_helmet: 60
+    custom:mage_arcane_novice_chestplate: 90
+    custom:mage_arcane_novice_leggings: 80
+    custom:mage_arcane_novice_boots: 50
+    custom:mage_arcane_apprentice_helmet: 120
+    custom:mage_arcane_apprentice_chestplate: 180
+    custom:mage_arcane_apprentice_leggings: 160
+    custom:mage_arcane_apprentice_boots: 100
+    # 2026-08-09: 魔導シリーズの大魔導士がこの表から丸ごと抜けていた(魔織・守護には 240/360/320/200 が
+    # ある)。賢者/星詠みを足すのに合わせて、EXPが 0 -> 480 と飛ぶ穴を埋める。値は他2シリーズと同一。
+    custom:mage_arcane_archmage_helmet: 240
+    custom:mage_arcane_archmage_chestplate: 360
+    custom:mage_arcane_archmage_leggings: 320
+    custom:mage_arcane_archmage_boots: 200
+    custom:mage_arcane_sage_helmet: 480
+    custom:mage_arcane_sage_chestplate: 720
+    custom:mage_arcane_sage_leggings: 640
+    custom:mage_arcane_sage_boots: 400
+    custom:mage_arcane_starseer_helmet: 960
+    custom:mage_arcane_starseer_chestplate: 1440
+    custom:mage_arcane_starseer_leggings: 1280
+    custom:mage_arcane_starseer_boots: 800
+    custom:mage_weaver_novice_helmet: 60
+    custom:mage_weaver_novice_chestplate: 90
+    custom:mage_weaver_novice_leggings: 80
+    custom:mage_weaver_novice_boots: 50
+    custom:mage_weaver_apprentice_helmet: 120
+    custom:mage_weaver_apprentice_chestplate: 180
+    custom:mage_weaver_apprentice_leggings: 160
+    custom:mage_weaver_apprentice_boots: 100
+    custom:mage_guardian_novice_helmet: 60
+    custom:mage_guardian_novice_chestplate: 90
+    custom:mage_guardian_novice_leggings: 80
+    custom:mage_guardian_novice_boots: 50
+    custom:mage_guardian_apprentice_helmet: 120
+    custom:mage_guardian_apprentice_chestplate: 180
+    custom:mage_guardian_apprentice_leggings: 160
+    custom:mage_guardian_apprentice_boots: 100
+    # 2026-08-03: 大魔導士(Lv60)以上が表に無く、儀式で作っても魔法EXPが0だった。
+    # 賢者(Lv80)/星詠み(Lv100)を追加するにあたり、段ごとに倍増する形で大魔導士から埋めている。
+    # mage_arcane_* は catalog.yml に定義が無い(CMDとステだけ残った未配線シリーズ)ので載せない。
+    custom:mage_weaver_archmage_helmet: 240
+    custom:mage_weaver_archmage_chestplate: 360
+    custom:mage_weaver_archmage_leggings: 320
+    custom:mage_weaver_archmage_boots: 200
+    custom:mage_weaver_sage_helmet: 480
+    custom:mage_weaver_sage_chestplate: 720
+    custom:mage_weaver_sage_leggings: 640
+    custom:mage_weaver_sage_boots: 400
+    custom:mage_weaver_starseer_helmet: 960
+    custom:mage_weaver_starseer_chestplate: 1440
+    custom:mage_weaver_starseer_leggings: 1280
+    custom:mage_weaver_starseer_boots: 800
+    custom:mage_guardian_archmage_helmet: 240
+    custom:mage_guardian_archmage_chestplate: 360
+    custom:mage_guardian_archmage_leggings: 320
+    custom:mage_guardian_archmage_boots: 200
+    custom:mage_guardian_sage_helmet: 480
+    custom:mage_guardian_sage_chestplate: 720
+    custom:mage_guardian_sage_leggings: 640
+    custom:mage_guardian_sage_boots: 400
+    custom:mage_guardian_starseer_helmet: 960
+    custom:mage_guardian_starseer_chestplate: 1440
+    custom:mage_guardian_starseer_leggings: 1280
+    custom:mage_guardian_starseer_boots: 800
 ars-magic:
-  exp-per-cast: 2.0
-  exp-per-mana: 0.1
-
-
-# ---------------------------------------------------------------------------
-# 【2026-07-26 EXP調整タスク2】戦闘EXPを与ダメージ比例+モブレベル係数にする
-# ---------------------------------------------------------------------------
-# 旧実装は命中1回で常に exp-per-hit の固定値(既定1.0)——与えたダメージ量にもモブの強さにも
-# 一切連動していなかった。mode: damage_scaled に切り替えると、1ヒットのEXPが
-#   (与ダメージ × damage-scale) × (1 + モブレベル × mob-level-scale)
-# で決まるようになる。モブレベルは EliteMobs/ダンジョン連携が使っているのと同じ MobData の
-# レベル(PDC)を読む。レベル情報を持たないモブ(平地の通常モブ等)は0扱い=倍率1.0。
-#   mode: flat(既定)         : 従来どおり exp-per-hit / by-skill の固定値。実サーバ挙動は不変。
-#   mode: damage_scaled       : 上記の与ダメージ比例+モブレベル係数。
-# damage-scale/mob-level-scale は mode: damage_scaled のときのみ使われる。既定値の根拠:
-#   damage-scale=0.1     : TF標準武器の与ダメージは概ね5〜10前後(item-stats.yml参照)なので、
-#                           1ヒットあたり0.5〜1.0程度になり、旧来のexp-per-hit=1.0と近い体感値になる
-#                           ように選んだ(「いきなり別ゲーにならないように」の指示どおり)。
-#   mob-level-scale=0.02  : モブレベル50で+100%(2倍)、レベル100で+200%(3倍)。ダンジョン深部の
-#                           強モブほど旨みが出るが、極端な指数爆発は避けた保守的な値。
+  kill-exp:
+    enabled: true
+    base: 20
+    per-mob-level: 1.5
+    # 2026-08-12: 0.25 -> 0.188(x0.75)。火力/防御の再較正でモブ最大HPを2倍にしたぶん、
+    # このキーは最大HPに線形なので1キルのEXPも約2倍になっていた。ユーザー指示で
+    # 「以前比 約1.5倍」まで戻す。base / per-mob-level は最大HPに依らないので触らない
+    # (実際には最大HP項が支配的なので、この係数がほぼそのまま倍率になる)。
+    per-max-health: 0.188
+    # 【最大HP項の指数】(2026-08-19 ユーザー要望「80lvエンダーマンで約4000へ。ただし序盤の
+    # 上がり方は変えたくないのでHPに応じた経験値指数だけ調整して」)
+    # HP項 = per-max-health * min(HP, anchor * (HP/anchor)^exponent)
+    #   ・HP <= anchor の帯は min が線形側を選ぶので【1ミリも変わらない】= 序盤の上がり方はそのまま
+    #   ・HP > anchor では (HP/anchor)^(exponent-1) 倍に圧縮される
+    #   ・anchor: 0 か exponent: 1 で従来どおりの線形に戻る
+    # なぜ per-max-health を下げるだけでは駄目か: HP項は全帯で支配的(Lv10のエンダーマンでも
+    # HP項353 対 base+Lv項40)なので、係数を半分にすると序盤も半分になる。
+    # 8000 は「モブHPが指数的に爆発し始める Lv40 前後」のHP。0.74 は Lv80 エンダーマン
+    # (HP約183000)で現行の約0.44倍になる値 = 報告値 8000~10000 -> 約4000。
+    # 参考の倍率(エンダーマン): Lv38以下 1.00 / Lv50 0.71 / Lv60 0.57 / Lv80 0.44 / Lv100 0.37
+    per-max-health-anchor: 8000
+    per-max-health-exponent: 0.74
+    unlisted-entity-multiplier: 0
+    # 非敵対モブは載せない（方針は combat.kill-exp 側の注記を参照）。
+    entity-type-multipliers:
+      BLAZE: 1.7
+      BOGGED: 1.2
+      BREEZE: 1.6
+      CAVE_SPIDER: 1.2
+      CREAKING: 1.5
+      CREEPER: 1.3
+      DROWNED: 1.2
+      ELDER_GUARDIAN: 3
+      ENDERMAN: 1.5
+      ENDERMITE: 1.1
+      ENDER_DRAGON: 8
+      EVOKER: 2
+      GHAST: 1.8
+      GIANT: 4
+      GUARDIAN: 1.4
+      HOGLIN: 1.5
+      HUSK: 1.1
+      ILLUSIONER: 2
+      MAGMA_CUBE: 1.3
+      PARCHED: 1.2
+      PHANTOM: 1.3
+      PIGLIN: 1.1
+      PIGLIN_BRUTE: 1.8
+      PILLAGER: 1.2
+      RAVAGER: 2.5
+      SHULKER: 1.5
+      SILVERFISH: 1
+      SKELETON: 1.1
+      SLIME: 1
+      SPIDER: 1
+      STRAY: 1.3
+      VEX: 1.4
+      VINDICATOR: 1.4
+      WARDEN: 7
+      WITCH: 1.5
+      WITHER: 6
+      WITHER_SKELETON: 1.8
+      ZOGLIN: 1.8
+      ZOMBIE: 1
+      ZOMBIE_VILLAGER: 1
+      ZOMBIFIED_PIGLIN: 1.2
+  block-break-exp:
+    enabled: true
+    source-multiplier: 1
 combat:
-  # 後方互換キー。mode: flat のときだけ使われる固定値(既定挙動そのもの)。
-  exp-per-hit: 1.0
-  mode: flat
-  damage-scale: 0.1
-  mob-level-scale: 0.02
-  same-target-cooldown-seconds: 10
-
-# ---------------------------------------------------------------------------
-# 【2026-07-26 EXP調整タスク3】後半ヌルゲー化への栓: スキルレベル逓減カーブ(既定OFF)
-# ---------------------------------------------------------------------------
-# レベルが上がるほど1回あたりのEXP取得量を減らしたい場合に使う。既定は gathering-enabled/
-# combat-enabled とも false = 常に倍率1.0(現行挙動そのまま)。「使うかどうかはユーザーが決める」
-# 方針でオプトインにしてある。有効にすると "後半の伸びが鈍る"(同じ作業を繰り返しても
-# 得られるEXPが徐々に減っていく)効果になる — 後半ヌルゲー化対策として使うことを想定している。
-#   gathering-enabled : MINING/FARMING/WOODCUTTING/DIGGING(タスク1の採取系)へ適用するか。
-#   combat-enabled    : HEAVY_WEAPONS/LIGHT_WEAPONS/ARCHERY/HEAVY_ARMOR/LIGHT_ARMOR/ARS_MAGIC
-#                        (タスク2の武器命中+既存の防具被弾+魔法詠唱)へ適用するか。
-#                        どちらか片方だけ有効化することもできる。
-#   formula           : exp_level_curve と同じ書式(%level% が現在レベルに置き換わる四則演算/べき乗式)。
-#                        評価結果がそのまま倍率になる(1.0=減衰なし)。既定は
-#                        "1 / (1 + %level% / 50)" — レベル0で1.0、レベル50で0.5、レベル150で0.25と、
-#                        なだらかに減っていく緩やかな逓減カーブ。急に0まで落ちない設計。
-#   floor             : 倍率の下限(これ未満には下がらない)。既定0.2 = どれだけレベルが上がっても
-#                        最低20%のEXPは入り続ける(完全に稼げなくなることを防ぐ安全弁)。
+  kill-exp:
+    base:
+      HEAVY_WEAPONS: 30
+      LIGHT_WEAPONS: 20
+      # 弓術は「軽武器 < 弓術 <= 重武器」に収める(SkillExpConfigTest がこの順序を固定している)。
+      # 2026-08-19 W-118「弓の攻撃にかかる時間の割に火力と経験値が渋い」で 25 -> 30(重武器と同値)。
+      # 旧値の根拠「遠距離で安全だから下げる」より、【1発ごとに約1秒の引き絞りが要る＝同じ時間で
+      # 殴れる回数が近接の半分以下】という時間コストのほうが大きかった。重武器超えはさせない
+      # (遠距離が最速の育成手段になってしまうため)。
+      ARCHERY: 30
+    per-mob-level: 2
+    # 2026-08-12: 0.25 -> 0.188(x0.75)。理由は ars-magic.kill-exp 側の注記と同じ。
+    per-max-health: 0.188
+    # 【最大HP項の指数】(2026-08-19 ユーザー要望「80lvエンダーマンで約4000へ。ただし序盤の
+    # 上がり方は変えたくないのでHPに応じた経験値指数だけ調整して」)
+    # HP項 = per-max-health * min(HP, anchor * (HP/anchor)^exponent)
+    #   ・HP <= anchor の帯は min が線形側を選ぶので【1ミリも変わらない】= 序盤の上がり方はそのまま
+    #   ・HP > anchor では (HP/anchor)^(exponent-1) 倍に圧縮される
+    #   ・anchor: 0 か exponent: 1 で従来どおりの線形に戻る
+    # なぜ per-max-health を下げるだけでは駄目か: HP項は全帯で支配的(Lv10のエンダーマンでも
+    # HP項353 対 base+Lv項40)なので、係数を半分にすると序盤も半分になる。
+    # 8000 は「モブHPが指数的に爆発し始める Lv40 前後」のHP。0.74 は Lv80 エンダーマン
+    # (HP約183000)で現行の約0.44倍になる値 = 報告値 8000~10000 -> 約4000。
+    # 参考の倍率(エンダーマン): Lv38以下 1.00 / Lv50 0.71 / Lv60 0.57 / Lv80 0.44 / Lv100 0.37
+    per-max-health-anchor: 8000
+    per-max-health-exponent: 0.74
+    unlisted-entity-multiplier: 0
+    # 非敵対モブ（Paper の Enemy インターフェースを持たないモブ）は討伐EXPの対象外。
+    # unlisted-entity-multiplier: 0 なので「行を書かない＝EXPゼロ」であり、0 で明示する必要も無い。
+    # 2026-08-03 に一掃した行: BEE / DOLPHIN / GOAT / IRON_GOLEM / LLAMA / PANDA /
+    # POLAR_BEAR / SKELETON_HORSE / TRADER_LLAMA / WOLF。
+    # イルカやホッキョクグマは「そもそも敵対ではない」ので、討伐EXPを持たせない方針。
+    # ここに新しい行を足すときは、そのモブが Paper の Enemy を実装しているか必ず先に確認すること。
+    entity-type-multipliers:
+      BLAZE: 1.7
+      BOGGED: 1.2
+      BREEZE: 1.6
+      CAVE_SPIDER: 1.2
+      CREAKING: 1.5
+      CREEPER: 1.3
+      DROWNED: 1.2
+      ELDER_GUARDIAN: 3
+      ENDERMAN: 1.5
+      ENDERMITE: 1.1
+      ENDER_DRAGON: 8
+      EVOKER: 2
+      GHAST: 1.8
+      GIANT: 4
+      GUARDIAN: 1.4
+      HOGLIN: 1.5
+      HUSK: 1.1
+      ILLUSIONER: 2
+      MAGMA_CUBE: 1.3
+      PARCHED: 1.2
+      PHANTOM: 1.3
+      PIGLIN: 1.1
+      PIGLIN_BRUTE: 1.8
+      PILLAGER: 1.2
+      RAVAGER: 2.5
+      SHULKER: 1.5
+      SILVERFISH: 1
+      SKELETON: 1.1
+      SLIME: 1
+      SPIDER: 1
+      STRAY: 1.3
+      VEX: 1.4
+      VINDICATOR: 1.4
+      WARDEN: 7
+      WITCH: 1.5
+      WITHER: 6
+      WITHER_SKELETON: 1.8
+      ZOGLIN: 1.8
+      ZOMBIE: 1
+      ZOMBIE_VILLAGER: 1
+      ZOMBIFIED_PIGLIN: 1.2
 level-diminishing:
   gathering-enabled: false
   combat-enabled: false
-  formula: '1 / (1 + %level% / 50)'
+  formula: 1 / (1 + %level% / 50)
   floor: 0.2
-
 exp-display:
   mode: bossbar
-  bossbar-seconds: 4.0
+  bossbar-seconds: 4
   max-concurrent-bossbars: 4
-
 level-up:
   chat: true
   sound-enabled: true
   sound: ENTITY_PLAYER_LEVELUP
   title-every-levels: 10
+use-level-scaling:
+  enabled: true
+  max-multiplier: 100
+  per-level:
+    ars-smithing: 0.1
+    smithing: 1.3
+    woodcutting: 0.01
+    mining: 0.01
+    digging: 0.01

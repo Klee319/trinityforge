@@ -19,13 +19,14 @@
     "crit-chance": "戦闘:会心率↑",
     "crit-damage": "戦闘:会心ダメ↑",
     "penetration": "戦闘:貫通率↑",
-    "flat-bonus-damage": "戦闘:追加ダメ(実)【廃止】",
-    "percent-bonus-damage": "戦闘:追加ダメ↑",
+    "flat-bonus-damage": "戦闘:追加ダメ(実数)↑",
+    "percent-bonus-damage": "戦闘:追加ダメ率↑",
     "damage-modifier": "戦闘:ダメ補正",
     "bleed-chance": "戦闘:出血率↑",
     "bleed-damage": "戦闘:出血ダメ↑",
+    "bleed-damage-rate": "戦闘:出血ダメ率↑",
     "fixed-damage": "戦闘:固定ダメ↑",
-    "armor-defense-rate": "防御:防御力↑",
+    "defense-rate": "防御:防御率↑",
     "armor-strength": "防御:防具強度↑",
     "max-health": "防御:追加体力↑",
     "knockback-resistance": "防御:KB耐性↑",
@@ -36,33 +37,33 @@
     "magic-flat-defense": "防御:魔法守備↑",
     "damage-reduction": "防御:被ダメ↓",
     "dodge-chance": "防御:回避率↑",
-    "reflect-flat": "防御:反射(実)↑",
-    "reflect-percent": "防御:反射(割)↑",
+    "reflect-flat": "防御:反射追加ダメ(実数)↑",
+    "reflect-percent": "防御:反射率↑",
     "health-regen-bonus": "防御:自然回復↑",
     "move-speed": "移動:移動速度↑",
-    "gathering-efficiency": "採集:効率強化Lv↑",
+    "gathering-efficiency": "採集:採集効率↑",
     "mining-fortune": "採掘:採掘運↑",
     "fishing-luck": "釣り:釣り運↑",
     "fishing-bonus": "釣り:釣りボーナス↑",
     "fish-sell-price-bonus": "釣り:売却額↑",
     "ocean-fishing-bonus": "釣り:海釣り加算↑",
     "disassembly-return-bonus": "解体:戻り量↑",
-    "mana-bonus": "Ars:最大マナ↑",
-    "mana-regen": "Ars:マナ回復↑",
-    "hit-mana-recovery": "Ars:命中マナ回復↑",
-    "damage-mana-recovery": "Ars:被弾マナ回復↑",
-    "mana-cost-reduction-flat": "Ars:マナ消費↓",
-    "mana-cost-reduction-percent": "Ars:マナ消費↓",
-    "mana-max-base": "Ars:マナ上限(基礎)",
-    "mana-regen-base": "Ars:マナ回復(基礎)",
-    "mana-regen-interval-ticks": "Ars:マナ回復間隔",
-    "mana-onhit-percent": "Ars:命中マナ%↑",
-    "mana-onhit-flat": "Ars:命中マナ(実)↑",
+    "mana-bonus": "Ars:最大マナ加算↑",
+    "mana-regen": "Ars:時間マナ回復加算↑",
+    "hit-mana-recovery": "Ars:被弾マナ回復(実)↑",
+    "damage-mana-recovery": "Ars:攻撃マナ回復(実)↑",
+    "mana-cost-reduction-flat": "Ars:マナ消費(実)↓",
+    "mana-cost-reduction-percent": "Ars:マナ消費率↓",
+    // 2026-08-16: mana-max-base / mana-regen-base / mana-regen-interval-ticks のラベルは削除した。
+    // 真源が ArsPaper の config.yml (mana.default-max / default-regen-rate / regen-interval-ticks)へ
+    // 戻り、TF のステ語彙(base-stats.yml)から撤去されたため。編集口は「ArsPaper 全体設定 (config)」
+    // 画面のマナカード(tf-phase3-forms.js)で、そちらのラベルはフォーム側に直書きする
+    // (STAT_LABELS は `<接頭辞>:<説明>` 形式のステ語彙専用辞書なので、ここへ足してはいけない)。
+    "mana-onhit-percent": "Ars:被弾マナ%↑",
     "mana-onattack-percent": "Ars:攻撃マナ%↑",
-    "mana-onattack-flat": "Ars:攻撃マナ(実)↑",
     "mana-idle-seconds": "Ars:待機マナ秒数",
     "mana-idle-bonus-percent": "Ars:待機マナ%↑",
-    "mana-idle-bonus-flat": "Ars:待機マナ(実)↑",
+    "mana-idle-bonus-flat": "Ars:待機マナ(実数)↑",
     "ars-tier-bonus": "Ars:Tier追加↑",
     "glyph-slot-bonus": "Ars:グリフ枠↑",
     "glyph-damage-multiplier-bonus": "Ars:グリフ倍率↑",
@@ -71,23 +72,39 @@
     "distance-damage-bonus": "弓:距離ダメ↑",
     "arrow-piercing": "弓:矢貫通↑",
     "arrow-velocity": "弓:矢速度↑",
-    "bow-cooldown-reduction": "弓:CT↓",
     "arrow-knockback": "弓:矢KB↑",
     "melee-knockback": "近接:追撃KB↑",
     "stun-chance": "近接:スタン率↑",
-    "stun-duration-bonus": "近接:スタン時間↑",
+    "stun-duration-bonus": "近接:スタン時間",
     "power-attack-damage": "近接:空中ダメ↑",
     "power-attack-radius": "近接:空中半径↑",
     "cooldown-reduction": "戦闘:アイテムCT↓",
     "haste-active-mining-cooldown-reduction": "採掘:高速破壊CT↓",
     "tree-fell-cooldown-reduction": "伐採:一括伐採CT↓",
     "coating-charges": "近接:コート回数↑",
+    "coating-charges-bonus": "生産:コート上限↑",
     "hunger-save-chance": "食事:空腹節約率↑",
     "food-save-chance": "食事:食料節約率↑",
     "food-restore-bonus": "食事:満腹回復量↑",
     "hidden-saturation-bonus": "食事:隠し満腹↑",
     "mob-drop-bonus": "ドロップ:討伐増加↑",
     "skill-exp-bonus": "EXP:スキルEXP↑",
+    "woodcutting-exp-bonus": "EXP:伐採EXP↑",
+    "farming-exp-bonus": "EXP:農業EXP↑",
+    "digging-exp-bonus": "EXP:掘削EXP↑",
+    // 2026-08-05: 職業EXP増加を全スキル分そろえた(POWERを除く15スキル)。
+    "mining-exp-bonus": "EXP:採掘EXP↑",
+    "fishing-exp-bonus": "EXP:釣りEXP↑",
+    "alchemy-exp-bonus": "EXP:錬金EXP↑",
+    "enchanting-exp-bonus": "EXP:エンチャEXP↑",
+    "smithing-exp-bonus": "EXP:鍛冶EXP↑",
+    "ars-smithing-exp-bonus": "EXP:Ars鍛冶EXP↑",
+    "ars-magic-exp-bonus": "EXP:Ars魔法EXP↑",
+    "archery-exp-bonus": "EXP:弓術EXP↑",
+    "light-weapons-exp-bonus": "EXP:軽量武器EXP↑",
+    "heavy-weapons-exp-bonus": "EXP:重量武器EXP↑",
+    "light-armor-exp-bonus": "EXP:軽装備EXP↑",
+    "heavy-armor-exp-bonus": "EXP:重装備EXP↑",
     "loot-luck": "ドロップ:幸運↑",
     "mob-drop-quality": "ドロップ:品質↑",
     "gacha-rate-bonus": "ドロップ:ガチャ率↑",
@@ -97,12 +114,14 @@
     "harvest-extra-drop-chance": "ドロップ:収穫追加↑",
     "ritual-quality-bonus": "クラフト:儀式品質↑",
     "workbench-quality-bonus": "クラフト:作業台品質↑",
-    "craft-upswing-bonus": "クラフト:上振れ↑",
-    "craft-downswing-reduction": "クラフト:下振れ↓",
+    "workbench-upswing-bonus": "クラフト:作業台上振れ↑",
+    "workbench-downswing-reduction": "クラフト:作業台下振れ↓",
+    "ritual-upswing-bonus": "クラフト:儀式上振れ↑",
+    "ritual-downswing-reduction": "クラフト:儀式下振れ↓",
     "craft-roll-up-bonus": "クラフト:ロール上振れ↑",
     "craft-roll-down-reduction": "クラフト:ロール下振れ↓",
     "craft-roll-inset": "クラフト:ロール収束",
-    "lapis-cost-reduction": "クラフト:ラピス消費↓",
+    // 2026-08-14: lapis-cost-reduction を廃止した(ArsPaper の消費リスナーごと削除)。
     "source-cost-reduction": "クラフト:ソース消費↓",
     "material-refund-chance": "クラフト:素材返還↑",
     "ingredient-save-chance": "クラフト:材料節約↑",
@@ -111,19 +130,19 @@
     "durability": "クラフト:耐久値",
     "kill-vanilla-exp-bonus": "EXP:討伐時↑",
     "break-vanilla-exp-bonus": "EXP:破壊時↑",
+    // 2026-08-15: 破壊時バニラEXPは採取スキル別のキーへ分割した(上の共通キーは採取全般)。
+    "mining-break-vanilla-exp-bonus": "EXP:採掘の破壊時↑",
+    "woodcutting-break-vanilla-exp-bonus": "EXP:伐採の破壊時↑",
+    "digging-break-vanilla-exp-bonus": "EXP:整地の破壊時↑",
+    "farming-break-vanilla-exp-bonus": "EXP:農業の破壊時↑",
     "vanilla-exp-bonus": "EXP:常時↑",
     "breeding-vanilla-exp-bonus": "EXP:繁殖時↑",
     "breeding-extra-child-chance": "繁殖:追加子供率↑",
     "bred-animal-growth-bonus": "繁殖:動物成長↑",
     "planted-crop-growth-bonus": "繁殖:作物成長↑",
-    "light-armor-move-speed-per-piece": "装備:軽装部位速度↑",
-    "heavy-armor-move-speed-per-piece": "装備:重装部位速度↑",
-    "light-armor-set-bonus-multiplier": "装備:軽装セット倍率↑",
-    "heavy-armor-set-bonus-multiplier": "装備:重装セット倍率↑",
-    "light-armor-set-dodge-chance": "装備:軽装セット回避↑",
-    "heavy-armor-set-knockback-resistance": "装備:重装セットKB耐性↑",
+    "armor-set-bonus": "装備:セット効果↑",
     "enchant-luck": "エンチャ:運↑",
-    "enchant-exp-gain-bonus": "エンチャ:EXP↑",
+    // 2026-08-14: enchant-exp-gain-bonus は廃止 (enchanting-exp-bonus へ統合)。
     "enchant-cost-reduction": "エンチャ:費用↓",
     "potion-quality-bonus": "錬金:品質↑",
     "brew-speed-bonus": "錬金:速度↑"
@@ -149,8 +168,14 @@
     "crit-damage": "会心発生時のダメージ倍率への加算。",
     "penetration": "対象の防御・耐性計算を貫通する割合。",
     "bleed-chance": "攻撃時に出血を付与する確率。",
-    "bleed-damage": "出血状態で与えるダメージ量。",
-    "armor-defense-rate": "基準値0の防具値へ加算される。",
+    "bleed-damage": "出血1tickあたりのダメージ(実数)。アイテム向け — 帯とともに指数的に伸びるので"
+      + "実数のままで意味を持つ。スキルツリーが固定値で配ると低帯で壊れ高帯で無意味になる。",
+    "bleed-damage-rate": "出血1tickあたりのダメージを「出血させた一撃の最終ダメージ」に対する割合で加える。"
+      + "上の実数 bleed-damage と合算される。帯に依存しないのでスキルツリー向け(2026-08-15 に新設)。",
+    "defense-rate": "防御率。ダメージへ (1 - 防御率 x (1 - 相手の貫通率)) を掛ける。"
+      + "3つある乗算軽減(防御率/耐性/被ダメージ軽減)のうち、相手の貫通率で打ち消される唯一のもの。"
+      + "2026-08-15に防具値(armor-defense-rate)を廃止し、1点=1.5%軽減で換算してこのステへ統合した"
+      + "(TFスタンプ装備のバニラ防具バーは常に空になる)。",
     "armor-strength": "防具強度=会心軽減率(0..1)。受ける会心の増加分をこの割合だけ軽減する(通常ダメージには影響しない)。加算後 [0,1] にクランプ。",
     "max-health": "バニラの最大体力属性へ加算される。",
     "knockback-resistance": "基準値0のノックバック耐性へ加算される。",
@@ -168,17 +193,17 @@
     "magic-resistance": "魔法ダメージに対する耐性として防御計算に使われる。",
     "damage-reduction": "受けるダメージを割合で軽減する。",
     "dodge-chance": "被弾時にダメージを回避する確率。",
-    "reflect-flat": "被弾時にこの固定値分だけ攻撃者へダメージを反射する。棘の鎧の代替(バニラの棘の鎧ダメージは抑止され、耐久消費のみ維持)。",
-    "reflect-percent": "被弾時に受けたダメージの割合を攻撃者へ反射する。棘の鎧レベル(装備合計)は1Lvにつき10%をこの値へ寄与する。",
-    "mining-fortune": "採掘時の幸運レベル。バニラ幸運をこの値へ統合し、1レベルにつき期待ドロップ量を30%増やす。シルクタッチとは共存しない。",
+    "reflect-flat": "反射が発動したときに上乗せされる固定ダメージ。単独では発動しない(発動確率は reflect-percent)。",
+    "reflect-percent": "被弾時にこの確率で攻撃者へダメージを与える。ダメージは自分の武器の通常攻撃ダメージ(素殴り)+reflect-flat。棘の鎧レベル(装備合計)は1Lvにつき10%をこの確率へ寄与する。",
+    "mining-fortune": "対象鉱石(採掘ギミックの fortune-blocks)を壊したときの追加ドロップの増加率。+15% なら1ブロックあたり期待値+0.15個(整数部は確定、小数部はその確率で+1個)。MINING Lv による増加分と合算する。シルクタッチとは共存しない。",
     "fishing-luck": "釣りの幸運値に加算される。",
-    "fishing-bonus": "釣果に対する追加ボーナス。",
-    "tool-enchant-efficiency": "このツール自身へ効率強化エンチャントとして適用される(ツールチップに表示され、譲渡しても効果が付いてくる)。プレイヤー総合ステータスには合算されない。装備中だけ効く集計ステとしての採集効率は gathering-efficiency(採集:効率強化Lv) を使う。",
+    "fishing-bonus": "釣果(宝以外)の追加ドロップの増加率。+15% なら1回の釣りあたり期待値+0.15個(整数部は確定、小数部はその確率で+1個)。FISHING Lv による増加分(fishing.bonus-per-level)と合算する。mining-fortune と同じ期待値方式。",
+    "tool-enchant-efficiency": "このツール自身へ効率強化エンチャントとして適用される(ツールチップに表示され、譲渡しても効果が付いてくる)。プレイヤー総合ステータスには合算されない。装備中だけ効く集計ステとしての採集効率は gathering-efficiency(採集:採集効率) を使う。",
     "glyph-damage-multiplier-bonus": "特定グリフ(現状: 害悪)のダメージに乗るfraction倍率ボーナス。harmに決め打ちしない汎用stat(フォーク側がどのグリフに適用するか選ぶ)。",
-    "mana-bonus": "Ars の最大マナへ加算される。装備分は Ars 側で別途集計される。",
-    "mana-regen": "Ars のマナ自然回復へ加算される。装備分は Ars 側で別途集計される。",
-    "hit-mana-recovery": "この装備で攻撃を命中させたときのマナ回復量。",
-    "damage-mana-recovery": "この装備の所持者が被弾したときのマナ回復量。",
+    "mana-bonus": "Ars の最大マナへ加算される。装備分は Ars 側で別途集計される。全員一律の初期値は「マナ上限(基礎)」で設定する(プレイヤー基礎ステ画面には出ない)。",
+    "mana-regen": "Ars のマナ自然回復へ加算される。装備分は Ars 側で別途集計される。全員一律の初期値は「マナ回復(基礎)」で設定する(プレイヤー基礎ステ画面には出ない)。",
+    "hit-mana-recovery": "この装備の所持者が被弾したときのマナ回復量。キー名 hit- は「hit を受ける=被弾」の意。",
+    "damage-mana-recovery": "この装備で近接攻撃を命中させたときのマナ回復量。射撃/魔法では発動しない。",
     "thread-slots": "このアイテムにだけ設定されるスレッド装着枠数。プレイヤー総合ステータスには合算されない。",
     "mana-cost-reduction-flat": "Ars の消費マナを固定値で減らす。",
     "mana-cost-reduction-percent": "Ars の消費マナを割合で減らす。",
@@ -190,13 +215,13 @@
     "distance-damage-bonus": "射手と対象の距離に応じて増える射撃ダメージ補正。",
     "arrow-piercing": "射出した矢の貫通レベルに加算される。",
     "arrow-velocity": "チャージ射撃時の矢速度倍率に加算される。",
-    "bow-cooldown-reduction": "チャージ射撃後の弓の待機時間を割合で短縮する。",
-    "arrow-knockback": "高速のチャージ射撃が対象に与えるノックバック量。",
-    "melee-knockback": "近接攻撃時に追加で与えるノックバック量。",
+    "arrow-knockback": "高速のチャージ射撃が対象に与えるノックバック量。内部的には対象の速度への加算(値1=初速0.4 blocks/tick)で、"
+      + "空中の水平減衰込みだと値1で約4.4m飛ぶ。ここに書く値は内部値で、表示だけが m へ換算される(1m ≒ 0.23)。",
+    "melee-knockback": "近接攻撃時に追加で与えるノックバック量。内部的には対象の速度への加算(値1=初速0.35 blocks/tick)で、"
+      + "空中の水平減衰込みだと値1で約3.9m飛ぶ。ここに書く値は内部値で、表示だけが m へ換算される(1m ≒ 0.26)。",
     "stun-chance": "近接攻撃時にスタンを付与する確率。",
-    "stun-duration-bonus": "stun-chance発動時のスタン(鈍化/採掘速度低下/移動凍結)継続時間への割合加算(負値も可)。"
-      + "基準は25〜45tick(stun-chanceに応じて変動)。加算後は5秒(100tick)を絶対上限としてクランプされる"
-      + "(ハメ殺し防止)。",
+    "stun-duration-bonus": "stun-chance発動時のスタン(鈍化/採掘速度低下/移動凍結)継続時間。base-statsの初期tickへ装備・パーク値を加算します。"
+      + "初期値は25tick、加算後は5秒(100tick)を絶対上限としてクランプされます。",
     "power-attack-damage": "空中での近接攻撃ダメージを増やす割合。",
     "power-attack-radius": "空中近接攻撃の追加範囲ダメージ半径。",
     "cooldown-reduction": "CombatListener.startItemCooldown が扱う武器の物理CT(item-cooldownの秒数)を"
@@ -211,9 +236,29 @@
       + "影響しない(そちらは cooldown-reduction、または対象アクティブスキル専用の別キー)。",
     "health-regen-bonus": "自然回復で回復する体力を増やす。",
     "coating-charges": "コーティングの所持・使用回数として扱われる。",
+    "coating-charges-bonus": "武器コーティングの実効上限スタック数への加算(全ソース合算、WeaponCoatingListener消費)。"
+      + "アイテム固有の coating-charges(メインハンド武器単体)とは別枠で加算される。",
     "hunger-save-chance": "空腹度を消費しない確率。",
     "mob-drop-bonus": "モブ討伐時の追加ドロップ補正。",
     "skill-exp-bonus": "スキル経験値の獲得量を増やす。",
+    "woodcutting-exp-bonus": "伐採スキルの経験値だけを増やす。skill-exp-bonus とは加算で合成される。",
+    "farming-exp-bonus": "農業スキルの経験値だけを増やす。skill-exp-bonus とは加算で合成される。",
+    "digging-exp-bonus": "掘削スキルの経験値だけを増やす。skill-exp-bonus とは加算で合成される。",
+    // 2026-08-05: 職業EXP増加を全スキル分そろえた。POWER(総合)だけ作っていない —
+    // POWER EXP はプレイヤー行動から直接付与されず、他スキルのレベルアップの副作用として
+    // 内部で加算されるだけ(倍率適用より後段)なので、専用キーを作っても一度も読まれない。
+    "mining-exp-bonus": "採掘スキルの経験値だけを増やす。skill-exp-bonus とは加算で合成される。",
+    "fishing-exp-bonus": "釣りスキルの経験値だけを増やす。skill-exp-bonus とは加算で合成される。",
+    "alchemy-exp-bonus": "錬金スキルの経験値だけを増やす。skill-exp-bonus とは加算で合成される。",
+    "enchanting-exp-bonus": "エンチャントスキルの経験値だけを増やす。skill-exp-bonus とは加算で合成される。",
+    "smithing-exp-bonus": "鍛冶スキルの経験値だけを増やす。skill-exp-bonus とは加算で合成される。",
+    "ars-smithing-exp-bonus": "Ars鍛冶スキルの経験値だけを増やす。skill-exp-bonus とは加算で合成される。",
+    "ars-magic-exp-bonus": "Ars魔法スキルの経験値だけを増やす。skill-exp-bonus とは加算で合成される。",
+    "archery-exp-bonus": "弓術スキルの経験値だけを増やす。skill-exp-bonus とは加算で合成される。",
+    "light-weapons-exp-bonus": "軽量武器スキルの経験値だけを増やす。skill-exp-bonus とは加算で合成される。",
+    "heavy-weapons-exp-bonus": "重量武器スキルの経験値だけを増やす。skill-exp-bonus とは加算で合成される。",
+    "light-armor-exp-bonus": "軽装備スキルの経験値だけを増やす。skill-exp-bonus とは加算で合成される。",
+    "heavy-armor-exp-bonus": "重装備スキルの経験値だけを増やす。skill-exp-bonus とは加算で合成される。",
     "loot-luck": "戦利品抽選の幸運補正。",
     "mob-drop-quality": "モブドロップの品質抽選を上げる。",
     "gacha-rate-bonus": "ガチャの当選確率を加算する。",
@@ -222,37 +267,46 @@
     "hive-harvest-fortune": "ハニカム・ハチミツの採取量が増える確率。バニラの幸運と同じ考え方で、100%を超えると確定で追加ドロップする。",
     "ritual-quality-bonus": "儀式クラフトの品質基礎値を増やす。",
     "workbench-quality-bonus": "作業台クラフトの品質基礎値を増やす。",
-    "craft-upswing-bonus": "クラフト品質抽選の上振れを増やす。",
-    "craft-downswing-reduction": "クラフト品質抽選の下振れを抑える。",
+    "workbench-upswing-bonus": "作業台クラフトの品質抽選で上振れ側の広がりを増やす。儀式クラフトには効かない。",
+    "workbench-downswing-reduction": "作業台クラフトの品質抽選で下振れ側の広がりを抑える。儀式クラフトには効かない。",
+    "ritual-upswing-bonus": "儀式クラフトの品質抽選で上振れ側の広がりを増やす。作業台クラフトには効かない。",
+    "ritual-downswing-reduction": "儀式クラフトの品質抽選で下振れ側の広がりを抑える。作業台クラフトには効かない。",
     "craft-roll-up-bonus": "クラフト時のロール結果を上方向へ補正する。",
     "craft-roll-down-reduction": "クラフト時のロール結果の下振れを抑える。",
     "craft-roll-inset": "クラフト時のロール結果を中央へ収束させる。",
-    "lapis-cost-reduction": "Ars 系処理のラピス消費を軽減する。",
-    "material-refund-chance": "処理に使った素材を返却する確率。",
-    "ingredient-save-chance": "素材を消費しない確率(バニラ醸造台+Arsアルケミカル素材投入の両方に適用)。",
+    // 2026-08-14: lapis-cost-reduction の説明は削除(ArsPaper の消費リスナーごと廃止したため)。
+    "material-refund-chance": "儀式(ペデスタル)専用。台座の素材は通常どおり消費されたうえで、この確率で1個だけインベントリへ返却される(満杯なら足元へドロップ)。消費をスキップする材料節約率とは別の機構で、醸造台やアルケミカルソースリンクには効かない。",
+    "ingredient-save-chance": "素材の消費自体をスキップする確率(返却ではない)。バニラ醸造台の材料投入とArsアルケミカルソースリンクへの素材投入の両方に適用される。儀式(ペデスタル)には効かない(そちらは素材返還率)。",
     "source-cost-reduction": "Ars のソース消費を軽減する。"
     // ---- 2026-07-26 タスク3: lore.yml表示追加に伴うSTAT_DESCRIPTIONS未登録12キーの補完 ----
-    ,"flat-bonus-damage": "最終ダメージへ加算される固定値。item-stats.ymlでの直接記述は廃止済みだが、"
-      + "パーク/base-stats/モブ攻撃・コーティング内部経路からは引き続き供給されうる。"
-    ,"flat-defense": "phys-flat-defense/magic-flat-defenseに分岐する前の汎用守備力キー。"
-      + "DefenseStatBridge/PlayerDefenseResolverのlegacyFlat経路で読まれる。"
-    ,"mana-max-base": "base-stats.yml専用のマナ初期値(基礎)。ArsPaperのmana.default-max等の移設先で、"
-      + "フォークはTrinityForgeBridge.manaBaseStat経由で読む。通常アイテムには付与されない。"
-    ,"mana-regen-base": "base-stats.yml専用のマナ自然回復(基礎)。フォークはTrinityForgeBridge.manaBaseStat"
-      + "経由で読む。通常アイテムには付与されない。"
-    ,"mana-regen-interval-ticks": "base-stats.yml専用のマナ自然回復の間隔(tick)。フォークは"
-      + "TrinityForgeBridge.manaBaseStat経由で読む。通常アイテムには付与されない。"
-    ,"mana-onhit-percent": "命中時マナ回復量への割合ボーナス(%)。ManaBaseStats.onHitPercent経由でフォークが読む。"
-    ,"mana-onhit-flat": "命中時マナ回復量への固定ボーナス。ManaBaseStats.onHitFlat経由でフォークが読む。"
+    ,"flat-bonus-damage": "最終ダメージへ加算される固定値。item-stats.ymlへ直接記述することはできず、"
+      + "パーク/base-stats/モブ攻撃・コーティング内部経路からのみ供給される。"
+    ,"flat-defense": "物理/魔法に分かれていない旧アイテム向けの互換キー(汎用の守備力)。"
+      + "設定した値は適用時に物理守備力・魔法守備力のどちらかへ振り分けられ、"
+      + "上限もその振り分け先のキーの上限に従う。新しく設定するときは物理守備力/魔法守備力を直接使うこと"
+      + "(この画面からは既定で隠している)。"
+    // 2026-08-16: mana-max-base / mana-regen-base / mana-regen-interval-ticks の説明は削除した。
+    // 真源が ArsPaper の config.yml (mana.*)へ戻り、TF のステ語彙から撤去されたため
+    // (この3キーは base-stats.yml 専用で lore.yml にも無く、どの画面にも出ていなかった)。
+    // 説明文は「ArsPaper 全体設定 (config)」画面のマナカードの desc に移した。
+    ,"mana-onhit-percent": "被弾時マナ回復量への割合ボーナス(%)。ManaBaseStats.onHitPercent経由でフォークが読む。"
     ,"mana-onattack-percent": "攻撃時マナ回復量への割合ボーナス(%)。ManaBaseStats.onAttackPercent経由でフォークが読む。"
-    ,"mana-onattack-flat": "攻撃時マナ回復量への固定ボーナス。ManaBaseStats.onAttackFlat経由でフォークが読む。"
     ,"mana-idle-seconds": "待機(未行動)何秒でマナ回復ボーナスが発生するかの秒数。"
       + "ManaBaseStats.idleSeconds経由でフォークが読む。"
     ,"mana-idle-bonus-percent": "待機マナ回復ボーナスの割合分(%)。ManaBaseStats.idleBonusPercent経由でフォークが読む。"
     ,"mana-idle-bonus-flat": "待機マナ回復ボーナスの固定分。ManaBaseStats.idleBonusFlat経由でフォークが読む。"
     // ---- 非戦闘系: EXP / 追加ドロップ / 満腹度 / 繁殖・成長 (2026-07-24 新規13キー) ----
     ,"kill-vanilla-exp-bonus": "MOB討伐時に得るバニラ経験値を増やす(%)。"
-    ,"break-vanilla-exp-bonus": "ブロック破壊時に得るバニラ経験値を増やす(%)。前提: 機能解放『破壊時バニラEXP入手』が必要。"
+    ,"break-vanilla-exp-bonus": "ブロック破壊時に得るバニラ経験値を増やす(%)。採取スキルを問わず効く共通の倍率。"
+      + "前提: そのブロックの採取スキルのツリーで機能解放『破壊時バニラEXP入手』を取っていること。"
+      + "スキルツリーのノードには、職業間で漏れないよう下の採取スキル別キーを使うこと。"
+    // 2026-08-15: 採取スキル別の破壊時バニラEXP倍率。解放ゲート(feature:break-vanilla-exp)は
+    // 2026-08-01 から職業別だったが、倍率だけ共通キーのままで採掘の+50%が伐採・整地・農業にも
+    // 乗っていたため分割した。効くのは「そのスキルの採取として扱われた破壊」だけ。
+    ,"mining-break-vanilla-exp-bonus": "採掘として扱われたブロック破壊で得るバニラ経験値を増やす(%)。他の採取(伐採/整地/農業)の破壊には効かない。前提: 採掘ツリーの機能解放『破壊時バニラEXP入手』。"
+    ,"woodcutting-break-vanilla-exp-bonus": "伐採として扱われたブロック破壊で得るバニラ経験値を増やす(%)。他の採取(採掘/整地/農業)の破壊には効かない。前提: 伐採ツリーの機能解放『破壊時バニラEXP入手』。"
+    ,"digging-break-vanilla-exp-bonus": "整地として扱われたブロック破壊で得るバニラ経験値を増やす(%)。他の採取(採掘/伐採/農業)の破壊には効かない。前提: 整地ツリーの機能解放『破壊時バニラEXP入手』。"
+    ,"farming-break-vanilla-exp-bonus": "農業(収穫)として扱われたブロック破壊で得るバニラ経験値を増やす(%)。他の採取(採掘/伐採/整地)の破壊には効かない。前提: 農業ツリーの機能解放『破壊時バニラEXP入手』。"
     ,"vanilla-exp-bonus": "あらゆる経路のバニラ経験値を増やす(%)。"
     ,"breeding-vanilla-exp-bonus": "動物の繁殖時に得るバニラ経験値を増やす(%)。"
     ,"woodcutting-extra-drop-chance": "伐採時に確率で追加ドロップを得る(%)。"
@@ -264,19 +318,18 @@
     ,"planted-crop-growth-bonus": "自身が植えた作物の成長を速める(%)。"
     ,"ars-tier-bonus": "Ars で利用できる Tier を増やす。"
     ,"glyph-slot-bonus": "Ars のグリフ配置可能数を増やす。"
-    ,"light-armor-move-speed-per-piece": "革・チェーンの装備部位数ごとに移動速度を加算する。"
-    ,"heavy-armor-move-speed-per-piece": "革・チェーン以外の防具部位数ごとに移動速度を加算する。"
-    ,"light-armor-set-bonus-multiplier": "軽装を2部位以上着たときの軽装セット効果を倍率で強化する。"
-    ,"heavy-armor-set-bonus-multiplier": "重装を2部位以上着たときの重装セット効果を倍率で強化する。"
-    ,"light-armor-set-dodge-chance": "軽装を2部位以上着たときだけ回避率へ加算される。"
-    ,"heavy-armor-set-knockback-resistance": "重装を2部位以上着たときだけノックバック耐性へ加算される。"
+    ,"armor-set-bonus": "スキルツリーのset-buffs(装備部位3/4段の条件バフ)で宣言した段の値全体に" +
+        " ×(1+この値) を掛ける。負値は0扱い。段は3と4のみで、成立している最大の段だけが採用される" +
+        "(3と4の両方が同時に加算されることはない)。軽装/重装で共通の1キー。"
     // ---- 経済連携 (2026-07-25、Vault対応: T3/T4新規3キー) ----
     ,"fish-sell-price-bonus": "fish-sell-toggle保持者が釣った魚を自動売却する際の基準売却額に乗る倍率(%)。"
     ,"disassembly-return-bonus": "装備解体(dismantle-unlock)の戻り量に乗る追加倍率(%)。既存のグローバル設定値(解体%/ルール倍率)の上に乗算で加算される。"
     ,"ocean-fishing-bonus": "釣り位置が海洋系バイオームのときだけ fishing-bonus の期待値へ加算される追加分(%)。"
     // ---- エンチャント/ポーション品質 (2026-07-25、実行者限定ステ反映: 新規4キー) ----
     ,"enchant-luck": "エンチャントテーブル使用時、確定したエンチャントのレベルを格上げ抽選する確率(luck1.0あたり)に使うポイント。overenchant系を解放していれば上限突破側の出現率にも乗る。"
-    ,"enchant-exp-gain-bonus": "エンチャント実行時に得るENCHANTINGスキルEXPを増減する(符号付き、%)。既存のグローバル設定(enchant.level_cost_multiplier)とは別枠でプレイヤー単位に乗算加算される。"
+    // 2026-08-14: enchant-exp-gain-bonus は廃止した。ENCHANTING への EXP 付与点は onEnchant の
+    // 1箇所しかなく、職業EXP増加(エンチャント)=enchanting-exp-bonus と同じ量に別経路で掛かる
+    // 重複だったため。エンチャントの消費経験値レベルを減らすのは別キーの enchant-cost-reduction。
     ,"potion-quality-bonus": "醸造したポーションの効果時間・強度(amplifier)へ換算されるポイント。強度は切り捨てで整数化される(alchemy-quality.yml)。"
     ,"brew-speed-bonus": "醸造時間を割合で短縮する(%)。ホッパー式の自動醸造には alchemy.auto_mult で減衰した値が適用される。"
     // ---- 2026-07-26 新規2キー ----
@@ -296,6 +349,7 @@
     "use-level-requirement": { label: "使用可能レベル", desc: "装備/使用に必要なレベル。0以上の整数。" },
     "quality-mode-offset": { label: "品質基準値", desc: "このアイテムの品質抽選の中心(mode)をずらすオフセット。クラフト、モブドロップ、拾得ルート、釣りで得る装備に共通して適用される。+1ならmodeが+1、-1ならmodeが-1。空欄は0。" },
     "use-skill": { label: "使用スキル", desc: "紐づくスキル系統。例: HEAVY_WEAPONS" },
+    "use-role": { label: "専用職業", desc: "この職業に就いているときだけ装備/使用できる。空欄=職業を問わない。使用スキルとは別条件で、両方書けば両方満たす必要がある。" },
     // armors.yml
     "display_name_prefix": { label: "表示名の接頭辞", desc: "防具名の先頭に付く文字列。" },
     "name_color": { label: "名前の色", desc: "&d などの色コード、または #RRGGBB。" },
@@ -303,8 +357,8 @@
     "custom_model_data_base": { label: "CMD基準値", desc: "部位ごとのCMDの基準になる整数。0以上。" },
     "mana_bonus": { label: "マナ上限ボーナス", desc: "最大マナへの加算。" },
     "mana_regen": { label: "マナ自然回復", desc: "時間経過によるマナ回復量。" },
-    "hit_mana_recovery": { label: "命中時マナ回復", desc: "攻撃を当てたときのマナ回復量。" },
-    "damage_mana_recovery": { label: "被弾時マナ回復", desc: "ダメージを受けたときのマナ回復量。" },
+    "hit_mana_recovery": { label: "被弾時マナ回復", desc: "ダメージを受けたときのマナ回復量。" },
+    "damage_mana_recovery": { label: "攻撃時マナ回復", desc: "近接攻撃を当てたときのマナ回復量。" },
     "thread_slots": { label: "スレッド枠数", desc: "装着できるスレッドの数。0以上の整数。" },
     "durability": { label: "耐久値", desc: "防具の耐久。0以上の整数。" },
     "enchantable": { label: "エンチャント可", desc: "エンチャントできるか。" },
@@ -351,28 +405,89 @@
     "count": { label: "召喚数", desc: "召喚するモブ/動物の数。" },
     "group": { label: "グループ", desc: "召喚モブのグループ。" },
     // skill-exp.yml / skills/base/*_progression.yml
-    "exp-per-craft": { label: "クラフト1回EXP", desc: "Ars装備などを1回クラフトしたときに付与する ARS_SMITHING 経験値。" },
-    "exp-per-cast": { label: "詠唱1回EXP", desc: "詠唱成功1回あたりの基礎 EXP。権威は TF stats/skill-exp.yml (ArsPaper config.yml は TF 未ロード時のフォールバック)。" },
-    "exp-per-mana": { label: "消費マナあたりEXP", desc: "その詠唱で消費したマナ1あたりの追加 EXP。権威は TF stats/skill-exp.yml (ArsPaper config.yml は TF 未ロード時のフォールバック)。" },
+    // 鍛冶 / Ars鍛冶 で意味が違うため、EXP設定画面ではスキルごとの説明で上書きしている
+    // (tf-forms.js SECTION_FIELD_OVERRIDES)。ここは他画面用の中立な説明。
+    "exp-per-craft": { label: "クラフト1回EXP", desc: "アイテムを1回クラフトしたときに付与する経験値。個数に関わらず1クラフトにつき1回分。素材別EXPが1行でも設定されている場合はそちらが優先され、この値は使われない。" },
+    // 2026-08-04: ars-smithing.exp-per-source (スキルEXP画面ではAr鍛冶カードで
+    // tf-forms.js SECTION_FIELD_OVERRIDES による専用説明に上書きされる。ここは中立な説明)。
+    "exp-per-source": { label: "消費ソース1あたりの追加EXP", desc: "儀式で実際に消費したソース量に比例して加算する追加EXP。0で無効。" },
+    // power.levels-per-skill-point (スキルEXP画面ではページ上部の専用カードで描画、専用説明あり)。
+    "levels-per-skill-point": { label: "1スキルポイントあたりの総合レベル", desc: "総合(POWER)がこの値だけレベルアップするごとにスキルツリーのポイントを1点付与する。" },
+    "exp-per-material": { label: "素材別EXP", desc: "クラフト盤面に置いた素材1個あたりの鍛冶EXP。3x3の全マスを合計し、完成品の使用可能レベル倍率を掛ける。ここに無い素材は0。完成品に使用可能レベルが設定されていない場合はEXPを付与しない(解体で素材へ戻せるアイテムの作り直しによる無限EXP対策)。" },
+    "kill-exp": { label: "討伐EXP設定", desc: "敵の種類・レベル・最大体力に応じて討伐時に付与するスキルEXP。" },
+    "block-break-exp": { label: "ブロック破壊EXP設定", desc: "魔法でブロックを破壊したときに採取系の素材EXPを参照して付与する設定。" },
+    "base": { label: "基礎値", desc: "計算式へ最初に加える基礎値。マップの場合はスキル等の種類別に指定する。" },
+    "per-mob-level": { label: "モブレベル1あたりEXP", desc: "討伐対象のモブレベル1につき加算するEXP。" },
+    "per-max-health": { label: "最大体力1あたりEXP", desc: "討伐対象の最大体力1につき加算するEXP。" },
+    "entity-type-multipliers": { label: "敵種類別EXP倍率", desc: "EntityTypeごとに討伐EXPへ掛ける倍率。未指定の種類は1倍。" },
+    "source-multiplier": { label: "採取EXP換算倍率", desc: "採掘・伐採・掘削・農業の素材EXPを魔法EXPへ換算するときの倍率。" },
+    "HEAVY_WEAPONS": { label: "重量武器", desc: "重量武器スキルの討伐EXP基礎値。" },
+    "LIGHT_WEAPONS": { label: "軽量武器", desc: "軽量武器スキルの討伐EXP基礎値。" },
+    // N5(2026-07-31): 弓術も討伐時ベースへ統一したので、ここが弓術EXPの基礎値になった
+    // (以前は skills/base/archery_progression.yml の per-hit 係数が権威だった)。
+    "ARCHERY": { label: "弓術", desc: "弓術スキルの討伐EXP基礎値。矢で削った分もダメージ寄与比で按分される。" },
     "exp_level_curve": { label: "レベル曲線式", desc: "TF数式形式。%level% が現在Lv。^ は累乗。例: (%level% + 75 * 2^(%level%/7.6)) + 300" },
     "max_level": { label: "最大レベル", desc: "このスキルのレベル上限。1以上。" },
-    "daily_limit": { label: "日間EXP上限", desc: "24時間あたりの基準EXP上限。-1で無制限(減衰も無効)。日間減衰率>0のとき、累計がこの値の倍数に達するたび獲得量が減衰する。0かつ減衰率0なら旧仕様の打ち切り上限。" },
-    "daily_limit_decay_percent": { label: "日間減衰率(%)", desc: "24時間累計が日間上限の倍数に達するたび、獲得量がこの%ずつ減少(加算的)。0なら旧仕様の打ち切り上限。-1上限時は無効。" },
-    "exp_per_damage": { label: "与ダメあたりEXP", desc: "戦闘スキル: 与えたダメージ量に比例する獲得EXP係数。" },
-    "bow_exp_base": { label: "弓EXP基礎", desc: "弓射撃1回あたりの基礎EXP。" },
-    "crossbow_exp_base": { label: "クロスボウEXP基礎", desc: "クロスボウ射撃1回あたりの基礎EXP。" },
+    "alchemy_brew_exp": { label: "醸造EXP基礎値", desc: "醸造結果・素材別EXP表に一致しないポーションを作ったときの基礎EXP。" },
+    "fishing_catch_exp": { label: "釣果EXP基礎値", desc: "釣果別EXP表に一致しないアイテムを釣り上げたときの基礎EXP。" },
+    // N5(2026-07-31): 弓術の per-hit 係数(bow_exp_base / crossbow_exp_base / damage_exp_bonus /
+    // distance_exp_multiplier_base / distance_exp_multiplier / distance_limit /
+    // infinity_multiplier / spawner_spawned_multiplier / max_health_limitation)のラベルを削除した。
+    // 出荷 archery_progression.yml からキー自体が消え(弓術EXPは skill-exp.yml の combat.kill-exp へ統一)、
+    // 旧yml側の残骸は tf-forms.js の legacyProgressionKeys.archery が保存時に落とすため、
+    // ラベルだけ残すと「実在しないキーの日本語名」になる。
+    // pvp_multiplier は軽装/重装防具の progression が現役で使っているので残す。
+    "pvp_multiplier": { label: "PvP EXP倍率", desc: "プレイヤーを対象にしたときの獲得EXP倍率。" },
+    "is_chunk_nerfed": { label: "同一地点EXP逓減", desc: "同じ場所で繰り返し獲得する防具EXPへ地点ベースの逓減を適用するか。" },
     "exp_damage_piece": { label: "被ダメEXP(1部位)", desc: "防具スキル: ダメージを受けたときのEXP。" },
     "exp_damage_piece_min_damage": { label: "被ダメEXP 最低ダメージ", desc: "この値未満の最終ダメージ(矢の掠り等)では防具EXPを付与しない(semi-AFK farm対策)。" },
     "exp_damage_piece_cooldown_seconds": { label: "被ダメEXP CD(秒)", desc: "同一攻撃者からの被弾EXPは(被害者,攻撃者)単位でこの秒数に1回まで。" },
-    "exp_second_piece": { label: "被ダメEXP(追加部位)", desc: "複数部位装備時の追加EXP係数。" },
+    "exp_multiplier_point": { label: "防具値1点あたりEXP倍率", desc: "装備中の防具値1点ごとに被弾EXPへ加算する倍率。" },
+    "pvp_multiplier_exponent": { label: "PvP EXP倍率指数", desc: "プレイヤーから被弾した際のPvP倍率を何乗して防具EXPへ適用するか。1はそのまま、2は倍率の2乗。" },
+    "entity_exp_multipliers": { label: "敵種類別EXP倍率表", desc: "攻撃元のEntityTypeごとに防具EXPへ掛ける倍率。未指定の種類は既定倍率を使う。" },
     "exp_multiplier_mine": { label: "採掘EXP倍率", desc: "通常採掘でのEXP倍率。" },
     "exp_multiplier_blast": { label: "爆破採掘EXP倍率", desc: "爆発経由の採掘でのEXP倍率。" },
     "exp_multiplier_quality": { label: "品質EXP倍率", desc: "錬金など: 品質1あたりのEXP加算倍率。" },
     "multiplier_manual": { label: "手動倍率", desc: "手動行動のEXP倍率。" },
     "multiplier_automated": { label: "自動倍率", desc: "自動装置経由のEXP倍率。" },
-    "exp-per-hit": { label: "命中1回EXP", desc: "武器の use-skill に紐づくTF戦闘スキルEXP(命中1回あたり)。" },
-    "same-target-cooldown-seconds": { label: "同一target連続命中CD(秒)", desc: "同一(攻撃者,対象)ペアへのEXP付与クールダウン。死なないmob等を殴り続ける武器スキルEXP無限farmを防ぐ。このCD中は同一targetへの命中EXPを0にする。" },
-    "by-skill": { label: "スキル別上書き", desc: "use-skillごとのexp-per-hit上書き(省略時は共通値)。" },
+    "brew_result": { label: "醸造結果EXP表", desc: "完成したポーション等の種類ごとの錬金術EXP。" },
+    "brew_ingredient": { label: "醸造素材EXP表", desc: "醸造に使用した素材の種類ごとの錬金術EXP。" },
+    "mining_break": { label: "採掘時EXP表", desc: "破壊したブロックまたは得た素材ごとの採掘EXP。" },
+    "digging_break": { label: "掘削時EXP表", desc: "破壊したブロックまたは得た素材ごとの掘削EXP。" },
+    "archaeology_brush": { label: "考古学ブラシEXP表", desc: "ブラシで発掘したアイテムごとの掘削EXP。" },
+    "woodcutting_break": { label: "伐採時EXP表", desc: "破壊した原木・木材ごとの伐採EXP。" },
+    "woodcutting_strip": { label: "樹皮剥ぎEXP表", desc: "斧で樹皮を剥いだ結果ブロックごとの伐採EXP。" },
+    "block_interact": { label: "ブロック操作EXP表", desc: "収穫など、ブロックを操作したときの農業EXP。" },
+    "block_drops": { label: "ブロック収穫EXP表", desc: "農作物などのブロック・ドロップ素材ごとの農業EXP。" },
+    "entity_breed": { label: "繁殖EXP表", desc: "繁殖させた動物の種類ごとの農業EXP。" },
+    "entity_kill": { label: "家畜討伐EXP表", desc: "討伐した動物の種類ごとの農業EXP。" },
+    "entity_drops": { label: "家畜ドロップEXP表", desc: "家畜から得た素材ごとの農業EXP。" },
+    "entity_shear": { label: "毛刈りEXP表", desc: "毛刈りした動物の種類ごとの農業EXP。" },
+    "fishing_catch": { label: "釣果EXP表", desc: "釣り上げたアイテムごとの釣りEXP。" },
+    "exp_gain": { label: "エンチャントEXP設定", desc: "消費EXP換算と、エンチャント・レベル・種類・対象アイテム別の倍率表。" },
+    "experience_spent_conversion": { label: "消費EXP換算率", desc: "エンチャントで消費したバニラEXPをスキルEXPへ換算する倍率。" },
+    "enchantment_base": { label: "エンチャント基礎EXP表", desc: "エンチャント種類ごとの基礎EXP。" },
+    "enchantment_level_multiplier": { label: "エンチャントレベル倍率表", desc: "付与レベルごとのEXP倍率。" },
+    "enchantment_type_multiplier": { label: "素材種別倍率表", desc: "装備素材の種類ごとのEXP倍率。" },
+    "enchantment_item_multiplier": { label: "アイテム種別倍率表", desc: "武器・道具・防具部位などの種類ごとのEXP倍率。" },
+    "prestige_decay_rate": { label: "プレステージ減衰率", desc: "プレステージ後の総合スキル進行へ適用する減衰率。" },
+    // skill-exp.yml 直下スカラー・追加セクション (2026-07-27 タスク1: ID表示バグ修正)
+    "outside-dungeon-exp-rate": { label: "ダンジョン外EXP倍率", desc: "dungeon-only-exp: false のとき、ダンジョン外で得る戦闘スキルEXP(武器・魔法=討伐、防具=被弾、弓術=命中)に掛かる倍率。ダンジョン内は常に1.0。1.0=ダンジョンと同率、0.25(既定)=ダンジョンの1/4、0.0=完全遮断。dungeon-only-exp: true のときは参照されない。" },
+    "exp-mode": { label: "採取EXP算出方式", desc: "MINING/FARMING/WOODCUTTING/DIGGING共通。drop_sum(既定)=ドロップ品(素材側)の値の合計。block_value=ブロックそのものの値をそのまま使う。max=両者の大きい方。" },
+    "radius": { label: "同一地点判定半径", desc: "spot-diminishing: 直近window-seconds秒のあいだにこの半径(ブロック)以内で得たEXP回数を数える。" },
+    "window-seconds": { label: "判定時間窓(秒)", desc: "spot-diminishing: この秒数のあいだの獲得回数を同一地点判定に使う。" },
+    "threshold": { label: "逓減開始回数", desc: "spot-diminishing: 判定時間窓のあいだにこの回数を超えた分から、1回ごとにdecay-per-killずつ倍率を下げる。" },
+    "decay-per-kill": { label: "逓減幅(1回あたり)", desc: "spot-diminishing: threshold超過1回ごとに倍率から差し引く量。" },
+    "floor": { label: "倍率下限", desc: "これ未満には下がらない倍率の下限値(daily-diminishing/spot-diminishing/level-diminishing共通のキー)。0にすると完全に稼げなくなるので必ず0より大きくすること。" },
+    // daily-diminishing (2026-08-01 仕様変更 + ラベル日本語化)
+    "window-hours": { label: "逓減の時間窓(時間)", desc: "daily-diminishing: 稼ぎの蓄積が薄れる時定数。24なら約24時間で蓄積が約37%まで戻る(0にはならない)。日付でリセットしないのは「23:59に溜めて00:00から全開」を最適解にしないため。" },
+    "per-amount": { label: "逓減1段あたりの獲得量", desc: "daily-diminishing: 時間窓での総獲得EXPがこの量に達するたびに1段逓減する。スキルごとに独立して数える(採掘を掘り切った日でも伐採は等倍)。" },
+    "decay-per-amount": { label: "1段あたりの倍率", desc: "daily-diminishing: 1段ごとに掛かる倍率。0.7なら1段ごとに現在の70%(=30%減)。段数は切り捨てなので「あと何EXPで1段落ちるか」を数えられる。" },
+    "exempt-skills": { label: "逓減しないスキル", desc: "daily-diminishing: この一覧に入れたスキルIDは逓減の対象外。例: [FISHING]" },
+    "exempt-dungeon-worlds": { label: "ダンジョン内を除外", desc: "trueのとき、EliteMobsダンジョンのインスタンスワールド内ではspot-diminishingの逓減を適用しない(既定true)。" },
+    "gathering-enabled": { label: "採取スキルへ適用", desc: "level-diminishing: MINING/FARMING/WOODCUTTING/DIGGING(採取系)へレベル逓減カーブを適用するか。" },
+    "combat-enabled": { label: "戦闘スキルへ適用", desc: "level-diminishing: HEAVY_WEAPONS/LIGHT_WEAPONS/ARCHERY/HEAVY_ARMOR/LIGHT_ARMOR/ARS_MAGIC(戦闘系)へレベル逓減カーブを適用するか。" },
+    "formula": { label: "逓減カーブ式", desc: "level-diminishing: exp_level_curveと同じ書式(%level%が現在レベルの四則演算/べき乗式)。評価結果がそのままEXP倍率になる(1.0=減衰なし)。" },
     // materials.yml (ars-materials)
     "base_material": { label: "ベース素材", desc: "アイテムの元になるバニラMaterialのID。例: PRISMARINE_SHARD" },
     "custom_model_data": { label: "カスタムモデルデータ(CMD)", desc: "リソースパックのテクスチャを割り当てる整数ID。0以上。" },
@@ -400,7 +515,8 @@
     "icon": { label: "アイコン", desc: "行頭に付くアイコン文字列 (リソースパックのPUAグリフ等)。" },
     "format": { label: "表示形式", desc: "FLAT(加算)/PERCENT(%)/INTEGER(整数)/SCALAR(x1.50)。" },
     "decimals": { label: "小数桁数", desc: "表示する小数の桁数。0以上の整数。" },
-    "order": { label: "並び順", desc: "同じステータスカテゴリ内での表示順。小さいほど上。" },
+    "order": { label: "並び順", desc: "同じステータスカテゴリ内での表示順。小さいほど上。同じカテゴリ内で重複させないこと（同値だとキー名の辞書順で並ぶため記述順と食い違う）。" },
+    "display-scale": { label: "表示換算係数", desc: "内部値→表示値の換算係数（既定1.0＝換算なし）。単位が内部値の単位と一致しないステだけに使う校正値で、Java側の係数と対応させる必要があるため通常は編集しない（例: ノックバックは velocity 加算なので m 表示へ 3.9 / 4.4 倍している）。base-stats・item-stats・上限値・PDC は内部値のまま。" },
     "category": { label: "ステカテゴリ", desc: "攻撃 / 守備 / 補助 / Ars / その他。Lore の区切りと editor 候補の並び基準。" },
     "lore-default": { label: "デフォルト表示", desc: "ONならこのカテゴリのフォールバック固定ステを、値が0でも Lore に表示する（hide-when-zero をバイパス）。" },
     "show-sign": { label: "符号表示", desc: "プラス値に + を付けるか。" },
@@ -411,14 +527,21 @@
     "loot-base-quality": { label: "ルート基準品質", desc: "拾得・ルート装備の品質mode基準値。幸運とアイテム個別の品質基準値に加算され、品質分布で抽選される。" },
     "fishing-base-quality": { label: "釣り基準品質", desc: "釣りで得る装備の品質mode基準値。釣りスキル・幸運とアイテム個別の品質基準値に加算され、品質分布で抽選される。" },
     "strength-per-quality": { label: "敵の強さ1段あたり", desc: "敵レベルがこの数上がるごとに期待品質(mode)+1。0以下でmode固定。" },
-    "enabled": { label: "有効", desc: "この機能をON/OFFする。OFFなら敵の強さを無視し一様ランダムで品質を刻む。" },
+    "enabled": { label: "有効", desc: "この設定機能をON/OFFする。" },
     "ars-gear": { label: "Ars装備スキル", desc: "Ars魔法装備の品質を駆動するスキル (ARS_SMITHING等)。" },
+    // 2026-08-01 分離: craft-quality.yml の workbench/ritual 節 (作業台/儀式で別々のばらつき補正)。
+    // 既定値 scale=1.0 / flat=0.0 は Java の CraftQualityConfig.SpreadTuning.IDENTITY と一致。
+    "upswing-scale": { label: "上振れ増加の倍率", desc: "プレイヤーステ「品質の上振れ増加(craft-upswing-bonus)」をこの経路で何倍にして効かせるか。1.0=そのまま(分離前と同じ)、0=この経路には効かせない。" },
+    "upswing-flat": { label: "上振れσ加算", desc: "この経路にだけ無条件で足す上振れσ。ステとは無関係に効く。0=加算なし(分離前と同じ)。" },
+    "downswing-reduction-scale": { label: "下振れ抑制の倍率", desc: "プレイヤーステ「品質の下振れ抑制(craft-downswing-reduction)」をこの経路で何倍にして効かせるか。1.0=そのまま(分離前と同じ)、0=この経路には効かせない。" },
+    "downswing-reduction-flat": { label: "下振れσ減算", desc: "この経路にだけ無条件で下振れσから引く値。ステとは無関係に効く。0=減算なし(分離前と同じ)。σは0未満にはならない。" },
     // ---- P4: quality.yml (tf-quality) ----
     "max-quality": { label: "最大品質(フォールバック)", desc: "品質ティアが無い場合の最大品質。範囲[1,100]。" },
     "spread-up": { label: "上振れσ", desc: "品質抽選(正規分布)の上振れ側の標準偏差σ。大きいほど高品質へ跳ねやすい。クラフト・敵ドロップ共通。" },
     "spread-down": { label: "下振れσ", desc: "品質抽選(正規分布)の下振れ側の標準偏差σ。大きいほど低品質へ落ちやすい。クラフト・敵ドロップ共通。" },
     "roll-spread-up": { label: "ロール上振れσ", desc: "ランダムロール層(段2)の上振れ側σ。到達割合[0,1]を品質比例の中心modeから上下非対称の正規分布で抽選する際、max寄り(上)の広がり。大きいほど高い到達率が出やすい。0でその側はmode固定。" },
     "roll-spread-down": { label: "ロール下振れσ", desc: "ランダムロール層(段2)の下振れ側σ。到達割合[0,1]を品質比例の中心modeから抽選する際、min寄り(下)の広がり。大きいほど低い到達率が出やすい。0でその側はmode固定。" },
+    "luck-potion-quality-per-level": { label: "幸運ポーション品質換算", desc: "幸運のポーション(バニラのLUCK効果)1レベルにつき、作業台クラフト・儀式クラフト・醸造の品質ポイントへ加算する量。幸運I=+1 / 幸運II=+2 が既定。0でこの機能だけを無効化できる。※釣り・拾得は別経路で、装備/パーク由来の loot_luck へ常に「1レベル=+1.0」で合算されるためこの値では動かない。※醸造では自動(ホッパー)醸造の減衰 alchemy.auto_mult が幸運ぶんにも掛かる。" },
     "roll-center-inset": { label: "ロール中心インセット", desc: "ランダムロール層(段2)の中心modeを[0,1]の両端から内側へ押し込む量。範囲[0,0.5)。0なら中心=品質比(最低品質はmin端・最高品質はmax端に張り付く)。上げるほど極端な品質でも中心が端から離れ、裾が両側に残る山形になる。mode = inset + 品質比*(1 - 2*inset)。" },
     "give-default-quality": { label: "give既定品質", desc: "give で品質省略時に使う品質。" },
     // ---- crafting-features / use-requirements ----
@@ -431,7 +554,7 @@
     "max-duration-seconds": { label: "最大持続秒", desc: "ポーション統合時の持続時間上限(秒)。" },
     "fortune-cap-bonus": { label: "幸運追加上限", desc: "オーバーエンチャ時の Fortune 上限加算。" },
     "enforce": { label: "使用制限を有効化", desc: "use-level / use-skill ゲートをランタイムで強制するか。" },
-    "max-by-category": { label: "カテゴリ別上限", desc: "装備カテゴリごとのスレッド枠上限。0=対象外。" },
+    "max-by-category": { label: "カテゴリ別上限", desc: "装備カテゴリごとのスレッド枠上限。1以上を推奨。0にするとスレッド機構が丸ごと無効になり(lore の枠表示・装着GUI・装着済みスレッドの効果が全て消える)、TF の出荷 yml では禁止されています。" },
     // ---- P4: tool-enchants.yml (tf-tool-enchants) ----
     "enchant": { label: "エンチャント", desc: "minecraft エンチャントキー (efficiency/unbreaking/fortune...)。" },
     "quality-thresholds": { label: "品質しきい値", desc: "到達ごとに+1レベル (例: [3,6,9])。" },
@@ -452,7 +575,8 @@
     "max-glyphs": { label: "グリフ設定可能数", desc: "1魔法に並べられるグリフの最大数。" },
     "max-glyph-tier": { label: "設定可能グリフ最大ティア", desc: "この魔導書で使えるグリフの最大ティア。" },
     "max-bind-tier": { label: "設定可能グリフ最大ティア", desc: "この触媒にバインド可能なスペルの最大グリフティア。" },
-    "set-effects": { label: "セット効果", desc: "スレッドのセット効果。閾値(個数)ごとにステータスを付与。" },
+    // "set-effects"(item-stats.yml側)は2026-08-09に撤去。実際にスレッドのN個装備セット効果を
+    // 読むのは thread-sets.yml (キーはスレッドID共通)。ラベルも参照が無いので一緒に削除した。
     "special-effects": { label: "特殊効果", desc: "暗視・飛行など、スレッドの既定特殊効果。" },
     "upgrade-from": { label: "アップグレード元", desc: "アップグレード元の魔導書id。最下位ティアは(なし)。items.ymlの儀式定義との整合性は起動時に自動検証される。" },
     "cooldown": { label: "発動CT(秒)", desc: "0または未設定で追加ゲートなし。" },
@@ -471,7 +595,7 @@
     "damage-reduction": { label: "被ダメージ軽減", desc: "0.0〜1.0。" },
     "flat-defense": { label: "守備力", desc: "0以上。" },
     "attack-power": { label: "攻撃力", desc: "物理ベースダメージ。0より大きいとバニラ攻撃力を置換。" },
-    "flat-bonus-damage": { label: "固定追加ダメージ", desc: "最終ダメージに加算(モブ攻撃/コーティング内部用。アイテムステでは廃止)。" },
+    "flat-bonus-damage": { label: "固定追加ダメージ", desc: "最終ダメージに加算(モブ攻撃/コーティング内部用)。アイテムステータスには設定できません。" },
     "percent-bonus-damage": { label: "追加ダメ", desc: "0.0〜1.0。敵に与えた最終ダメージ(全防御考慮後)のこの割合を追加で与える。" },
     "penetration": { label: "貫通", desc: "0.0〜1.0。相手の防御を無視する割合。" },
     "crit-chance": { label: "クリティカル率", desc: "0.0〜1.0。" },
@@ -512,6 +636,12 @@
       "HEAVY_ARMOR": "重装備", "HEAVY_WEAPONS": "重量武器", "LIGHT_ARMOR": "軽装備",
       "LIGHT_WEAPONS": "軽量武器", "MINING": "採掘", "SMITHING": "鍛冶", "WOODCUTTING": "伐採"
     },
+    // item-stats.yml use-role (職業)。progression/role-buffs.yml のキーと一致させること。
+    "use-role": {
+      "swordfighter": "剣闘士", "mage": "魔導士", "tank": "盾役",
+      "farmer": "農家", "fisher": "釣り人", "miner": "坑夫",
+      "digger": "掘削者", "woodcutter": "木こり"
+    },
     // items.yml (ars-recipes)
     "method": { "workbench": "作業台", "ritual": "儀式", "combine": "合成", "netherite": "ネザライト化" },
     "type": { "shaped": "定形", "shapeless": "不定形" },
@@ -519,7 +649,8 @@
       "craft": "アイテム生成", "weather": "天候操作", "thread": "スレッド付与", "flight": "飛行",
       "moonfall": "月落とし(夜へ)", "sunrise": "日の出(朝へ)", "repair": "修復",
       "animal_summon": "動物召喚", "mob_summon": "敵モブ召喚", "enchant_book": "エンチャント本",
-      "thread_slot_expand": "スレッド枠付与"
+      "thread_slot_expand": "スレッド枠付与",
+      "thread_reroll": "スレッド厳選の振り直し"
     },
     "weather-mode": { "clear": "晴れ", "rain": "雨", "thunder": "雷雨" },
     "mob-group": { "default": "通常", "raid": "襲撃", "nether": "ネザー", "variant": "変異" },
@@ -534,7 +665,46 @@
     "glyph-tier": { "1": "T1 (Novice)", "2": "T2 (Apprentice)", "3": "T3 (Archmage)" },
     // skilltree.yml node role (レイアウト・配置に影響)
     "skill-role": { "main": "主軸", "intermediate": "中間", "branch": "分岐", "greek": "排他(ギリシャ)" },
-    "achievement-trigger": { "statistic": "統計", "advancement": "進捗", "static": "図鑑登録" }
+    "achievement-trigger": {
+      "statistic": "統計", "advancement": "進捗", "static": "図鑑登録", "counter": "累計カウンタ",
+      "gear-use": "装備で与ダメージ", "skill-level": "スキルレベル"
+    },
+    // 累計カウンタID(trigger.counter)。Java/フォーク側が実際に加算しているものだけを並べる。
+    "achievement-counter": {
+      "source_spent": "儀式で消費した累計ソース",
+      "glyph_unlocked": "解放したグリフの種類数",
+      "glyph_harm": "害悪グリフの解放",
+      "glyph_break": "破壊グリフの解放",
+      "glyph_exchange": "交換グリフの解放",
+      "glyph_grow": "成長グリフの解放",
+      "ritual_performed": "実行した儀式の回数",
+      "ritual_effect_used": "使った儀式エフェクトの種類数(作成儀式は除く)",
+      "spell_augment_used": "使った増強グリフの種類数(全24種)",
+      "catalyst_cast": "触媒(杖)で唱えた回数",
+      "enchant_book_shared": "共有エンチャントで唱えた回数"
+    },
+    // ---- 2026-08-01: 日本語化の取りこぼし ----
+    // mob-abilities.yml ability.type。mob-abilities-form.js が
+    // selectLabeledInput(..., "mob-ability-type", ...) で引いていたのに、この辞書に
+    // グループ自体が無く**セレクトが生ID表示**になっていた(フォーム内のフォールバック
+    // <select> だけが日本語を持っていた=到達しないコード)。
+    "mob-ability-type": {
+      "ground_slam": "全方位AoE (ground_slam)",
+      "projectile_volley": "扇状の投射 (projectile_volley)",
+      "charge": "突進 (charge)",
+      "aura": "持続オーラ (aura)",
+      "teleport_strike": "背後へ転移して斬る (teleport_strike)",
+      "beam": "直線ビーム (beam)",
+      "summon": "増援召喚 (summon)",
+      // 2026-08-16 追加(Java の MobAbility.Type と 1:1)
+      "repulse": "強ノックバック (repulse)",
+      "vortex_pull": "引き寄せ (vortex_pull)",
+      "delayed_zone": "予告設置 (delayed_zone)"
+    },
+    "mob-ability-damage-type": { "physical": "物理", "magical": "魔法" }
+    // "rarity-color"(スレッド厳選専用のレア度カラー辞書)は 2026-08-02 に専用UI(p5-forms.js の
+    // buildRandomRollPoolsForm)ごと撤去した。スレッドは他アイテムと同じ item-stats.yml フォームで
+    // 編集するため、レア度カラーという概念自体が editor に存在しない。
     // dedicated-effect-category / dedicated-effect-param (専用効果カタログUI) は廃止(2026-07-23)。
     // 解放効果の種別ラベルは window.GATE_EFFECTS.gateEffectTypeLabel(type) を使う (gate-effects.js)。
   };
@@ -550,7 +720,8 @@
     "arssmithing_craftrollupbonus_add": { label: "Ars鍛冶: ステロール上振れ+", unit: "割合(0〜1)" },
     "arssmithing_craftrolldownreduction_add": { label: "Ars鍛冶: ステロール下振れ減+", unit: "割合(0〜1)" },
     "arssmithing_threadslots_add": { label: "Ars鍛冶: スレッド枠+", unit: "枠" },
-    "arssmithing_lapiscostreduction_add": { label: "Ars鍛冶: ラピス消費軽減+", unit: "割合(0〜1)" },
+    // 2026-08-14: arssmithing_lapiscostreduction_add はラピス消費軽減の旧nativeパーク名。
+    // 機構ごと廃止したので辞書からも消す(出荷 skills/*.yml に使用箇所は無い)。
     "arssmithing_sourcecostreduction_add": { label: "Ars鍛冶: ソース消費軽減+", unit: "割合(0〜1)" },
     "arssmithing_unlockedtier_add": { label: "Ars鍛冶: 解放ティア+", unit: "ティア" },
     // バニラ鍛冶
@@ -572,7 +743,7 @@
     "lightweapons_coatingunlocked_toggle": { label: "軽量武器: コーティング解放", unit: "0/1" },
     // 重量武器
     "heavyweapons_stunchance_add": { label: "重量武器: スタン確率+", unit: "割合(0〜1)" },
-    "heavyweapons_stunduration_add": { label: "重量武器: スタン時間+", unit: "秒相当(0〜1可)" },
+    "heavyweapons_stunduration_add": { label: "重量武器: スタン時間+", unit: "tick" },
     "heavyweapons_attackspeedmultiplier_add": { label: "重量武器: 攻撃速度倍率+", unit: "割合(0〜1)" },
     "heavyweapons_chargeattackdamage_add": { label: "重量武器: チャージ攻撃ダメージ+", unit: "割合(0〜1)" },
     "heavyweapons_knockbackmultiplier_add": { label: "重量武器: ノックバック倍率+", unit: "割合(0〜1)" },
@@ -580,9 +751,7 @@
     "heavyweapons_coatingcharges_add": { label: "重量武器: コーティング回数+", unit: "回" },
     "heavyweapons_coatingunlocked_toggle": { label: "重量武器: コーティング解放", unit: "0/1" },
     // 軽装/重装
-    "lightarmor_seteffectmultiplier_add": { label: "軽装: セット効果倍率+", unit: "割合(0〜1)" },
     "lightarmor_movespeedpenalty_reduce": { label: "軽装: 移動速度ペナルティ軽減", unit: "割合(0〜1)" },
-    "heavyarmor_seteffectmultiplier_add": { label: "重装: セット効果倍率+", unit: "割合(0〜1)" },
     "heavyarmor_knockbackresistance_add": { label: "重装: ノックバック耐性+", unit: "割合(0〜1)" },
     "heavyarmor_movespeedpenalty_reduce": { label: "重装: 移動速度ペナルティ軽減", unit: "割合(0〜1)" },
     // 弓術
@@ -615,12 +784,14 @@
     "power_allskillexpmultiplier_add": { label: "総合: 全スキルEXP倍率+", unit: "割合(0〜1)" },
     "power_entitydropmultiplier_add": { label: "総合: エンティティドロップ倍率+", unit: "割合(0〜1)" },
     // 軽装(light_armor) 本日新設含む
-    "lightarmor_setdodgechance_add": { label: "軽装: セット回避率+ (2部位以上)", unit: "割合(0〜1)" },
-    "lightarmor_setamount_add": { label: "軽装: セット効果増幅+", unit: "割合" },
+    // 2026-07-27(armor-set-buffs全面移行): lightarmor_setdodgechance_add/lightarmor_setamount_add は
+    // スキルツリーのset-buffsスキーマ(装備部位3/4段の条件バフ)+ armor-set-bonus(共通増幅率)へ統一され廃止。
+    // 2026-07-31: 移行先の light-/heavy-armor-move-speed-per-piece を廃止したため
+    // LEGACY_NATIVE_TO_BUFF からは外した(旧 native データは移行せずそのまま残す方針)。
+    // 旧データを画面に出したときのラベルとしてここは残す。
     "lightarmor_movementspeedperpiece_add": { label: "軽装: 装備部位ごとの移動速度+", unit: "割合(0〜1)" },
     // 重装(heavy_armor)
-    "heavyarmor_setknockbackresistance_add": { label: "重装: セットノックバック耐性+", unit: "割合(0〜1)" },
-    "heavyarmor_setamount_add": { label: "重装: セット効果増幅+", unit: "割合" },
+    // 2026-07-27: heavyarmor_setknockbackresistance_add/heavyarmor_setamount_add も同様に廃止。
     "heavyarmor_movementspeedperpiece_add": { label: "重装: 装備部位ごとの移動速度+", unit: "割合(0〜1)" }
   };
 
@@ -678,6 +849,19 @@
     const g = ENUM_LABELS[group];
     return (g && g[value]) || value;
   }
+  // 2026-07-29: 村人職業の日本語名。tf-lifestyle-forms.js が持っていたものを、
+  // スキルツリーの trade: ゲート(職業セレクトが英字 enum のままだった)からも引けるよう
+  // labels.js へ一本化する。内部キー(英語)は保存値なので変えない。
+  const VILLAGER_PROFESSION_LABELS_JA = {
+    WEAPONSMITH: "武器鍛冶", ARMORER: "防具鍛冶", TOOLSMITH: "道具鍛冶",
+    CLERIC: "聖職者", LIBRARIAN: "司書", FARMER: "農民", FISHERMAN: "漁師",
+    SHEPHERD: "羊飼い", BUTCHER: "肉屋", CARTOGRAPHER: "地図職人",
+    FLETCHER: "矢師", LEATHERWORKER: "革細工師", MASON: "石工",
+    NITWIT: "能無し", NONE: "職業なし"
+  };
+  function professionLabel(id) {
+    return VILLAGER_PROFESSION_LABELS_JA[id] || id || "";
+  }
   function materialLabel(mat) {
     if (!mat) return "";
     return window.MATERIAL_LABELS[mat] || "";
@@ -692,6 +876,55 @@
     const key = String(mat);
     return window.MATERIAL_LABELS[key] || key;
   }
+  // 2026-07-28: エンチャントIDの日本語名。vocab-1.21.11.js の ENCHANT_LABELS_JA は
+  // 小文字キー(sharpness)だが、config 側は大文字(SHARPNESS)や `minecraft:sharpness` の形でも
+  // 現れるため、ここで表記ゆれを吸収する。辞書は増やさず既存のものを引くだけ。
+  // 1.21.2 でレジストリIDが改名されたエンチャント。TF の出荷 yml は旧IDと新IDの両方に
+  // 同じ値を書いて互換を取っているので(enchanting_progression.yml の sweeping / sweeping_edge)、
+  // 旧IDのほうも生IDのまま表示されないようここで新IDへ寄せる。
+  const ENCHANT_ID_ALIASES = { sweeping: "sweeping_edge" };
+  function enchantLabel(id) {
+    if (!id) return "";
+    const raw = String(id).trim();
+    const key = (raw.includes(":") ? raw.slice(raw.indexOf(":") + 1) : raw).toLowerCase();
+    const map = window.ENCHANT_LABELS_JA;
+    if (!map) return "";
+    return map[key] || map[ENCHANT_ID_ALIASES[key]] || "";
+  }
+  /** 辞書に無ければ生IDへフォールバックする版(セレクトの主表示用)。 */
+  function enchantLabelWithFallback(id) {
+    if (!id) return "";
+    return enchantLabel(id) || String(id);
+  }
+
+  // ---- PotionType(醸造のベース/結果) id -> 日本語 ----
+  // 2026-07-28: 「醸造結果EXP表」の行見出しが AWKWARD / SWIFTNESS の生IDのままだったため追加。
+  // 醸造ギミックの「ベース」セレクト(tf-crafting-features.js)と同じ語彙なので、こちらを唯一の
+  // 辞書にして両方から引く。
+  const POTION_TYPE_LABELS_JA = {
+    AWKWARD: "奇妙なポーション", MUNDANE: "ありふれたポーション", THICK: "濃厚なポーション",
+    WATER: "水入り瓶", NIGHT_VISION: "暗視", INVISIBILITY: "透明化", LEAPING: "跳躍",
+    FIRE_RESISTANCE: "耐火", SWIFTNESS: "俊敏", SLOWNESS: "鈍足", WATER_BREATHING: "水中呼吸",
+    HEALING: "治癒", HARMING: "負傷", POISON: "毒", REGENERATION: "再生", STRENGTH: "力",
+    WEAKNESS: "弱化", LUCK: "幸運", TURTLE_MASTER: "鈍足耐性(タートルマスター)",
+    SLOW_FALLING: "落下耐性", INFESTED: "蟲の巣", OOZING: "滲出", WEAVING: "細工",
+    WIND_CHARGED: "ウィンドチャージ"
+  };
+  /**
+   * PotionType の日本語名。LONG_/STRONG_ 接頭辞つき(延長/強化ポーション)も接尾で表す。
+   * 辞書に無ければ空文字を返す(呼び出し側で生IDへフォールバックする)。
+   */
+  function potionTypeLabel(id) {
+    if (!id) return "";
+    const key = String(id).trim().toUpperCase();
+    if (POTION_TYPE_LABELS_JA[key]) return POTION_TYPE_LABELS_JA[key];
+    const m = /^(LONG|STRONG)_(.+)$/.exec(key);
+    if (m && POTION_TYPE_LABELS_JA[m[2]]) {
+      return `${POTION_TYPE_LABELS_JA[m[2]]}(${m[1] === "LONG" ? "延長" : "強化"})`;
+    }
+    return "";
+  }
+
   // 「日本語 (英字)」の併記文字列を作る。日本語が無ければ英字のみ。
   function withKey(jaLabel, key) {
     if (!jaLabel || jaLabel === key) return key;
@@ -796,6 +1029,9 @@
     AUGMENT_LABELS, MAX_STAT_LABEL_LENGTH,
     statLabel, statDescription, nativePerkLabel, nativePerkUnit,
     fieldLabel, fieldDesc, enumLabel, materialLabel, materialLabelWithFallback, withKey,
+    enchantLabel, enchantLabelWithFallback,
+    POTION_TYPE_LABELS_JA, potionTypeLabel,
+    VILLAGER_PROFESSION_LABELS_JA, professionLabel,
     augmentLabel, glyphParamHint, normalizeStatKey
   };
 })();

@@ -17,7 +17,7 @@
   "backupDir": "../../backups",
   "backupKeep": 50,
   "deployPaths": {
-    "trinityforge": "D:/game/minecraft/PaperServer/TrinityForge/plugins/TrinityForge",
-    "arspaper": "D:/game/minecraft/PaperServer/TrinityForge/plugins/ArsPaper"
+    "trinityforge": "D:\\game\\minecraft\\PaperServer\\Velocity_for_TF\\Dev_Server\\plugins\\TrinityForge",
+    "arspaper": "D:\\game\\minecraft\\PaperServer\\Velocity_for_TF\\Dev_Server\\plugins\\ArsPaper"
   }
 }

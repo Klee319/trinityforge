@@ -423,7 +423,7 @@
   const METHODS = ["workbench", "ritual"];
   const TYPES = ["shaped", "shapeless"];
   // ArsPaper.java の register 実装に一致 + 既定 craft。
-  const EFFECT_TYPES = ["craft", "weather", "flight", "moonfall", "sunrise", "repair", "animal_summon", "mob_summon", "enchant_book", "thread_slot_expand"];
+  const EFFECT_TYPES = ["craft", "weather", "flight", "moonfall", "sunrise", "repair", "animal_summon", "mob_summon", "enchant_book", "thread_slot_expand", "thread_reroll"];
   const WEATHER_MODES = ["clear", "rain", "thunder"];
   const MOB_GROUPS = ["default", "raid", "nether", "variant"];
   const CUSTOM_DATALIST_ID = "recipe-item-list";
@@ -950,6 +950,12 @@
           class: "field-desc",
           style: "font-size:11px;color:var(--muted,#6b7280);margin:4px 0 8px;",
           text: "コアに置いた装備のスレッド枠(thread-slots)を1回の儀式ごとに+1します。max-slotsはこの儀式で1つの装備に付与できる累計スレッド枠数の上限です。"
+        }));
+      } else if (t === "thread_reroll") {
+        box.appendChild(h("div", {
+          class: "field-desc",
+          style: "font-size:11px;color:var(--muted,#6b7280);margin:4px 0 8px;",
+          text: "コアに置いた効果付きスレッド1個の厳選(主ステ/サブステ)を振り直します。パラメータはありません。抽選内容は TrinityForge の item-stats.yml(アイテムステータス > スレッドタブの各スレッドの random 設定)側で決まります。コアのスレッドは消費されず、ペデスタルの素材とソースだけが振り直しの費用になります。"
         }));
       } else {
         // 未知 type: key/value 行

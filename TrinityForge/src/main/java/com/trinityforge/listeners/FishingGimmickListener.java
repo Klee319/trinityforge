@@ -11,8 +11,11 @@ import com.trinityforge.stats.CrossPluginItemResolver;
 import com.trinityforge.stats.DropTableConfig;
 import com.trinityforge.stats.DropTablePolicy;
 import com.trinityforge.stats.StatKeys;
+import io.papermc.paper.registry.keys.tags.EnchantmentTagKeys;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -23,11 +26,13 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.logging.Logger;
 
 /**
  * 釣りの獲得物置換 (2026-07-23 stat-gate-overhaul §2.3/§4): {@code stats/fishing-gimmick.yml} の
@@ -56,6 +61,14 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public final class FishingGimmickListener implements Listener {
 
+    private static final Logger LOG = Logger.getLogger(FishingGimmickListener.class.getName());
+
+    /**
+     * groups と unlock-groups でカテゴリidが衝突した組み合わせの記録(警告を1回だけ出すため)。
+     * 判定は釣り上げるたびに通るので、毎回警告すると重複でコンソールが埋まり他の警告が埋もれる。
+     */
+    private final Set<String> warnedDuplicateCategories = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     private static final String EFFECT_JUNK_TO_SCRAP = "junk-to-scrap";
     private static final String EFFECT_FISH_SELL_TOGGLE = "fish-sell-toggle";
     private static final String CATALOG_SCRAP = "tf_scrap";
@@ -73,6 +86,11 @@ public final class FishingGimmickListener implements Listener {
     private final PlayerStatAggregator aggregator;
     private final SkillLevelSource skillLevelSource;
     private final NamespacedKey treasureFlagKey;
+    /**
+     * {@code removed-vanilla-items} の参照口(任意注入・null可)。エンチャント本の中身を抽選するときに
+     * 「サーバから消してあるエンチャント(既定は修繕)」を候補から外すために使う。
+     */
+    private volatile com.trinityforge.stats.VanillaItemRemover vanillaItemRemover;
 
     public FishingGimmickListener(DedicatedEffectsConfig dedicatedEffects, FishingGimmickConfig gimmickConfig,
                                    CrossPluginItemResolver itemResolver, PlayerStatAggregator aggregator,
@@ -148,10 +166,14 @@ public final class FishingGimmickListener implements Listener {
      * {@code treasureFlag}を書く。抽選対象カテゴリが無い/抽選が空(全ロック等)の場合はバニラキャッチを
      * そのまま維持する(fail-safe)。{@code junk-to-scrap}のスクラップ差し替えは{@code groupId}が実際に
      * {@link #GROUP_JUNK}のときだけ適用される({@code fish}グループには適用しない)。
+     *
+     * <p>2026-08-15追加(機能解放追加テーブル): {@code fishing.groups.<groupId>}(デフォルト)と
+     * {@code fishing.unlock-groups.<groupId>}(機能解放で開くカテゴリ)を{@link #mergeGateKeyedCategories}
+     * で1つの重みプールへ合流させてから抽選する(希釈あり・別ロールにはしない、ユーザー確定仕様)。
      */
     private void replaceFromGroup(Player player, Item caught, String groupId, boolean treasureFlag,
                                    ThreadLocalRandom rng) {
-        Map<String, DropTableConfig.Category> categories = gimmickConfig.groups().getOrDefault(groupId, Map.of());
+        Map<String, DropTableConfig.Category> categories = mergeGateKeyedCategories(groupId);
         if (categories.isEmpty()) {
             return; // Fail-safe: nothing configured for this group -> leave the vanilla catch untouched.
         }
@@ -174,6 +196,46 @@ public final class FishingGimmickListener implements Listener {
         }
         caught.setItemStack(replacement);
         caught.getPersistentDataContainer().set(treasureFlagKey, PersistentDataType.BOOLEAN, treasureFlag);
+    }
+
+    /**
+     * {@code fishing.groups.<groupId>}(デフォルト)と{@code fishing.unlock-groups.<groupId>}(機能解放追加)の
+     * カテゴリを1つの重みプールへ合流させる(2026-08-15追加)。同時に、既存バグ修正としてゲート照会キーを
+     * {@code "<groupId>:<catId>"}へ前置きする — {@link DropTablePolicy#drawAcrossCategoriesWithExemption}は
+     * このMapのキーをそのまま{@code categoryOpen(prof, key, ...)}へ渡すので、前置きすることで
+     * {@code categoryOpen("fishing", "treasure:gatya", ...)}が{@code "fishing:treasure:gatya"}を引き、
+     * {@link com.trinityforge.skilltree.effects.DedicatedEffectGateIndex}が{@code drop:fishing:treasure:gatya}
+     * から登録する3セグメントのゲートキーと一致するようになる(旧実装は{@code catId}だけをキーにしていたため
+     * {@code "fishing:gatya"}(2セグメント)を引いてしまい、未登録キー=常時オープン扱いになっていた)。
+     *
+     * <p>{@code groups}と{@code unlock-groups}に同じ{@code groupId}配下で同じカテゴリidが両方あるときは、
+     * ゲートキーが完全に衝突して「どちらが効いているか判別不能」になるため、{@code unlock-groups}側を
+     * 警告ログのうえ無視する(ユーザー確定仕様)。
+     */
+    private Map<String, DropTableConfig.Category> mergeGateKeyedCategories(String groupId) {
+        Map<String, DropTableConfig.Category> defaults = gimmickConfig.groups().getOrDefault(groupId, Map.of());
+        Map<String, DropTableConfig.Category> unlocks = gimmickConfig.unlockGroups().getOrDefault(groupId, Map.of());
+        if (defaults.isEmpty() && unlocks.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, DropTableConfig.Category> merged = new LinkedHashMap<>();
+        for (Map.Entry<String, DropTableConfig.Category> catEntry : defaults.entrySet()) {
+            merged.put(groupId + ":" + catEntry.getKey(), catEntry.getValue());
+        }
+        for (Map.Entry<String, DropTableConfig.Category> catEntry : unlocks.entrySet()) {
+            if (defaults.containsKey(catEntry.getKey())) {
+                // 警告は組み合わせごとに1回だけ。ここは釣り上げるたびに通る経路なので、
+                // 毎回出すとコンソールが重複警告で埋まり、他の警告が見えなくなる。
+                if (warnedDuplicateCategories.add(groupId + ":" + catEntry.getKey())) {
+                    LOG.warning("[fishing] unlock-groups." + groupId + "." + catEntry.getKey()
+                            + " は groups." + groupId + "." + catEntry.getKey() + " と同じカテゴリidのため、"
+                            + "unlock-groups側を無視しました(ゲートキー衝突を避けるため)。");
+                }
+                continue;
+            }
+            merged.put(groupId + ":" + catEntry.getKey(), catEntry.getValue());
+        }
+        return merged;
     }
 
     /**
@@ -200,13 +262,130 @@ public final class FishingGimmickListener implements Listener {
         }
         ItemStack stack = built.get();
         stack.setAmount(Math.max(1, entry.amount()));
+        return rollBookEnchantIfBare(stack);
+    }
+
+    /**
+     * 任意注入(2026-07-30): {@code removed-vanilla-items} をエンチャント本の抽選候補から外すために使う。
+     * 未注入でも動作する(その場合は候補を絞らない)。既存テストのコンストラクタ呼び出しを壊さないため
+     * セッター注入にしてある(このリポジトリの横断ゲート追加の定石)。
+     */
+    public void setVanillaItemRemover(com.trinityforge.stats.VanillaItemRemover remover) {
+        this.vanillaItemRemover = remover;
+    }
+
+    /**
+     * ドロップテーブルの {@code item: ENCHANTED_BOOK} を、<b>中身のあるエンチャント本</b>にする
+     * (2026-07-30 実サーバ報告「釣りでエンチャントのついていないエンチャント本がつれる」)。
+     *
+     * <p>原因: {@code CrossPluginItemResolver#create("ENCHANTED_BOOK")} は素の Material から
+     * {@link ItemStack} を作るだけなので、収録エンチャントが空のエンチャント本になる。
+     * バニラの釣り宝は loot table の {@code enchant_randomly} で必ず中身が付くため、
+     * 「空のエンチャント本」はバニラには存在しない状態で、金床でも何にも使えない。
+     *
+     * <p>候補からは {@code progression/crafting-features.yml removed-vanilla-items} で消してある
+     * エンチャント(既定 {@code ANY:MENDING})を除く — ここで修繕本を作ってしまうと、後段の
+     * {@code VanillaItemRemovalListener} が剥がして結局また空の本に戻る。
+     *
+     * <p>呪い(束縛/消滅)も候補から外す(2026-08-13 ユーザー判断)。バニラの釣り宝
+     * ({@code enchant_with_levels} treasure:true)は呪い本も出すが、TF では「釣果は当たり」に
+     * 統一する。除外の判定は {@link #cursedEnchants()} 参照。
+     *
+     * <p><b>バニラと同じではない</b>: バニラは経験値レベル30相当の重み付き抽選で複数エンチャントが
+     * 付きうるが、ここは候補から一様ランダムで1件・レベルも {@code 1..maxLevel} の一様乱数。
+     * オーバーエンチャント表({@code crafting-features.yml over-enchant})は金床/エンチャント台側の
+     * 上限なので、釣果の本には掛からない(付与レベルはバニラの maxLevel が上限)。
+     *
+     * <p>既に中身がある本(カタログ品/他プラグイン製)には一切触らない。
+     */
+    private ItemStack rollBookEnchantIfBare(ItemStack stack) {
+        if (stack == null || stack.getType() != Material.ENCHANTED_BOOK) {
+            return stack;
+        }
+        if (!(stack.getItemMeta() instanceof org.bukkit.inventory.meta.EnchantmentStorageMeta storage)
+                || storage.hasStoredEnchants()) {
+            return stack;
+        }
+        Set<Enchantment> curses = cursedEnchants();
+        java.util.List<Enchantment> pool = new java.util.ArrayList<>();
+        for (Enchantment candidate : Registry.ENCHANTMENT) {
+            if (curses.contains(candidate) || isRemovedEnchant(candidate)) {
+                continue;
+            }
+            pool.add(candidate);
+        }
+        if (pool.isEmpty()) {
+            return stack;
+        }
+        ThreadLocalRandom rng = ThreadLocalRandom.current();
+        Enchantment chosen = pool.get(rng.nextInt(pool.size()));
+        int max = Math.max(1, chosen.getMaxLevel());
+        storage.addStoredEnchant(chosen, max == 1 ? 1 : rng.nextInt(1, max + 1), true);
+        stack.setItemMeta(storage);
         return stack;
+    }
+
+    /**
+     * 呪いエンチャントの集合。{@code EnchantLuckListener#enchantingTablePool()} と同じ二段構えで、
+     * <b>タグ {@code #minecraft:curse} を第一経路</b>にする(ハードコードした除外リストと違い、
+     * バニラ側で呪いが増減しても自動で追随する)。
+     *
+     * <p>第二経路は非推奨の {@link Enchantment#isCursed()}。MockBukkit 4.110.0 は
+     * {@code Registry#hasTag}/{@code getTagValues} がどちらも {@code UnimplementedOperationException}
+     * を投げるため、テスト環境ではこちらへ落ちる。
+     *
+     * <p>どちらも失敗したら空集合を返す = 呪いを弾かない(fail-open)。ここで例外を投げると
+     * 釣果の生成そのものが落ちてアイテムが消えるので、「呪い本がたまに釣れる」より悪い。
+     */
+    @SuppressWarnings("deprecation") // isCursed(): タグ API が無い環境向けのフォールバックとしてのみ使う
+    static Set<Enchantment> cursedEnchants() { // package-private: 単体テストの seam
+        try {
+            if (Registry.ENCHANTMENT.hasTag(EnchantmentTagKeys.CURSE)) {
+                java.util.Collection<Enchantment> tagged =
+                        Registry.ENCHANTMENT.getTagValues(EnchantmentTagKeys.CURSE);
+                if (!tagged.isEmpty()) {
+                    return Set.copyOf(tagged);
+                }
+            }
+        } catch (RuntimeException | LinkageError ignored) {
+            // タグ API 未実装/未ロードの環境。下の isCursed() 経路へ落ちる。
+        }
+        try {
+            Set<Enchantment> out = new java.util.HashSet<>();
+            for (Enchantment candidate : Registry.ENCHANTMENT) {
+                if (candidate.isCursed()) {
+                    out.add(candidate);
+                }
+            }
+            return out;
+        } catch (RuntimeException | LinkageError ignored) {
+            return Set.of();
+        }
+    }
+
+    private boolean isRemovedEnchant(org.bukkit.enchantments.Enchantment candidate) {
+        com.trinityforge.stats.VanillaItemRemover remover = this.vanillaItemRemover;
+        if (remover == null || !remover.hasTargets()) {
+            return false;
+        }
+        ItemStack probe = new ItemStack(Material.ENCHANTED_BOOK);
+        if (!(probe.getItemMeta() instanceof org.bukkit.inventory.meta.EnchantmentStorageMeta probeMeta)) {
+            return false;
+        }
+        probeMeta.addStoredEnchant(candidate, 1, true);
+        probe.setItemMeta(probeMeta);
+        return remover.shouldRemove(probe);
     }
 
     /** {@code luckTotal} for the treasure-ratio shift: rod's aggregated stat + enchant bonus + skill level. */
     private double luckTotalOf(Player player) {
         ItemStack rod = resolveRod(player.getInventory());
-        PlayerCombatAggregate agg = aggregator.aggregate(player, rod);
+        // 2026-08-13バグ修正: ロッドがオフハンド側にある場合は offhand-stats-apply の門を正しく通す
+        // (FishingQualityListener#onFish の rodFromOffhand と同じ導出。参照比較はライブサーバーでは
+        // スロット読み取りごとの新ミラーで一致しないため、Material判定で求める)。
+        boolean rodFromOffhand = player.getInventory().getItemInMainHand().getType() != Material.FISHING_ROD
+                && rod.getType() == Material.FISHING_ROD;
+        PlayerCombatAggregate agg = aggregator.aggregate(player, rod, rodFromOffhand);
         double statLuck = agg.totalOf(FISHING_LUCK_KEY);
         double enchantLuck = EnchantmentStatBridge.bonuses(rod, null).fishingLuckBonus();
         int fishingLevel = skillLevelSource.levelsOf(player.getUniqueId())

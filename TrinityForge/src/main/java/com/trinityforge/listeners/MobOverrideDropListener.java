@@ -1,6 +1,7 @@
 package com.trinityforge.listeners;
 
 import com.trinityforge.config.domains.MobOverridesConfig;
+import com.trinityforge.mobs.EliteMobsSharedLootBridge;
 import com.trinityforge.mobs.MobDropRoller;
 import com.trinityforge.mobs.MobOverrideDropEntry;
 import com.trinityforge.pdc.MobData;
@@ -59,6 +60,36 @@ import java.util.logging.Logger;
  * .getKiller()} must be non-null (a {@code Player}) or this listener adds nothing. Without this gate a
  * mob killed by another mob, lava, fall damage, etc. still rolled the full override drop table,
  * effectively turning any AFK/automated non-player kill loop into a free item farm.
+ *
+ * <p><b>レベル差による足きり(2026-08-09 に共通設定へ移設):</b> 判定は {@link KillRewardAdjuster} が
+ * {@code combat/damage.yml} の {@code level-cutoff:} から解決する(2026-07-27 版は
+ * {@code combat/mob-overrides.yml} 側にあり、EliteMobsのスタンプが無いモブに効かなかった)。
+ * {@code diff = プレイヤー戦闘Lv - モブLv} で under-level が発動していれば TF追加ドロップを一切付けず
+ * 即return、over-level が発動していて {@code drop-rate == -1} でも同様。それ以外で over-level が
+ * 発動していれば各 drop entry の {@code chance} に倍率を掛けてから抽選する。<b>バニラ本来のドロップ
+ * ({@code event.getDrops()}に元々入っていたもの)には一切触らない</b> — このリスナーはTF追加ドロップの
+ * roll処理にしか関与しないため、足きりの影響範囲は自然とTF追加ドロップのみに限定される。
+ *
+ * <p><b>ドロップ増加ステ({@code mob_drop_bonus}、2026-08-09 / 2026-08-13 に効かせ方を変更):</b>
+ * {@link KillRewardAdjuster#dropBonus} を、個数が1個固定のエントリなら<b>抽選確率</b>へ、
+ * それ以外なら<b>抽選後の個数への加算</b>へ回す(乗算ではない)。以前はこのステが
+ * {@code NativeSurvivalPerkListener} で {@code event.getDrops()} の中身にしか掛かっておらず、
+ * <b>TF追加ドロップには一切載っていなかった</b>(同じ MONITOR 優先度で先に登録されている =
+ * TF追加ドロップが積まれる前に走り終わっている)。
+ *
+ * <p><b>複数人ダンジョンでの分配(2026-08-09):</b> 抽選に通ったスタックは
+ * {@code event.getDrops()} へ直接積まず {@link com.trinityforge.mobs.EliteMobsSharedLootBridge#deliver}
+ * を通す。エリートモブ・ダメージ寄与者2人以上・インスタンス化ダンジョンの3条件がそろったときだけ
+ * EliteMobs の共有戦利品テーブル(emloot、need/greed)が引き取り、60秒の投票を経て当選者1人へ渡る。
+ * それ以外(ソロ・フィールド・EliteMobs 不在)は橋の中で従来どおり {@code event.getDrops()} へ
+ * 積まれるので、この分岐でドロップが失われることはない。
+ *
+ * <p><b>確定ドロップは need/greed に乗せない(2026-08-18):</b> 共有戦利品テーブルは1スタックにつき
+ * 当選者を1人しか選ばないため、{@code chance: 1.0} で書かれた進行アイテム(ダンジョン印・試練の鍵・
+ * かけら)まで同じ経路に乗せると、2人で潜ったとき片方が<b>次の試練に入れず図鑑も埋まらない</b>。
+ * {@link MobDropRoller#isProgressionDrop} が真のスタックだけ
+ * {@link EliteMobsSharedLootBridge#deliverToEveryDamager} へ回し、ダメージ寄与者全員へ1個ずつ配る。
+ * 引き取り条件(エリート・2人以上・インスタンス化ダンジョン)は need/greed 経路と同一。
  */
 public final class MobOverrideDropListener implements Listener {
 
@@ -66,18 +97,44 @@ public final class MobOverrideDropListener implements Listener {
 
     private final MobOverridesConfig mobOverrides;
     private final CrossPluginItemResolver itemResolver;
+    private final KillRewardAdjuster adjuster;
     private final SplittableRandom random;
 
-    public MobOverrideDropListener(MobOverridesConfig mobOverrides, CrossPluginItemResolver itemResolver) {
-        this(mobOverrides, itemResolver, new SplittableRandom());
+    public MobOverrideDropListener(MobOverridesConfig mobOverrides, CrossPluginItemResolver itemResolver,
+                                    KillRewardAdjuster adjuster) {
+        this(mobOverrides, itemResolver, adjuster, new SplittableRandom());
     }
 
     /** Package-visible ctor for tests that need a deterministic random source. */
     MobOverrideDropListener(MobOverridesConfig mobOverrides, CrossPluginItemResolver itemResolver,
-                             SplittableRandom random) {
+                             KillRewardAdjuster adjuster, SplittableRandom random) {
         this.mobOverrides = Objects.requireNonNull(mobOverrides, "mobOverrides");
         this.itemResolver = Objects.requireNonNull(itemResolver, "itemResolver");
+        this.adjuster = Objects.requireNonNull(adjuster, "adjuster");
         this.random = Objects.requireNonNull(random, "random");
+    }
+
+    /**
+     * TF追加ドロップを止める述語 (2026-07-27、AFK対策)。{@code true} を返したキル者には
+     * 追加ドロップを付けない。バニラ本来のドロップには一切触らない — そこまで止めると
+     * モブトラップが完全に死んで「AFK対策」の域を超えるため。未配線(null)なら抑止なし。
+     */
+    private volatile java.util.function.Predicate<org.bukkit.entity.Player> dropGate;
+
+    /** 追加ドロップの抑止述語を設定する(2026-07-27、AFK対策)。null で無効化。 */
+    public void setDropGate(java.util.function.Predicate<org.bukkit.entity.Player> gate) {
+        this.dropGate = gate;
+    }
+
+    /**
+     * {@code custom:} ドロップの品質を決める器(2026-08-19 / W-130)。未配線(null)なら
+     * 従来どおり品質0固定になる —— コンストラクタを増やさずに後付けするための setter。
+     */
+    private volatile com.trinityforge.mobs.MobDropQualityResolver qualityResolver;
+
+    /** 討伐ドロップの品質決定器を設定する(2026-08-19 / W-130)。null で無効化。 */
+    public void setQualityResolver(com.trinityforge.mobs.MobDropQualityResolver resolver) {
+        this.qualityResolver = resolver;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -87,12 +144,26 @@ public final class MobOverrideDropListener implements Listener {
             // 2026-07-26 H2: プレイヤーがキルした場合のみ適用する(class javadoc「Player-kill gate」参照)。
             return;
         }
+        if (isGated(entity.getKiller())) {
+            return;
+        }
         MobData mobData = MobData.of(entity);
         Optional<String> profileId = mobData.profileId();
         if (profileId.isEmpty()) {
             return;
         }
         String worldName = entity.getWorld().getName();
+        if (adjuster.blocksItems(entity.getKiller(), entity)) {
+            // 足きり: under-level発動、またはover-level発動でdrop-rate==-1。バニラ本来の
+            // ドロップには一切触れず、TF追加ドロップのroll処理だけをここで打ち切る。
+            return;
+        }
+        double dropMultiplier = adjuster.chanceMultiplier(entity.getKiller(), entity);
+        double dropBonus = adjuster.dropBonus(entity.getKiller());
+        // 2026-08-19 W-130: mob_drop_quality ぶんの品質底上げは【1キルにつき1回】引く。
+        // ドロップごとに引くと同じキルの中で品質がばらけ、ステの効き目が薄まって見える。
+        com.trinityforge.mobs.MobDropQualityResolver resolver = this.qualityResolver;
+        int bonusMode = resolver == null ? 0 : resolver.bonusMode(entity.getKiller(), random);
         List<MobOverrideDropEntry> drops = mobOverrides.dropsFor(worldName, profileId.get());
         // 2026-07-26: 解決失敗の警告に「どのモブの設定か」を載せる。モブidだけだと 396 体の生成物の
         // どれなのか運用側で追えないため、display-name があれば日本語名を併記する。
@@ -100,40 +171,88 @@ public final class MobOverrideDropListener implements Listener {
                 .map(name -> name + " (" + profileId.get() + ")")
                 .orElseGet(profileId::get);
         for (MobOverrideDropEntry drop : drops) {
-            if (!MobDropRoller.rolls(drop.chance(), random.nextDouble())) {
+            // 2026-08-13: ドロップ増加ステの効かせ方はドロップの形で分かれる。
+            // 1個固定(=レアドロップ)は抽選確率を上げ、それ以外は個数を足す。
+            boolean singleFixed = MobDropRoller.isSingleFixed(drop.min(), drop.max());
+            double chance = drop.chance() * dropMultiplier;
+            if (singleFixed) {
+                chance = MobDropRoller.boostedChance(chance, dropBonus);
+            }
+            if (!MobDropRoller.rolls(chance, random.nextDouble())) {
                 continue;
             }
             int count = MobDropRoller.rollCount(drop.min(), drop.max(), random.nextInt());
             if (count <= 0) {
                 continue;
             }
-            ItemStack stack = buildDropStack(drop, count, mobLabel);
+            ItemStack stack = buildDropStack(drop, count, mobLabel, mobData.level(), bonusMode);
+            if (stack != null && !singleFixed && dropBonus > 0.0) {
+                // 2026-08-09: ドロップ増加ステ(mob_drop_bonus)。NativeSurvivalPerkListener は同じ
+                // MONITOR優先度でも登録順で先に走るため、あとから足すこのドロップには一度も
+                // 掛かっていなかった。個数を確定させた直後にここで掛ける。
+                stack.setAmount(MobDropRoller.cappedCount(
+                        stack.getAmount() + MobDropRoller.extraCount(dropBonus, random.nextDouble()),
+                        stack.getMaxStackSize()));
+            }
             if (stack != null) {
-                event.getDrops().add(stack);
+                // 2026-08-09: 複数人でインスタンス化ダンジョンに潜っているときだけ、地面へ落とさず
+                // EliteMobs の共有戦利品テーブル(emloot、need/greed)へ回す。対象外なら
+                // deliver() の中で従来どおり event.getDrops() へ積まれる。
+                // 2026-08-18: ただし確定ドロップ(＝ダンジョン印・試練の鍵などの進行アイテム)だけは
+                // need/greed に乗せない。抽選すると当選者1人しか受け取れず、複数人で潜った片方が
+                // 次の試練に入れない/図鑑が埋まらない状態になっていた。判定に渡すのは倍率を掛ける
+                // 前の drop.chance() であること(理由は MobDropRoller#isProgressionDrop)。
+                if (MobDropRoller.isProgressionDrop(drop.chance())) {
+                    EliteMobsSharedLootBridge.deliverToEveryDamager(event, stack);
+                } else {
+                    EliteMobsSharedLootBridge.deliver(event, stack);
+                }
             }
         }
     }
 
     /**
      * Builds the rolled stack: a plain {@code new ItemStack(material, count)} for a vanilla entry, or a
-     * {@link CrossPluginItemResolver#create(String)}-built item for a {@code custom:<id>} entry, with its
-     * amount overwritten to the rolled {@code count}. Returns {@code null} (skip this roll, never fatal)
-     * when a {@code custom:} id fails to resolve, logging a warning either way — mirrors
+     * {@link CrossPluginItemResolver#create(String, long, int)}-built item for a {@code custom:<id>} entry,
+     * with its amount overwritten to the rolled {@code count}. Returns {@code null} (skip this roll, never
+     * fatal) when a {@code custom:} id fails to resolve, logging a warning either way — mirrors
      * {@code MobLevelTableListener#buildDropStack}'s fail-open contract.
+     *
+     * <p><b>2026-08-19 W-130:</b> 以前はここで1引数版の {@code create(id)} を呼んでいた。あの版は
+     * 品質を <b>0 に固定</b>するので、スレッドのような品質付きカスタム品がモブレベルにも
+     * {@code mob_drop_quality} ステにも反応せず<b>必ず劣悪で落ちていた</b>。品質決定は
+     * {@link com.trinityforge.mobs.MobDropQualityResolver} に一本化してある。
      */
-    private ItemStack buildDropStack(MobOverrideDropEntry drop, int count, String mobLabel) {
+    private ItemStack buildDropStack(MobOverrideDropEntry drop, int count, String mobLabel,
+                                     int mobLevel, int bonusMode) {
         if (!drop.isCustom()) {
             return new ItemStack(drop.material(), count);
         }
-        Optional<ItemStack> resolved = itemResolver.create(drop.catalogId());
+        long seed = random.nextLong();
+        Optional<ItemStack> resolved = itemResolver.create(drop.catalogId(), seed, 0);
         if (resolved.isEmpty()) {
             LOG.log(Level.WARNING, "[mob-overrides] " + mobLabel + " の drops custom item '"
                     + drop.catalogId() + "' could not be resolved (unknown catalog/Ars id?);"
                     + " this roll was skipped");
             return null;
         }
-        ItemStack stack = resolved.get();
+        ItemStack stack = com.trinityforge.mobs.MobDropQualityResolver.stamped(
+                this.qualityResolver, itemResolver, drop.catalogId(), seed, resolved.get(),
+                mobLevel, bonusMode, random);
         stack.setAmount(count);
         return stack;
+    }
+
+    /** 述語の例外でドロップ処理を落とさない(抑止は付加機能なので、失敗したら従来どおり付与する)。 */
+    private boolean isGated(org.bukkit.entity.Player killer) {
+        java.util.function.Predicate<org.bukkit.entity.Player> gate = this.dropGate;
+        if (gate == null || killer == null) {
+            return false;
+        }
+        try {
+            return gate.test(killer);
+        } catch (RuntimeException ex) {
+            return false;
+        }
     }
 }

@@ -42,16 +42,29 @@
     if (!parent[key] || typeof parent[key] !== "object" || Array.isArray(parent[key])) parent[key] = {};
     return parent[key];
   }
+  // 値が [0,1] の割合であるキー。mob-forms.js の RATE_FIELDS と同じ根拠
+  // (DefenseStats / AttackStats の javadoc)。flat-defense / flat-bonus-damage / fixed-damage /
+  // attack-power / max-health はダメージ量そのものなので入れない(入れると 100 倍表示になる)。
+  const RATE_RAMP_KEYS = new Set([
+    "defense-rate", "resistance", "damage-reduction", "armor-strength",
+    "percent-bonus-damage", "penetration", "crit-chance", "crit-damage", "damage-modifier"
+  ]);
+
   function numField(obj, key, opts) {
     const o = opts || {};
-    return field(key, window.numberInput(obj[key], (v) => {
+    // 2026-08-13: 割合キー([0,1])は % 入力にする。整数指定(o.int)のものは割合ではないので対象外。
+    const asRate = !o.int && RATE_RAMP_KEYS.has(key) && typeof window.rateValueControl === "function";
+    const setValue = (v) => {
       if (v == null || v === "") {
         if (o.clearable) delete obj[key];
         else obj[key] = o.fallback != null ? o.fallback : 0;
         return;
       }
       obj[key] = o.int ? Math.trunc(v) : v;
-    }, o.int ? { int: true } : undefined), {
+    };
+    return field(key, asRate
+      ? window.rateValueControl(obj[key], setValue, { blankWhenEmpty: !!o.clearable })
+      : window.numberInput(obj[key], setValue, o.int ? { int: true } : undefined), {
       label: o.label || key,
       desc: o.desc || "",
       key
@@ -69,14 +82,17 @@
     });
   }
 
-  // ---- base+per-level (+任意で growth 指数) ランプ (themes / mob-import) ----
+  // ---- base+per-level (+任意で growth 指数 / 高レベル加算区間) ランプ (themes / mob-import) ----
   //   opts.showGrowth: true のときだけ growth / growth-interval 欄を追加描画する。
-  //   growth 系は任意入力: 空欄なら書き込まない(未入力キーを追加しない=既定の線形挙動を維持)。
-  //   themes.yml 側は showGrowth を渡さない(base/per-levelのみ)ため、ここでの出し分けで
-  //   themes フォームへ growth 欄が漏れ出ることはない。
+  //   opts.showHighLevel: true のときだけ high-level-from / high-level-per-level 欄を追加描画する
+  //   (2026-08-03、45+難易度修正。ConversionPolicy.Ramp/RampParser参照)。
+  //   growth系・high-level系はどちらも任意入力: 空欄なら書き込まない(未入力キーを追加しない=
+  //   既定の従来挙動を維持)。themes.yml 側はどちらも渡さない(base/per-levelのみ)ため、
+  //   ここでの出し分けで themes フォームへ漏れ出ることはない。
   function rampEditors(host, keys, title, opts) {
     const o = opts || {};
     const showGrowth = !!o.showGrowth;
+    const showHighLevel = !!o.showHighLevel;
     const box = h("div", { class: "mob-defense-block" });
     box.appendChild(sub(title));
     const rows = h("div", { class: "stat-rows" });
@@ -84,12 +100,19 @@
       const ramp = host[key] && typeof host[key] === "object" ? host[key] : (host[key] = { base: 0, "per-level": 0 });
       if (ramp.base == null) ramp.base = 0;
       if (ramp["per-level"] == null) ramp["per-level"] = 0;
+      // 2026-08-13: 割合キーのランプは % 入力にする(ユーザー指示「割合記法のものはすべて%記法に」)。
+      // **同じ行でも単位が混ざる**のが要点 ── 基準/Lvごと/高レベル加算 はそのキーと同じ単位(割合)
+      // だが、指数(growth) は倍率、指数間隔と高レベル開始はレベル数なので % にしてはいけない。
+      const isRate = RATE_RAMP_KEYS.has(key) && typeof window.rateValueControl === "function";
+      const rateNum = (value, setter, blankWhenEmpty) => (isRate
+        ? window.rateValueControl(value, setter, { blankWhenEmpty })
+        : window.numberInput(value, setter));
       const rowChildren = [
         h("span", { class: "form-label", text: key }),
         h("span", { class: "mini-label", text: "基準" }),
-        window.numberInput(ramp.base, (v) => { ramp.base = v == null ? 0 : v; }),
+        rateNum(ramp.base, (v) => { ramp.base = v == null ? 0 : v; }, false),
         h("span", { class: "mini-label", text: "Lvごと" }),
-        window.numberInput(ramp["per-level"], (v) => { ramp["per-level"] = v == null ? 0 : v; })
+        rateNum(ramp["per-level"], (v) => { ramp["per-level"] = v == null ? 0 : v; }, false)
       ];
       if (showGrowth) {
         rowChildren.push(
@@ -105,12 +128,32 @@
           })
         );
       }
+      if (showHighLevel) {
+        rowChildren.push(
+          h("span", { class: "mini-label", text: "高レベル開始" }),
+          window.numberInput(ramp["high-level-from"] == null ? "" : ramp["high-level-from"], (v) => {
+            if (v == null || v === "") delete ramp["high-level-from"];
+            else ramp["high-level-from"] = v;
+          }),
+          h("span", { class: "mini-label", text: "高レベル加算/Lv" }),
+          rateNum(ramp["high-level-per-level"] == null ? "" : ramp["high-level-per-level"], (v) => {
+            if (v == null || v === "") delete ramp["high-level-per-level"];
+            else ramp["high-level-per-level"] = v;
+          }, true)
+        );
+      }
       rows.appendChild(h("div", { class: "stat-row" }, rowChildren));
     }
     box.appendChild(rows);
     if (showGrowth) {
       box.appendChild(h("div", { class: "form-hint", text:
         "指数(growth)・指数間隔は空欄のままなら書き込まれず、従来どおり線形(基準+Lv×増分)のままです。growth>1.0で指数的に増加します。" }));
+    }
+    if (showHighLevel) {
+      box.appendChild(h("div", { class: "form-hint", text:
+        "高レベル開始・高レベル加算/Lvは空欄のままなら書き込まれず無効(従来どおり)です。設定した場合、"
+        + "そのレベル未満は完全無干渉、そのレベル以上だけ「加算/Lv ×(レベル−開始レベル)」を上のカーブに追加加算します"
+        + "(閾値そのものの値は連続、乗算ではなく純粋な加算です)。" }));
     }
     return box;
   }
@@ -120,7 +163,20 @@
   // ============================================================
   // dungeon/gates.yml
   // ============================================================
-  window.buildDungeonGatesForm = function buildDungeonGatesForm(data) {
+  // ゲートIDに紐づく EliteMobs パッケージ名を台帳から自動導出し、g["content-package"] へ書く。
+  // forceOverwrite=true (ID確定直後) は選び直した以上その値を信じて上書きする。
+  // forceOverwrite=false (台帳の非同期到着時の補完) は既存値を消さない — 手書きワールド名ゲートの
+  // 既存 content-package を誤って消さないため。
+  function applyContentPackageFromDungeon(g, worldId, forceOverwrite) {
+    const d = window.EM_DUNGEONS && window.EM_DUNGEONS.get(worldId);
+    if (!d || !d.package) return;
+    if (!forceOverwrite && g["content-package"]) return;
+    g["content-package"] = d.package;
+  }
+
+  window.buildDungeonGatesForm = function buildDungeonGatesForm(data, options) {
+    const opts = options && typeof options === "object" ? options : {};
+    const catalogCandidates = Array.isArray(opts.catalogCandidates) ? opts.catalogCandidates : [];
     const working = data && typeof data === "object" ? data : {};
     if (!working.gates || typeof working.gates !== "object" || Array.isArray(working.gates)) {
       working.gates = {};
@@ -130,7 +186,8 @@
     const list = h("div", { class: "card-list-body" });
     root.appendChild(h("div", {
       class: "form-banner",
-      text: "ダンジョン入場条件。キーは行き先ワールド名。EliteMobs の content-package 名は aliases / content-package で紐づけます。"
+      text: "ダンジョン入場条件。キーは行き先ワールド名（＝ダンジョンの選択）。"
+        + "EliteMobs のパッケージ名はその選択から自動で紐づき、複数 blueprint を束ねたいときだけ別名を足します。"
     }));
     root.appendChild(list);
 
@@ -140,15 +197,12 @@
       if (!ids.length) {
         list.appendChild(emptyGuide(
           "ゲートがまだありません",
-          "「+ ゲート追加」でワールドごとの入場条件を作ります。空のままなら入場制限はかかりません（fail-open）。"
+          "「+ ゲート追加」で入場条件を作ってください。空のままでは一般ユーザーはEliteMobsダンジョンへ入場できません。"
         ));
       }
       for (const id of ids) {
         const g = gates[id] && typeof gates[id] === "object" ? gates[id] : (gates[id] = {});
         const aliases = Array.isArray(g.aliases) ? g.aliases : (g.aliases = []);
-        if (g["content-package"] && !aliases.includes(g["content-package"])) {
-          // 表示用に content-package も別名欄へ出す（保存時は両対応）
-        }
         // ダンジョンID(= 行き先ワールド名)は EliteMobs 同梱ダンジョンから選べるようにする。
         // 自作ダンジョンもあるので手動入力は常に可能(allowCustom)。
         // 選択済みの表示は listSelect 自身が「日本語名 (ワールド名)」で出すため、別途ラベルは足さない。
@@ -167,6 +221,7 @@
                 alert("同じワールド名が既にあります"); return false;
               }
               renameKey(gates, id, v);
+              applyContentPackageFromDungeon(gates[v], v, true);
               render();
               return true;
             }
@@ -185,37 +240,33 @@
               int: true,
               clearable: true
             }),
-            field("key-material", window.materialInput(g["key-material"] || "", "material-list", (v) => {
-              if (!v) delete g["key-material"];
-              else g["key-material"] = v;
+            field("key-item", window.itemRefSelect({
+              value: g["key-item"] != null ? g["key-item"] : (g["key-material"] != null ? g["key-material"] : ""),
+              catalogCandidates,
+              placeholder: "アイテムを選択…（空欄＝鍵なし）",
+              onChange: (v) => {
+                const nv = String(v || "").trim();
+                if (!nv) { delete g["key-item"]; delete g["key-material"]; return; }
+                g["key-item"] = nv;
+                delete g["key-material"];
+              }
             }), {
               label: "必要鍵アイテム",
-              desc: "入場時に消費する Material。空欄＝鍵なし",
-              key: "key-material"
+              desc: "入場時に消費するアイテム。カタログ品/ArsPaper品/バニラ Material のいずれも指定できます。空欄＝鍵なし",
+              key: "key-item"
             }),
             numField(g, "key-amount", {
               label: "鍵の個数",
               desc: "省略時は1",
               int: true,
               clearable: true
-            }),
-            field("content-package", window.listSelect({
-              value: g["content-package"] || "",
-              allowCustom: true,
-              customPlaceholder: "パッケージ名を直接入力",
-              placeholder: "選択…（空欄＝紐づけなし）",
-              options: () => (window.EM_DUNGEONS ? window.EM_DUNGEONS.packageOptions() : []),
-              onChange: (v) => {
-                const nv = String(v || "").trim();
-                if (!nv) delete g["content-package"];
-                else g["content-package"] = nv;
-              }
-            }), {
-              label: "EliteMobsパッケージ",
-              desc: "content_packages のファイル名（拡張子なし）",
-              key: "content-package"
             })
           ]),
+          h("div", {
+            class: "form-hint",
+            text: "EliteMobs のパッケージ名はダンジョンの選択から自動で紐づけます（content-package）。"
+              + "複数の blueprint を紐づけたい場合だけ下の別名を使ってください。"
+          }),
           sub("別名 (aliases) — EliteMobs の複数 blueprint 名"),
           aliasEditor(aliases, () => render())
         ];
@@ -254,10 +305,25 @@
       return box;
     }
 
+    // content-package が未設定の既存ゲートを台帳から補完する
+    // (既に値があるものは触らない — 手書きワールド名ゲートの既存値を消さないため)。
+    function backfillContentPackages() {
+      for (const gid of Object.keys(gates)) {
+        const g = gates[gid];
+        if (g && typeof g === "object") applyContentPackageFromDungeon(g, gid, false);
+      }
+    }
+
+    // 台帳が既に読み込み済みなら下の非同期分岐には入らないので、ここで必ず1回補完しておく。
+    // これを描画前の1回だけにすると「台帳が間に合った回だけ自動導出される」不安定な挙動になる。
+    backfillContentPackages();
     render();
     // 既定ダンジョン台帳は非同期取得。届いたらセレクト候補と日本語名を出すため描き直す。
     if (window.EM_DUNGEONS && !window.EM_DUNGEONS.isLoaded()) {
-      window.EM_DUNGEONS.load().then(() => render());
+      window.EM_DUNGEONS.load().then(() => {
+        backfillContentPackages();
+        render();
+      });
     }
     return { element: root, getData: () => working };
   };
@@ -361,7 +427,9 @@
   // attack ブロックの8ステ (mob-import.yml attack:)。damage-modifier は既定1.0(乗算中立)。
   const ATTACK_KEYS = [
     "attack-power", "flat-bonus-damage", "percent-bonus-damage", "crit-chance",
-    "crit-damage", "penetration", "damage-modifier", "fixed-damage"
+    "crit-damage", "penetration", "damage-modifier", "fixed-damage",
+    // 2026-08-03(U18): このモブの通常攻撃を魔法として解決する割合[0,1]。既定0(base)=完全物理。
+    "magic-ratio"
   ];
 
   window.buildMobImportForm = function buildMobImportForm(data) {
@@ -433,8 +501,8 @@
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "守備の合成式 (基準 + Lv×増分)" })],
       [
-        rampEditors(phys, DEFENSE_KEYS, "物理"),
-        rampEditors(mag, DEFENSE_KEYS, "魔法"),
+        rampEditors(phys, DEFENSE_KEYS, "物理", { showHighLevel: true }),
+        rampEditors(mag, DEFENSE_KEYS, "魔法", { showHighLevel: true }),
         (() => {
           const box = h("div", { class: "mob-defense-block" });
           box.appendChild(sub("防具強度"));
@@ -452,13 +520,13 @@
 
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "最大HP (max-health)" })],
-      [rampEditors(working, ["max-health"], "TF駆動の最大HP。0=unconfiguredならEliteMobs側のHPを維持", { showGrowth: true })]
+      [rampEditors(working, ["max-health"], "TF駆動の最大HP。0=unconfiguredならEliteMobs側のHPを維持", { showGrowth: true, showHighLevel: true })]
     ));
 
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "攻撃 (attack)" })],
       [
-        rampEditors(attack, ATTACK_KEYS, "攻撃側ステ (spawn時にモブへ焼き込み)", { showGrowth: true }),
+        rampEditors(attack, ATTACK_KEYS, "攻撃側ステ (spawn時にモブへ焼き込み)", { showGrowth: true, showHighLevel: true }),
         h("div", { class: "form-hint", text:
           "damage-modifier の既定は 1.0 (乗算の中立値)。0.0 にすると威力が半減するため、意図せず0にしないよう注意してください。" })
       ]
@@ -494,6 +562,9 @@
       class: "form-banner",
       text: "EliteMobs 個別モブの守備プロファイル。通常は importmobs で生成し、例外だけここで手編集します。"
     }));
+    // oninput-rerender-ok: この入力欄は render() の外で1度だけ作られ、render() が描き直すのは
+    // 兄弟の list だけ。入力欄自体は作り直されないのでフォーカスは飛ばない（絞り込みは1文字ごとに
+    // 効いてほしいので textInput のままでよい）。
     const filter = window.textInput("", () => render(), "ID / 表示名で絞り込み…");
     root.appendChild(h("div", { class: "form-field", style: "margin:8px 0;" }, [
       h("span", { class: "form-label", text: "検索" }),
@@ -525,8 +596,10 @@
         const p = profiles[id] && typeof profiles[id] === "object" ? profiles[id] : (profiles[id] = {});
         const phys = ensureObj(p, "physical");
         const mag = ensureObj(p, "magical");
+        const displayName = String(p["source-name"] || "").trim();
         const head = [
-          h("strong", { text: id }),
+          h("strong", { text: displayName || id }),
+          h("span", { class: "entry-sum-id", text: id }),
           h("span", { class: "entry-sum-meta", text: p["entity-type"] || "?" }),
           h("span", { class: "entry-sum-meta", text: `Lv.${p.level != null ? p.level : "?"}` }),
           h("span", { class: "spacer" }),
@@ -639,6 +712,7 @@
     const working = data && typeof data === "object" ? data : {};
     const focusHp = ensureObj(working, "focus-hp");
     const damagePopup = ensureObj(working, "damage-popup");
+    const damageIndicator = ensureObj(working, "damage-indicator-particles");
 
     const root = h("div", { class: "dedicated-form combat-display-form" });
     root.appendChild(h("div", {
@@ -667,6 +741,17 @@
         }),
         numField(damagePopup, "duration-ticks", { label: "表示時間(tick)", int: true, desc: "20tick=1秒。短いほど軽量" }),
         numField(damagePopup, "min-damage", { label: "最小表示ダメージ", desc: "この値未満のダメージは非表示。0＝全て表示" })
+      ])]
+    ));
+
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "被弾パーティクル上限 (damage-indicator-particles)" })],
+      [grid([
+        numField(damageIndicator, "max-count", {
+          label: "1ヒットの最大個数",
+          int: true,
+          desc: "バニラは与ダメージに比例して個数を出すためTFのダメージ帯だと画面が埋まる。0＝完全に消す／-1＝制限しない。表示のみでダメージ計算には影響しない。packetevents 導入時のみ有効"
+        })
       ])]
     ));
 

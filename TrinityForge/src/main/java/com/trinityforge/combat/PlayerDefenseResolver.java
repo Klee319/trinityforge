@@ -102,7 +102,7 @@ public final class PlayerDefenseResolver {
         String resistanceKey = type == DamageType.PHYSICAL
                 ? StatKeys.canonical("phys-resistance") : StatKeys.canonical("magic-resistance");
         DefenseStats capped = new DefenseStats(
-                agg.clamp(StatKeys.canonical("armor-defense-rate"), combined.defenseRate()),
+                agg.clamp(DEFENSE_RATE_KEY, combined.defenseRate()),
                 agg.clamp(resistanceKey, combined.resistance()),
                 agg.clamp(StatKeys.canonical("damage-reduction"), combined.damageReduction()),
                 agg.clamp(flatDefenseKey, combined.flatDefense()),
@@ -112,7 +112,31 @@ public final class PlayerDefenseResolver {
         return new DefenderProfile(capped, dodgeTotal);
     }
 
+    /**
+     * Whether the player currently wears armor rejected by the shared use-requirement gate.
+     * Exposed to the symmetric combat service so its separate vanilla armor/enchantment mirror can
+     * honor the same deferred-removal safety boundary as the item-stat aggregate.
+     */
+    public boolean hasDeniedArmor(Player player) {
+        return aggregator.hasDeniedArmor(Objects.requireNonNull(player, "player"));
+    }
+
     private static final String DODGE_CHANCE_KEY = StatKeys.canonical("dodge-chance");
+
+    /**
+     * 防御率([0,1] の乗算軽減)のキー。2026-08-15 に {@code armor-defense-rate} から分離し、
+     * 同日中に防具値ステ自体を廃止してこのキーへ一本化した(アイテムもパークも同じ単位)。
+     *
+     * <p><b>経緯</b>: {@code armor-defense-rate} は<b>アイテム側ではバニラ防具値(点数)</b>で
+     * ({@code AttributeProjection} が {@code Attribute.ARMOR} へ ADD_NUMBER していた)、
+     * <b>パーク側では [0,1] の軽減率</b>という、互換性の無い2つの単位を1キーで運んでいた。
+     * ロア表示も {@code FLAT} 1本なので「防御力 +0.1」と「防具値 +8」が同じ書式で並び、
+     * さらに {@link com.trinityforge.stats.PercentStatNormalize} は(防具値のほうを守るために)
+     * このキーを%矯正の対象外にしていたので、パーク側に 10 と書くと 1000% 軽減として通っていた。
+     * 「防具値は直感的でない」というユーザー判断でアイテム側も 1点=1.5%軽減 で防御率へ換算し、
+     * 防具値ステは撤去した。
+     */
+    private static final String DEFENSE_RATE_KEY = StatKeys.canonical("defense-rate");
 
     /**
      * Maps a canonical defender stat map (a skill-tree perk addend or an addon contribution) to a
@@ -136,8 +160,9 @@ public final class PlayerDefenseResolver {
         double flatDefense = type == DamageType.PHYSICAL
                 ? (hasTyped ? stats.getOrDefault(physKey, 0.0) : stats.getOrDefault(legacyFlatKey, 0.0))
                 : (hasTyped ? stats.getOrDefault(magicKey, 0.0) : stats.getOrDefault(legacyFlatKey, 0.0));
+        double defenseRate = stats.getOrDefault(DEFENSE_RATE_KEY, 0.0);
         return new DefenseStats(
-                stats.getOrDefault(StatKeys.canonical("armor-defense-rate"), 0.0), // 防御率%
+                defenseRate,                                                        // 防御率%
                 resistance,                                                         // 該当耐性%
                 stats.getOrDefault(StatKeys.canonical("damage-reduction"), 0.0),    // 被ダメージ軽減%
                 flatDefense,                                                       // 守備力(flat: typed + legacy fallback)

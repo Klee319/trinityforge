@@ -3,6 +3,8 @@ package com.trinityforge.listeners;
 import com.trinityforge.active.FeedbackLayer;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.config.domains.MiningGimmickConfig;
+import com.trinityforge.gathering.ChainBreakExpGrant;
+import com.trinityforge.gathering.ChainBreakSupport;
 import com.trinityforge.gathering.GatheringToolMatcher;
 import com.trinityforge.mining.VeinMiningAlgorithm;
 import com.trinityforge.mining.VeinMiningAlgorithm.BlockPos;
@@ -58,9 +60,21 @@ public final class VeinMiningListener implements Listener {
     private final PlacedBlockTracker placedBlockTracker;
     private final FeedbackLayer feedback;
 
+    /** 連鎖破壊分の採取EXP付与口(2026-07-28)。null 可 — 旧5引数コンストラクタ経由では EXP のみ入らない。 */
+    private final ChainBreakExpGrant chainBreakExp;
+
+    /** @deprecated 連鎖破壊分のEXPが入らない旧配線。8引数版ではなく6引数版を使うこと。 */
+    @Deprecated
     public VeinMiningListener(DedicatedEffectsConfig dedicatedEffects, MiningGimmickConfig gimmickConfig,
                                CrossPluginItemResolver itemResolver, PlacedBlockTracker placedBlockTracker,
                                FeedbackLayer feedback) {
+        this(dedicatedEffects, gimmickConfig, itemResolver, placedBlockTracker, feedback, null);
+    }
+
+    public VeinMiningListener(DedicatedEffectsConfig dedicatedEffects, MiningGimmickConfig gimmickConfig,
+                               CrossPluginItemResolver itemResolver, PlacedBlockTracker placedBlockTracker,
+                               FeedbackLayer feedback, ChainBreakExpGrant chainBreakExp) {
+        this.chainBreakExp = chainBreakExp;
         this.dedicatedEffects = Objects.requireNonNull(dedicatedEffects, "dedicatedEffects");
         this.gimmickConfig = Objects.requireNonNull(gimmickConfig, "gimmickConfig");
         this.itemResolver = Objects.requireNonNull(itemResolver, "itemResolver");
@@ -153,16 +167,9 @@ public final class VeinMiningListener implements Listener {
                 pos -> world.getBlockAt(pos.x(), pos.y(), pos.z()).getType() == type,
                 gimmickConfig.veinMiningMaxExtraBlocks(tier));
 
-        int broken = 0;
-        for (BlockPos pos : extra) {
-            Block target = world.getBlockAt(pos.x(), pos.y(), pos.z());
-            // Re-check: a same-tick chain reaction (e.g. gravity-affected neighbor) may have already
-            // changed this block since the flood-fill snapshot was taken.
-            if (target.getType() == type) {
-                target.breakNaturally(tool);
-                broken++;
-            }
-        }
+        // 2026-07-28: 連鎖分の採取EXPと道具耐久は ChainBreakSupport が担う(旧実装は breakNaturally
+        // だけで、EXPも耐久も一切処理されていなかった)。
+        int broken = ChainBreakSupport.breakChain(player, world, extra, type, tool, chainBreakExp);
         if (broken > 0) {
             // 2026-07-25 §2 B-1: 発動フィードバック(控えめなactionbar、旧仕様の無告知を解消)。
             feedback.subtle(player, "一括破壊 x" + broken);

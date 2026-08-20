@@ -60,9 +60,31 @@
           split: { type: "item-stats", configId: "item-stats", categoryKey: "catalyst", itemCategory: "catalyst" } },
         { id: "__stats_spellbook__", label: "魔導書", kind: "split", badge: "tool",
           split: { type: "item-stats", configId: "item-stats", categoryKey: "spellbook", itemCategory: "spellbook" } },
+        // 2026-08-08 に threads.yml 編集用の専用ナビ項目「スレッド効果 (Ars)」を新設したが、
+        // 2026-08-09 に差し戻された(「Ars効果とそれ以外でスレッド分けないでほしい。もともとの
+        // スレッド設定の中で効果をセレクトメニューで追加可能な方式にしてほしい」)。
+        // 差し戻し直後に「thread-sets.yml が編集不能になる」という理由で thread-sets.yml 専用の
+        // 別ナビ(__thread_sets__)を新設したが、これも同じ2026-08-09に差し戻された
+        // (「スレッドを画面で分けるな」という指示の趣旨に反する、撤去した __thread_effects__ と
+        // 同じ形の分割を作り直しただけだったため)。
+        // threads.yml の potion-effect/potion-level/flight/slots や regen-bonus 等の効果パラメータ、
+        // および thread-sets.yml の N個装備セット効果(thresholds)は、すべてこのタブ(item-stats.yml
+        // の「スレッド」)のカード内から直接編集できる(split-views.js の
+        // o.type === "item-stats" && o.itemCategory === "thread" が threads.yml/thread-sets.yml も
+        // 一緒に読み込み・保存する。forms.js の renderThreadExtraFields が編集UIを描く)。
+        // スレッド関連のナビ項目はこの「スレッド」1つだけにする。
         { id: "__stats_thread__", label: "スレッド", kind: "split", badge: "tool",
           split: { type: "item-stats", configId: "item-stats", categoryKey: "thread", itemCategory: "thread" } }
       ]
+    },
+    // 2026-07-27新設: 「アイテムステータス」の直後に「機能アイテム」カテゴリを配置(ユーザー指示)。
+    // TF と Ars はユーザー目線で統合されているべきという方針から、Ars の特殊アイテム/ソースリンク/
+    // ソースジャーを「魔法」カテゴリから切り出してここへ集約する。この3件は registry 由来の config
+    // (CONFIG_SECTIONS 側の section: "functional-items")なので、views ではなく configSectionKey で
+    // renderSidebar 側に「ここへ registry config を差し込め」と伝える(専用ビューは持たない)。
+    {
+      title: "機能アイテム",
+      configSectionKey: "functional-items"
     },
     {
       title: "戦闘ツール",
@@ -94,10 +116,14 @@
   // ファイル自体(stats/food-gimmick.yml)は不変。保存は farming-gimmick 画面の getExtraSaves 経由。
   const FARMING_GIMMICK_COMPANION_IDS = ["food-gimmick"];
   // T8 (2026-07-26): 総合ステータス上限(combat/stat-caps.yml)は「プレイヤー基礎ステータス」画面の
-  // 「上限」タブへコンパニオン表示する。加えて「最終効率の上限 (gathering-efficiency)」は設定1個
+  // 「上限」タブへコンパニオン表示する。加えて「採集効率の上限 (gathering-efficiency)」(旧称:最終効率)は設定1個
   // (max-enchant-level)のためだけの独立カテゴリだったのを畳み、同じ「上限」タブへ統合したため、
   // こちらもサイドバー単独表示をやめる(ファイル自体・保存先キーパスは不変。後方互換用に残す)。
   const BASE_STATS_COMPANION_IDS = ["stat-caps", "gathering-efficiency"];
+  // T9 (2026-07-27): AFK(離席)判定(afk.yml)は独立タブを作らず「使用制限スイッチ」(use-requirements)
+  // 画面内へ AFK セクションとしてコンパニオン表示する(ユーザー指示)。ファイル自体(afk.yml)は不変。
+  // 保存は use-requirements 画面の getExtraSaves 経由(tf-crafting-features.js buildUseRequirementsForm)。
+  const USE_REQUIREMENTS_COMPANION_IDS = ["afk"];
   /**
    * コンパニオン config id → buildEditorForLoadedConfig(schema, data, opts) の opts キー。
    *
@@ -108,8 +134,11 @@
    * リビジョンだけ進む**ため、次の保存でマージ前の内容がそのまま書き戻る(=マージが無かったことになる)。
    * ここを一覧にして汎用分岐から引けるようにした。新しいコンパニオンを足したらここにも足すこと。
    *
-   * gathering-efficiency は「隠してあるだけで編集経路が無い」(max-enchant-level は stat-caps.yml 側の
-   * gathering-efficiency-max-enchant-level へ移設済み)ため、意図的に載せていない。
+   * gathering-efficiency は「隠してあるだけで画面から編集する経路が無い」ため、意図的に載せていない。
+   * (2026-07-26 に max-enchant-level を stat-caps.yml 側の
+   * gathering-efficiency-max-enchant-level へ移設したが、二重管理になるとの指摘で 2026-08-05 に
+   * その行と Java 側の読み取りを撤去した。上限は stats/gathering-efficiency.yml が唯一の設定箇所で、
+   * 現状 editor には UI が無い = yml 直編集。)
    */
   const COMPANION_OPTION_KEYS = {
     "glyph-damage-boost": "glyphDamageBoostData",
@@ -118,7 +147,14 @@
     "enchant-luck": "enchantLuckData",
     "alchemy-quality": "alchemyQualityData",
     "stat-caps": "statCapsData",
-    "ars-config": "arsConfigData"
+    "ars-config": "arsConfigData",
+    "afk": "afkData",
+    // 2026-07-28: 「怪しいブロックの再生成」を掘削ギミック画面へ移設したため、
+    // mining-gimmick.yml が掘削画面のコンパニオンになった。
+    "mining-gimmick": "miningGimmickData",
+    // 2026-07-27: 「特殊アイテム」(functional-items)画面が TF の skill_node_lock/skill_tree_reset
+    // (catalog.yml側の該当2件のみ)をコンパニオンとして統合表示するため。
+    "catalog": "catalogData"
   };
   // 品質定義タブへ統合表示するためサイドバー個別一覧から隠す config。
   //   craft-quality(mode/drop) は quality ビュー内に統合し、保存時に一緒に PUT する。
@@ -133,9 +169,10 @@
   const HIDDEN_CONFIG_IDS = [
     QUALITY_COMPANION_ID, ...PROGRESSION_CONFIG_IDS, ...SPLIT_HIDDEN_IDS, ...GLYPH_COMPANION_IDS,
     ...BREW_GIMMICK_COMPANION_IDS, ...ENCHANT_GIMMICK_COMPANION_IDS, ...FARMING_GIMMICK_COMPANION_IDS,
-    ...BASE_STATS_COMPANION_IDS
+    ...BASE_STATS_COMPANION_IDS, ...USE_REQUIREMENTS_COMPANION_IDS
   ];
-  const ALL_TOOL_VIEWS = NAV_SECTIONS.reduce((acc, s) => acc.concat(s.views), []);
+  // configSectionKey のみを持つ NAV_SECTIONS エントリ(views 無し)を reduce に混ぜても安全にする。
+  const ALL_TOOL_VIEWS = NAV_SECTIONS.reduce((acc, s) => acc.concat(s.views || []), []);
   // config をドメイン単位でまとめるセクション定義。
   // level:"main" → 青色メイン見出し / level:"sub" → 灰色小文字サブ見出し。
   // children がある main は見出しのみで、実 config は子サブへ振る。
@@ -147,8 +184,10 @@
       order: ["quality", "quality-tiers", "lore", "player-base-stats", "use-requirements"]
     },
     {
+      // 2026-07-27: functional-items / sourcelinks / sourcejars は新設の「機能アイテム」カテゴリ
+      // (NAV_SECTIONS の configSectionKey: "functional-items" 経由)へ移動したため order から外す。
       key: "recipes-magic", title: "魔法", level: "main",
-      order: ["items", "functional-items", "glyphs", "ars-config", "ban", "sourcelinks", "sourcejars"]
+      order: ["items", "glyphs", "ars-config", "ban"]
     },
     {
       key: "skilltree", title: "スキルツリー", level: "main",
@@ -167,6 +206,7 @@
       // (HIDDEN_CONFIG_IDS 経由でサイドバーから隠すので、この order にも含めない)。
       // enchant-gimmick / brew-gimmick は「その他ギミック」(crafting-features) から切り出した新タブ。
       order: [
+            // level-broadcast は 2026-08-17 に「その他」へ移動(ユーザー指示)。
             "skill-exp", "skills-ars-magic", "skills-ars-smithing",
             "gacha",
             "mining-gimmick", "smithing-gimmick", "woodcutting-gimmick", "digging-gimmick", "farming-gimmick",
@@ -177,17 +217,26 @@
     },
     {
       key: "other", title: "その他", level: "main",
-      order: ["role-buffs", "special-rewards", "achievements", "collection"]
+      order: ["role-buffs", "special-rewards", "achievements", "collection", "level-broadcast"]
     },
     {
       key: "mobs-dungeon", title: "モブダンジョン", level: "main",
       order: [
-        "mob-types", "mob-profiles", "mob-import", "hate-rates",
-        "dungeon-gates", "dungeon-themes"
+        "mob-types", "mob-profiles", "mob-import", "mob-abilities", "hate-rates",
+        "dungeon-gates", "dungeon-themes", "loot-tables"
       ]
     }
   ];
   const FALLBACK_SECTION_KEY = "skill-gimmicks";
+  // 2026-07-27新設: NAV_SECTIONS 側の「機能アイテム」グループ(configSectionKey: "functional-items")
+  // が差し込む registry config セクション。CONFIG_SECTIONS 本体には含めない(あちらは「専用ビューが
+  // 先に描画された後、config を並べる」ループ向けで、この3件は専用ビュー群の中に割り込ませたいため)。
+  // level: "flat" は renderConfigSection に「見出しは呼び出し元(NAV_SECTIONS側)が既に出した」と伝え、
+  // 自前の見出し描画をスキップさせる印(cfg:main / sub のどちらでもない第三の扱い)。
+  const FUNCTIONAL_ITEMS_NAV_SECTION = {
+    key: "functional-items", title: "機能アイテム", level: "flat",
+    order: ["functional-items", "sourcelinks", "sourcejars"]
+  };
 
   async function api(method, url, body) {
     const opts = { method, headers: { "Content-Type": "application/json" } };
@@ -227,6 +276,64 @@
    * 影響を与えない)。
    * どちらかの取得に失敗しても、取れた方だけで候補を返す。
    */
+  /**
+   * combat/mob-abilities.yml のテンプレートID一覧（mob-overrides の abilities: 欄の候補、2026-07-31）。
+   *
+   * <p>loadConfigCompanion ではなく直接 GET しているのは、これが<b>読み取り専用の候補源</b>で
+   * 保存時のマージ対象ではないため（COMPANION_OPTION_KEYS に載せると存在しない opts キーを
+   * 渡すことになる。gathering-efficiency と同じ理由）。読めなくても空配列で続行し、
+   * abilities 欄は自由入力として使える。
+   */
+  async function fetchMobAbilityIds() {
+    try {
+      const r = await api("GET", "/api/config/mob-abilities");
+      if (r && r.data) {
+        rememberRevision("mob-abilities", r.revision);
+        rememberBase("mob-abilities", r.data);
+        const abilities = r.data.abilities;
+        if (abilities && typeof abilities === "object" && !Array.isArray(abilities)) {
+          // 選択候補が技名(display-name)ではなく生のテンプレートIDだけで並んでいたため、
+          // 同じ辞書取得のついでに id -> display-name の対応表も作っておく
+          // (mob-forms.js の abilityIdSelect が参照する)。
+          const labels = {};
+          for (const [id, entry] of Object.entries(abilities)) {
+            const dn = entry && typeof entry === "object" ? entry["display-name"] : null;
+            if (dn) labels[id] = String(dn);
+          }
+          window.MOB_ABILITY_LABELS_JA = labels;
+          return Object.keys(abilities);
+        }
+      }
+    } catch (_) { /* optional */ }
+    return [];
+  }
+
+  /**
+   * threads.yml のスレッドを custom: 候補へ積む（2026-07-31）。
+   *
+   * <p>スレッドアイテムのIDは {@code thread_<threads.yml のキー>} で、catalog.yml にも
+   * materials.yml にも載っていない。そのため buildCatalogCandidates だけでは
+   * <b>厳選スレッドを候補から選べない</b>（構造物ルート抽選の主役なのに選べない）。
+   * ここも読み取り専用の候補源なので loadConfigCompanion ではなく直接 GET する
+   * （COMPANION_OPTION_KEYS に載せると保存時のマージ対象になってしまう。
+   * gathering-efficiency と同じ理由）。
+   */
+  async function addThreadCustomCandidates() {
+    try {
+      const r = await api("GET", "/api/config/threads");
+      const threads = r && r.data && r.data.threads;
+      if (!threads || typeof threads !== "object" || Array.isArray(threads)) return;
+      const entries = Object.entries(threads).map(([id, entry]) => ({
+        id: "thread_" + id,
+        label: entry && typeof entry === "object" && entry.display_name
+          ? String(entry.display_name) : ("thread_" + id)
+      }));
+      if (entries.length && typeof window.setCustomItemCandidates === "function") {
+        window.setCustomItemCandidates(entries, { replace: false });
+      }
+    } catch (_) { /* optional */ }
+  }
+
   async function fetchCatalogCandidatesWithMaterials() {
     let catalogData = null;
     let materialsData = null;
@@ -242,9 +349,51 @@
       const mr = await api("GET", "/api/config/materials");
       if (mr && mr.data) materialsData = mr.data;
     } catch (_) { /* optional */ }
-    return typeof window.buildCatalogCandidates === "function"
-      ? window.buildCatalogCandidates(catalogData || {}, materialsData || {})
+    // 2026-07-30: 特殊アイテム(ソースベリー等)/ソースジャー/触媒も候補に載せる。
+    // どれか1本でも取得に失敗しても候補作りは続行する(欠けるのはその1本分だけ)。
+    // 2026-08-18 (W-52・機構C): sourcelinks (material/display-name を両方持つのに一度も
+    // 読まれていなかった) を追加。catalog-candidates.js の EXTRA_SOURCES と対で更新すること。
+    const extraData = {};
+    const EXTRA_CONFIGS = [
+      ["functionalItems", "functional-items"],
+      ["sourcejars", "sourcejars"],
+      ["sourcelinks", "sourcelinks"],
+      ["catalysts", "spellbooks"]
+    ];
+    await Promise.all(EXTRA_CONFIGS.map(async ([key, configId]) => {
+      try {
+        const r = await api("GET", "/api/config/" + configId);
+        if (r && r.data) extraData[key] = r.data;
+      } catch (_) { /* optional */ }
+    }));
+    const candidates = typeof window.buildCatalogCandidates === "function"
+      ? window.buildCatalogCandidates(catalogData || {}, materialsData || {}, extraData)
       : [];
+    // 取得したついでに custom: 候補としても共有登録しておく。materialInput は
+    // window.CUSTOM_ITEM_CANDIDATES をフォールバック候補源にしているので、
+    // ここで積んでおけば同一セッション内の他画面でもカスタムアイテムが選べる。
+    if (candidates.length && typeof window.setCustomItemCandidates === "function") {
+      window.setCustomItemCandidates(candidates, { replace: false });
+    }
+    return candidates;
+  }
+
+  /**
+   * 2026-07-28: 「醸造などカスタムアイテムも適用できるべき箇所でカスタムアイテムが
+   * セレクトメニューにない」への対処。materialInput({allowCustom:true}) はカスタム候補を
+   * グローバル window.CUSTOM_ITEM_CANDIDATES から引くが、これを積むのは
+   * fetchCatalogCandidatesWithMaterials を明示的に呼ぶ一部の画面だけだった。そのため
+   * 醸造ギミック(醸造解放の材料)やエンチャントギミック等を直接開くと候補が空のままで、
+   * 「custom:<ID> を手入力しないと設定できない」状態になっていた。
+   * 画面種別ごとに呼び出しを足すと必ず漏れるので、エディタ構築の共通入口で一度だけ読む。
+   * 取得失敗・カタログ空でもバニラ素材だけで編集は続行できるので、常に握り潰す。
+   */
+  let customItemCandidatePromise = null;
+  function ensureCustomItemCandidates() {
+    if (!customItemCandidatePromise) {
+      customItemCandidatePromise = fetchCatalogCandidatesWithMaterials().catch(() => []);
+    }
+    return customItemCandidatePromise;
   }
 
   /**
@@ -398,23 +547,38 @@
       const view = ALL_TOOL_VIEWS.find((v) => v.id === state.current);
       if (!view || !view.split) return;
       const sp = view.split;
-      main.innerHTML = "";
-      if (sp.type === "thread-bundle") {
-        const threadsData = configId === "threads" ? mergedData
-          : (typeof state.editor.getData === "function" ? state.editor.getData() : (state.baseSnapshots.threads || {}));
-        let setsData = state.baseSnapshots["thread-sets"] || {};
-        if (configId === "thread-sets") setsData = mergedData;
-        else if (typeof state.editor.getExtraSaves === "function") {
-          const extras = state.editor.getExtraSaves();
-          const found = extras.find((e) => e.id === "thread-sets");
-          if (found) setsData = found.data;
+      // 2026-07-29: ここで main を空にしてから下の else で return する経路があり、
+      // 「今開いている画面(catalog/item-stats)とは別の config がマージされた」ときに
+      // アイテム一覧が丸ごと消えて白紙になっていた(state.editor は生きているので実害なし=
+      // ユーザー報告どおり)。クリアは差し替え直前だけ行う。
+      if (sp.type === "item-stats" && sp.itemCategory === "thread" &&
+        (sp.configId === configId || configId === "threads" || configId === "thread-sets")) {
+        // アイテムステータス「スレッド」タブは item-stats.yml / threads.yml / thread-sets.yml の
+        // 3ファイルを1画面で扱う(2026-08-09 統合)。どれがマージされても、他の2つは編集中の値を
+        // 引き継ぐ(再取得すると未保存編集を捨ててしまう)。
+        const catalogCandidates = await fetchCatalogCandidatesWithMaterials();
+        const itemStatsData = sp.configId === configId
+          ? mergedData
+          : (typeof state.editor.getData === "function" ? state.editor.getData() : (state.baseSnapshots[sp.configId] || {}));
+        function resolveExtra(id) {
+          if (configId === id) return mergedData;
+          if (typeof state.editor.getExtraSaves === "function") {
+            const found = state.editor.getExtraSaves().find((e) => e.id === id);
+            if (found) return found.data;
+          }
+          return state.baseSnapshots[id] || {};
         }
+        const threadsData = resolveExtra("threads");
+        const threadSetsData = resolveExtra("thread-sets");
         state.editor = window.buildSplitConfigView({
-          type: "thread-bundle",
-          configId: "threads",
-          categoryKey: sp.categoryKey || "thread",
+          type: sp.type,
+          configId: sp.configId,
+          categoryKey: sp.categoryKey || "default",
+          itemCategory: sp.itemCategory,
+          data: itemStatsData,
+          catalogCandidates,
           threadsData,
-          threadSetsData: setsData
+          threadSetsData
         });
       } else if (sp.configId === configId) {
         let catalogCandidates = [];
@@ -459,8 +623,10 @@
           counterpartDirty
         });
       } else {
+        // 表示中の config ではないものがマージされた: 画面は触らない(消さない)。
         return;
       }
+      main.innerHTML = "";
       main.appendChild(state.editor.element);
       document.getElementById("save-btn").disabled = false;
       // マージ後は「ディスク未保存」として残すため syncBase しない
@@ -539,6 +705,8 @@
   /** selectConfig と同じスキーマ分岐でエディタを組み立てる（マージ再適用用）。 */
   async function buildEditorForLoadedConfig(schema, data, opts) {
     const options = opts || {};
+    // どの画面でも materialInput のカスタム候補が空にならないよう、共通入口で一度だけ読む。
+    await ensureCustomItemCandidates();
     switch (schema) {
       case "item-stats": {
         const catalogCandidates = await fetchCatalogCandidatesWithMaterials();
@@ -546,7 +714,11 @@
       }
       case "catalog": return window.buildCatalogForm(data);
       case "external-items": return window.buildExternalItemsForm(data);
-      case "tf-gacha": return window.buildGachaForm(data);
+      case "tf-gacha": {
+        // 券IDはカタログ品だけが有効なので、候補を渡してセレクトにする。
+        const catalogCandidates = await fetchCatalogCandidatesWithMaterials();
+        return window.buildGachaForm(data, { catalogCandidates });
+      }
       case "ars-thread-sets": return window.buildThreadSetsForm(data);
       case "ars-recipes": return window.buildRecipesForm(data, { onlyEffects: true });
       case "ars-materials": return window.buildMaterialsForm(data);
@@ -571,6 +743,8 @@
       }
       case "tf-quality-tiers": return window.buildQualityTiersForm(data);
       case "tf-skill-exp": {
+        // 2026-07-28: EXP テーブルの素材セレクトにカスタムアイテム(catalog.yml / materials.yml)を
+        // 出すための候補は、上の ensureCustomItemCandidates() で共通に読み込み済み。
         const progression = options.progression || {};
         if (!options.progression) {
           for (const skillId of PROGRESSION_SKILL_IDS) {
@@ -606,14 +780,28 @@
       case "ars-spellbooks": return window.buildSpellbooksForm(data);
       case "tf-mob-types": return window.buildMobTypesForm(data);
       case "tf-mob-level-table": return window.buildMobLevelTableForm(data);
-      case "tf-dungeon-gates": return window.buildDungeonGatesForm(data);
+      case "tf-dungeon-gates": {
+        const catalogCandidates = await fetchCatalogCandidatesWithMaterials();
+        return window.buildDungeonGatesForm(data, { catalogCandidates });
+      }
       case "tf-dungeon-themes": return window.buildDungeonThemesForm(data);
       case "tf-mob-import": return window.buildMobImportForm(data);
       case "tf-mob-profiles": return window.buildMobProfilesForm(data);
+      case "tf-mob-abilities": return window.buildMobAbilitiesForm(data);
+      case "ars-loot-tables": {
+        // entries[].item は Material / custom:<ID> の両方を取る。custom: の候補源は
+        // カタログ + 中間素材 + スレッド。スレッドは catalog/materials のどちらにも
+        // 載っていないので threads.yml から別途積む(積まないと厳選スレッドを選べない)。
+        await fetchCatalogCandidatesWithMaterials();
+        await addThreadCustomCandidates();
+        return window.buildLootTablesForm(data);
+      }
       case "tf-mob-overrides": {
         // drops の item は Material 名だけでなく custom:<カタログID> も取れるので、
         // カタログ候補を渡してセレクトメニューから選べるようにする (2026-07-26)。
         const catalogCandidates = await fetchCatalogCandidatesWithMaterials();
+        // 2026-07-31: abilities: の候補を combat/mob-abilities.yml から読む。
+        window.MOB_ABILITY_IDS = await fetchMobAbilityIds();
         return window.buildMobOverridesForm(data, { catalogCandidates });
       }
       case "tf-hate-rates": return window.buildHateRatesForm(data);
@@ -630,7 +818,12 @@
         const catalogCandidates = await fetchCatalogCandidatesWithMaterials();
         return window.buildWoodcuttingGimmickForm(data, { craftingFeaturesData, catalogCandidates });
       }
-      case "tf-digging-gimmick": return window.buildDiggingGimmickForm(data);
+      case "tf-digging-gimmick": {
+        // 2026-07-28: 「怪しいブロックの再生成」(考古学=ブラシ)を採掘タブからここへ移設。
+        // 保存先ファイルは stats/mining-gimmick.yml のままなのでコンパニオンとして読み込む。
+        const miningGimmickData = await loadConfigCompanion("mining-gimmick", "miningGimmickData", options);
+        return window.buildDiggingGimmickForm(data, { miningGimmickData });
+      }
       case "tf-farming-gimmick": {
         // T6 (2026-07-26): 食事ギミック(food-gimmick.yml)をこのタブ内へ統合表示。ファイルは別のまま。
         const foodGimmickData = await loadConfigCompanion("food-gimmick", "foodGimmickData", options);
@@ -689,42 +882,63 @@
         // 醸造ギミック/エンチャントギミックタブへ表示移設したため、このタブではもう読み込まない。
         return window.buildCraftingFeaturesForm(data, { catalogCandidates, arsConfigData });
       }
-      case "tf-use-requirements": return window.buildUseRequirementsForm(data);
+      case "tf-use-requirements": {
+        // T9 (2026-07-27): AFK(離席)判定(afk.yml)をこのタブ内へ統合表示。ファイルは別のまま。
+        // farming-gimmick が food-gimmick を読む経路(loadConfigCompanion)と完全に揃える
+        // (options 優先 → state.baseSnapshots キャッシュ → GET して rememberRevision/rememberBase)。
+        const afkData = await loadConfigCompanion("afk", "afkData", options);
+        return window.buildUseRequirementsForm(data, { afkData });
+      }
       case "tf-special-rewards": return window.buildSpecialRewardsForm(data);
+      case "tf-level-broadcast": return window.buildLevelBroadcastForm(data);
       case "tf-achievements": {
-        const [specialRewardIds, catalogCandidates, collectionData] = await Promise.all([
-          loadSpecialRewardIds(),
-          (async () => {
-            try {
-              const cr = await api("GET", "/api/config/catalog");
-              if (cr && cr.data) {
-                rememberRevision("catalog", cr.revision);
-                rememberBase("catalog", cr.data);
-                return typeof window.buildCatalogCandidates === "function"
-                  ? window.buildCatalogCandidates(cr.data) : [];
-              }
-            } catch (_) { /* optional */ }
-            return [];
-          })(),
+        // 2026-07-31: ここだけ候補を catalog.yml 単体から作っていたため、ArsPaper materials.yml
+        // 由来の品(ダンジョンの印/次元の破片/ガチャ券…)が構造的に候補へ入らず、図鑑対象・付与
+        // アイテムのセレクトが生ID表示になっていた(実測 55 件中 31 件)。兄弟の tf-collection は
+        // 同じファイル内で fetchCatalogCandidatesWithMaterials() を使っており、画面ごとに流儀が
+        // 違うことがこのバグの温床だったので、共通の候補源へ揃える。
+        // ⚠️ ensureCustomItemCandidates() は使わない。あれは module スコープの promise を
+        // 一度だけ解決して保持する(無効化経路が無い)ので、カタログ画面で新規アイテムを追加して
+        // 保存してもこの画面のセレクトには出てこない(ハードリロードするまで)。
+        // 追加 GET 1回で鮮度を取る方を選び、兄弟の tf-collection と流儀を揃える。
+        const [specialRewards, catalogCandidates, collectionData] = await Promise.all([
+          loadSpecialRewards(),
+          fetchCatalogCandidatesWithMaterials(),
           (async () => { try { const r = await api("GET", "/api/config/collection"); return r && r.data ? r.data : {}; } catch (_) { return {}; } })()
         ]);
-        return window.buildAchievementsForm(data, { specialRewardIds, catalogCandidates, collectionData });
+        return window.buildAchievementsForm(data, {
+          specialRewardIds: specialRewards.ids,
+          specialRewardLabels: specialRewards.labels,
+          catalogCandidates,
+          collectionData
+        });
       }
       case "tf-collection": {
         // categories-items は catalogEntryControl (catalogItemSuggest) 経由。
         // ArsPaper materials.yml も収集物として自然に選べるべきなので共通ヘルパーを使う。
-        const [specialRewardIds, catalogCandidates] = await Promise.all([
-          loadSpecialRewardIds(),
+        const [specialRewards, catalogCandidates] = await Promise.all([
+          loadSpecialRewards(),
           fetchCatalogCandidatesWithMaterials()
         ]);
-        return window.buildCollectionForm(data, { specialRewardIds, catalogCandidates });
+        return window.buildCollectionForm(data, {
+          specialRewardIds: specialRewards.ids,
+          specialRewardLabels: specialRewards.labels,
+          catalogCandidates
+        });
       }
       case "ars-sourcejars": return window.buildSourceJarsForm(data);
       case "ars-sourcelinks": return window.buildSourceLinksForm(data);
       // 2026-07-25: 機能アイテムの表示名/lore/enchant-glow/material/recipe は
-      // functional-items.yml 単一ファイルに統合済み。他ファイル(catalog.yml/items.yml)への
-      // companion読み込みは不要(custom:候補サジェストは RECIPES_UI.ensureCustomDatalist が担う)。
-      case "ars-functional-items": return window.buildFunctionalItemsForm(data);
+      // functional-items.yml 単一ファイルに統合済み。他ファイル(items.yml)への companion読み込みは
+      // 不要(custom:候補サジェストは RECIPES_UI.ensureCustomDatalist が担う)。
+      // 2026-07-27: 画面名は「特殊アイテム」にリネーム。TF の skill_node_lock/skill_tree_reset
+      // (catalog.yml の該当2件のみ)をこの画面へ統合するため catalog.yml をコンパニオンとして読み込む
+      // (afk / crafting-features と同じ loadConfigCompanion 経由。保存は getExtraSaves でロスレスに
+      // catalog.yml 全体を書き戻す)。
+      case "ars-functional-items": {
+        const catalogData = await loadConfigCompanion("catalog", "catalogData", options);
+        return window.buildFunctionalItemsForm(data, { catalogData });
+      }
       default: return window.buildGenericEditor(data);
     }
   }
@@ -868,20 +1082,49 @@
 
   // アチーブメント/図鑑の rewards.special 候補として、special-rewards.yml の
   // titles/particles/particle-seeds キーを和集合で取得する (未作成なら空配列)。
-  async function loadSpecialRewardIds() {
+  //
+  // 2026-07-29: ID だけを返していたため、報酬セレクトが new_title / new_particle のような
+  // 生IDの羅列になっていた(ユーザー報告「セレクトメニューの名称が全てID形式」)。
+  // 種別(称号/パーティクル)と表示名をラベル辞書として一緒に返し、セレクト側で
+  // primary=日本語 / secondary=ID に出し分ける。
+  const SPECIAL_REWARD_GROUPS = [
+    ["titles", "称号"],
+    ["particles", "パーティクル"],
+    ["particle-seeds", "パーティクルシード"]
+  ];
+  function specialRewardName(group, raw) {
+    const entry = raw && typeof raw === "object" ? raw : {};
+    if (group === "titles") {
+      // 称号の display は MiniMessage。タグを落としたプレーン文字を主表示にする。
+      return typeof window.stripDisplayNamePlain === "function"
+        ? window.stripDisplayNamePlain(entry.display || "")
+        : String(entry.display || "");
+    }
+    const particle = entry.particle ? String(entry.particle) : "";
+    if (!particle) return "";
+    return (window.PARTICLE_LABELS_JA && window.PARTICLE_LABELS_JA[particle]) || particle;
+  }
+  async function loadSpecialRewards() {
     try {
       const r = await api("GET", "/api/config/special-rewards");
       rememberRevision("special-rewards", r.revision);
       const d = (r.data && typeof r.data === "object") ? r.data : {};
       rememberBase("special-rewards", d);
-      const ids = new Set();
-      for (const group of ["titles", "particles", "particle-seeds"]) {
+      const ids = [];
+      const labels = {};
+      for (const [group, kind] of SPECIAL_REWARD_GROUPS) {
         const map = d[group];
-        if (map && typeof map === "object") for (const k of Object.keys(map)) ids.add(k);
+        if (!map || typeof map !== "object") continue;
+        for (const [id, raw] of Object.entries(map)) {
+          if (Object.prototype.hasOwnProperty.call(labels, id)) continue;
+          ids.push(id);
+          labels[id] = { kind, name: specialRewardName(group, raw) };
+        }
       }
-      return [...ids].sort();
+      ids.sort();
+      return { ids, labels };
     } catch (_) {
-      return [];
+      return { ids: [], labels: {} };
     }
   }
 
@@ -1037,6 +1280,72 @@
     });
   }
 
+  /* R (2026-08-04): 狭い画面ではサイドバー(300px固定)が本文をほぼ潰すので、CSS 側で
+     オフキャンバス・ドロワーに切り替える。開閉状態は body のクラス1つで表現し、
+     位置やアニメーションは CSS に任せる(JS が px を持たないので閾値の二重管理が起きない)。
+     閾値だけは「ドロワーの時だけ選択で閉じる」判定に必要なので matchMedia で CSS と共有する。 */
+  const SIDEBAR_DRAWER_MQ = window.matchMedia("(max-width: 900px)");
+
+  function isSidebarDrawerMode() {
+    return SIDEBAR_DRAWER_MQ.matches;
+  }
+
+  function setSidebarOpen(open) {
+    const btn = document.getElementById("sidebar-toggle-btn");
+    const scrim = document.getElementById("sidebar-scrim");
+    document.body.classList.toggle("sidebar-open", open);
+    if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
+    if (scrim) {
+      if (open) scrim.removeAttribute("hidden");
+      else scrim.setAttribute("hidden", "");
+    }
+  }
+
+  function bindSidebarDrawer() {
+    const btn = document.getElementById("sidebar-toggle-btn");
+    const scrim = document.getElementById("sidebar-scrim");
+    if (!btn || btn._drawerBound) return;
+    btn._drawerBound = true;
+
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setSidebarOpen(!document.body.classList.contains("sidebar-open"));
+    });
+    if (scrim) scrim.addEventListener("click", () => setSidebarOpen(false));
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    });
+
+    /* メニュー項目は起動後に動的生成されるので個別バインドできない。委譲で拾う。
+       カテゴリの折りたたみトグル(.nav-group-toggle)で閉じてしまうと畳んだ結果が見えないため、
+       実際に画面が切り替わる .nav-item のクリックだけを閉じる契機にする。 */
+    const nav = document.getElementById("config-list");
+    if (nav) {
+      nav.addEventListener("click", (e) => {
+        if (!isSidebarDrawerMode()) return;
+        if (e.target.closest(".nav-item")) setSidebarOpen(false);
+      });
+    }
+
+    /* 画面を広げてドロワー閾値を抜けたら開閉状態を捨てる。放置すると
+       (1) サイドバーは常時表示なのに aria-expanded="true" が residual で残る
+       (2) 再び狭めた瞬間にメニューが勝手に開いた状態で現れる
+       の2つが起きる。matchMedia の change だけに頼らず resize でも同じ関数を通すのは、
+       change が発火しない環境を実測で踏んだため(取りこぼすと上の residual が残る)。
+       drawer モードでない かつ 開いている ときだけ実際に動くので resize 連打でも軽い。 */
+    const syncDrawerToViewport = () => {
+      if (isSidebarDrawerMode()) return;
+      if (!document.body.classList.contains("sidebar-open")) return;
+      setSidebarOpen(false);
+    };
+    if (typeof SIDEBAR_DRAWER_MQ.addEventListener === "function") {
+      SIDEBAR_DRAWER_MQ.addEventListener("change", syncDrawerToViewport);
+    } else if (typeof SIDEBAR_DRAWER_MQ.addListener === "function") {
+      SIDEBAR_DRAWER_MQ.addListener(syncDrawerToViewport);
+    }
+    window.addEventListener("resize", syncDrawerToViewport);
+  }
+
   async function saveSettings() {
     const inputs = document.querySelectorAll("#basepaths .path-input");
     const basePaths = {};
@@ -1089,6 +1398,18 @@
     if (!warnings.length) return "";
     return `\n[CMD注意] ${warnings.join(" / ")}`;
   }
+
+  // PUT /api/config/:id が返す editorMetaWarnings (_editor.categories/itemTabs/orders の
+  // 宙ぶらりんid、保存はブロックしない) をまとめる。cmdWarningsNote と同じ作り。
+  function editorMetaWarningsNote(results) {
+    const arr = (Array.isArray(results) ? results : [results]).filter(Boolean);
+    const warnings = [];
+    for (const r of arr) {
+      if (Array.isArray(r.editorMetaWarnings)) warnings.push(...r.editorMetaWarnings);
+    }
+    if (!warnings.length) return "";
+    return `\n[表示メタ注意] ${warnings.join(" / ")}`;
+  }
   async function loadConfigs() {
     const r = await api("GET", "/api/configs");
     state.configs = r.configs;
@@ -1131,22 +1452,10 @@
       return !collapsed;
     }
 
-    // 専用ビュー群 (はじめに / 戦闘ツール) をグループ表示。
-    for (const section of NAV_SECTIONS) {
-      if (!appendGroupTitle(`nav:${section.title}`, section.title)) continue;
-      for (const view of section.views) {
-        nav.appendChild(h("button", {
-          class: `nav-item ${state.current === view.id ? "active" : ""}`,
-          type: "button",
-          onclick: () => selectTool(view)
-        }, [
-          h("span", { class: "nav-item-label", text: view.label })
-        ]));
-      }
-    }
-
     // config をドメイン (CONFIG_SECTIONS) ごとにまとめて表示。
     // 「アイテム系config」ラッパーは置かず、各ドメインをメイン見出しとして並べる。
+    // NAV_SECTIONS 側の configSectionKey (「機能アイテム」グループ) からも参照するため、
+    // 専用ビュー群のループより先にバケツ分けと描画ヘルパーを用意しておく。
     const buckets = {};
     function collectSectionKeys(sections) {
       for (const section of sections) {
@@ -1155,6 +1464,7 @@
       }
     }
     collectSectionKeys(CONFIG_SECTIONS);
+    collectSectionKeys([FUNCTIONAL_ITEMS_NAV_SECTION]);
 
     for (const c of state.configs) {
       if (HIDDEN_CONFIG_IDS.includes(c.id)) continue;
@@ -1184,9 +1494,14 @@
       }
     }
 
+    // level: "flat" は見出しを自前で出さない(呼び出し元が既に nav:<title> の見出しを描画済み)。
+    // NAV_SECTIONS の configSectionKey 経由の呼び出し専用。
     function renderConfigSection(section) {
-      const isMain = section.level !== "sub";
-      if (isMain) {
+      const isFlat = section.level === "flat";
+      const isMain = !isFlat && section.level !== "sub";
+      if (isFlat) {
+        // 見出しなし・items だけ並べる。
+      } else if (isMain) {
         // メイン見出しは折りたたみ可能。折りたたみ中はサブ見出し・項目ごと隠す。
         if (!appendGroupTitle(`cfg:${section.key}`, section.title)) return;
       } else {
@@ -1199,6 +1514,27 @@
       const items = sortByOrder(buckets[section.key] || [], section.order);
       if (!items.length) return;
       appendConfigItems(items);
+    }
+
+    // 専用ビュー群 (はじめに / アイテムカタログ / アイテムステータス / 機能アイテム / 戦闘ツール /
+    // リソースパック) をグループ表示。configSectionKey を持つエントリ(「機能アイテム」)は
+    // 専用ビューを持たず、代わりに registry 由来の config (FUNCTIONAL_ITEMS_NAV_SECTION) を
+    // このグループ見出しの直下へ差し込む。
+    for (const section of NAV_SECTIONS) {
+      if (!appendGroupTitle(`nav:${section.title}`, section.title)) continue;
+      if (section.configSectionKey === "functional-items") {
+        renderConfigSection(FUNCTIONAL_ITEMS_NAV_SECTION);
+        continue;
+      }
+      for (const view of section.views) {
+        nav.appendChild(h("button", {
+          class: `nav-item ${state.current === view.id ? "active" : ""}`,
+          type: "button",
+          onclick: () => selectTool(view)
+        }, [
+          h("span", { class: "nav-item-label", text: view.label })
+        ]));
+      }
     }
 
     for (const section of CONFIG_SECTIONS) renderConfigSection(section);
@@ -1262,6 +1598,24 @@
     return true;
   }
 
+  // 2026-07-29: 画面切替の競合ガード。
+  // selectTool / selectConfig は「main を空にする → await で config を取得 → 追記」という
+  // 順で動くため、取得中にもう一度切り替えると 2 つの呼び出しが両方とも最後の追記まで
+  // 走り、同じ main に 2 つのビューが並ぶ(= カテゴリタブから下がページ内に複製される)。
+  // アイテムカタログ/アイテムステータスは 1 画面で 3 本 API を叩くので特に踏みやすい。
+  // 切替のたびに世代番号を進め、追記直前に「自分が最新か」を確かめる。
+  let navSeq = 0;
+  function beginNav() { return ++navSeq; }
+  /** 追記直前の共通処理。古い呼び出しなら false を返して何も描かない。 */
+  function mountMain(token, el) {
+    if (token !== navSeq) return false;
+    const main = document.getElementById("editor-area");
+    if (!main) return false;
+    main.innerHTML = "";
+    main.appendChild(el);
+    return true;
+  }
+
   /** タブ(サイドメニュー)切替時はスクロールを最上部へ戻す (前タブの位置を引き継がない)。 */
   function resetMainScroll() {
     const mainPane = document.querySelector(".main");
@@ -1271,6 +1625,7 @@
   // 専用ビュー(ホーム / 使い方 / 共通変数 / シミュレータ)へ切り替える。
   async function selectTool(view) {
     if (!(await confirmLeaveIfDirty(view.id))) return;
+    const navToken = beginNav();
     state.current = view.id;
     state.kind = view.kind;
     state.editor = null;
@@ -1309,65 +1664,66 @@
       try {
         const sp = view.split || {};
         const loaded = {};
-        if (sp.type === "thread-bundle") {
-          const tr = await api("GET", "/api/config/threads");
-          const sr = await api("GET", "/api/config/thread-sets");
-          rememberRevision("threads", tr.revision);
-          rememberRevision("thread-sets", sr.revision);
-          const threadsData = (tr.data && typeof tr.data === "object") ? tr.data : {};
-          const threadSetsData = (sr.data && typeof sr.data === "object") ? sr.data : {};
-          rememberBase("threads", threadsData);
-          rememberBase("thread-sets", threadSetsData);
-          state.editor = window.buildSplitConfigView({
-            type: "thread-bundle",
-            configId: "threads",
-            categoryKey: sp.categoryKey || "thread",
-            threadsData,
-            threadSetsData
-          });
-          syncBaseFromEditor("threads");
-        } else {
-          const r = await api("GET", `/api/config/${sp.configId}`);
-          rememberRevision(sp.configId, r.revision);
-          loaded.data = (r.data && typeof r.data === "object") ? r.data : {};
-          rememberBase(sp.configId, loaded.data);
-          let catalogCandidates = [];
-          if (sp.type === "item-stats") {
-            catalogCandidates = await fetchCatalogCandidatesWithMaterials();
-          }
-          // catalog⇄materials のファイル跨ぎ移動用に相手ファイルも読み込んでおく
-          // (移動が発生した保存時だけ extraSaves 経由で一緒に PUT される)。
-          let counterpartId = null;
-          let counterpartData = null;
-          if (sp.type === "catalog" || sp.type === "materials") {
-            counterpartId = sp.type === "catalog" ? "materials" : "catalog";
-            try {
-              const xr = await api("GET", `/api/config/${counterpartId}`);
-              rememberRevision(counterpartId, xr.revision);
-              counterpartData = (xr.data && typeof xr.data === "object") ? xr.data : {};
-              rememberBase(counterpartId, counterpartData);
-            } catch (_) {
-              // 相手ファイルが読めなくても編集自体は継続 (跨ぎ移動だけ無効化)。
-              counterpartId = null;
-              counterpartData = null;
-            }
-          }
-          state.editor = window.buildSplitConfigView({
-            type: sp.type,
-            configId: sp.configId,
-            categoryKey: sp.categoryKey || "default",
-            itemCategory: sp.itemCategory,
-            data: loaded.data,
-            catalogCandidates,
-            counterpartId,
-            counterpartData
-          });
-          syncBaseFromEditor(sp.configId);
+        const r = await api("GET", `/api/config/${sp.configId}`);
+        rememberRevision(sp.configId, r.revision);
+        loaded.data = (r.data && typeof r.data === "object") ? r.data : {};
+        rememberBase(sp.configId, loaded.data);
+        let catalogCandidates = [];
+        if (sp.type === "item-stats") {
+          catalogCandidates = await fetchCatalogCandidatesWithMaterials();
         }
-        main.appendChild(state.editor.element);
+        // catalog⇄materials のファイル跨ぎ移動用に相手ファイルも読み込んでおく
+        // (移動が発生した保存時だけ extraSaves 経由で一緒に PUT される)。
+        let counterpartId = null;
+        let counterpartData = null;
+        if (sp.type === "catalog" || sp.type === "materials") {
+          counterpartId = sp.type === "catalog" ? "materials" : "catalog";
+          try {
+            const xr = await api("GET", `/api/config/${counterpartId}`);
+            rememberRevision(counterpartId, xr.revision);
+            counterpartData = (xr.data && typeof xr.data === "object") ? xr.data : {};
+            rememberBase(counterpartId, counterpartData);
+          } catch (_) {
+            // 相手ファイルが読めなくても編集自体は継続 (跨ぎ移動だけ無効化)。
+            counterpartId = null;
+            counterpartData = null;
+          }
+        }
+        // アイテムステータス「スレッド」タブは threads.yml / thread-sets.yml も一緒に読み込む
+        // (2026-08-09: 独立した「スレッド効果 (Ars)」画面と、その後に一度新設した thread-sets.yml
+        // 専用ナビ(__thread_sets__)を両方撤去し、このタブのカード内へ効果編集・セット効果編集を
+        // 統合したため。extraGets 経由で一緒に保存する。
+        // forms.js の renderThreadExtraFields が実際の編集UIを描く)。
+        let threadsData = null;
+        let threadSetsData = null;
+        if (sp.type === "item-stats" && sp.itemCategory === "thread") {
+          const tr = await api("GET", "/api/config/threads");
+          rememberRevision("threads", tr.revision);
+          threadsData = (tr.data && typeof tr.data === "object") ? tr.data : {};
+          rememberBase("threads", threadsData);
+
+          const sr = await api("GET", "/api/config/thread-sets");
+          rememberRevision("thread-sets", sr.revision);
+          threadSetsData = (sr.data && typeof sr.data === "object") ? sr.data : {};
+          rememberBase("thread-sets", threadSetsData);
+        }
+        state.editor = window.buildSplitConfigView({
+          type: sp.type,
+          configId: sp.configId,
+          categoryKey: sp.categoryKey || "default",
+          itemCategory: sp.itemCategory,
+          data: loaded.data,
+          catalogCandidates,
+          counterpartId,
+          counterpartData,
+          threadsData,
+          threadSetsData
+        });
+        syncBaseFromEditor(sp.configId);
+        if (!mountMain(navToken, state.editor.element)) return;
         saveBtn.disabled = false;
       } catch (err) {
-        main.appendChild(h("div", { class: "empty", text: `読み込み失敗: ${err.message}` }));
+        if (!mountMain(navToken, h("div", { class: "empty", text: `読み込み失敗: ${err.message}` }))) return;
         saveBtn.disabled = true;
       }
       return;
@@ -1383,10 +1739,10 @@
           ? window.cloneData(r.constants) : JSON.parse(JSON.stringify(r.constants || {}));
         state.editor = window.buildConstantsView(r.constants);
         syncBaseFromEditor();
-        main.appendChild(state.editor.element);
+        if (!mountMain(navToken, state.editor.element)) return;
         saveBtn.disabled = false;
       } catch (err) {
-        main.appendChild(h("div", { class: "empty", text: `読み込み失敗: ${err.message}` }));
+        if (!mountMain(navToken, h("div", { class: "empty", text: `読み込み失敗: ${err.message}` }))) return;
         saveBtn.disabled = true;
       }
       return;
@@ -1403,11 +1759,12 @@
     } catch (_) { /* 定数が読めなくてもフォーム既定値で動作する */ }
     const view2 = window.buildSimulatorView(defaults);
     state.editor = view2;
-    main.appendChild(view2.element);
+    mountMain(navToken, view2.element);
   }
 
   async function selectConfig(id) {
     if (!(await confirmLeaveIfDirty(id))) return;
+    const navToken = beginNav();
     state.current = id;
     state.kind = "config";
     renderSidebar();
@@ -1420,21 +1777,25 @@
     try {
       r = await api("GET", `/api/config/${id}`);
     } catch (err) {
-      main.appendChild(h("div", { class: "empty", text: `読み込み失敗: ${err.message}` }));
+      mountMain(navToken, h("div", { class: "empty", text: `読み込み失敗: ${err.message}` }));
       return;
     }
+    if (navToken !== navSeq) return;
     rememberRevision(id, r.revision);
 
     const meta = state.configs.find((c) => c.id === id) || {};
-    document.getElementById("editor-title").textContent = meta.label || id;
-    document.getElementById("editor-sub").textContent = `${r.exists ? "" : "(未作成: 保存で新規作成)"} schema: ${r.schema}`;
+    document.getElementById("editor-title").textContent =
+      String(meta.label || id).replace(/\s*\([^)]*\)\s*$/, "");
+    document.getElementById("editor-sub").textContent = r.exists
+      ? "設定ファイルを編集中"
+      : "未作成（保存すると新規作成されます）";
 
     const data = r.data && typeof r.data === "object" ? r.data : {};
     rememberBase(id, data);
     const editor = await buildEditorForLoadedConfig(r.schema, data);
     state.editor = editor;
     syncBaseFromEditor(id);
-    main.appendChild(editor.element);
+    if (!mountMain(navToken, editor.element)) return;
     document.getElementById("save-btn").disabled = false;
   }
 
@@ -1592,7 +1953,7 @@
       }
       const first = saved[0] || {};
       const backupMsg = first.backup ? `自動バックアップを作成しました (${first.backup})` : "";
-      const warnNote = cmdWarningsNote(saved);
+      const warnNote = cmdWarningsNote(saved) + editorMetaWarningsNote(saved);
       toast(`保存しました。${backupMsg}${deployToastNote(saved)}${warnNote}`, warnNote ? "warn" : "ok");
       await loadConfigs();
       // lore の表示名変更をステータスセレクトへ即時反映
@@ -1642,7 +2003,7 @@
           saved.push(er);
         }
       }
-      const warnNote = cmdWarningsNote(saved);
+      const warnNote = cmdWarningsNote(saved) + editorMetaWarningsNote(saved);
       toast(`保存しました。${deployToastNote(saved)}${warnNote}`, warnNote ? "warn" : "ok");
       await loadConfigs();
     } catch (err) {
@@ -1713,6 +2074,7 @@
     document.getElementById("save-btn").addEventListener("click", save);
     document.getElementById("save-paths-btn").addEventListener("click", saveSettings);
     bindPathsPanel();
+    bindSidebarDrawer();
     window.addEventListener("beforeunload", (e) => {
       if (!isEditorDirty()) return;
       e.preventDefault();

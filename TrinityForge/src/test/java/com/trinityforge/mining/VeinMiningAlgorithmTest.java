@@ -82,4 +82,47 @@ class VeinMiningAlgorithmTest {
         assertTrue(VeinMiningAlgorithm.collect(start, targetSet(ore), 0).isEmpty());
         assertTrue(VeinMiningAlgorithm.collect(start, targetSet(ore), -5).isEmpty());
     }
+
+    // --- 2026-07-31 N1: collectFrom(多源)の多重 enqueue ---
+
+    @Test
+    void multiSourceCollectNeverReturnsTheSamePositionTwice() {
+        // 斜めに隣接する2つのソースは面隣接を共有する((1,0,0) と (0,1,0) が両方から1手)。
+        // 旧実装は初期リングを「全ソース分 enqueue してから visited へ一括投入」していたため、
+        // 共有された位置が2回キューに入り result に重複して現れ、呼び出し側の予算を無言で溶かしていた。
+        List<BlockPos> sources = List.of(new BlockPos(0, 0, 0), new BlockPos(1, 1, 0));
+        Set<BlockPos> targets = Set.of(new BlockPos(1, 0, 0), new BlockPos(0, 1, 0));
+
+        List<BlockPos> result = VeinMiningAlgorithm.collectFrom(sources, targetSet(targets), 32);
+
+        assertEquals(2, result.size(), "重複を含まないこと(旧実装は4件返していた)");
+        assertEquals(targets, Set.copyOf(result));
+        assertEquals(result.size(), Set.copyOf(result).size(), "result に重複が無いこと");
+    }
+
+    @Test
+    void multiSourceCollectExcludesEverySourceFromTheResult() {
+        List<BlockPos> sources = List.of(new BlockPos(0, 0, 0), new BlockPos(2, 0, 0));
+        Set<BlockPos> targets = Set.of(
+                new BlockPos(0, 0, 0), new BlockPos(1, 0, 0), new BlockPos(2, 0, 0), new BlockPos(3, 0, 0));
+
+        List<BlockPos> result = VeinMiningAlgorithm.collectFrom(sources, targetSet(targets), 32);
+
+        assertEquals(Set.of(new BlockPos(1, 0, 0), new BlockPos(3, 0, 0)), Set.copyOf(result));
+    }
+
+    @Test
+    void multiSourceCollectIsDeterministicForTheSameSourceOrder() {
+        List<BlockPos> sources = List.of(new BlockPos(0, 0, 0), new BlockPos(0, 3, 0));
+        java.util.HashSet<BlockPos> targets = new java.util.HashSet<>();
+        for (int y = -3; y <= 6; y++) {
+            targets.add(new BlockPos(0, y, 0));
+        }
+
+        List<BlockPos> first = VeinMiningAlgorithm.collectFrom(sources, targetSet(targets), 5);
+        List<BlockPos> second = VeinMiningAlgorithm.collectFrom(sources, targetSet(targets), 5);
+
+        assertEquals(first, second, "同じ入力なら順序まで同一(打ち切り位置が安定すること)");
+        assertEquals(5, first.size());
+    }
 }

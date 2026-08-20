@@ -15,10 +15,12 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -40,6 +42,33 @@ public final class ItemCatalogConfig implements LoadableConfig {
     private static final Pattern HEX_COLOR = Pattern.compile("^#[0-9A-Fa-f]{6}$");
 
     private volatile Map<String, ItemTemplate> templates = Map.of();
+    private volatile Set<String> draftIds = Set.of();
+    private volatile CatalogTaxonomy taxonomy = CatalogTaxonomy.EMPTY;
+
+    /**
+     * 設定エディタが {@code _editor:} に持っている分類。
+     * ゲームの挙動には一切関与せず、<b>アイテムを人に見せる画面の並び順にだけ</b>使う
+     * ({@code /tf catalog})。
+     *
+     * @param tabOf      アイテムID → タブID（{@code weapon} / {@code armor} 等）。未登録のIDは入らない
+     * @param categories タブID → そのタブの小分類（エディタでの並び順のまま）
+     */
+    public record CatalogTaxonomy(Map<String, String> tabOf, Map<String, List<Category>> categories) {
+
+        public static final CatalogTaxonomy EMPTY = new CatalogTaxonomy(Map.of(), Map.of());
+
+        /** @param label エディタで付けた小分類名（例「剣」） @param itemIds その小分類の並び順 */
+        public record Category(String label, List<String> itemIds) {
+        }
+    }
+
+    /**
+     * {@code _editor:} 由来の分類。<b>これはゲームの正典ではない</b>——編集画面の見た目のための
+     * メタデータであり、書き手はエディタである。読むだけにし、これで挙動を分岐させないこと。
+     */
+    public CatalogTaxonomy taxonomy() {
+        return taxonomy;
+    }
 
     public Optional<ItemTemplate> template(String id) {
         return Optional.ofNullable(templates.get(id));
@@ -47,6 +76,38 @@ public final class ItemCatalogConfig implements LoadableConfig {
 
     public Map<String, ItemTemplate> all() {
         return templates;
+    }
+
+    /**
+     * {@code draft: true}(エディタの「準備中」カテゴリ)と宣言され、<b>ゲーム側へ配線していない</b>
+     * アイテムの ID 集合。{@link #template(String)} / {@link #all()} からは既に除いてあるので、
+     * 通常のゲームプレイ経路がこれを見る必要は無い。
+     *
+     * <p>唯一の用途は<b>「解決に失敗した」と「意図して配らない」を区別したい所</b>。具体的には
+     * ガチャで、景品が解決できないと {@code GachaListener} は<b>券を消費しない</b>設計になっており
+     * (景品ロスト防止)、準備中のアイテムを景品欄に置いたままにすると
+     * <b>券が減らないまま引き直せる</b>=実質無限ガチャになる。抽選前に除外するために要る。
+     */
+    public Set<String> draftIds() {
+        return draftIds;
+    }
+
+    /**
+     * このIDが「準備中」として配線対象から外されているか。{@code custom:} 接頭辞は剥がして判定する
+     * ({@link #stripCustomPrefix} は他ドメイン(例: {@code CollectionListener#addWatched})と同じ規約)。
+     *
+     * <p>2026-08-02 敵対的レビュー指摘2: 剥がさずに生IDで判定していたため、editorが正規化する
+     * {@code custom:<id>} 形式で書かれた draft ID(例: {@code gacha.yml} の
+     * {@code item: custom:abyss_sword})が判定をすり抜けていた。{@code GachaListener} 側の
+     * {@code create()} は下流で {@code custom:} を剥がすため、解決不能でも「景品未解決」として
+     * <b>券を消費しない</b>フェイルセーフに乗ってしまい、実質無限ガチャになる。
+     */
+    public boolean isDraft(String id) {
+        if (id == null) {
+            return false;
+        }
+        String bare = stripCustomPrefix(id);
+        return bare != null && draftIds.contains(bare);
     }
 
     public String resourcePath() {
@@ -72,15 +133,98 @@ public final class ItemCatalogConfig implements LoadableConfig {
             return false;
         }
         ParseResult result = parse(yaml.getConfigurationSection(ROOT), log);
-        this.templates = result.templates();
 
+        // draft(準備中)はここで【ゲーム側の参照面から落とす】。ゲームプレイ側の全経路
+        // (レシピ登録・ドロップ・ガチャ・実績報酬・図鑑・分解・金床/鍛冶台)は例外なく
+        // template(id) / all() を通るので、ここ1箇所で「配線されない」を保証できる。
+        // 個々の配布サイト(12箇所以上)にガードを足す方式にすると、経路が1本増えるたびに
+        // 漏れて「準備中のはずのアイテムが出た」になるため、参照面そのものを絞っている。
+        // parse() の戻り値には draft も含めたまま残す — 出荷 yml を検査するテスト群
+        // (ShippedCatalog*Test)は「yml に何が書いてあるか」を見るものなので、
+        // ここで消すと準備中のアイテムだけ検査対象から外れてしまう。
+        Map<String, ItemTemplate> live = new LinkedHashMap<>();
+        Set<String> drafts = new LinkedHashSet<>();
+        result.templates().forEach((id, template) -> {
+            if (template.draft()) {
+                drafts.add(id);
+            } else {
+                live.put(id, template);
+            }
+        });
+        this.templates = Map.copyOf(live);
+        this.draftIds = Set.copyOf(drafts);
+        this.taxonomy = parseTaxonomy(yaml.getConfigurationSection("_editor"));
+
+        String draftNote = drafts.isEmpty() ? "" : " (準備中 " + drafts.size() + " 件は未配線)";
         if (result.skipped() > 0) {
-            log.warning("[" + PATH + "] loaded " + result.templates().size() + " item(s), "
+            log.warning("[" + PATH + "] loaded " + live.size() + " item(s)" + draftNote + ", "
                     + result.skipped() + " skipped");
             return false;
         }
-        log.info("[" + PATH + "] loaded " + result.templates().size() + " item(s) OK");
+        log.info("[" + PATH + "] loaded " + live.size() + " item(s)" + draftNote + " OK");
         return true;
+    }
+
+    /**
+     * {@code _editor:} の分類を読む。エディタが書く区画なので<b>壊れていても致命にしない</b> ——
+     * 欠けた分は「未分類」として GUI 側が拾えるよう、単に空で返す。
+     *
+     * <p>構造（エディタが書く形）:
+     * <pre>
+     * _editor:
+     *   itemTabs:            &lt;itemId&gt;: &lt;tabId&gt;
+     *   categories:
+     *     &lt;tabId&gt;:
+     *       - id: cat_...
+     *         label: 剣
+     *         itemIds: [ ... ]
+     * </pre>
+     */
+    static CatalogTaxonomy parseTaxonomy(ConfigurationSection editor) {
+        if (editor == null) {
+            return CatalogTaxonomy.EMPTY;
+        }
+        Map<String, String> tabOf = new LinkedHashMap<>();
+        ConfigurationSection tabs = editor.getConfigurationSection("itemTabs");
+        if (tabs != null) {
+            for (String itemId : tabs.getKeys(false)) {
+                String tab = tabs.getString(itemId);
+                if (itemId != null && tab != null && !tab.isBlank()) {
+                    tabOf.put(stripCustomPrefix(itemId), tab);
+                }
+            }
+        }
+
+        Map<String, List<CatalogTaxonomy.Category>> categories = new LinkedHashMap<>();
+        ConfigurationSection cats = editor.getConfigurationSection("categories");
+        if (cats != null) {
+            for (String tab : cats.getKeys(false)) {
+                List<CatalogTaxonomy.Category> list = new ArrayList<>();
+                for (Object raw : cats.getList(tab, List.of())) {
+                    if (!(raw instanceof Map<?, ?> map)) {
+                        continue;
+                    }
+                    Object label = map.get("label");
+                    Object ids = map.get("itemIds");
+                    if (label == null) {
+                        continue;
+                    }
+                    List<String> itemIds = new ArrayList<>();
+                    if (ids instanceof List<?> idList) {
+                        for (Object id : idList) {
+                            if (id != null) {
+                                itemIds.add(stripCustomPrefix(String.valueOf(id)));
+                            }
+                        }
+                    }
+                    list.add(new CatalogTaxonomy.Category(String.valueOf(label), List.copyOf(itemIds)));
+                }
+                if (!list.isEmpty()) {
+                    categories.put(tab, List.copyOf(list));
+                }
+            }
+        }
+        return new CatalogTaxonomy(Map.copyOf(tabOf), Map.copyOf(categories));
     }
 
     /** Pure parse of the {@code items:} section. Unknown/invalid entries are skipped, not fatal. */
@@ -143,7 +287,9 @@ public final class ItemCatalogConfig implements LoadableConfig {
                             parseLore(entry),
                             List.copyOf(recipes),
                             parseColor(entry, material, id, log),
-                            entry.getBoolean("enchant-glow", false)));
+                            entry.getBoolean("enchant-glow", false),
+                            parseExternalSource(entry, id, log),
+                            entry.getBoolean("draft", false)));
                 } catch (IllegalArgumentException ex) {
                     log.warning("[" + PATH + "] item '" + id + "' invalid (" + ex.getMessage() + "); skipped");
                     skipped++;
@@ -241,6 +387,94 @@ public final class ItemCatalogConfig implements LoadableConfig {
     }
 
     /**
+     * 儀式コアの周囲に物理的に置ける台座は <b>48 台</b>（2026-08-02 訂正。かつて 16 と誤診していた
+     * ── 下記参照）。フォーク実装 {@code RitualManager#findNearbyPedestals}
+     * （{@code fork-handoff/arspaper/fork/.../ritual/RitualManager.java}）は
+     * コアから X/Z ±2 の外周 16 マス（5x5 から 3x3 を引いた分）を、<b>Y ±1 の3段</b>にわたって
+     * 走査し、同じ ingredient リストへ積む（{@code 16 × 3 = 48}）。{@code RitualRecipe#matches}
+     * は multiset の完全一致を見るだけで段を区別しないため、19 台程度のレシピは Y ±1 の段を
+     * 使えば普通に成立する。{@code pedestal-items} は {@code "NAME xN"} が
+     * <b>台座 N 台ぶんに展開される</b>ので、行数ではなく合計台数で数える。
+     *
+     * <p>※かつて「物理上限は 16（Y軸を見ない1段だけ）」と誤診し、超過 4 レシピの素材を
+     * 誤って軽量化する事故があった。原因はフォーク側 {@code RitualManager} 冒頭の javadoc
+     * （{@code PEDESTAL_DISTANCE} のコメント）と {@code ThreadRitualRecipeConfigTest} のテスト定数が
+     * どちらも「16」と書いており、それをコードで裏取りせずに定数化したこと。
+     * <b>fork の doc/テスト定数側はまだ「16」のまま食い違っている</b>（このタスクでは fork 側は直さない
+     * ── 別リポジトリ・別担当）。
+     *
+     * <p>超えていても<b>登録は止めない</b>（fail-soft）。止めるとアイテムのレシピが丸ごと消えて
+     * 「なぜレシピ帳に出ないのか」が分からなくなるため。台座数が 1 段の上限（16）を超えるが
+     * 3 段合計の上限（48）以内なら、Y ±1 にも台座を積む必要がある旨を案内するだけに留める
+     * （実際に成立しうるので「クラフトできない」と断定しない）。3 段合計の上限（48）まで超えた
+     * 場合のみ、{@code RitualRecipe#matches} が台座数の<b>完全一致</b>を要求する以上
+     * <b>永久にクラフトできない</b>ため、ID を名指しで警告する。
+     *
+     * <p>エディタ側は {@code lib/schema.js} の {@code validatePedestalItems} が保存時に弾くが、
+     * yml を直接書いた場合（スクリプト生成・手編集・エージェント）はそこを通らない。
+     * 出荷 yml については {@code ShippedCatalogPedestalLimitTest} が別途固定している。
+     */
+    private static void warnIfPedestalsExceedRing(List<String> pedestals, String id, Logger log) {
+        int total = 0;
+        for (String entry : pedestals) {
+            if (entry == null) {
+                continue;
+            }
+            java.util.regex.Matcher matcher = PEDESTAL_COUNT.matcher(entry.trim());
+            total += matcher.matches() ? Integer.parseInt(matcher.group(1)) : 1;
+        }
+        if (total > MAX_RITUAL_PEDESTALS) {
+            log.warning("[" + PATH + "] item '" + id + "' の儀式レシピは台座 " + total
+                    + " 台を要求していますが、コア周囲のリング(Y±1の3段合計)に置ける台座は "
+                    + MAX_RITUAL_PEDESTALS + " 台までです。このレシピは登録されますが台座数が"
+                    + "一致しないため【永久にクラフトできません】。pedestal-items を減らしてください");
+        } else if (total > PEDESTALS_PER_RING_LAYER) {
+            log.info("[" + PATH + "] item '" + id + "' の儀式レシピは台座 " + total
+                    + " 台を要求しています。コアと同じ段(Y±0)には " + PEDESTALS_PER_RING_LAYER
+                    + " 台までしか置けないため、コアの上下(Y±1)にも台座を配置する3段構成が必要です");
+        }
+    }
+
+    /** 儀式コア周囲の台座リング1段(Y±0、チェビシェフ距離2の外周)あたりのマス数。 */
+    private static final int PEDESTALS_PER_RING_LAYER = 16;
+
+    /**
+     * 儀式コア周囲の台座リングの物理上限（Y±1 の3段合計 = {@link #PEDESTALS_PER_RING_LAYER} × 3）。
+     */
+    private static final int MAX_RITUAL_PEDESTALS = PEDESTALS_PER_RING_LAYER * 3;
+
+    /** {@code "NAME xN"} の N を取り出す。N が無い行は 1 台。 */
+    private static final java.util.regex.Pattern PEDESTAL_COUNT =
+            java.util.regex.Pattern.compile(".*\\s+x(\\d+)$");
+
+    /**
+     * {@code external-source:} を読む —— 「このIDの<b>実体</b>を持っているのは別プラグインだ」宣言。
+     * 未指定/空は {@code null}(＝TF カタログが実体を持つ、従来どおり)。
+     *
+     * <p>これが要る理由は {@link ItemTemplate#externalSource()} の javadoc に書いてあるが、要点は
+     * 「カタログにも同IDのエントリが必要(CMD台帳・レシピ・図鑑・エディタ表示の真源)だが、
+     * <b>配るときに作るべき実体はフォーク側</b>」という二面性がここでしか表現できないこと。
+     *
+     * <p>fail-soft ({@code color:} と同じ方針): 未知のソース名は警告して宣言だけ無視する。
+     * TF 側に問い合わせ経路が無い名前を黙って受け入れると、書いた側は宣言したつもりのまま
+     * 従来の解決順で動き続け、<b>症状が「直っていない」としか出ない</b>ため。
+     */
+    private static String parseExternalSource(ConfigurationSection entry, String id, Logger log) {
+        String raw = entry.getString("external-source");
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String normalized = raw.trim().toLowerCase(Locale.ROOT);
+        if (!ItemTemplate.KNOWN_EXTERNAL_SOURCES.contains(normalized)) {
+            log.warning("[" + PATH + "] item '" + id + "' external-source '" + raw
+                    + "' は未知の外部ソース名。TF 側に問い合わせ経路が無いため宣言を無視します"
+                    + "(有効値: " + ItemTemplate.KNOWN_EXTERNAL_SOURCES + ")");
+            return null;
+        }
+        return normalized;
+    }
+
+    /**
      * Reads {@code lore}: optional flavor text lines (MiniMessage), or an empty list when absent.
      * {@code ItemTemplate}'s compact constructor defensively copies this, so the mutable list
      * {@code getStringList} returns is safe to hand off as-is.
@@ -326,6 +560,7 @@ public final class ItemCatalogConfig implements LoadableConfig {
         if (method == RecipeSpec.Method.RITUAL) {
             String core = blankToNull(recipe.getString("core-item"));
             List<String> pedestals = recipe.getStringList("pedestal-items");
+            warnIfPedestalsExceedRing(pedestals, id, log);
             int source = Math.max(0, recipe.getInt("source", 0));
             RecipeSpec ritualSpec = RecipeSpec.ritual(core, pedestals, source, amount).withRegister(register);
             return withReversibleParsed(ritualSpec, recipe, id, log);

@@ -72,13 +72,14 @@ public record AttributeProjection(Map<String, AttributeMapEntry> entries) {
         // として使い(CombatListener)、vanilla attack_damage との二重計上を避けるため、ここには載せない。
         entries.put("knockback_resistance",
                 new AttributeMapEntry("knockback_resistance", AttributeOperation.ADD_NUMBER, 1.0));
-        // armor_defense_rate はアイテム側では「バニラ防具値そのもの」の直結マッピングであり、TF独自の0〜1割合
-        // として二重消費されることはない(combat.DefenseStatBridgeがアイテム側のこのステを0扱いにし、代わりに
-        // VanillaArmorMappingが実際に付いたバニラAttribute.ARMORの値を読み戻して防御計算に使う)。スキルツリーの
-        // perk buffとしての同名キーは別経路([0,1]の直接加算)で、これとは別物(PlayerDefenseResolver参照)。
+        // ※ armor_defense_rate(防具値) は 2026-08-15 に廃止した。かつてはアイテム側でだけ
+        //   「バニラ防具値そのもの」として Attribute.ARMOR へ ADD_NUMBER し、VanillaArmorMapping が
+        //   読み戻して防御率へ換算していたが、同じキーがパーク側では [0,1] の軽減率という二重の単位を
+        //   持っていて事故のもとだった。今はアイテムも defense-rate([0,1])を直接持ち、DefenseStatBridge
+        //   が読む。TFスタンプ品のバニラ防具バーは AttributeApplier が常に空にする(材質既定を復元しない)
+        //   ので、VanillaArmorMapping 経由の寄与は 0 になり二重計上しない。
         // ※ armor_strength(防具強度) は会心軽減率%へ役割変更したため、もはや armor_toughness へは写像しない
         //   (DefenseStatBridge が derived stat map から直接読む)。二重計上を避けるためここには載せない。
-        entries.put("armor_defense_rate", new AttributeMapEntry("armor", AttributeOperation.ADD_NUMBER, 1.0));
         entries.put("max_health", new AttributeMapEntry("max_health", AttributeOperation.ADD_NUMBER, 1.0));
         // 加算ステ: プレイヤー基礎(または材質既定)の上に載せる。0 は no-op。
         entries.put("move_speed", new AttributeMapEntry("movement_speed", AttributeOperation.ADD_SCALAR, 1.0));

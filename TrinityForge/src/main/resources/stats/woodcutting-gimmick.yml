@@ -1,38 +1,62 @@
-# TrinityForge - 伐採ギミック(skilltree/dedicated-effects.yml のflag系consumer)チューニング
+# TrinityForge - 伐採ギミック(各 skilltree/*.yml ノードの dedicated-effects: フィールドが付与する flag系consumer)チューニング
 # 対象effectId: tree-fell (2026-07-25 gather-rework-active-framework §6 Q1: 旧small-tree-fell/
 # large-tree-fell を統合。tierはノード側 dedicated-effects[].value で持つ)
 # ドロップテーブル(drop-tables)は「葉/原木破壊」トリガー型の追加ドロップ(2026-07-23 stat-gate-overhaul §4)。
 # 数値は全て暫定(要調整)。
 # 設定リファレンス(本文コメント移設先): docs/config-reference/stats/woodcutting-gimmick.md
 
-
 tree-fell:
   max-extra-logs: 8
   cooldown-ticks: 200
+  break-leaves: true
+  leaves-max: 512
+  leaves-per-log: 6
+  leaves-per-tick: 48
+  leaves-decay-only: true
+  scan-limit: 512
+  max-horizontal-distance: 8
+  max-vertical-distance: 32
   tiers:
-    1: { max-extra-logs: 8 }
-    3: { max-extra-logs: 64 }
-
+    "1":
+      max-extra-logs: 16
+      leaves-max: 128
+    "2":
+      max-extra-logs: 32
+      leaves-max: 256
+    "3":
+      max-extra-logs: 64
+      leaves-max: 512
+    "4":
+      max-extra-logs: 128
+      leaves-max: 1024
 drop-tables:
+  # ⚠️ 2026-08-17 修正: カテゴリ名と中身が1段ずれていた。
+  # skilltree/woodcutting.yml のノードは A-1「リンゴが落ちやすくなる」(drop:woodcutting:apple) /
+  # A-2「金リンゴ」(golden_apple) / A-3「クリスタルリンゴ」(crystal_apple) の順で解放するのに、
+  # ここでは apple の中身が GOLDEN_APPLE、golden_apple の中身がクリスタルリンゴ…と
+  # 1つ上のアイテムが入っていたため、最初のノードを取っただけで金リンゴが降ってきていた。
+  # ノード名を正として中身を引き直す。
+  # なお対応するノードが無かった ENCHANTED_GOLDEN_APPLE は伐採ドロップから外す
+  # (解放できないノードの報酬として最上位アイテムが 0.1% で無条件に落ちていた)。
   categories:
     apple:
-      display-name: "リンゴ"
-      trigger-chance-percent: 5.0
+      display-name: リンゴ
+      trigger-chance-percent: 5
       entries:
         - item: APPLE
           weight: 1
           amount: 1
     golden_apple:
-      display-name: "金のリンゴ"
-      trigger-chance-percent: 1.0
+      display-name: 金リンゴ
+      trigger-chance-percent: 1
       entries:
         - item: GOLDEN_APPLE
           weight: 1
           amount: 1
     crystal_apple:
-      display-name: "クリスタルリンゴ"
-      trigger-chance-percent: 0.5
+      display-name: クリスタルリンゴ
+      trigger-chance-percent: 0.1
       entries:
-        - item: tf_crystal_apple
+        - item: custom:tf_crystal_apple
           weight: 1
           amount: 1

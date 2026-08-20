@@ -165,8 +165,8 @@ public final class SkillTreeConfig implements LoadableConfig {
         String tag = "[" + DIR + "/" + fileName + "] ";
 
         Issues issues = new Issues();
-        Map<String, SkillNode> nodes = parseNodes(root.getConfigurationSection("nodes"), tag, log, issues);
-        Prestige prestige = parsePrestige(root.getConfigurationSection("prestige"), tag, log, issues);
+        Map<String, SkillNode> nodes = parseNodes(root.getConfigurationSection("nodes"), tag, skill, log, issues);
+        Prestige prestige = parsePrestige(root.getConfigurationSection("prestige"), tag, skill, log, issues);
 
         String displayName = firstNonNull(nullableString(root, "display-name"), skill);
         SkillTree tree = new SkillTree(
@@ -179,8 +179,8 @@ public final class SkillTreeConfig implements LoadableConfig {
         return new TreeParse(tree, issues.any);
     }
 
-    private static Map<String, SkillNode> parseNodes(ConfigurationSection root, String tag, Logger log,
-                                                     Issues issues) {
+    private static Map<String, SkillNode> parseNodes(ConfigurationSection root, String tag, String skill,
+                                                     Logger log, Issues issues) {
         Map<String, SkillNode> nodes = new LinkedHashMap<>();
         if (root != null) {
             for (String id : root.getKeys(false)) {
@@ -190,7 +190,7 @@ public final class SkillTreeConfig implements LoadableConfig {
                     issues.mark();
                     continue;
                 }
-                SkillNode node = parseNode(id, entry, tag, log, issues);
+                SkillNode node = parseNode(id, entry, tag, skill, log, issues);
                 if (node == null) {
                     issues.mark();
                     continue;
@@ -212,8 +212,8 @@ public final class SkillTreeConfig implements LoadableConfig {
      * blank {@code name}, non-integer or absent {@code level}, or an unknown {@code role}. A disallowed
      * or non-finite {@code buffs} entry is dropped (marking {@code issues}) but the node is still built.
      */
-    private static SkillNode parseNode(String id, ConfigurationSection entry, String tag, Logger log,
-                                       Issues issues) {
+    private static SkillNode parseNode(String id, ConfigurationSection entry, String tag, String skill,
+                                       Logger log, Issues issues) {
         String name = nullableString(entry, "name");
         if (name == null) {
             log.warning(tag + "node '" + id + "' missing required 'name'; skipped");
@@ -245,10 +245,60 @@ public final class SkillTreeConfig implements LoadableConfig {
                 parseMultipliers(entry.getConfigurationSection("multipliers"), tag, id, log, issues),
                 parseMultipliers(entry.getConfigurationSection("mainhand-multipliers"), tag,
                         id + ".mainhand-multipliers", log, issues),
+                parseSetBuffs(entry.getConfigurationSection("set-buffs"), tag, id, skill, log, issues),
                 parseNative(entry.getConfigurationSection("native")),
                 entry.getStringList("commands"),
                 entry.getStringList("effects"),
                 parseDedicatedEffects(entry.getList("dedicated-effects"), tag, id, log, issues));
+    }
+
+    /** Skill ids allowed to carry {@code set-buffs} (SKILL_TREE armor-set-buffs migration §1). */
+    private static final Set<String> SET_BUFF_SKILLS = Set.of("LIGHT_ARMOR", "HEAVY_ARMOR");
+
+    /**
+     * Parses {@code set-buffs}: {@code <3|4>: {stat: value, ...}}. The armor-piece-count condition is
+     * decided at runtime by {@link com.trinityforge.skilltree.runtime.PerkBuffResolver}; this loader only
+     * validates shape. A tier key other than 3/4, or a {@code set-buffs} block on a tree other than
+     * {@code light_armor}/{@code heavy_armor}, is dropped with a warning (node/prestige kept).
+     */
+    private static Map<Integer, Map<String, Double>> parseSetBuffs(ConfigurationSection section, String tag,
+                                                                    String owner, String skill, Logger log,
+                                                                    Issues issues) {
+        if (section == null) {
+            return Map.of();
+        }
+        if (skill == null || !SET_BUFF_SKILLS.contains(skill.toUpperCase(Locale.ROOT))) {
+            log.warning(tag + "'" + owner + "' has 'set-buffs' but this tree ('" + skill
+                    + "') is not light_armor/heavy_armor; ignored");
+            issues.mark();
+            return Map.of();
+        }
+        Map<Integer, Map<String, Double>> result = new LinkedHashMap<>();
+        for (String rawTier : section.getKeys(false)) {
+            Integer tier = null;
+            try {
+                tier = Integer.parseInt(rawTier.trim());
+            } catch (NumberFormatException ignored) {
+                // handled by the null check below
+            }
+            if (tier == null || (tier != 3 && tier != 4)) {
+                log.warning(tag + "'" + owner + "' set-buffs tier '" + rawTier
+                        + "' is not 3 or 4; ignored");
+                issues.mark();
+                continue;
+            }
+            ConfigurationSection tierSection = section.getConfigurationSection(rawTier);
+            if (tierSection == null) {
+                log.warning(tag + "'" + owner + "' set-buffs tier '" + rawTier + "' is not a section; ignored");
+                issues.mark();
+                continue;
+            }
+            Map<String, Double> values = parseBuffs(tierSection, tag, owner + ".set-buffs." + rawTier, log, issues);
+            if (!values.isEmpty()) {
+                result.put(tier, values);
+            }
+        }
+        return result;
     }
 
     /**
@@ -476,7 +526,7 @@ public final class SkillTreeConfig implements LoadableConfig {
         return map;
     }
 
-    private static Prestige parsePrestige(ConfigurationSection section, String tag, Logger log,
+    private static Prestige parsePrestige(ConfigurationSection section, String tag, String skill, Logger log,
                                           Issues issues) {
         if (section == null) {
             return null;
@@ -494,6 +544,7 @@ public final class SkillTreeConfig implements LoadableConfig {
                 parseMultipliers(section.getConfigurationSection("multipliers"), tag, "prestige", log, issues),
                 parseMultipliers(section.getConfigurationSection("mainhand-multipliers"), tag,
                         "prestige.mainhand-multipliers", log, issues),
+                parseSetBuffs(section.getConfigurationSection("set-buffs"), tag, "prestige", skill, log, issues),
                 parseNative(section.getConfigurationSection("native")),
                 maxTimes);
     }

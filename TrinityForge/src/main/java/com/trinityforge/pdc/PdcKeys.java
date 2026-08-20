@@ -56,6 +56,25 @@ public final class PdcKeys {
      * 付与時に derivation で {@code thread-slots} へ加算される。absent = 0。
      */
     public static final NamespacedKey ITEM_RITUAL_THREAD_SLOT_BONUS = key("ritual_thread_slot_bonus");
+    /**
+     * 「品質はまだ決まっていない。最初にプレイヤーのインベントリへ入った時点で、そのプレイヤーの
+     * Ars鍛冶ステータスを参照して決める」マーカー(2026-08-04)。
+     *
+     * <p><b>なぜ生成時に品質を決めないのか</b>: Ars の儀式クラフトは成果物を<em>台座の上にドロップ</em>する。
+     * 旧実装({@code TrinityForgeBridge#stampCraftedQuality})は儀式時点で rollSeed+quality を PDC へ
+     * 直接書いていたが、PDC を書くだけで <b>lore/属性のフル再組み立て({@code ItemFactory#stamp})を
+     * 呼んでいなかった</b>ため「品質は入っているのにステータスが表示されない」状態で台座に置かれ、
+     * ユーザーには「手に持つまでステータスがつかない」ように見えていた(この落とし穴の実害)。
+     * さらに台座に置かれた成果物は<b>誰が回収するか儀式時点では確定しない</b>ので、儀式実行者の
+     * ステータスで焼き込むのは仕様としても正しくない。
+     *
+     * <p>そこで生成時はこのマーカーだけを刻み、{@code PickupQualityListener} が
+     * 「最初にインベントリへ入ったプレイヤー」のステータスで品質をロールし、
+     * {@code ItemFactory#stamp} でフル再組み立てしてマーカーを剥がす。
+     * 台座が破壊されてマーカーごと失われた場合は、マーカー無し未刻印品として
+     * 通常のドロップ品経路(loot 分布)で刻印される。absent = false(既存の全アイテム)。
+     */
+    public static final NamespacedKey ITEM_PENDING_CRAFT_QUALITY = key("pending_craft_quality");
 
     /**
      * The firing weapon (bow/crossbow/trident) serialized onto a player-shot projectile at launch so
@@ -75,6 +94,22 @@ public final class PdcKeys {
      * 無いことと整合)。 */
     public static final NamespacedKey PROJECTILE_DRAW_FORCE = key("projectile_draw_force");
     /**
+     * 発射武器がオフハンドから撃たれたか(BYTE, 1=オフハンド。2026-08-13 バグ修正)。
+     * {@link #PROJECTILE_WEAPON} と同じ projectile PDC へ、{@code EntityShootBowEvent#getHand()} から
+     * 発射時に一度だけ retain する。着弾時にこの値を {@code PlayerStatAggregator#aggregate(Player,
+     * ItemStack, boolean)} の第3引数(contributorIsOffhand)へ渡すことで、オフハンドから撃った弓/
+     * クロスボウの寄与にも {@code offhand-stats-apply} の門が正しく掛かる(旧実装は常に false 固定で
+     * 渡していたため、オフハンド発射時だけ門を素通りしていた)。
+     *
+     * <p>トライデントが {@code EntityShootBowEvent} を発火するかどうかは未検証(CraftBukkitがトライデント
+     * 投擲でもこのイベントを発火する可能性があり、{@code EntityShootBowEvent#getHand()} はまさに左右手の
+     * 識別のために存在する)。ただし発火有無に関わらず結果は正しい — このフラグは「寄与アイテムの合算可否」
+     * ではなく「オフハンドスロットを二重計上しないための除外判定」にしか使われないため(寄与アイテム自体は
+     * どちらの手にあっても常に合算される設計契約、{@code CombatListener#resolveContributorIsOffhand}
+     * 参照)。absent = false(発射武器がメインハンド、非対応の古いprojectile、またはこのキーが未retainの経路)。
+     */
+    public static final NamespacedKey PROJECTILE_FIRED_FROM_OFFHAND = key("projectile_fired_from_offhand");
+    /**
      * XP amount (int, total points — see {@code XpBottlePolicy#totalExperience}) stored onto a
      * filled experience bottle by {@code XpBottleListener} ({@code xp-bottle-store-unlock},
      * enchanting.yml B-3). Presence of this key is what distinguishes a "filled" bottle from a
@@ -82,22 +117,101 @@ public final class PdcKeys {
      */
     public static final NamespacedKey ITEM_XP_BOTTLE_AMOUNT = key("xp_bottle_amount");
     /**
+     * 充填時の解放 tier(2026-08-19 / W-134)。取り出しの還元率
+     * ({@code CraftingFeaturesConfig#xpBottleReturnRate(int)})はこの値で引く。
+     *
+     * <p><b>持ち主でなく瓶に持たせる理由</b>: 取り出しは解放が要らない仕様になったので、
+     * 「そのとき持っている人の tier」で引くと<b>受け渡すだけで還元率が変わる</b>。
+     * 還元率は詰めた時点で決まっているべきものなので、瓶側へ焼き付ける。
+     * このキーを持たない旧い瓶は tier1 相当へフォールバックする。
+     */
+    public static final NamespacedKey ITEM_XP_BOTTLE_TIER = key("xp_bottle_tier");
+    /**
      * TFがこのアイテムへ実行時に足した「効率強化」エンチャントレベル(2026-07-25 採集効率エンチャント
      * 連動方式、属性ベースを取り下げ再設計)。除去は必ずこの記録値ぶんだけ厳密に差し引く(現在のレベルから
      * 機械的に引くと、金床や tool-enchant-efficiency 由来の正規のレベルまで消してしまう)。absent = 0
      * ({@code com.trinityforge.gathering.GatheringEfficiencyEnchantApplier} が唯一の読み書き元)。
      */
     public static final NamespacedKey ITEM_GATHERING_EFFICIENCY_APPLIED = key("gathering_efficiency_applied");
+    /**
+     * 醸造でベースを {@code WATER} へ倒す<b>前</b>の {@link org.bukkit.potion.PotionType} 名
+     * (STRING、2026-08-20 / W-170)。
+     *
+     * <p><b>なぜ要るか（実バグ）</b>: {@code PotionQualityListener}(HIGH) は段階の違う効果を一意に
+     * 確定させるため、品質が乗るポーションのベースを必ず {@code WATER} へ倒して全部カスタム効果で
+     * 表現する。ところが EXP を出す {@code NativeSkillExperienceListener#onBrew} は MONITOR
+     * (＝その<b>後</b>)で、完成品の {@code getBasePotionType()} から
+     * {@code alchemy_progression.yml} の {@code brew_result} を引いていた。倒された後なので
+     * 引けるのは常に {@code WATER} ── 表に無い ⇒ どの効果ポーションを作っても
+     * {@code alchemy_brew_exp} の定額へ落ちて<b>EXP が一律</b>になる。
+     * 品質が 0 のプレイヤーは倒されないので正しく引ける＝<b>スキルツリーで品質を取った人だけ壊れる</b>。
+     *
+     * <p>そこで倒す直前の種類をここへ焼き付け、EXP 側はこれを最優先で読む。
+     * 印が無い（品質 0／他プラグイン製）ポーションは従来どおり {@code getBasePotionType()} を見る。
+     */
+    public static final NamespacedKey ITEM_BREW_SOURCE_POTION = key("brew_source_potion");
     /** Weapon coating stack count (alchemy weapon-coating-unlock). */
     public static final NamespacedKey ITEM_COATING_STACKS = key("coating_stacks");
     /** Accumulated flat bonus damage from weapon coating materials. */
     public static final NamespacedKey ITEM_COATING_FLAT_DAMAGE = key("coating_flat_damage");
+    /**
+     * クリエイティブ由来マーカー (BYTE=1, 2026-07-31)。「このスタックはクリエイティブで生成された／
+     * クリエイティブ・スペクテイター中に拾われた」ことを<b>アイテム側</b>に刻む。
+     * {@code CollectionListener} はこの印が付いたスタックを図鑑の判定から丸ごと外す。
+     *
+     * <p><b>なぜゲームモード判定だけでは足りないか</b>: 図鑑は「拾った瞬間」だけでなく
+     * <b>インベントリの状態を遡って走査する</b>経路を持つので、クリエイティブで並べた品を
+     * サバイバルへ持ち込んで走査させれば、走査時のゲームモードは SURVIVAL になり
+     * 既存のゲームモードゲートを素通りする(HuskSync がインベントリを同期する構成では
+     * {@code /server} で移るだけで成立する)。行為の瞬間しか見ない他の6箇所
+     * ({@code EquipmentDurabilityService} 等)と違い、図鑑だけは出自をアイテムに残す必要がある。
+     *
+     * <p><b>best-effort である限界(印が失われる側)</b>: クラフト素材として消費した品・別アイテムへ
+     * 変換した品・ブロックとして設置して壊し直した品では印が失われる(新しいスタックになるため)。
+     * 逆に印の付いたスタックは PDC が違うので素の同種スタックと<b>合体しない</b>
+     * (クリエイティブで出した石と survival で拾った石が別スタックになる)。
+     * これらは「クリエイティブ品が図鑑を無料で埋める」ことを塞ぐ代償として受け入れている。
+     *
+     * <p><b>best-effort である限界(印が誤って付く側 — 2026-08-01 追記)</b>: こちらの方が症状が重い。
+     * 誤って付くと<b>そのスタックは以後どのサバイバル走査でも永久に図鑑に載らない</b>のに、
+     * エラーも通知も出ない。判明している誤付与経路は
+     * <ul>
+     *   <li>クリエイティブ滞在中に<b>地面から拾った</b>品(モブ討伐ドロップ・他プレイヤーの落とし物・
+     *       資源サーバから持ち帰った品を落として拾い直した場合)。地面のスタックからは出自を
+     *       判定する手掛かりが一切取れないため絞れない。</li>
+     *   <li>クリエイティブ画面での整理のうち、「持ち上げ→置き直し」の対応付けに失敗したもの
+     *       ({@code CollectionListener#onCreativeSet} の限界。同種の品を複数同時に juggle した場合など)。</li>
+     * </ul>
+     * <b>回復手段は {@code /tf collection unmark}</b>(OP または {@code trinityforge.admin})。
+     * {@link com.trinityforge.pdc.ItemData#clearCreativeOrigin()} がその実体。
+     */
+    public static final NamespacedKey ITEM_CREATIVE_ORIGIN = key("creative_origin");
 
     // --- Player (PROGRESSION / UNLOCK / ROLE): perks, prestige, role are the unlock truth. ---
     public static final NamespacedKey PLAYER_PRESTIGE_COUNT = key("prestige_count");
     public static final NamespacedKey PLAYER_HELD_PERKS = key("held_perks");
+    /**
+     * スキルノードロック (2026-07-27): プレステージしても解放を維持するノードの perk ID 集合。
+     * {@link #PLAYER_HELD_PERKS} と同じ 0x1F 結合 STRING コーデック。
+     *
+     * <p>進行DB(SQLite)ではなくプレイヤーPDCに置くのは、ロックが「所持している解放状態」ではなく
+     * 「プレイヤーが選んだ保護指定」であり、DBスキーマ変更なしで足せるため。プレステージ時に
+     * {@code NativePerkService} が「ロック ∩ 所持中」だけを無償で再付与する。
+     */
+    public static final NamespacedKey PLAYER_LOCKED_PERKS = key("locked_perks");
     public static final NamespacedKey PLAYER_ROLE_PRIMARY = key("role_primary");
     public static final NamespacedKey PLAYER_ROLE_SUPPORT = key("role_support");
+    /**
+     * ロールを最後に変更した時刻 (epoch millis, 2026-07-31)。戦闘職・補助職で別々に持つ。
+     *
+     * <p>別々にするのは、GUI で戦闘職を選んだ直後に補助職も選べる必要があるため
+     * (共通のクールダウンにすると片方を選んだ瞬間にもう片方が押せなくなる)。
+     *
+     * <p>クールダウンが無いと、採掘するときだけ鉱夫・釣るときだけ漁師へ切り替えれば
+     * 全系統に最大倍率が乗るので、補助職の選択そのものが意味を失う。
+     */
+    public static final NamespacedKey PLAYER_ROLE_PRIMARY_CHANGED_AT = key("role_primary_changed_at");
+    public static final NamespacedKey PLAYER_ROLE_SUPPORT_CHANGED_AT = key("role_support_changed_at");
     /**
      * Generic addon combat-stat contribution channel ({@code AddonCombatStats}): a per-player canonical
      * stat map that any hard-dependent addon may write, folded into BOTH the attacker (CombatListener)
@@ -113,6 +227,17 @@ public final class PdcKeys {
     public static final NamespacedKey PLAYER_COLLECTION_ENTRIES = key("collection_entries");
     /** コレクション図鑑: 解放済み報酬ティアID集合(再付与防止)。0x1F 結合 STRING。 */
     public static final NamespacedKey PLAYER_COLLECTION_CLAIMED_TIERS = key("collection_claimed_tiers");
+    /**
+     * コレクション図鑑 (2026-07-31, K-11): 参加時の全スロット走査を「遡り登録」として
+     * 静かに1回済ませたかどうか。1 = 済み。
+     *
+     * <p>K-11 の修正で、既にインベントリへ入っている素のバニラ品が一斉に記録可能になる。
+     * 通知したままだと最大16行のチャットと {@code broadcast: true} の報酬ティア告知が
+     * 連続発火して事故に見えるため、プレイヤーごとに初回の走査だけ通知を抑止する。
+     * 未設定(=既存プレイヤー全員)が「まだ遡り登録していない」を意味するので、
+     * 追加のマイグレーションは要らない。
+     */
+    public static final NamespacedKey PLAYER_COLLECTION_BACKFILL_DONE = key("collection_backfill_done");
 
     // --- 特殊報酬レジストリ (2026-07-23-stat-gate-overhaul §6.1) ---
     /** 達成/図鑑ティア経由で直接付与された特殊報酬ID集合(スキルツリー経由の reward:&lt;id&gt; とは別枠)。
@@ -143,11 +268,36 @@ public final class PdcKeys {
     // --- アチーブメント (2026-07-23-stat-gate-overhaul §6.2) ---
     /** 達成済みアチーブメントID集合。0x1F 結合 STRING。 */
     public static final NamespacedKey PLAYER_ACHIEVEMENTS_DONE = key("achievements_done");
+    /**
+     * 「実際に戦闘で使った装備」の記録 (2026-08-16, アチーブメント再構築)。
+     * {@link #PLAYER_COLLECTION_ENTRIES} と同じ 0x1F 結合 STRING。
+     *
+     * <p>入る値は {@code weapon:<catalogIdかMaterial名>} / {@code armor:<同左>} の 2 種。
+     * <b>図鑑({@link #PLAYER_COLLECTION_ENTRIES})とは意図的に別の器</b>にしてある ── 図鑑は
+     * 「入手した」を数えるので、そこへ混ぜると図鑑の登録数が装備の使用で勝手に増え、
+     * 報酬ティアのしきい値の意味が壊れる。
+     *
+     * <p>「クラフトしただけ／持っているだけ」では入らない。武器は<b>そのアイテムで実際に
+     * ダメージを与えた</b>とき、防具は<b>それを着たまま被弾した</b>ときにだけ記録する
+     * ({@code GearUseListener})。使用可能レベルが足りない装備はそもそも攻撃/装備できないので、
+     * この方式は「使用レベルを無視した先取り解除」を原理的に防ぐ(2026-08-16 ユーザー要件)。
+     */
+    public static final NamespacedKey PLAYER_GEAR_USED = key("gear_used");
 
     // --- パーティクルシード (2026-07-23-stat-gate-overhaul §6.1): 道具側に焼き込むシードID。 ---
     public static final NamespacedKey ITEM_PARTICLE_SEED = key("particle_seed");
 
-    // --- 称号頭上表示 (2026-07-23-stat-gate-overhaul §6.1、FocusHpDisplayと同じ孤児掃除パターン)。 ---
+    // --- 称号の頭上表示 (2026-07-23-stat-gate-overhaul §6.1) ---
+    /**
+     * {@code TitleDisplayService} が生成した {@code TextDisplay} である印。
+     *
+     * <p>2026-08-02 のスコアボード方式への書き換えでいったん削除したが、2026-08-03 に
+     * 「称号は頭上の別行に出す」方針へ戻したため復活させた。表示体は
+     * {@code setPersistent(false)} なのでディスクへは書かれない ── それでも印を付けるのは、
+     * <b>同一プロセス内で起き得る孤児</b>(プラグインの無効化→再有効化、ワールドのアンロード、
+     * サーバ側の例外で {@code shutdown()} を通らずに終わった場合)を起動時の
+     * {@code sweepOrphans()} が確実に回収できるようにするため。
+     */
     public static final NamespacedKey TITLE_DISPLAY = key("title_display");
 
     /** ガチャ天井(pity)カウンタキーの接頭辞。プールID毎に独立したカウンタを持つため、他の
@@ -161,6 +311,27 @@ public final class PdcKeys {
      */
     public static NamespacedKey gachaPityKey(String poolId) {
         return key(GACHA_PITY_PREFIX + java.util.Objects.requireNonNull(poolId, "poolId"));
+    }
+
+    /** 累計カウンタキーの接頭辞。{@link #lifetimeCounterKey(String)} 経由でのみ使う。 */
+    private static final String LIFETIME_COUNTER_PREFIX = "counter_";
+
+    /**
+     * 「一生分の累計値」を数えるカウンタキー(2026-07-31)。バニラ {@code Statistic} では表現できない
+     * TF/Ars 独自の総量(累計消費ソースなど)を、アチーブメントの {@code trigger.type: counter} から
+     * 参照できるようにするために置いた汎用の器。
+     *
+     * <p>{@link #gachaPityKey(String)} と同じ動的導出パターン。カウンタは減らさない前提なので
+     * 型は {@code LONG}(1億を超えても溢れない)。
+     *
+     * <p><b>ArsPaper フォークもこのキーへ直接書く</b>({@code TrinityForgeBridge#recordSourceSpent})。
+     * あちらは TF API の jar を差し替えずにビルドできるよう {@code "trinityforge:counter_<id>"} を
+     * 文字列で組むので、ここの命名を変えると静かに別カウンタになる。
+     * {@code PdcKeysCounterTest} がその文字列を固定している。
+     */
+    public static NamespacedKey lifetimeCounterKey(String counterId) {
+        return key(LIFETIME_COUNTER_PREFIX + java.util.Objects.requireNonNull(counterId, "counterId")
+                .trim().toLowerCase(java.util.Locale.ROOT));
     }
 
     // --- Mob (COMBAT 6 / DUNGEON): defender stat profile + level + dungeon theme. ---
@@ -222,6 +393,29 @@ public final class PdcKeys {
     public static final NamespacedKey MOB_ATTACK_CRIT_DAMAGE = key("mob_attack_crit_damage");
     public static final NamespacedKey MOB_ATTACK_DAMAGE_MODIFIER = key("mob_attack_damage_modifier");
     public static final NamespacedKey MOB_ATTACK_FIXED_DAMAGE = key("mob_attack_fixed_damage");
+    /**
+     * このモブの通常攻撃を魔法として解決する割合 [0,1](2026-08-02 新設、{@code combat/mob-types.yml} /
+     * {@code combat/mob-profiles.yml} / {@code combat/mob-overrides.yml} の {@code attack.magic-ratio}）。
+     * 0.0(既定・absent)= 完全物理(従来どおり)。
+     *
+     * <p><b>{@link #MOB_ATTACK_POWER} 等の「フルの攻撃プロファイル」とは独立に書き込まれる</b>
+     * （fork {@code TrinityForgeSpawnListener#stamp} 参照）。EliteMobs ダンジョンモブの大多数は
+     * {@code attack:} ブロック自体を持たず(＝{@code MOB_ATTACK_POWER} 等は書かれず
+     * {@code hasAttackProfile()} は false のまま)、EliteMobs 自身の計算した基礎ダメージを
+     * フォーク側 {@code TrinityForgeCombatListener} が flat 委譲で受け取る。その経路でも
+     * 魔法比率だけは独立に読めるよう、このキーは attack-power の有無と無関係に常に刻む。
+     */
+    public static final NamespacedKey MOB_ATTACK_MAGIC_RATIO = key("mob_attack_magic_ratio");
+    /**
+     * Marker (BYTE=1) written by {@code CombatListener#onCreatureSpawn} for a mob that came out of a
+     * monster spawner, so {@code ArcheryExperiencePolicy} can apply the spawner EXP multiplier.
+     *
+     * <p>2026-07-29: moved here from a listener-local {@code new NamespacedKey(plugin, ...)} (same
+     * resulting key — the plugin namespace IS {@link #NAMESPACE}) so {@code MobTransformCarryOver}
+     * can carry it across a transformation. Before that, drowning a spawner zombie produced a
+     * Drowned with no spawner origin, silently bypassing the spawner EXP nerf.
+     */
+    public static final NamespacedKey MOB_SPAWNER_SPAWNED = key("combat_exp_spawner_spawned");
 
     // --- Villager (economy/villager-trades.yml): perk-gated custom trades. ---
     /**
@@ -238,6 +432,13 @@ public final class PdcKeys {
      */
     public static final NamespacedKey VILLAGER_TRADES_INJECTED = key("villager_trades_injected");
 
+    // --- Brewing stand ---
+    // 醸造台の所有者キーは<b>ここに置かない</b>。所有者記録は
+    // com.trinityforge.listeners.BrewOwnership が唯一の定義(キー文字列・書き込み規則・寿命の全部)で、
+    // 醸造解放ゲートもそれを読む。2026-07-31 に一度ここへ BREW_STAND_OWNER を新設して
+    // 「誰に醸造を許可するか」と「誰にEXP/品質を付けるか」が別キーで決まる状態を作ったため撤去した
+    // (レビュー指摘#1)。所有者の記録を2本目にしないこと。
+
     // --- Cosmetic display entities (COMBAT focus-HP overlay). ---
     /** Tags a {@code TextDisplay} spawned by {@code FocusHpDisplay} so an orphan sweep on enable
      * can find and remove any left behind by a crash (the entity is also non-persistent). */
@@ -246,6 +447,53 @@ public final class PdcKeys {
      * モブへ与えた実TFダメージのポップアップ表記)。FocusHpDisplay と同じく起動時の孤児掃除で回収する
      * (エンティティ自体も non-persistent かつ duration 経過で自動除去)。 */
     public static final NamespacedKey DAMAGE_POPUP_DISPLAY = key("damage_popup_display");
+
+    /**
+     * 発射武器の発射地点(2026-08-04, distance-damage-bonus 悪用防止)。プレイヤーが撃った矢/トライデント
+     * 等の projectile が {@code ProjectileLaunchEvent} 時点で立っていた位置を
+     * {@code "<worldUUID>|<x>|<y>|<z>"} 形式の STRING で projectile 自身の PDC へ刻む
+     * ({@link #PLAYER_ADDON_COMBAT_STATS} と同じ区切り文字コーデック流儀)。
+     *
+     * <p><b>なぜ必要か</b>: distance-damage-bonus(弓術の距離ダメージ)は本来「矢が実際に飛んだ距離」で
+     * あるべきだが、旧実装は着弾時点の射手の<b>現在地</b>を使っていた。矢をトラップドア等に刺して停止させ、
+     * 射手だけ遠方へ移動してから第三者に矢を再度落下・命中させると、実際には矢は移動していないのに
+     * 「距離が離れた」ことになりダメージが跳ね上がる悪用が成立していた。射手が移動しても発射時点で
+     * 記録済みのこの値は変わらないため、この経路では値が伸びない。
+     *
+     * <p>absent(記録なし: プラグイン生成/ディスペンサー発射/サーバ再起動を跨いだ矢など)の場合、
+     * 読み取り側({@code CombatListener#launchDistanceBlocks})は<b>距離ボーナス0(ボーナス無し)に
+     * フォールバックする</b>。旧挙動(射手の現在地)へフォールバックしてはいけない(それでは同じ悪用が残る)。
+     * ワールドが着弾時と異なる場合も同様に0にフォールバックする({@code Location#distance} は別ワールド間で
+     * 例外を投げるため)。射手がプレイヤーの projectile にのみ書き込む({@code CombatListener#onProjectileLaunch}
+     * 参照、無駄なPDC書き込みを避けるため)。
+     */
+    public static final NamespacedKey PROJECTILE_LAUNCH_LOCATION = key("projectile_launch_location");
+
+    // --- アチーブメント手動解放方式 (2026-08-04): 達成(条件成立)と解放(受け取り)を分離する。 ---
+    /**
+     * 解放(受け取り)済みアチーブメントID集合。0x1F 結合 STRING、{@link #PLAYER_ACHIEVEMENTS_DONE} と
+     * 同じコーデック。条件成立({@link #PLAYER_ACHIEVEMENTS_DONE})だけでは報酬(アイテム/EXP/永続バフ等)は
+     * 付かず、{@code /achievement} GUI でプレイヤーが明示的に解放操作をして初めてこちらへ加わり、その
+     * 時点で報酬が付与される。<b>前提判定(prerequisitesMet)は意図的にこちらではなく
+     * {@link #PLAYER_ACHIEVEMENTS_DONE} を見る</b> ── 「解放を忘れていても次のアチーブメントには
+     * 挑戦できる」(2026-08-04 ユーザー確定)ため。
+     */
+    public static final NamespacedKey PLAYER_ACHIEVEMENTS_CLAIMED = key("achievements_claimed");
+    /**
+     * 解放済み集合への移行を既に済ませたか(BYTE=1)。手動解放方式の導入前に達成していたプレイヤーは
+     * <b>既に報酬を受け取っている</b>ため、導入時に {@link #PLAYER_ACHIEVEMENTS_CLAIMED} を空のままに
+     * すると「まだ解放していない」ように見えて再受給できてしまう(二重取り)。このフラグが立っていない
+     * プレイヤーに対して1回だけ {@code achievements_done} の内容を {@code achievements_claimed} へ
+     * コピーしてから立てる({@code AchievementService#migrateClaimIfNeeded} が唯一の書き手)。新規
+     * プレイヤーは両方空のままコピーされるだけなので無害。
+     */
+    public static final NamespacedKey PLAYER_ACHIEVEMENTS_CLAIM_MIGRATED = key("achievements_claim_migrated");
+    /**
+     * 「解放できます」通知を既に送った達成済みアチーブメントID集合。0x1F 結合 STRING。達成した瞬間に
+     * 1回だけ控えめに知らせる通知のスパム防止用(同じIDへは二度と送らない。解放済みになってもこの
+     * 集合からは消さない ── 消しても再通知する意味が無いため)。
+     */
+    public static final NamespacedKey PLAYER_ACHIEVEMENTS_PENDING_NOTIFIED = key("achievements_pending_notified");
 
     private PdcKeys() {
     }

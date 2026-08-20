@@ -27,6 +27,14 @@
   }
   function grid(fields) { return h("div", { class: "field-grid" }, fields); }
   function sub(text) { return h("div", { class: "sub-title", text }); }
+  // カード見出し。yml キーそのまま(英語)だと読みにくいため日本語見出しをメインにし、
+  // 英字キーは fieldLabelEl と同じ流儀(小さなmonospaceバッジ)で併記する。キー自体は失わせない。
+  function sectionTitle(ja, key) {
+    return h("span", { class: "form-label with-ja" }, [
+      h("strong", { text: ja }),
+      h("span", { class: "form-label-key", text: key, title: "YAMLキー" })
+    ]);
+  }
   function banner(text) {
     return h("div", { class: "form-banner", text });
   }
@@ -136,9 +144,12 @@
     render();
     return box;
   }
+  // options は ["ID", ...] か [["ID", "日本語"], ...]。後者なら primary=日本語 / secondary=ID。
   function selectField(obj, key, options, opts) {
     const o = opts || {};
-    const optsList = options.map((v) => ({ value: v, primary: v }));
+    const optsList = options.map((v) => (Array.isArray(v)
+      ? { value: v[0], primary: v[1], secondary: v[0] }
+      : { value: v, primary: v }));
     return field(key, window.listSelect({
       value: obj[key] == null ? "" : String(obj[key]),
       placeholder: o.placeholder || "選択…",
@@ -154,11 +165,48 @@
     });
   }
 
-  // mana.source-auto-consume.items map (itemId -> mana per item) 編集UI。
+  // mana.source-auto-consume.items map の編集UI。
   // T4 (2026-07-25): 元は ArsPaper 全体設定(ars-config)画面内にあったが、「その他のギミック」
   // (tf-crafting-features.js) 画面へ移設。両画面から呼べるよう共有ヘルパーとして公開する。
   // アイテムIDの自由入力は recipes.js の素材選択UI(RECIPES_UI.itemPicker = window.materialInput、
   // バニラMaterial + custom:カタログ両対応)を使う。
+  //
+  // 2026-08-14: 値が「数値のみ(=マナ変換量)」から「マナ変換量＋そのアイテム専用CT」へ拡張された。
+  // 数値だけの行は今までどおり有効で、CTは全体既定(mana.source-auto-consume.cooldown-seconds)を使う。
+  // 数値欄にラベルが無く、すぐ上の全体CT欄と区別がつかない状態だったのも同時に直した
+  // (ユーザー報告「ソースベリー 100 とあるがマナ回復量とCTがそれぞれ設定できるべきでは？」)。
+
+  // 行の値(数値 or {mana, cooldown-seconds})から マナ変換量を読む。
+  function sacManaOf(value) {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const n = Number(value.mana);
+      return Number.isFinite(n) ? n : 1;
+    }
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 1;
+  }
+
+  // 行の値から CT(秒)を読む。未設定(=全体既定に従う)は null。0 は「CT無し」で別の意味。
+  function sacCooldownOf(value) {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const c = value["cooldown-seconds"];
+      if (c == null || c === "") return null;
+      const n = Number(c);
+      return Number.isFinite(n) ? n : null;
+    }
+    return null;
+  }
+
+  // マナ変換量とCTから保存形を組む。CT未設定なら数値だけの短い形へ戻す
+  // (キーを増やさないことで、開いて保存しただけの往復差分を作らない)。
+  function sacValue(mana, cooldownSeconds) {
+    const m = Math.max(1, Math.trunc(Number.isFinite(mana) ? mana : 1));
+    if (cooldownSeconds == null) return m;
+    return { mana: m, "cooldown-seconds": Math.max(0, Math.trunc(cooldownSeconds)) };
+  }
+
+  window.SOURCE_AUTO_CONSUME_ROW = { manaOf: sacManaOf, cooldownOf: sacCooldownOf, valueOf: sacValue };
+
   window.buildSourceAutoConsumeItemsEditor = function buildSourceAutoConsumeItemsEditor(itemsMap) {
     const box = h("div", { class: "stat-rows" });
     function itemPickerFor(value, onChange) {
@@ -167,6 +215,12 @@
       }
       // recipes.js 未ロード時のフォールバック(通常到達しない)。
       return window.textInput(value, onChange, "source_berry");
+    }
+    function labeled(labelText, control, title) {
+      return h("span", { class: "input-with-hint", title: title || "" }, [
+        h("span", { class: "mini-label", text: labelText }),
+        control
+      ]);
     }
     function render() {
       box.innerHTML = "";
@@ -181,9 +235,14 @@
             renameKey(itemsMap, k, id);
             render();
           }),
-          window.numberInput(itemsMap[k], (v) => {
-            itemsMap[k] = v == null || v === "" ? 1 : Math.max(1, Math.trunc(v));
-          }, { int: true }),
+          labeled("マナ回復量", window.numberInput(sacManaOf(itemsMap[k]), (v) => {
+            const mana = v == null || v === "" ? 1 : Math.max(1, Math.trunc(v));
+            itemsMap[k] = sacValue(mana, sacCooldownOf(itemsMap[k]));
+          }, { int: true }), "このアイテム1個で回復するマナ量。"),
+          labeled("CT(秒)", window.numberInput(sacCooldownOf(itemsMap[k]), (v) => {
+            const cd = v == null || v === "" ? null : Math.max(0, Math.trunc(v));
+            itemsMap[k] = sacValue(sacManaOf(itemsMap[k]), cd);
+          }, { int: true }), "このアイテム専用のCT。空欄なら上の全体CT、0でCT無し。CTはアイテムごとに独立して進みます。"),
           h("button", {
             class: "btn-small danger", type: "button", text: "×",
             onclick: () => { delete itemsMap[k]; render(); }
@@ -208,24 +267,57 @@
     return box;
   };
 
-  const LEVELBAR_COLORS = ["BLUE", "YELLOW", "GREEN", "PINK", "PURPLE", "RED", "WHITE"];
-  const LEVELBAR_STYLES = ["SEGMENTED_6", "SEGMENTED_10", "SEGMENTED_12", "SEGMENTED_20", "SOLID"];
+  // BossBar の色/分割スタイル。保存値は Bukkit の enum 名のままで、表示だけ日本語にする
+  // (2026-07-29: セレクトが BLUE / SEGMENTED_6 の英字そのままだった)。
+  const LEVELBAR_COLORS = [
+    ["BLUE", "青"], ["YELLOW", "黄"], ["GREEN", "緑"], ["PINK", "桃"],
+    ["PURPLE", "紫"], ["RED", "赤"], ["WHITE", "白"]
+  ];
+  const LEVELBAR_STYLES = [
+    ["SEGMENTED_6", "6分割"], ["SEGMENTED_10", "10分割"], ["SEGMENTED_12", "12分割"],
+    ["SEGMENTED_20", "20分割"], ["SOLID", "分割なし(1本)"]
+  ];
 
   // ============================================================
   // ArsPaper config.yml
   // ============================================================
+
+  // 2026-08-16: マナ基礎3キー(default-max / default-regen-rate / regen-interval-ticks)の既定値。
+  // これらは 2026-07-25 に TrinityForge の combat/base-stats.yml へ移管されていたが、
+  // stats/lore.yml に非登録だったため editor のどの画面にも出ず、手編集でしか変えられなかった。
+  // 2026-08-16 に真源を ArsPaper の config.yml (mana.*) へ戻し、この画面から編集できるようにした。
+  //
+  // ここの値は **ArsPaper 側 Java の既定値(ManaConfig.fromConfig の第2引数)および出荷 config.yml と
+  // 完全に一致していなければならない**。ずれると「開いて保存しただけで yml の意味が変わる」事故になる。
+  // 契約値は 100 / 5 / 20(バランスは移設前後で不変)。
+  // test/ars-config-mana-base-2026-08-16.test.js がこの定数を契約値に固定し、
+  // フォークが手元にある環境では出荷 config.yml とも突き合わせる。
+  const MANA_BASE_DEFAULTS = {
+    "default-max": 100,
+    "default-regen-rate": 5,
+    "regen-interval-ticks": 20
+  };
+  window.MANA_BASE_DEFAULTS = MANA_BASE_DEFAULTS;
+
   window.buildArsConfigForm = function buildArsConfigForm(data) {
     const working = data && typeof data === "object" ? data : {};
     const formCd = ensureObj(working, "form-cooldowns");
     const mana = ensureObj(working, "mana");
     // mana.source-auto-consume.items は 2026-07-25 T4 で「その他のギミック」(crafting-features)画面へ
     // 移設済み。この画面では触れない(未設定キーを新規生成して往復差分を作らないよう ensureObj もしない)。
-    // 2026-07-25 T3: geyser.disable-custom-model-data は BaseCustomItem.isCustomModelDataDisabled() が
-    // 実際に参照しているため削除しない(削除前提の指示に反する実装依存を検知 → 維持して報告)。
-    const geyser = ensureObj(working, "geyser");
+    // geyser.disable-custom-model-data は 2026-07-27 に撤去した。CustomModelData は常時付与へ固定し
+    // (既定値 false = 付与する、が唯一の挙動になる。実挙動は変わらない)。BaseCustomItem.java の
+    // isCustomModelDataDisabled() も削除しコード側で無条件付与に変更済み(fork-handoff/arspaper/fork の
+    // src/main/resources/config.yml には元々このキー/geyser:セクション自体が存在しなかった)。
     const enchants = ensureObj(working, "enchantments");
     const mobDrops = ensureObj(working, "mob-drops");
-    const loot = ensureObj(working, "loot");
+    // 2026-07-31 (K-21): 旧 `loot.*`(enabled / enchant-book-chance /
+    // enchanted-golden-apple-chance)はこの画面から撤去した。ルートチェストの追加抽選は
+    // loot-tables.yml へ移っており、fork の config.yml はこのブロックを**もう読まない**ので
+    // 「ルートチェストONを off にしても止まらない・出現率を変えても何も変わらない」欄だった。
+    // さらに ensureObj で生やしていたため、ars-config を保存するだけで config.yml に
+    // 無効な `loot:` ブロックが復活していた。ensureObj もしない(往復ロスレス: 既存ファイルに
+    // 残っている loot: の値は working をそのまま返す方式で温存され、勝手に消えも生えもしない)。
     if (!Array.isArray(enchants["mana-regen-per-level"])) enchants["mana-regen-per-level"] = [0, 1, 3, 6];
     if (!Array.isArray(enchants["mana-boost-per-level"])) enchants["mana-boost-per-level"] = [0, 15, 30, 50];
 
@@ -305,43 +397,44 @@
       renderCd();
     }
 
-    root.appendChild(card(h("strong", { text: "form-cooldowns" }), [
+    root.appendChild(card(sectionTitle("フォーム別クールタイム", "form-cooldowns"), [
       h("div", { class: "form-hint", text: "形態ごとの独立CT(秒)。0/未定義=従来計算CT。" }),
       cdBox
     ]));
 
-    root.appendChild(card(h("strong", { text: "mana" }), [
-      h("div", {
-        class: "form-hint",
-        text: "初期マナ上限／初期回復量／回復間隔(tick)／recovery(戦闘・非発動)は「プレイヤー基礎ステータス」"
-          + "(base-stats.yml の mana-max-base 等)へ移設しました。編集はそちらの画面で行ってください。"
-      }),
+    // マナ基礎3キーは 2026-08-16 に TrinityForge の combat/base-stats.yml から
+    // ここ(ArsPaper config.yml の mana.*)へ戻した。移設前は lore.yml 非登録で
+    // editor のどの画面にも出ず、手編集でしか変えられなかった。
+    //
+    // clearable: true は必須。空欄でキーごと削除して ArsPaper 側の既定値(100/5/20)に委ねる。
+    // 付け忘れると空欄が 0 として書き込まれ、「最大マナ0で魔法が一切撃てない」
+    // 「回復周期0tickで毎tick実行」という無言の事故になる(numField の既定は 0 書き込み)。
+    root.appendChild(card(sectionTitle("マナ", "mana"), [
       grid([
+        numField(mana, "default-max", {
+          label: "最大マナの基礎値", int: true, clearable: true,
+          desc: "全プレイヤー共通の最大マナの土台。グリフ解放・防具・スレッド・エンチャント・"
+            + "スキルツリーによる上限加算はこの値に上乗せされる。"
+            + `空欄 = キーを書かない = ArsPaper の既定値 ${MANA_BASE_DEFAULTS["default-max"]}。`
+        }),
+        numField(mana, "default-regen-rate", {
+          label: "マナ自然回復量", int: true, clearable: true,
+          desc: "下の「マナ回復周期」1回あたりに回復するマナ量。"
+            + `既定の周期(${MANA_BASE_DEFAULTS["regen-interval-ticks"]}tick=1秒)なら「毎秒この量」になる。`
+            + `空欄 = キーを書かない = ArsPaper の既定値 ${MANA_BASE_DEFAULTS["default-regen-rate"]}。`
+        }),
+        numField(mana, "regen-interval-ticks", {
+          label: "マナ回復周期(tick)", int: true, clearable: true,
+          desc: "マナ自然回復が走る間隔。20 = 1秒。変更にはサーバ再起動が必要"
+            + "(回復タスクは起動時にこの間隔で組まれるため、/ars reload では張り替わらない)。"
+            + `空欄 = キーを書かない = ArsPaper の既定値 ${MANA_BASE_DEFAULTS["regen-interval-ticks"]}。`
+        }),
         numField(mana, "per-glyph-unlock-bonus", { label: "グリフ解放ごと上限+", int: true }),
         numField(mana, "max-percent-cap", { label: "%上昇キャップ", int: true })
-      ]),
-      h("div", {
-        class: "form-hint",
-        text: "source-auto-consume.items（アイテムID → マナ/個）は「その他のギミック」(crafting-features) "
-          + "画面の「ソース自動消費」タブへ移設しました。編集はそちらの画面で行ってください。"
-      })
-    ]));
-
-    root.appendChild(card(h("strong", { text: "geyser" }), [
-      h("div", {
-        class: "form-hint",
-        text: "ars-magic の経験値設定(exp-per-cast / exp-per-mana)は「スキルEXP獲得」(skill-exp.yml の "
-          + "ars-magic:)へ統合しました。編集はそちらの画面で行ってください。"
-      }),
-      grid([
-        boolField(geyser, "disable-custom-model-data", {
-          label: "CMD無効(Geyser)",
-          desc: "統合版で透明になる場合はON。BaseCustomItem.isCustomModelDataDisabled() が実参照するため維持。"
-        })
       ])
     ]));
 
-    root.appendChild(card(h("strong", { text: "enchantments" }), [
+    root.appendChild(card(sectionTitle("エンチャント", "enchantments"), [
       numField(enchants, "max-level", { label: "最大レベル", int: true }),
       // 2026-07-25 T5: yml キー(mana-regen-per-level等)は変更せず(後方互換のため)、表示ラベルのみ
       // 日本語化。キーを変えると読み手のJava(GlyphConfig等)側の追随・後方互換読みが必要になり
@@ -352,15 +445,13 @@
       intListEditor(enchants["mana-boost-per-level"], { addLabel: "+ レベル帯を追加" })
     ]));
 
-    root.appendChild(card(h("strong", { text: "mob-drops / loot" }), [
+    root.appendChild(card(sectionTitle("モブドロップ", "mob-drops"), [
       grid([
         boolField(mobDrops, "warden-echo-shard", { label: "ウォーデン→残響の欠片" }),
         numField(mobDrops, "warden-echo-shard-min", { label: "欠片 min", int: true }),
-        numField(mobDrops, "warden-echo-shard-max", { label: "欠片 max", int: true }),
-        boolField(loot, "enabled", { label: "ルートチェストON" }),
-        numField(loot, "enchant-book-chance", { label: "エンチャ本出現率" }),
-        numField(loot, "enchanted-golden-apple-chance", { label: "金リンゴ出現率" })
-      ])
+        numField(mobDrops, "warden-echo-shard-max", { label: "欠片 max", int: true })
+      ]),
+      sub("ルートチェストの追加抽選は「構造物ルート抽選 (loot-tables)」画面で設定します。")
     ]));
 
     return { element: root, getData: () => working };
@@ -399,7 +490,13 @@
         glyphOptions.length = 0;
         if (g && typeof g === "object") {
           for (const id of Object.keys(g).sort()) {
-            glyphOptions.push({ value: "arspaper:" + id, primary: id, secondary: "arspaper:" + id });
+            // 2026-07-27 タスク4: グリフには display-name が設定されているのに、これまで primary に
+            // 生ID(id)をそのまま出していた。他画面(itemRefSelect等)と同じ流儀に合わせ、
+            // primary=表示名 / secondary=ID にする。display-name未設定のグリフはIDのままフォールバック。
+            const entry = g[id] && typeof g[id] === "object" ? g[id] : {};
+            const displayName = typeof entry["display-name"] === "string" && entry["display-name"].trim()
+              ? entry["display-name"] : id;
+            glyphOptions.push({ value: "arspaper:" + id, primary: displayName, secondary: "arspaper:" + id });
           }
         }
       } catch (_) { /* empty */ }

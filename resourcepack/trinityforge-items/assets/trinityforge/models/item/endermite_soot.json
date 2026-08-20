@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/gunpowder",
+  "textures": {
+    "layer0": "trinityforge:item/endermite_soot"
+  }
+}

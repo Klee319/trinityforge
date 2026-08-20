@@ -127,3 +127,53 @@ test("両方から複数件でも順序を保って全部候補化される", ()
   assert.deepEqual(out.map((c) => c.id), ["c1", "c2", "m1", "m2"]);
   assert.deepEqual(out.filter((c) => c.tab === "material").map((c) => c.id), ["m1", "m2"]);
 });
+
+// ============================================================
+// 2026-08-18 (W-52・機構B/C): functional-items.yml の material 無し12件(pedestal等)と
+// sourcelinks.yml(EXTRA_SOURCES に無かった)の再発防止。
+// ============================================================
+
+test("機構B: functionalItems は materialless:true のソースなら material 無しでも候補に残る", () => {
+  const out = buildCatalogCandidates({ items: {} }, null, {
+    functionalItems: {
+      items: {
+        pedestal: { "display-name": "台座" }, // material キー自体が無い(仕様)
+        dominion_wand: { "display-name": "ドミニオンワンド", material: "BLAZE_ROD" }
+      }
+    }
+  });
+  const pedestal = out.find((c) => c.id === "pedestal");
+  assert.ok(pedestal, "material 無しの functionalItems エントリが候補から除外されている"
+    + "(materialless 緩和が効いていない)");
+  assert.equal(pedestal.displayName, "台座");
+  assert.equal(pedestal.material, "", "material の無い候補に推測値を入れてはいけない");
+  assert.equal(pedestal.materialless, true, "materialless の印が付いていない");
+
+  const wand = out.find((c) => c.id === "dominion_wand");
+  assert.ok(wand);
+  assert.equal(wand.material, "BLAZE_ROD");
+  assert.notEqual(wand.materialless, true, "material を持つ候補に materialless を立ててはいけない");
+});
+
+test("機構B: 主系統(catalog.yml)は従来どおり material 無しで除外される(緩和の対象外)", () => {
+  // test/catalog-candidates.test.js 冒頭の回帰(「material 無しは除外」)と矛盾しないことの確認。
+  const catalog = { items: { no_material: { "display-name": "素材キー欠落" } } };
+  const out = buildCatalogCandidates(catalog);
+  assert.deepEqual(out, []);
+});
+
+test("機構C: sourcelinks.yml が EXTRA_SOURCES 経由で候補化される", () => {
+  const out = buildCatalogCandidates({ items: {} }, null, {
+    sourcelinks: {
+      items: {
+        volcanic_sourcelink: { "display-name": "ヴォルカニックソースリンク", material: "FURNACE", "custom-model-data": 200003 }
+      }
+    }
+  });
+  const link = out.find((c) => c.id === "volcanic_sourcelink");
+  assert.ok(link, "sourcelinks.yml が候補源(EXTRA_SOURCES)に入っていない");
+  assert.equal(link.displayName, "ヴォルカニックソースリンク");
+  assert.equal(link.material, "FURNACE");
+  assert.equal(link.cmd, 200003);
+  assert.equal(link.noItemStats, true, "ソースリンクはブロックなので item-stats 枠を作ってはいけない");
+});

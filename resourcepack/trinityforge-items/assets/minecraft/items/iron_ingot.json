@@ -1,0 +1,26 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/iron_ingot",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 107,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/heavy_metal"
+        }
+      },
+      {
+        "threshold": 5403,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/pillager_plate"
+        }
+      }
+    ]
+  }
+}

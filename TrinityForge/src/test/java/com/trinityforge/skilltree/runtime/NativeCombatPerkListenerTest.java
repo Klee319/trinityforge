@@ -22,32 +22,31 @@ class NativeCombatPerkListenerTest {
     }
 
     @Test
-    void stunTicksWithoutBonusMatchesLegacyFormula() {
-        // 旧実装: 25 + 20*min(1, stunChance)。durationBonus=0では従来の挙動を完全維持する。
-        assertEquals(25, NativeCombatPerkListener.stunTicks(0.0, 0.0));
-        assertEquals(35, NativeCombatPerkListener.stunTicks(0.5, 0.0));
-        assertEquals(45, NativeCombatPerkListener.stunTicks(1.0, 0.0));
-        assertEquals(45, NativeCombatPerkListener.stunTicks(5.0, 0.0), "stunChance自体は従来どおり1.0で頭打ち");
+    void stunTicksUsesConfiguredTickTotalDirectly() {
+        assertEquals(25, NativeCombatPerkListener.stunTicks(25.0));
+        assertEquals(30, NativeCombatPerkListener.stunTicks(30.0));
+        assertEquals(38, NativeCombatPerkListener.stunTicks(37.6));
     }
 
     @Test
-    void stunTicksAppliesDurationBonusMultiplicatively() {
-        // base=25 (stunChance=0), +50% -> 37.5 -> round 38
-        assertEquals(38, NativeCombatPerkListener.stunTicks(0.0, 0.5));
-        // base=45 (stunChance=1.0), +100% -> 90 (< cap 100)
-        assertEquals(90, NativeCombatPerkListener.stunTicks(1.0, 1.0));
+    void stunTicksClampsBeforeIntegerConversion() {
+        assertEquals(100, NativeCombatPerkListener.stunTicks(Double.MAX_VALUE));
+        assertEquals(100, NativeCombatPerkListener.stunTicks(2_147_483_648.0));
+        assertEquals(100, NativeCombatPerkListener.stunTicks(Double.POSITIVE_INFINITY));
+        assertEquals(1, NativeCombatPerkListener.stunTicks(Double.NEGATIVE_INFINITY));
+        assertEquals(25, NativeCombatPerkListener.stunTicks(Double.NaN));
     }
 
     @Test
     void stunTicksNeverExceedsAbsoluteCap() {
         assertEquals(NativeCombatPerkListener.MAX_STUN_DURATION_TICKS,
-                NativeCombatPerkListener.stunTicks(1.0, 10.0),
-                "stun_duration_bonusでどれだけ盛っても絶対上限(ハメ殺し防止)を超えてはならない");
+                NativeCombatPerkListener.stunTicks(500.0),
+                "stun_duration_bonusをtick加算しても絶対上限(ハメ殺し防止)を超えてはならない");
     }
 
     @Test
-    void stunTicksFloorsAtOneEvenWithNegativeBonus() {
-        assertEquals(1, NativeCombatPerkListener.stunTicks(0.0, -0.99));
+    void stunTicksFloorsAtOneEvenWithNegativeTotal() {
+        assertEquals(1, NativeCombatPerkListener.stunTicks(-20.0));
     }
 
     @Test

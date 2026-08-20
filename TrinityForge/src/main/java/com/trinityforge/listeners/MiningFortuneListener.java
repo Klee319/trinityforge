@@ -177,7 +177,16 @@ public final class MiningFortuneListener implements Listener {
         return silkTouch != null && meta.getEnchantLevel(silkTouch) > 0;
     }
 
+    /**
+     * 追加ドロップの期待個数 = {@code mining-fortune}(割合。0.15 = 「ドロップ増加+15%」) +
+     * MINING Lv × {@code fortune-per-level}。
+     *
+     * <p>2026-07-28: 以前は結果に {@code × 0.30} を掛けていた。この係数があると skilltree が
+     * 宣言している「ドロップ増加+15%」が実際には +4.5% にしかならず、effect-text と実挙動が
+     * 食い違う。係数は撤去し、レベル項の既定値を 1/0.30 ぶん下げる({@code fortune-per-level}
+     * 0.02→0.006、出荷 yml 0.01→0.003)ことでレベル由来の増加量は従来どおりに保つ。
+     */
     static double expectedExtraRate(double miningFortune, int miningLevel, double fortunePerLevel) {
-        return (miningFortune + miningLevel * fortunePerLevel) * 0.30;
+        return miningFortune + miningLevel * fortunePerLevel;
     }
 }

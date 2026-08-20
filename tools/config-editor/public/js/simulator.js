@@ -6,6 +6,9 @@
 //   - ComponentDamageCalculator: 8ステップ本体
 //   - SymmetricCombatService: 物理/魔法の base 導出、magical.scale-with-combat-level、
 //     RESISTANCE ポーション(0.2*(amp+1))の被ダメ軽減%再注入、cappedMitigation
+//   - MagicStatSourcePolicy#effectiveBase(ArsPaperフォーク): 魔法基礎 =
+//     グリフ基礎(spellBase) + 杖の attack-power × magical.attack-power-scale の【加算】
+//     (2026-07-31 修正。以前は「spellBase × 触媒倍率」の乗算でモデル化しており実機と約400倍ずれていた)
 //   - VanillaArmorMapping: armor/toughness -> 防御率%/防具強度
 //   - WeaponBaseFormula: base = 1 + (useLevel^a / b)
 //   - AttackStats/DefenseStats: 各フィールドの [0,1] クランプ / flat>=0
@@ -44,7 +47,9 @@
         // 防具強度(会心軽減率%)/toughness点。Java 既定 0(バニラ防具は会心軽減に寄与しないフォールバック)。
         vaStrengthPerPoint: pickNum(defaults, "vanilla-armor.armor-strength-per-point", 0.0),
         maxMitigation: pickNum(defaults, "defense.max-mitigation-rate", 0.9),
-        maxCritReduction: pickNum(defaults, "defense.max-crit-reduction", 1.0)
+        maxCritReduction: pickNum(defaults, "defense.max-crit-reduction", 1.0),
+        // 杖(触媒)の attack-power を魔法基礎ダメージへ加算するときの係数。Java 既定 1.0(100%加算)、範囲[0,10]。
+        magAttackPowerScale: pickNum(defaults, "magical.attack-power-scale", 1.0)
       },
       combatLevel: 0,
       physMethod: "formula",
@@ -52,7 +57,8 @@
       useLevel: 20,
       vanillaAttack: 7,
       spellBase: 6,
-      catalystMult: 1,
+      // 杖/触媒(use-skill: ARS_MAGIC)の attack-power。魔法基礎へ「加算」される(乗算ではない)。
+      catalystAttackPower: 0,
       critChance: 0,
       critDamage: 0.5,
       penetration: 0,
@@ -73,9 +79,19 @@
     };
   }
 
-  // 攻撃側の基本 attack-power (物理: 指定方法別 / 魔法: spellBase*触媒倍率)。
+  // MagicStatSourcePolicy#scaledAttackPower の写経: 負の attack-power は0扱い、係数は[0,10]へクランプ。
+  function scaledAttackPower(power, scale) {
+    const p = Number.isFinite(power) ? power : 0;
+    if (p <= 0) return 0;
+    const s = Number.isFinite(scale) ? Math.max(0, Math.min(10, scale)) : 1;
+    return p * s;
+  }
+
+  // 攻撃側の基本 attack-power (物理: 指定方法別 / 魔法: spellBase + 杖のattack-power×係数の【加算】)。
   function deriveAttackPower(m) {
-    if (m.mode === "magical") return m.spellBase * m.catalystMult;
+    if (m.mode === "magical") {
+      return nonNeg(m.spellBase) + scaledAttackPower(m.catalystAttackPower, m.c.magAttackPowerScale);
+    }
     if (m.physMethod === "formula") {
       const b = m.c.formulaB > 0 ? m.c.formulaB : 1000;
       return 1 + Math.pow(Math.max(0, m.useLevel), m.c.formulaA) / b;
@@ -250,8 +266,8 @@
       else if (model.physMethod === "formula") atk.push(numRow("使用可能lv (useLevel)", model, "useLevel", recalc, { int: true }));
       else atk.push(numRow("バニラ攻撃力", model, "vanillaAttack", recalc));
     } else {
-      atk.push(numRow("spellBase (魔法基礎)", model, "spellBase", recalc));
-      atk.push(numRow("触媒 attack-power 倍率", model, "catalystMult", recalc));
+      atk.push(numRow("spellBase (グリフ基礎+増減グリフ)", model, "spellBase", recalc));
+      atk.push(numRow("杖/触媒の attack-power", model, "catalystAttackPower", recalc));
     }
     atk.push(numRow("会心率 (0..1)", model, "critChance", recalc));
     atk.push(numRow("会心ダメージ (例0.5=+50%)", model, "critDamage", recalc));
@@ -295,6 +311,7 @@
     cons.push(constNumRow("physical 下限", model, "physMin", recalc));
     cons.push(constNumRow("magical 下限", model, "magMin", recalc));
     cons.push(constCheckRow("magical にレベル倍率適用", model, "magScale", recalc));
+    cons.push(constNumRow("魔法への attack-power 係数", model, "magAttackPowerScale", recalc));
     cons.push(constNumRow("式 指数a", model, "formulaA", recalc));
     cons.push(constNumRow("式 除数b", model, "formulaB", recalc));
     cons.push(constNumRow("軽減率上限", model, "maxMitigation", recalc));
@@ -332,7 +349,8 @@
       ]));
     }
     table.appendChild(tbody);
-    output.appendChild(table);
+    /* R (2026-08-04): 狭い画面で列が切り落とされないようスクロール枠に入れる (.respack-table と同じ理由)。 */
+    output.appendChild(h("div", { class: "table-scroll" }, [table]));
 
     // 最終値サマリ
     const expected = model.critChance * crit.final + (1 - clamp01(model.critChance)) * nonCrit.final;
@@ -351,4 +369,10 @@
       h("div", { class: "sim-final-value", text: String(value) })
     ]);
   }
+
+  // DOM を作らない純関数だけを公開する(単体テスト用)。式が実 Java から乖離すると
+  // 「調整に使う唯一のツールが黙ってずれる」ので、ここをテストで縛る。
+  window.SIMULATOR_LOGIC = {
+    initModel, scaledAttackPower, deriveAttackPower, deriveDefaultDamage, computeSteps
+  };
 })();

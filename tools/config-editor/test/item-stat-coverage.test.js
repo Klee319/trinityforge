@@ -54,7 +54,8 @@ test("バニラ防具と通常工具は素材別の品質・使用条件を持�
   for (const material of ["LEATHER", "CHAINMAIL", "COPPER", "IRON", "GOLDEN", "DIAMOND", "NETHERITE"]) {
     for (const part of ["HELMET", "CHESTPLATE", "LEGGINGS", "BOOTS"]) {
       const entry = stats.items[`${material}_${part}`];
-      assert.ok(entry?.fixed?.["armor-defense-rate"] > 0, `${material}_${part} の防具値`);
+      // 2026-08-15: 防具値(armor-defense-rate)を廃止し防御率(defense-rate)へ統合した。
+      assert.ok(entry?.fixed?.["defense-rate"] > 0, `${material}_${part} の防御率`);
       assert.ok(entry?.fixed?.["phys-resistance"] > 0, `${material}_${part} の物理耐性`);
       assert.equal(typeof entry["quality-mode-offset"], "number", `${material}_${part} の品質基準値`);
     }
@@ -77,7 +78,14 @@ test("金ツールは耐久値もランダムロールする", () => {
   }
 });
 
-test("金武器のダメージ補正は100%未満の固定値へ大幅な上下振れを加算する", () => {
+// 【2026-08-14 値の更新】加算幅を {-1.6, +1.65} から {-0.16, +0.2} へ。
+// 旧値は「固定補正 0.95〜0.98 に対し下限が -1.6」で、品質0の中央値が 0.00〜0.03、
+// ロール下限は -0.62〜-0.65 と負だった ―― つまり金装備は低品質だと最終ダメージ補正が
+// ほぼゼロ〜負になり、min-component-damage:1 に張り付いて1発1ダメージ固定になっていた。
+// (詳細と再較正の式は tools/config-editor/test/weapon-random-balance.test.js のコメント)。
+// 新値は他帯の attack-power と同じ比率(-0.16/+0.20)。金だけが damage-modifier にも
+// random を持つ、という「金はピーキー」の個性そのものは維持している。
+test("金武器のダメージ補正は100%未満の固定値へ上下振れを加算し、下限で負にならない", () => {
   const goldIds = (catalog._editor.categories.weapon || [])
     .flatMap((category) => category.itemIds || [])
     .filter((id) => /golden|golad|gold_/.test(id));
@@ -89,8 +97,10 @@ test("金武器のダメージ補正は100%未満の固定値へ大幅な上下�
   for (const [id, entry] of goldEntries) {
     const roll = entry.random["damage-modifier"];
     assert.ok(entry.fixed["damage-modifier"] < 1, `${id} の固定補正`);
-    assert.equal(roll.min, -1.6, `${id} の加算下限`);
-    assert.equal(roll.max, 1.65, `${id} の加算上限`);
+    assert.equal(roll.min, -0.16, `${id} の加算下限`);
+    assert.equal(roll.max, 0.2, `${id} の加算上限`);
+    assert.ok(entry.fixed["damage-modifier"] + roll.min > 0,
+      `${id} の最終ダメージ補正がロール下限で負になる`);
   }
 });
 

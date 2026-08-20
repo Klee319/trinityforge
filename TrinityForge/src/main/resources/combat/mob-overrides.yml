@@ -23,11 +23,19 @@
 # 自動的に管理下に入るので、そのまま指定できる。false にしている場合は先に
 # /trinityforge importmobs plugins/EliteMobs/custombosses を実行すること。
 #
-# 【解決優先順位(強さ)】 次の3層を「項目単位」でマージする(書いた項目だけが上書きされ、書いていない
+# 【解決優先順位(強さ)】 次の5層を「項目単位」でマージする(書いた項目だけが上書きされ、書いていない
 # 項目は下位層の値がそのまま生きる):
 #   1. overrides.<実ワールド名>.mobs.<モブid>.stats  (最優先)
-#   2. overrides.default.mobs.<モブid>.stats
-#   3. combat/mob-profiles.yml の該当エントリ (mob-profiles.ymlが空扱いなら mob-defaults.yml)
+#   2. overrides.<実ワールド名>.stats                (そのダンジョン全体の既定、2026-08-03)
+#   3. overrides.default.mobs.<モブid>.stats
+#   4. overrides.default.stats                       (全ダンジョン共通の既定、2026-08-03)
+#   5. combat/mob-profiles.yml の該当エントリ (mob-profiles.ymlが空扱いなら mob-defaults.yml)
+#
+# 【ダンジョン単位の stats:(2026-08-03)】 mobs: と同じ階層に stats: を書くと、そのダンジョンの
+# 「全モブ」に効く既定値になる。mobs: に1件も書いていないモブにも効くのがこの層の存在意義で、
+# 「このダンジョンの敵は魔法型」といったコンセプトを396体に1体ずつ書かずに済ませるためにある
+# (キー体系は mobs.<モブid>.stats と完全に同一)。個別のモブだけ違う値にしたい場合は、これまで
+# どおり mobs.<モブid>.stats に書けばそちらが勝つ(項目単位なので、書いた項目だけが上書きされる)。
 #
 # 【解決優先順位(ドロップ)】 マージではなく「置換」。実ワールド指定に drops: があればそれを丸ごと使い、
 # 無ければ default 指定の drops: を丸ごと使う(どちらにも無ければ何も追加しない)。このドロップは
@@ -61,6 +69,10 @@
 #     penetration          : 貫通率%
 #     damage-modifier      : ダメージ補正
 #     fixed-damage         : 固定ダメージ(全防御貫通)
+#     magic-ratio           : このモブの通常攻撃を魔法として解決する割合 [0.0, 1.0](2026-08-02新設)。
+#                              既定0.0=完全物理。1.0=完全魔法。中間値は物理/魔法へ分割し回避ロールは
+#                              1回のまま両方へ通す(hybrid攻撃)。単独指定でき、他の attack 項目を
+#                              一切書かなくても効く(hasAttack判定には影響しない)。
 #
 # 【drops の項目一覧】 (このモブを倒したときに追加で出るアイテムの一覧)
 #   item   : Material名、または custom:<items/catalog.ymlのID / ArsPaper素材ID> (必須)
@@ -81,6 +93,14 @@
 #   どちらにも無ければ何もしない(バニラ/他プラグインのEXP量がそのまま残る。0EXPにはならない)。
 #   combat/mob-level-table.yml のレベル帯単位 vanilla-exp より後に走るので、両方に該当するモブは
 #   こちらの「モブごとの式」が勝つ(帯指定は、式を書いていないモブのための広い既定として残る)。
+#
+# 【level-cutoff は 2026-08-09 にこのファイルから撤去した】
+#   「レベル差による足きり」は combat/damage.yml の level-cutoff: へ移設した。ここに書いても
+#   もう読まれない(未知キーとして無視される)ので、書いてある場合は消すこと。
+#   移設の理由: この設定はダンジョン(ワールド)単位で解決していたため、EliteMobs がプロファイルを
+#   刻印したモブ = ダンジョンモブにしか掛からず、フィールドの野良モブがレベル差いくらでも
+#   素通りしていた。共通設定へ移したことで全モブに効くようになっている。
+#   ダンジョンごとの入場制限が要るなら dungeon/gates.yml の required-combat-level を使う。
 #
 # 【後方互換(コードの挙動)】 overrides: が空/存在しなければ、コード側(MobOverridesConfig)は一切何も
 # しない — 強さ・ドロップとも combat/mob-profiles.yml 由来の挙動を完全に維持する。これはロジックの
@@ -117,17 +137,197 @@
 #         stats:
 #           max-health: 2000
 # ============================================================================
+# 【ダンジョンのコンセプト(物理/魔法)】 2026-08-03
+# ダンジョンごとに「敵がどちらの型か」を割り当てている。表現は【2層に分かれている】:
+#
+#   (1) 守り = 各モブの stats.physical / stats.magical (per-mob)。どの属性の攻撃が通るかを決める。
+#       各ダンジョン先頭の `# ▼コンセプト:` コメントがその要約。こちらは以前から存在する。
+#   (2) 攻め = ダンジョン直下の stats.attack.magic-ratio (scope)。敵の通常攻撃のうち何割が
+#       魔法成分かを決める。2026-08-03 に新設。`# 【コンセプト】` コメントがその要約。
+#
+#   物魔両方 : magic-ratio 0.25 —— 中庸。個体ごとに耐性型が混在するダンジョン。
+#   物理推奨 : magic-ratio 0.45 —— 敵は魔法防御が厚い(=【物理武器が通る】)。攻撃は魔法寄りなので
+#                                【魔法防御を積む】必要がある。
+#   魔法推奨 : magic-ratio 0.10 —— 敵は物理装甲が厚い(=【魔法が通る】)。攻撃はほぼ物理なので
+#                                【物理防御を積む】必要がある。
+#
+# 「攻めに使う属性」と「受けに要る属性」が逆になるのは意図した設計 —— 同じ属性に全部寄せれば
+# 済む作りにすると、結局1本の最適解に戻ってしまうため。
+#
+# 【⚠️ scope 直下の stats: に physical/magical(耐性)を書いてはいけない(2026-08-03 に実際にやった誤り)】
+# MobStatOverride.mergeDefense は【項目単位マージ】なので、モブ個別の
+# `physical: { defense-rate: A, resistance: B }` が1つでもあると、scope 側の resistance は
+# 【必ず負ける】。このファイルのダンジョンモブは 397/404 が自前の resistance を持っているため、
+# scope に耐性を書いても事実上どこにも効かない(初版はこれを書いていて、丸ごと no-op だった)。
+# しかも「▼コンセプト(per-mob の実データ)」と食い違う値を書けるので、読む人を確実に誤解させる。
+# 耐性を変えたいときは per-mob 側を直すこと。scope 直下に置いてよいのは magic-ratio だけ
+# (これは per-mob 側がほぼ書いていないので実際に効く。MobOverridesConfigTest が守っている)。
+#
+# 【(1)と(2)は必ず逆向きに揃える】`▼コンセプト: 物理ビルドが活きる` なら `【コンセプト】物理推奨`。
+# 逆にすると「物理が通る敵が物理で殴ってくる」= 攻めも守りも物理だけで足りる状態になり、
+# 属性を分けた意味が消える。初版は9ダンジョンでこれを取り違えていた。
+#
+# 【magic-ratio の上限を 0.45 に抑えている理由(重要)】
+# 被ダメージは「守備力(flat-defense)を引いてから率を掛ける」ので、物理/魔法に分割された各成分は
+# それぞれ別の守備力で減算される。Lv60 のネザライト一式は phys-flat-defense を約49持つ一方、
+# バニラ系防具の magic-flat-defense は【全部位ゼロ】(魔法防御を持つのは守護/魔織シリーズだけ)。
+# つまり魔法成分は無対策のプレイヤーには ほぼ素通り する。Lv60 のダンジョンモブの攻撃力を
+# 66 とすると、magic-ratio 0.60 では魔法成分だけで約40 —— 最大HP(約50)の8割で、事実上2発以下。
+# 「対策すれば無傷・しなければ即死」という両極端になるため、上限は 0.45 に留めている。
+# ここを上げ下げする場合は、必ず「無対策のプレイヤーが何発耐えるか」で確認すること
+# (率ではなく守備力の絶対値との比較でしか判断できない)。
+#
+# flat-defense はここでは上書きしない。Lv45以降の加算(combat/mob-import.yml の
+# high-level-from/high-level-per-level)を殺してしまうため —— resistance/defense-rate/
+# damage-reduction は mob-import.yml 側が per-level 0 の定数なので、定数で置き換えても
+# レベル追随を壊さない。
+# ============================================================================
+
+# ============================================================================
+# 【2026-08-20 ダンジョン攻撃力の再圧縮】ユーザー報告「EMのダンジョンがオーバーワールドに比べて
+# 強すぎる。オーバーワールドの同レベルのモブより少し強いくらいに抑えてほしい」への対処。
+#
+# 何が起きていたか(出荷 yml から計算した実測。検算は tmp/em-vs-field.js):
+#   ダンジョンモブの攻撃力 = 共通ランプ(combat/mob-import.yml、フィールドの約1.27倍)
+#     × ここのダンジョン単位 attack-power-multiplier(2026-08-14 に入った 2.3〜4.8)
+#   の積なので、同レベルのフィールドモブの【5.4〜7.8倍】を殴っていた。品質9の帯最良装備でも
+#   Lv30/60/100 のどこでも【雑魚1発で即死】(耐えられる発数 0.8/1.0/0.9)。
+#   一方フィールドは同じ装備で 5.8/7.9/5.0 発耐える。HP はむしろダンジョンの方が低く、
+#   「硬い」のではなく「一方的に殴り殺される」状態だった。
+#   原因は順序: 2026-08-12 に火力カーブを寝かせ(プレイヤー最大HPを50ハートへ固定)、その【後で】
+#   2026-08-14 の難易度設計がこの倍率を載せたため、較正後の数値と突き合わされていない。
+#
+# どう直したか: 難易度1〜10の【順序は保ったまま】倍率を 2.3〜4.8 → 1.0〜1.4 へ線形圧縮した。
+#   2.3→1.0 / 2.5→1.03 / 2.7→1.06 / 2.9→1.10 / 3.2→1.14 / 3.4→1.18 / 3.7→1.22 /
+#   4.1→1.29 / 4.4→1.34 / 4.8→1.40
+#   結果、同レベルのフィールド比は【難易度1で約1.25倍・難易度10で約2.3倍】、耐えられる発数は
+#   難易度1で4〜6発・難易度10で2〜3発になる(フィールドは5〜8発)。
+#   ※ エンチャント試練10本はもともとこの倍率を持たず 1.0 相当で動いていた。今回の圧縮後の
+#     難易度1と同じ水準なので、28ダンジョンが初めて1本の尺度に載ったことになる。
+# ⚠️ HP側(踏破ボスの max-health / max-health-multiplier)は【意図的に触っていない】。
+#    報告は「強すぎる=即死する」であって「硬すぎる」ではなく、TTK は元からフィールドより
+#    短い(0.24〜0.64倍)。ここを削ると踏破ボスが一瞬で溶ける。
+# ⚠️ 倍率を動かすときは、束縛者の絶対値7体も同じ比で直すこと(下の該当コメント参照)。
+#    畳み込み忘れは ShippedBossStrengthDriftTest が検出する。
+# ============================================================================
 
 overrides:
   # 全ダンジョン共通のフォールバック(ワールド個別指定が無いモブに使われる)
   default:
-    mobs: {}
+    # 2026-07-31: バニラモブの特殊攻撃(abilities)。テンプレート定義は combat/mob-abilities.yml。
+    # 【EliteMobs の mob id を持たないモブは EntityType 名がキーになる】ので、ここに小文字の
+    # EntityType 名を書けばオーバーワールドのモブにも技が付く。
+    #
+    # 【⚠️ EntityType 名キーが効くのは abilities: だけ(2026-08-03 に実際に踏んだ罠)】
+    # 同じキーに drops: や vanilla-exp: を書いても【1個も落ちないし EXP も変わらない】。
+    # EntityType 名へフォールバックするのは MobAbilityTask だけで、drops:/vanilla-exp: を読む
+    # MobOverrideDropListener / MobOverrideExpListener は【MOB_PROFILE_ID が刻まれた個体】でしか
+    # 動かず、その PDC は EliteMobs フォークが CustomBoss へ刻むもの。バニラのウォーデンや
+    # ウィザーには最初から存在しないので、リスナーは profileId 不在で即 return する。
+    # 警告もログも出ないため「設定したのに出ない」に気づけない。
+    # 【バニラモブに追加ドロップを配りたいときの正しい置き場】
+    #   ・combat/mob-level-table.yml の add-drops: (mobs: [WARDEN] のように EntityType で絞る)
+    #     — custom:ravager_hide / custom:guardian_spine 等で既に実運用している経路。
+    #   ・combat/mob-types.yml の <ENTITY_TYPE>.drops:
+    # このファイルの drops: は「EliteMobs ダンジョンのモブ限定」と割り切って使うこと。
+    #
+    # 【なぜゾンビ/スケルトンには付けていないか】序盤の手触りを変えないため。Lv0 の装備で
+    # AoE を撒くモブと戦わせると「カジュアルが最初の1時間で折れる」。技を付けたのは
+    # 「もともと危険」と認識されているモブだけで、しかも既存の挙動を裏切らない技を選んでいる
+    # (ラヴェジャーは突進する / ピリジャーは撃つ / ブレイズは火を吐く)。
+    mobs:
+      ravager:
+        abilities: [bull_rush]
+      pillager:
+        abilities: [arrow_fan]
+      witch:
+        abilities: [frost_field]
+      blaze:
+        abilities: [ember_spray]
+      wither_skeleton:
+        abilities: [crippling_stomp]
+      warden:
+        abilities: [shockwave]
+      elder_guardian:
+        abilities: [piercing_beam]
+      wither:
+        abilities: [piercing_beam, call_the_swarm]
+      ender_dragon:
+        abilities: [shockwave, call_the_swarm]
+
+    # 2026-08-02: attack.magic-ratio(実装1)を実証する新規派生カスタムボス6体。EliteMobs custombosses
+    # として ops/templates/elitemobs-custombosses/*.yml に用意し、/trinityforge importmobs custombosses
+    # で combat/mob-profiles.yml へ取り込んだ後、ここが強さ・技・ドロップを重ねる(手順は
+    # ops/deploy-elitemobs-magic-mobs.md 参照)。既存41体の mob-types.yml エントリは意図的に一切
+    # 変更していない(「既存モブの性質を書き換えない」方針。詳細は同docの冒頭コメント参照)。
+      caster_zombie:
+        display-name: "術者のゾンビ"
+        stats:
+          max-health: 80
+          physical: { defense-rate: 0.15, resistance: 0.10 }
+          magical:  { defense-rate: 0.05, resistance: 0.05 }
+          attack: { attack-power: 12, magic-ratio: 1.0 }
+        abilities: [ember_spray]
+        vanilla-exp: { base: 24.0, per-level: 0.6, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      warlock_husk:
+        display-name: "呪術師のハスク"
+        stats:
+          max-health: 110
+          physical: { defense-rate: 0.15, resistance: 0.10 }
+          magical:  { defense-rate: 0.05, resistance: 0.05 }
+          attack: { attack-power: 15, magic-ratio: 0.6 }
+        abilities: [withering_aura]
+        vanilla-exp: { base: 30.0, per-level: 0.75, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      frost_wraith_skeleton:
+        display-name: "氷結の彷徨い骨"
+        stats:
+          max-health: 90
+          physical: { defense-rate: 0.15, resistance: 0.10 }
+          magical:  { defense-rate: 0.05, resistance: 0.05 }
+          attack: { attack-power: 13, magic-ratio: 0.7 }
+        abilities: [frost_field]
+        vanilla-exp: { base: 26.0, per-level: 0.66, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      abyssal_drowned:
+        display-name: "深淵の溺者"
+        stats:
+          max-health: 130
+          physical: { defense-rate: 0.15, resistance: 0.10 }
+          magical:  { defense-rate: 0.05, resistance: 0.05 }
+          attack: { attack-power: 17, magic-ratio: 0.8 }
+        abilities: [piercing_beam]
+        vanilla-exp: { base: 34.0, per-level: 0.84, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      cursed_wanderer:
+        display-name: "呪われた徘徊者"
+        stats:
+          max-health: 70
+          physical: { defense-rate: 0.15, resistance: 0.10 }
+          magical:  { defense-rate: 0.05, resistance: 0.05 }
+          attack: { attack-power: 10, magic-ratio: 0.5 }
+        abilities: [withering_aura]
+        vanilla-exp: { base: 22.0, per-level: 0.54, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      shadow_spider:
+        display-name: "影渡りの蜘蛛"
+        stats:
+          max-health: 100
+          physical: { defense-rate: 0.15, resistance: 0.10 }
+          magical:  { defense-rate: 0.05, resistance: 0.05 }
+          attack: { attack-power: 14, magic-ratio: 0.9 }
+        abilities: [frost_field, piercing_beam]
+        vanilla-exp: { base: 28.0, per-level: 0.72, growth: 1.008, growth-interval: 1.0 }
+        drops: []
 
   # adventurers_guild_hub (HUB) — custombosses/adventurers_guild / 5体
   # アリーナ「Wood League」 — custombosses/wood_league_arena / 91体
   # ▼コンセプト: ハイブリッド(個体ごとに耐性型が混在) — ギルド闘技場。全ビルドの試し斬り場(計測用ダミーは無耐性のまま)
   em_adventurers_guild:
     display-name: "冒険者ギルド(拠点)"
+    # 【コンセプトを割り当てない唯一のダンジョン】ここは拠点で、中身はDPS計測用のダミーだけ。
+    # スコープ直下に耐性を書くと全ダミーに乗って測定値が狂う(下のモブ個別コメントと同じ理由)。
     mobs:
       training_dummy_lv1:
         display-name: "訓練用ダミー Lv.1"
@@ -170,6 +370,8 @@ overrides:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の節目ボスは1種。犬＝噛みついて足を止める
+        abilities: [crippling_stomp]
         drops: []
       wood_league_wave_10_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "悪い子犬 (増援)"
@@ -240,6 +442,8 @@ overrides:
           physical: { defense-rate: 0.052, resistance: 0.156 }
           magical:  { defense-rate: 0.286, resistance: 0.234 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の節目ミニボスは1種。魔法装甲が厚い個体なので技も魔法側
+        abilities: [ember_spray]
         drops: []
       wood_league_wave_16_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "ブヒ氏のファン (近接)"
@@ -303,6 +507,8 @@ overrides:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の節目ボスは1種。まとめて弾き飛ばす(囲んで殴るのを崩す)
+        abilities: [gale_smash]
         drops: []
       wood_league_wave_21_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場のゾンビ (第21波)"
@@ -366,6 +572,8 @@ overrides:
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の節目ミニボスは1種。予告付きの棘で立ち位置を強制
+        abilities: [quake_spikes]
         drops: []
       wood_league_wave_26_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場のゾンビ (第26波)"
@@ -429,6 +637,8 @@ overrides:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の節目ボスは1種。毒蛇＝留まらせない
+        abilities: [withering_aura]
         drops: []
       wood_league_wave_31_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場のゾンビ (第31波)"
@@ -492,6 +702,8 @@ overrides:
           physical: { defense-rate: 0.052, resistance: 0.156 }
           magical:  { defense-rate: 0.286, resistance: 0.234 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の節目ミニボスは1種(魔法側)。道化＝引きずり込む悪戯
+        abilities: [abyssal_grip]
         drops: []
       wood_league_wave_36_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場のゾンビ (第36波)"
@@ -555,6 +767,8 @@ overrides:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の節目ボスは1種。呪い＝予告してから落とす
+        abilities: [meteor_mark]
         drops: []
       wood_league_wave_41_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場のゾンビ (第41波)"
@@ -639,6 +853,8 @@ overrides:
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の節目ミニボスは1種。名前どおり刃を扇状に撒く
+        abilities: [arrow_fan]
         drops: []
       wood_league_wave_46_healer:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場の治癒師 (第46波)"
@@ -744,6 +960,9 @@ overrides:
           physical: { defense-rate: 0.266, resistance: 0.285 }
           magical:  { defense-rate: 0.266, resistance: 0.285 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の最終段だけ2種。技は【最深段(p3)】に置く —— p1/p2 は
+        # HP で通過するだけの段なので、そこに置くと一番長く戦う段が無技になる
+        abilities: [shockwave, call_the_horde]
         drops: []
       wood_league_wave_50_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "ウーサー・スタン (増援)"
@@ -758,6 +977,9 @@ overrides:
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の節目(5波ごとのミニボス/10波ごとのボス)だけに1種ずつ置く。
+        # 雑魚(_melee/_ranged)には付けない —— 同時湧きの頭数ぶん AoE が重なり、波の被ダメが読めなくなるため
+        abilities: [bull_rush]
         drops: []
       wood_league_wave_6_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場のゾンビ (第6波)"
@@ -806,10 +1028,23 @@ overrides:
   # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — 火薬技師の機械仕掛け。装甲で覆われている
   em_fireworks:
     display-name: "花火工房"
+    # 【コンセプト】魔法推奨(敵は物理型) —— 装甲で覆われた機械仕掛け。魔法が通り、物理防御が要る。
+    stats:
+      # 【難易度 6/10・推奨戦闘Lv 60】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 1.18
+      attack: { magic-ratio: 0.10 }
     mobs:
       fireworks_level_50_boss_phase_1:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "スパーキー (第2段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.374, resistance: 0.306 }
           magical:  { defense-rate: 0.068, resistance: 0.204 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
@@ -817,6 +1052,10 @@ overrides:
       fireworks_level_50_boss_phase_2:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "スパーキー (第3段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.418, resistance: 0.342 }
           magical:  { defense-rate: 0.076, resistance: 0.228 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
@@ -824,10 +1063,33 @@ overrides:
       fireworks_level_50_boss_phase_3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "スパーキー (第4段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.418, resistance: 0.342 }
           magical:  { defense-rate: 0.076, resistance: 0.228 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 3.3
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
+        abilities: [shockwave, bull_rush]
+        # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_fireworks", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_thrift", chance: 0.2, min: 1, max: 1 }
       fireworks_phase_2_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "ブーミ (第3段階) (増援)"
         stats:
@@ -847,10 +1109,23 @@ overrides:
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — 呪われた闘技場。亡霊は魔法を通しにくい
   em_hallosseum:
     display-name: "ハロウィン闘技場"
+    # 【コンセプト】物理推奨(敵は魔法型) —— 魔女とアンデッドの闘技場。物理武器が通り、魔法防御が要る。
+    stats:
+      # 【難易度 2/10・推奨戦闘Lv 20】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 1.03
+      attack: { magic-ratio: 0.45 }
     mobs:
       halloween_event_boss_mount:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "命知らず (騎乗体)"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -858,6 +1133,10 @@ overrides:
       halloween_event_boss_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "デュラハン (第1段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -865,10 +1144,33 @@ overrides:
       halloween_event_boss_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "デュラハン (第2段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.068, resistance: 0.204 }
           magical:  { defense-rate: 0.374, resistance: 0.306 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 0.9
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-01 特殊攻撃(柱2-1): 魔法防御が厚いダンジョンの踏破ボス。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
+        abilities: [piercing_beam, withering_aura]
+        # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_hallosseum", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_harvest", chance: 0.2, min: 1, max: 1 }
       halloween_event_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "不気味なスケルトン (増援)"
         stats:
@@ -879,8 +1181,57 @@ overrides:
 
   # binder_of_worlds_sanctum (INSTANCED_DUNGEON) — custombosses/the_binder_of_worlds / 18体
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — 次元術師。魔法を吸収する
+  #
+  # ▼【2026-08-01】束縛者だけ max-health / attack-power を明示する(柱2 / K-22(1))
+  #   このファイルは 405 モブすべてで level / max-health / attack が未設定 = combat/mob-import.yml の
+  #   共通ランプ任せだった。そのため「最終ボスなのに他ダンジョンの最終ボスと同じ強さ」になっていた。
+  #   束縛者は contentLevel: 50 固定(level-sync が無い)ので、共通ランプを Lv50 で評価した実値
+  #       max-health   = 150 × 1.072^50 = 4850.99
+  #       attack-power = 10.2 × 1.0148^50 =  21.26  (2026-08-12 にランプを寝かせたので再計算)
+  #   に、段階ごとの倍率を掛けた「絶対値」をここへ書く。
+  #   ※ mob-overrides.yml のスキーマ(MobStatOverride)は倍率キーを持たず絶対値しか受け取らないため、
+  #     設計書が倍率で書いている値は上記ランプ実値との積へ展開してある(割り戻せば倍率に戻る)。
+  #
+  #
+  # ▼【2026-08-14】攻撃力はさらにスコープ直下の attack-power-multiplier: 1.4 を畳み込んだ値へ更新した。
+  #   理由は下の attack-power-multiplier: 1.4 のコメントを参照(絶対値を持つ個体では倍率が捨てられるため)。
+  #   HP はスコープ倍率が無いので畳み込みは無い。phase_4 の HP だけは踏破ボスの実HP基準へ差し替えてある。
+  #
+  #   段階            max-health              attack-power                     意図
+  #   第2段階 phase_1  4850.99×2.5 = 12127     21.26×1.3=27.64 ×1.4 = 38.7    「ここから別格」を最初の一撃で伝える
+  #   第3段階 phase_2  4850.99×3.0 = 14553     21.26×1.4=29.77 ×1.4 = 41.68    魔法寄り(既存の耐性配分を維持)
+  #   第4段階 phase_3  4850.99×3.5 = 16978     21.26×1.5=31.89 ×1.4 = 44.65
+  #   最終    phase_4  578100(踏破ボスの実HP基準) 21.26×1.8=38.27 ×1.4 = 53.58  「ソロで頑張ればぎりぎり行ける」の上限
+  #   ミニボス×3       4850.99×1.8 =  8732     21.26×1.2=25.52 ×1.4 = 35.73
+  #   増援×11          変更しない               絶対値は書かない(スコープ倍率 1.4 だけが効く。9.99 → 13.986)
+  #                                                                  増援は数で圧をかける役。個体を強くすると事故る
+  #
+  #   ・すべて初期値。実機校正で詰める前提(設計書 §10-4)。
+  #   ・【重要】ここに絶対値を書くと個体ばらつき ±15% は消える。オーバーライドは variance を
+  #     掛けた後に適用され、置換であって乗算ではないため(ConfigManager#resolveRuntimeProfile →
+  #     MobStatOverride#applyTo)。つまり束縛者7体だけは毎回まったく同じ HP/攻撃になる。
+  #     実機校正で「実測が上下にぶれるはず」と考えないこと。ぶれない。
+  #   ・fixed-damage(全防御貫通)は使わない(設計書 §10-3 のユーザー確定)。難度は HP と手数で作る。
+  #   ・vanilla-exp は一切触らない。EXP を HP と同じ伸びにすると「所要時間が変わらないのに報酬だけ
+  #     跳ね上がる」破綻を再現するため、EXP は共通 1.008 + 役割係数のままにしてある。
   em_id_binder_of_worlds:
     display-name: "世界を繋ぐ者の聖所"
+    # 【コンセプト】物理推奨(敵は魔法型) —— 次元を繋ぐ術者の聖所。物理武器が通り、魔法防御が要る。
+    stats:
+      # 【難易度 10/10・推奨戦闘Lv 100】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      #
+      # 【重要】この倍率が「倍率のまま」効くのは、mobs: 側に attack.attack-power の絶対値を持たない
+      # 増援 11 体だけ(9.99 → 13.986)。ボス 4 体 + ミニボス 3 体の計 7 体は絶対値を持っており、
+      # MobStatOverride#applyTo が「scope 層の倍率 → mob 層の絶対値で置換」の順に走るので、
+      # 1.4 を掛けた結果が丸ごと捨てられる。そのため 7 体には 1.4 を掛けた値を絶対値として
+      # 畳み込んである。この倍率を動かすときは 7 体の attack-power も同じ比で直すこと
+      # (畳み込み忘れは ShippedBossStrengthDriftTest の束縛者 pin が検出する)。
+      attack-power-multiplier: 1.4
+      attack: { magic-ratio: 0.45 }
     mobs:
       binder_of_worlds_phase_1_endermite_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "現実を汚す者 (第2段階) (増援)"
@@ -892,16 +1243,35 @@ overrides:
       em_id_binder_of_worlds_phase_1:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "世界を繋ぐ者 (第2段階)"
         stats:
-          physical: { defense-rate: 0.068, resistance: 0.204 }
-          magical:  { defense-rate: 0.374, resistance: 0.306 }
+          # 2026-08-20(W-179): 絶対値をやめて倍率にした。EM 側は level: 100 なのに絶対値が
+          #   Lv50 のランプで書かれており、実HPがフィールドのエンドラと同じ(1.46M)、攻撃力は
+          #   自分の配下の雑魚より弱い、という逆転が起きていた。倍率ならレベル基準がずれない。
+          #   HP ×2.5 / 攻撃 ×1.3 (段階表はこのダンジョンの見出しコメントを参照)。
+          max-health-multiplier: 2.5
+          attack-power-multiplier: 1.3
+        # ▼物理寄りの壁 — 剣闘士の貫通が効く。魔法は通りやすい
+          physical: { defense-rate: 0.5, resistance: 0.2 }
+          magical:  { defense-rate: 0.15, resistance: 0.12 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
+        # 2026-07-31 特殊攻撃: 第2段階は物理の壁。近接で張り付かせて剣闘士の貫通に価値を持たせる
+        abilities: [shockwave, bull_rush]
         drops: []
       em_id_binder_of_worlds_phase_1_melee_miniboss:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "現実を根こそぎにする者 (第2段階)"
         stats:
+          # 2026-08-20(W-179): 絶対値をやめて倍率にした。EM 側は level: 100 なのに絶対値が
+          #   Lv50 のランプで書かれており、実HPがフィールドのエンドラと同じ(1.46M)、攻撃力は
+          #   自分の配下の雑魚より弱い、という逆転が起きていた。倍率ならレベル基準がずれない。
+          #   HP ×1.8 / 攻撃 ×1.2 (段階表はこのダンジョンの見出しコメントを参照)。
+          max-health-multiplier: 1.8
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.052, resistance: 0.156 }
           magical:  { defense-rate: 0.286, resistance: 0.234 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # ミニボス3種はスレッド厳選の触媒(現実の芯)を落とす。再抽選の回数がここで決まる。
+        # 2026-07-31 特殊攻撃: 足を止めさせる係
+        abilities: [crippling_stomp]
         drops: []
       em_id_binder_of_worlds_phase_1_melee_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "現実を荒らす者 (第2段階) (増援)"
@@ -920,9 +1290,18 @@ overrides:
       em_id_binder_of_worlds_phase_1_ranged_miniboss:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "現実を滅ぼす者 (第2段階)"
         stats:
+          # 2026-08-20(W-179): 絶対値をやめて倍率にした。EM 側は level: 100 なのに絶対値が
+          #   Lv50 のランプで書かれており、実HPがフィールドのエンドラと同じ(1.46M)、攻撃力は
+          #   自分の配下の雑魚より弱い、という逆転が起きていた。倍率ならレベル基準がずれない。
+          #   HP ×1.8 / 攻撃 ×1.2 (段階表はこのダンジョンの見出しコメントを参照)。
+          max-health-multiplier: 1.8
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.052, resistance: 0.156 }
           magical:  { defense-rate: 0.286, resistance: 0.234 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # ミニボス3種はスレッド厳選の触媒(現実の芯)を落とす。再抽選の回数がここで決まる。
+        # 2026-07-31 特殊攻撃: 遮蔽を使わせる係
+        abilities: [arrow_fan]
         drops: []
       em_id_binder_of_worlds_phase_1_ranged_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "現実を滅ぼす者 (第2段階) (増援)"
@@ -934,9 +1313,18 @@ overrides:
       em_id_binder_of_worlds_phase_1_status_miniboss:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "現実をねじる者 (第2段階)"
         stats:
+          # 2026-08-20(W-179): 絶対値をやめて倍率にした。EM 側は level: 100 なのに絶対値が
+          #   Lv50 のランプで書かれており、実HPがフィールドのエンドラと同じ(1.46M)、攻撃力は
+          #   自分の配下の雑魚より弱い、という逆転が起きていた。倍率ならレベル基準がずれない。
+          #   HP ×1.8 / 攻撃 ×1.2 (段階表はこのダンジョンの見出しコメントを参照)。
+          max-health-multiplier: 1.8
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.052, resistance: 0.156 }
           magical:  { defense-rate: 0.286, resistance: 0.234 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # ミニボス3種はスレッド厳選の触媒(現実の芯)を落とす。再抽選の回数がここで決まる。
+        # 2026-07-31 特殊攻撃: 立ち位置を強制する係
+        abilities: [frost_field]
         drops: []
       em_id_binder_of_worlds_phase_1_status_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "現実を破る者 (第2段階) (増援)"
@@ -948,16 +1336,36 @@ overrides:
       em_id_binder_of_worlds_phase_2:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "世界を繋ぐ者 (第3段階)"
         stats:
-          physical: { defense-rate: 0.076, resistance: 0.228 }
-          magical:  { defense-rate: 0.418, resistance: 0.342 }
+          # 2026-08-20(W-179): 絶対値をやめて倍率にした。EM 側は level: 100 なのに絶対値が
+          #   Lv50 のランプで書かれており、実HPがフィールドのエンドラと同じ(1.46M)、攻撃力は
+          #   自分の配下の雑魚より弱い、という逆転が起きていた。倍率ならレベル基準がずれない。
+          #   HP ×3 / 攻撃 ×1.4 (段階表はこのダンジョンの見出しコメントを参照)。
+          max-health-multiplier: 3
+          attack-power-multiplier: 1.4
+        # ▼魔法寄りの壁 — 魔術師の割合追加が効く。物理は通りやすい
+          physical: { defense-rate: 0.15, resistance: 0.12 }
+          magical:  { defense-rate: 0.2, resistance: 0.45 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
+        # 2026-07-31 特殊攻撃: 第3段階は魔法の壁。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
+        abilities: [piercing_beam, withering_aura]
         drops: []
       em_id_binder_of_worlds_phase_3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "世界を繋ぐ者 (第4段階)"
         stats:
-          physical: { defense-rate: 0.076, resistance: 0.228 }
-          magical:  { defense-rate: 0.418, resistance: 0.342 }
+          # 2026-08-20(W-179): 絶対値をやめて倍率にした。EM 側は level: 100 なのに絶対値が
+          #   Lv50 のランプで書かれており、実HPがフィールドのエンドラと同じ(1.46M)、攻撃力は
+          #   自分の配下の雑魚より弱い、という逆転が起きていた。倍率ならレベル基準がずれない。
+          #   HP ×3.5 / 攻撃 ×1.5 (段階表はこのダンジョンの見出しコメントを参照)。
+          max-health-multiplier: 3.5
+          attack-power-multiplier: 1.5
+        # ▼総攻撃 — 増援6種が同時湧き。守衛のヘイトと軽減が効く
+          physical: { defense-rate: 0.3, resistance: 0.18 }
+          magical:  { defense-rate: 0.3, resistance: 0.18 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
+        # 2026-07-31 特殊攻撃: 第4段階は総攻撃。増援を呼ぶので守衛のヘイトと軽減が効く
+        abilities: [call_the_horde, shockwave]
         drops: []
       em_id_binder_of_worlds_phase_3_enderman_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "現実を屠る者 (第4段階) (増援)"
@@ -1004,36 +1412,128 @@ overrides:
       em_id_binder_of_worlds_phase_4:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "世界を繋ぐ者"
         stats:
-          physical: { defense-rate: 0.076, resistance: 0.228 }
-          magical:  { defense-rate: 0.418, resistance: 0.342 }
+          # 2026-08-20(W-179): 絶対値をやめて倍率にした。EM 側は level: 100 なのに絶対値が
+          #   Lv50 のランプで書かれており、実HPがフィールドのエンドラと同じ(1.46M)、攻撃力は
+          #   自分の配下の雑魚より弱い、という逆転が起きていた。倍率ならレベル基準がずれない。
+          #   HP ×6 / 攻撃 ×1.8 (段階表はこのダンジョンの見出しコメントを参照)。
+          max-health-multiplier: 6
+          attack-power-multiplier: 1.8
+        # ▼消耗戦 — 偏りを消して純粋な長期戦にする。補助職の恒久バフと回復が効く
+          physical: { defense-rate: 0.38, resistance: 0.22 }
+          magical:  { defense-rate: 0.38, resistance: 0.22 }
+          # 「ソロで頑張ればぎりぎり行ける」の上限として置いた初期値で、実機校正で詰める。
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
+        # 2026-07-31 特殊攻撃: 最終段階は全部入り。3職のどれか1つでは足りず、装備と立ち回りの両方を要求する
+        abilities: [piercing_beam, shadow_step, call_the_swarm, shockwave]
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_binder", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_flight", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:binder_fragment", chance: 1.0, min: 1, max: 1 }
 
   # enchantment_challenge_1_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_1 / 1体
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — エンチャント課題1。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_1:
     display-name: "エンチャント試練 1"
+    # 【コンセプト】物理推奨(敵は魔法型) —— 試練1〜10は「奇数=物理推奨 / 偶数=魔法推奨」の交互梯子。
+    # 一本の装備で登り切れないようにして、両属性を揃える動機を作るため。
+    # ここの割り当ては上の ▼コンセプト(モブ個別の耐性型)と必ず一致させること。逆にすると
+    # 「物理が通る敵が物理で殴ってくる」＝攻めも守りも同じ属性で足りる状態になり、意味が消える。
+    stats:
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      # 2026-08-20(W-179): W-175 のダンジョン攻撃力圧縮から【この試練群だけ漏れていた】。
+      #   旧 101.5 は同レベルのフィールドモブ(Lv100 で 34.8)の 2.92 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
+      #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 1 段目) = 44.32。
+      #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
+      attack: { magic-ratio: 0.45, attack-power: 44.32 }
     mobs:
       enchantment_boss_dark_flame:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "暗黒の炎"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 2430000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
+        # 技は1つだけにして立ち位置の強制にとどめる。炎を撒いて足場を削る
+        abilities: [ember_spray]
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_1", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_2", chance: 0.05, min: 1, max: 1 }
+          - { item: "custom:key_enchant_trial_2", chance: 1.0, min: 1, max: 1 }
 
   # enchantment_challenge_10_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_10 / 3体
   # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — エンチャント課題10。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_10:
     display-name: "エンチャント試練 10"
+    # 【コンセプト】魔法推奨(敵は物理型) —— 交互梯子の最終段(偶数)。魔法が通り、物理防御が要る。
+    stats:
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      # 2026-08-20(W-179): W-175 のダンジョン攻撃力圧縮から【この試練群だけ漏れていた】。
+      #   旧 214.3 は同レベルのフィールドモブ(Lv100 で 34.8)の 6.16 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
+      #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 10 段目) = 62.05。
+      #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
+      attack: { magic-ratio: 0.10, attack-power: 62.05 }
     mobs:
       enchantment_boss_tricky_bones:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "厄介な骨"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.33, resistance: 0.27 }
           magical:  { defense-rate: 0.06, resistance: 0.18 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 17340000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-01 特殊攻撃(柱2-1): 立ち位置の強制
+        # 2026-08-16 試練の梯子: 最終段は3種。凍らせ・背後へ回り・予告付きの降炎で位置を奪う
+        abilities: [frost_field, shadow_step, meteor_mark]
+        # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_10", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.5, min: 1, max: 1 }
+          - { item: "custom:abyssal_ingot", chance: 1.0, min: 1, max: 1 }
       enchantment_boss_tricky_bones_summon_arrow:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "矢の射出装置 (召喚体)"
         stats:
@@ -1053,40 +1553,133 @@ overrides:
   # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — エンチャント課題2。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_2:
     display-name: "エンチャント試練 2"
+    # 【コンセプト】魔法推奨(敵は物理型) —— 魔法が通り、物理防御が要る。
+    stats:
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      # 2026-08-20(W-179): W-175 のダンジョン攻撃力圧縮から【この試練群だけ漏れていた】。
+      #   旧 110.7 は同レベルのフィールドモブ(Lv100 で 34.8)の 3.18 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
+      #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 2 段目) = 46.29。
+      #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
+      attack: { magic-ratio: 0.10, attack-power: 46.29 }
     mobs:
       enchantment_boss_energized_bunny:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "帯電したウサギ"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.33, resistance: 0.27 }
           magical:  { defense-rate: 0.06, resistance: 0.18 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 3160000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
+        # 技は1つだけにして立ち位置の強制にとどめる。跳ね回る相手。瞬間移動で追わせる
+        abilities: [shadow_step]
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_2", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_2", chance: 0.1, min: 1, max: 1 }
+          - { item: "custom:key_enchant_trial_3", chance: 1.0, min: 1, max: 1 }
 
   # enchantment_challenge_3_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_3 / 1体
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — エンチャント課題3。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_3:
     display-name: "エンチャント試練 3"
+    # 【コンセプト】物理推奨(敵は魔法型) —— 物理武器が通り、魔法防御が要る。
+    stats:
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      # 2026-08-20(W-179): W-175 のダンジョン攻撃力圧縮から【この試練群だけ漏れていた】。
+      #   旧 120 は同レベルのフィールドモブ(Lv100 で 34.8)の 3.45 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
+      #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 3 段目) = 48.26。
+      #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
+      attack: { magic-ratio: 0.45, attack-power: 48.26 }
     mobs:
       enchantment_boss_jealous_block:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "嫉妬するブロック"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 4020000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
+        # 技は1つだけにして立ち位置の強制にとどめる。動かない塊。近寄った相手だけを弾く
+        abilities: [shockwave]
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_3", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_2", chance: 0.15, min: 1, max: 1 }
+          - { item: "custom:key_enchant_trial_4", chance: 1.0, min: 1, max: 1 }
 
   # enchantment_challenge_4_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_4 / 3体
   # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — エンチャント課題4。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_4:
     display-name: "エンチャント試練 4"
+    # 【コンセプト】魔法推奨(敵は物理型) —— 交互梯子の偶数段。魔法が通り、物理防御が要る。
+    stats:
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      # 2026-08-20(W-179): W-175 のダンジョン攻撃力圧縮から【この試練群だけ漏れていた】。
+      #   旧 129.2 は同レベルのフィールドモブ(Lv100 で 34.8)の 3.72 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
+      #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 4 段目) = 50.23。
+      #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
+      attack: { magic-ratio: 0.10, attack-power: 50.23 }
     mobs:
       enchantment_boss_leet_summoner:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "1337 サモナー (召喚体)"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.11, resistance: 0.12 }
           magical:  { defense-rate: 0.02, resistance: 0.12 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 3830000
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 召喚士。増援を呼ぶのが本体の役
+        # 2026-08-16 試練の梯子: 試練4〜6 は2種。増援を呼びつつ足元を割る(棘は予告付き=避けられる)
+        abilities: [call_the_swarm, quake_spikes]
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_4", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_3", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:key_enchant_trial_5", chance: 1.0, min: 1, max: 1 }
       enchantment_boss_leet_summoner_eidolon_one:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "幻影エイドロン (召喚体) (1体目)"
         stats:
@@ -1106,14 +1699,45 @@ overrides:
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — エンチャント課題5。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_5:
     display-name: "エンチャント試練 5"
+    # 【コンセプト】物理推奨(敵は魔法型) —— 交互梯子の奇数段。物理武器が通り、魔法防御が要る。
+    stats:
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      # 2026-08-20(W-179): W-175 のダンジョン攻撃力圧縮から【この試練群だけ漏れていた】。
+      #   旧 142.2 は同レベルのフィールドモブ(Lv100 で 34.8)の 4.09 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
+      #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 5 段目) = 52.2。
+      #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
+      attack: { magic-ratio: 0.45, attack-power: 52.2 }
     mobs:
       enchantment_boss_loveable_impaler:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "愛らしき串刺し公"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 5630000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 串刺し。直線の貫通で位置取りを強制
+        # 2026-08-16 試練の梯子: 試練4〜6 は2種。引き寄せてから串刺す(遮蔽に隠れ続けさせない)
+        abilities: [piercing_beam, abyssal_grip]
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_5", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_3", chance: 0.25, min: 1, max: 1 }
+          - { item: "custom:key_enchant_trial_6", chance: 1.0, min: 1, max: 1 }
       enchantment_boss_loveable_impaler_trident_launcher:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "トライデント発射機"
         stats:
@@ -1126,62 +1750,199 @@ overrides:
   # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — エンチャント課題6。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_6:
     display-name: "エンチャント試練 6"
+    # 【コンセプト】魔法推奨(敵は物理型) —— 交互梯子の偶数段。魔法が通り、物理防御が要る。
+    stats:
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      # 2026-08-20(W-179): W-175 のダンジョン攻撃力圧縮から【この試練群だけ漏れていた】。
+      #   旧 151.4 は同レベルのフィールドモブ(Lv100 で 34.8)の 4.36 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
+      #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 6 段目) = 54.17。
+      #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
+      attack: { magic-ratio: 0.10, attack-power: 54.17 }
     mobs:
       enchantment_boss_ravegarer:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "レイヴ荒らし"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.33, resistance: 0.27 }
           magical:  { defense-rate: 0.06, resistance: 0.18 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 6390000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 突進役
+        # 2026-08-16 試練の梯子: 試練4〜6 は2種。突進で詰めてから吹き飛ばす(密着し続けさせない)
+        abilities: [bull_rush, gale_smash]
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_6", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_3", chance: 0.3, min: 1, max: 1 }
+          - { item: "custom:key_enchant_trial_7", chance: 1.0, min: 1, max: 1 }
 
   # enchantment_challenge_7_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_7 / 1体
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — エンチャント課題7。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_7:
     display-name: "エンチャント試練 7"
+    # 【コンセプト】物理推奨(敵は魔法型) —— 交互梯子の奇数段。物理武器が通り、魔法防御が要る。
+    stats:
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      # 2026-08-20(W-179): W-175 のダンジョン攻撃力圧縮から【この試練群だけ漏れていた】。
+      #   旧 164.4 は同レベルのフィールドモブ(Lv100 で 34.8)の 4.73 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
+      #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 7 段目) = 56.14。
+      #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
+      attack: { magic-ratio: 0.45, attack-power: 56.14 }
     mobs:
       enchantment_boss_rock_solid_cold:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "岩のような極寒"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 8220000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 氷結。立ち位置の強制
+        # 2026-08-16 試練の梯子: 試練7〜9 は3種。凍らせ・足を砕き・足元を割る(逃げ道を順に潰す)
+        abilities: [frost_field, crippling_stomp, quake_spikes]
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_7", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_4", chance: 0.35, min: 1, max: 1 }
+          - { item: "custom:key_enchant_trial_8", chance: 1.0, min: 1, max: 1 }
 
   # enchantment_challenge_8_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_8 / 1体
   # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — エンチャント課題8。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_8:
     display-name: "エンチャント試練 8"
+    # 【コンセプト】魔法推奨(敵は物理型) —— 魔法が通り、物理防御が要る。
+    stats:
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      # 2026-08-20(W-179): W-175 のダンジョン攻撃力圧縮から【この試練群だけ漏れていた】。
+      #   旧 181 は同レベルのフィールドモブ(Lv100 で 34.8)の 5.21 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
+      #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 8 段目) = 58.11。
+      #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
+      attack: { magic-ratio: 0.10, attack-power: 58.11 }
     mobs:
       enchantment_boss_the_firebunger:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "火炎装置"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.33, resistance: 0.27 }
           magical:  { defense-rate: 0.06, resistance: 0.18 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 14000000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 炎属性
+        # 2026-08-16 試練の梯子: 試練7〜9 は3種。火の粉で足場を削り、予告付きの降炎と爆風で押し出す
+        abilities: [ember_spray, meteor_mark, gale_smash]
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_8", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_4", chance: 0.4, min: 1, max: 1 }
+          - { item: "custom:key_enchant_trial_9", chance: 1.0, min: 1, max: 1 }
 
   # enchantment_challenge_9_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_9 / 1体
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — エンチャント課題9。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_9:
     display-name: "エンチャント試練 9"
+    # 【コンセプト】物理推奨(敵は魔法型) —— 物理武器が通り、魔法防御が要る。
+    stats:
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      # 2026-08-20(W-179): W-175 のダンジョン攻撃力圧縮から【この試練群だけ漏れていた】。
+      #   旧 195.8 は同レベルのフィールドモブ(Lv100 で 34.8)の 5.63 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
+      #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 9 段目) = 60.08。
+      #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
+      attack: { magic-ratio: 0.45, attack-power: 60.08 }
     mobs:
       enchantment_boss_the_glass_master:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "硝子の達人"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 18010000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): ガラス片を扇状に飛ばす
+        # 2026-08-16 試練の梯子: 試練7〜9 は3種。散弾で削り、引き寄せて貫く(遮蔽での膠着を許さない)
+        abilities: [arrow_fan, abyssal_grip, piercing_beam]
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_9", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_4", chance: 0.45, min: 1, max: 1 }
+          - { item: "custom:key_enchant_trial_10", chance: 1.0, min: 1, max: 1 }
 
   # the_bridge_sanctum (DYNAMIC_DUNGEON) — custombosses/em_id_the_bridge / 7体
   # ▼コンセプト: ハイブリッド(個体ごとに耐性型が混在) — 古代守護者。構造体と術式の複合
   em_id_the_bridge:
     display-name: "古橋の聖所"
+    # 【コンセプト】物魔両方 —— 守衛と術者が混在する聖所。中庸。
+    stats:
+      # 【難易度 3/10・推奨戦闘Lv 30】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 1.06
+      attack: { magic-ratio: 0.25 }
     mobs:
       the_bridge_ancient_guardian_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "古代の守護者 (第1段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -1189,6 +1950,10 @@ overrides:
       the_bridge_ancient_guardian_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "古代の守護者 (第2段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.238, resistance: 0.255 }
           magical:  { defense-rate: 0.238, resistance: 0.255 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
@@ -1196,10 +1961,33 @@ overrides:
       the_bridge_ancient_guardian_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "古代の守護者 (第3段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.266, resistance: 0.285 }
           magical:  { defense-rate: 0.266, resistance: 0.285 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 1.9
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-01 特殊攻撃(柱2-1): 耐性が均等なダンジョンの踏破ボス。増援と足止めで手数を要求し、守衛のヘイトと軽減に価値を持たせる
+        abilities: [call_the_horde, crippling_stomp]
+        # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_bridge", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_hero_of_the_village", chance: 0.2, min: 1, max: 1 }
       the_bridge_corpse_dummy:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "ドワーフの死骸 (亡骸)"
         stats:
@@ -1233,6 +2021,15 @@ overrides:
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — 熱術の坑道。魔力の霧が魔法を減衰させる
   em_id_the_cave:
     display-name: "灼熱の洞窟"
+    # 【コンセプト】物理推奨(敵は魔法型) —— 炎を纏う敵。物理武器が通り、魔法防御が要る。
+    stats:
+      # 【難易度 9/10・推奨戦闘Lv 90】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 1.34
+      attack: { magic-ratio: 0.45 }
     mobs:
       the_cave_boiled_bones_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "煮られた骨 (召喚体)"
@@ -1244,6 +2041,10 @@ overrides:
       the_cave_boiler_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "煮沸炉 (第1段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -1251,6 +2052,10 @@ overrides:
       the_cave_boiler_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "煮沸炉 (第2段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.068, resistance: 0.204 }
           magical:  { defense-rate: 0.374, resistance: 0.306 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
@@ -1258,10 +2063,33 @@ overrides:
       the_cave_boiler_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "煮沸炉 (第3段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.076, resistance: 0.228 }
           magical:  { defense-rate: 0.418, resistance: 0.342 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 21
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-01 特殊攻撃(柱2-1): 魔法防御が厚いダンジョンの踏破ボス。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
+        abilities: [piercing_beam, withering_aura]
+        # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_cave", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_salvage", chance: 0.2, min: 1, max: 1 }
       the_cave_broiled_miner:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "焼かれた坑夫"
         stats:
@@ -1274,6 +2102,15 @@ overrides:
   # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — ドワーフの重装兵。鍛えた甲冑で物理を弾く
   em_id_the_city:
     display-name: "ドワーフの地下都市"
+    # 【コンセプト】魔法推奨(敵は物理型) —— 重装のドワーフ兵。魔法が通り、物理防御が要る。
+    stats:
+      # 【難易度 6/10・推奨戦闘Lv 60】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 1.18
+      attack: { magic-ratio: 0.10 }
     mobs:
       em_id_the_city_ancient_dwarf:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "古代のドワーフ"
@@ -1320,27 +2157,60 @@ overrides:
       em_id_the_city_mini_boss_one:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "都市の衛兵"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
+          # 【中ボスのHP】目標TTK 6秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 2.19M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 3.7
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-16 特殊攻撃: ミニボスは1種。衛兵＝盾で弾き飛ばす(密着し続けさせない)
+        abilities: [gale_smash]
+        # 【ドロップ】中ボス(2026-08-14)。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:thread_thorn", chance: 0.2, min: 1, max: 1 }
       em_id_the_city_mini_boss_three:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "都市の防衛兵"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。踏破ボス(物理)と同じ属性で揃える。防衛兵＝足止め役
+        abilities: [crippling_stomp]
         drops: []
       em_id_the_city_mini_boss_two:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "都市の監視者"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。監視者＝遠距離から射る
+        abilities: [arrow_fan]
         drops: []
       em_id_the_city_royal_guard_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "王室の近衛 (第1段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.33, resistance: 0.27 }
           magical:  { defense-rate: 0.06, resistance: 0.18 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -1348,6 +2218,10 @@ overrides:
       em_id_the_city_royal_guard_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "王室の近衛 (第2段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.374, resistance: 0.306 }
           magical:  { defense-rate: 0.068, resistance: 0.204 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
@@ -1355,19 +2229,55 @@ overrides:
       em_id_the_city_royal_guard_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "王室の近衛 (第3段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.418, resistance: 0.342 }
           magical:  { defense-rate: 0.076, resistance: 0.228 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 6.7
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
+        abilities: [shockwave, bull_rush]
+        # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_city", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_source_thrift", chance: 0.2, min: 1, max: 1 }
 
   # the_climb_dungeon (DYNAMIC_DUNGEON) — custombosses/em_id_the_climb / 24体
   # ▼コンセプト: ハイブリッド(個体ごとに耐性型が混在) — アンデッドと獣使いが混在。骨は物理を、影は魔法を弾く
   em_id_the_climb:
     display-name: "登攀路"
+    # 【コンセプト】物魔両方 —— 道中の敵種が幅広い。中庸。
+    stats:
+      # 【難易度 8/10・推奨戦闘Lv 80】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 1.29
+      attack: { magic-ratio: 0.25 }
     mobs:
       the_climb_bone_champion:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "村の勇者"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -1375,9 +2285,16 @@ overrides:
       the_climb_bone_champion_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "村の勇者 (第2段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.238, resistance: 0.255 }
           magical:  { defense-rate: 0.238, resistance: 0.255 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 技は【最深段(p2)】に置く。p1 に置くと一番長く戦う段が無技になる
+        # (the_climb_undead_beastmaster と同じ規則)。勇者＝踏み込んで薙ぎ払う
+        abilities: [bull_rush, gale_smash]
         drops: []
       the_climb_bone_champion_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "アンデッドのネズミ (召喚体)"
@@ -1389,6 +2306,10 @@ overrides:
       the_climb_flesh_starved_child:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "焼かれた村人"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.04, resistance: 0.12 }
           magical:  { defense-rate: 0.22, resistance: 0.18 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -1424,6 +2345,10 @@ overrides:
       the_climb_skeletal_shadow:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "魂の影"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -1438,9 +2363,15 @@ overrides:
       the_climb_skeletal_shadow_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "魂の影 (第2段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.238, resistance: 0.255 }
           magical:  { defense-rate: 0.238, resistance: 0.255 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 技は最深段(p2)へ。影＝背後を取り、留まった相手を枯らす
+        abilities: [shadow_step, withering_aura]
         drops: []
       the_climb_skeletal_shadow_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "白化した骨 (召喚体)"
@@ -1459,6 +2390,10 @@ overrides:
       the_climb_undead_beastmaster:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "アンデッドの調獣師"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -1480,6 +2415,10 @@ overrides:
       the_climb_undead_beastmaster_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "アンデッドの調獣師 (第2段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.238, resistance: 0.255 }
           magical:  { defense-rate: 0.238, resistance: 0.255 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
@@ -1487,17 +2426,47 @@ overrides:
       the_climb_undead_beastmaster_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "アンデッドの調獣師 (第3段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.266, resistance: 0.285 }
           magical:  { defense-rate: 0.266, resistance: 0.285 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops: []
       the_climb_undead_beastmaster_p4:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "アンデッドの調獣師 (第4段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 23
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-14 特殊攻撃(柱2-1): p3 から【移動】。このダンジョンの踏破ボスは p4(= 入口
+        # the_climb_undead_beastmaster.yml の phases が p2:.99999 / p3:.75 / p4:.50 で最深段)。
+        # p3 は HP 75% で通過するだけの段階なので、そこに技を置くと一番長く戦う p4 が無技になる。
+        # 耐性が均等なダンジョンの踏破ボス。増援と足止めで手数を要求し、守衛のヘイトと軽減に価値を持たせる
+        abilities: [call_the_horde, crippling_stomp]
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_climb", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_health_boost", chance: 0.2, min: 1, max: 1 }
       the_climb_undead_beastmaster_summon_p4:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "蘇生した獣 (第4段階) (召喚体)"
         stats:
@@ -1515,6 +2484,10 @@ overrides:
       the_climb_undead_guardian:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "村の守護者"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -1522,10 +2495,27 @@ overrides:
       the_climb_undead_guardian_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "村の守護者 (第2段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.238, resistance: 0.255 }
           magical:  { defense-rate: 0.238, resistance: 0.255 }
+          # 【中ボスのHP】目標TTK 6秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 2.19M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 12
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-16 特殊攻撃: 技は最深段(p2)へ。守護者＝踏み鳴らして近寄らせない
+        abilities: [shockwave]
+        # 【ドロップ】中ボス(2026-08-14)。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:thread_endurance", chance: 0.2, min: 1, max: 1 }
       the_climb_undead_warrior:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "かつての防衛兵"
         stats:
@@ -1538,6 +2528,15 @@ overrides:
   # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — 深層鉱山。地上鉱山よりさらに装甲が厚い
   em_id_the_deep_mines:
     display-name: "深層鉱山"
+    # 【コンセプト】魔法推奨(敵は物理型) —— 坑道の力仕事系。魔法が通り、物理防御が要る。
+    stats:
+      # 【難易度 2/10・推奨戦闘Lv 20】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 1.03
+      attack: { magic-ratio: 0.10 }
     mobs:
       em_id_the_deep_mines_boom_surprise_ancient_husk:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "古代のハスク"
@@ -1556,6 +2555,10 @@ overrides:
       em_id_the_deep_mines_boss_the_pursuer_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "ネザーの魔物 (第1段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.33, resistance: 0.27 }
           magical:  { defense-rate: 0.06, resistance: 0.18 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -1563,6 +2566,10 @@ overrides:
       em_id_the_deep_mines_boss_the_pursuer_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "ネザーの魔物 (第2段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.374, resistance: 0.306 }
           magical:  { defense-rate: 0.068, resistance: 0.204 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
@@ -1570,10 +2577,38 @@ overrides:
       em_id_the_deep_mines_boss_the_pursuer_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "ネザーの魔物 (第3段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.418, resistance: 0.342 }
           magical:  { defense-rate: 0.076, resistance: 0.228 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 3.1
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
+        abilities: [shockwave, bull_rush]
+        # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
+        # 【custom:warden_tendril はここから外した (2026-08-14)】
+        # 儀式3本(暗殺者の弓 hero_bow / 暗殺者のクロスボウ hero_crossbow / 黒淵の杖 abyss_wand)の
+        # 素材だが、入手経路は combat/mob-level-table.yml の add-drops
+        # (mobs: [WARDEN] / where: field)へ移した —— ユーザー指示「討伐素材はフィールドの該当モブ
+        # から。ダンジョンモブには適用しない」による。踏破ボスへの復元は不要。
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_deep_mines", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_excavation", chance: 0.2, min: 1, max: 1 }
       em_id_the_deep_mines_experienced_miner:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "熟練の坑夫"
         stats:
@@ -1584,30 +2619,54 @@ overrides:
       em_id_the_deep_mines_miniboss_corrupted_digger:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "堕落した掘削者"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。踏破ボス(物理)と属性を揃える。掘削者＝足元を割る
+        abilities: [quake_spikes]
         drops: []
       em_id_the_deep_mines_miniboss_foreman:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "現場監督"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。監督＝逃がさない(足止め)
+        abilities: [crippling_stomp]
         drops: []
       em_id_the_deep_mines_miniboss_greedy_miner:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "強欲な坑夫"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。強欲＝掴んで引きずり込む(遠距離で撃たせない)
+        abilities: [abyssal_grip]
         drops: []
       em_id_the_deep_mines_miniboss_twisted_excavator:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "捻じれた掘削機"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。掘削機＝腕を振り回して弾き飛ばす
+        abilities: [gale_smash]
         drops: []
       em_id_the_deep_mines_nether_moss:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "ネザーの苔"
@@ -1670,6 +2729,15 @@ overrides:
   # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — 鉱山の岩石構造体。硬い外殻を物理で削るのは非効率
   em_id_the_mines:
     display-name: "鉱山"
+    # 【コンセプト】魔法推奨(敵は物理型) —— 魔法が通り、物理防御が要る。
+    stats:
+      # 【難易度 5/10・推奨戦闘Lv 50】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 1.14
+      attack: { magic-ratio: 0.10 }
     mobs:
       the_mines_arachnidian_construct:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "蜘蛛型構造体"
@@ -1688,6 +2756,10 @@ overrides:
       the_mines_boss_soulfire_mount_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "炭化した村人 (第1段階) (騎乗体)"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.33, resistance: 0.27 }
           magical:  { defense-rate: 0.06, resistance: 0.18 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -1695,6 +2767,10 @@ overrides:
       the_mines_boss_soulfire_mount_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "炭化した村人 (第2段階) (騎乗体)"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.374, resistance: 0.306 }
           magical:  { defense-rate: 0.068, resistance: 0.204 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
@@ -1702,6 +2778,10 @@ overrides:
       the_mines_boss_soulfire_mount_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "炭化した村人 (第3段階) (騎乗体)"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.418, resistance: 0.342 }
           magical:  { defense-rate: 0.076, resistance: 0.228 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
@@ -1709,6 +2789,10 @@ overrides:
       the_mines_boss_soulfire_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "注ぎ込まれた魂 (第1段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.33, resistance: 0.27 }
           magical:  { defense-rate: 0.06, resistance: 0.18 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -1716,6 +2800,10 @@ overrides:
       the_mines_boss_soulfire_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "注ぎ込まれた魂 (第2段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.374, resistance: 0.306 }
           magical:  { defense-rate: 0.068, resistance: 0.204 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
@@ -1723,10 +2811,25 @@ overrides:
       the_mines_boss_soulfire_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "注ぎ込まれた魂 (第3段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.418, resistance: 0.342 }
           magical:  { defense-rate: 0.076, resistance: 0.228 }
+          # 【中ボスのHP】目標TTK 6秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 2.19M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 3.3
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 【ドロップ】中ボス(2026-08-14)。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:thread_herder", chance: 0.2, min: 1, max: 1 }
       the_mines_crusty_bones:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "干からびた骨"
         stats:
@@ -1772,16 +2875,28 @@ overrides:
       the_mines_mini_boss_forger:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "堕落した鍛冶師"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。鍛冶師＝炉の火を撒く
+        abilities: [ember_spray]
         drops: []
       the_mines_mini_boss_tulpa:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "魂のトゥルパ"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。思念体＝そこに居続けさせない
+        abilities: [withering_aura]
         drops: []
       the_mines_mini_boss_tulpa_reinforcements:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "凝集した思念 (増援)"
@@ -1793,9 +2908,15 @@ overrides:
       the_mines_mini_boss_tusk:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "変成した肉"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。予告付きの落着で足を止めさせない
+        abilities: [meteor_mark]
         drops: []
       the_mines_mini_boss_tusk_summon_one:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "忍耐の魂 (召喚体)"
@@ -1870,6 +2991,10 @@ overrides:
       the_mines_soulweaver_daine_p0:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "魂織りのデイン"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -1877,6 +3002,10 @@ overrides:
       the_mines_soulweaver_daine_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "魂織りのデイン (第1段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.33, resistance: 0.27 }
           magical:  { defense-rate: 0.06, resistance: 0.18 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -1884,6 +3013,10 @@ overrides:
       the_mines_soulweaver_daine_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "魂織りのデイン (第2段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.374, resistance: 0.306 }
           magical:  { defense-rate: 0.068, resistance: 0.204 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
@@ -1891,10 +3024,33 @@ overrides:
       the_mines_soulweaver_daine_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "魂織りのデイン (第3段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.418, resistance: 0.342 }
           magical:  { defense-rate: 0.076, resistance: 0.228 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 3.9
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
+        abilities: [shockwave, bull_rush]
+        # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_mines", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_miner", chance: 0.2, min: 1, max: 1 }
       the_mines_soulweaver_reinforcements:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "魂の裂片 (増援)"
         stats:
@@ -1942,59 +3098,131 @@ overrides:
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — 儀式の鐘。術式の守りが強い
   em_id_the_nether_bell:
     display-name: "ネザーの鐘"
+    # 【コンセプト】物理推奨(敵は魔法型) —— 呪術的な敵。物理武器が通り、魔法防御が要る。
+    stats:
+      # 【難易度 5/10・推奨戦闘Lv 50】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 1.14
+      attack: { magic-ratio: 0.45 }
     mobs:
       em_id_the_nether_bell_beam_boss_green_1_speed:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "光を抱く者 (俊敏)"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 MINIBOSS = ×1.2。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ。魔法装甲が厚い個体なので技も魔法側で揃える
+        # (踏破ボス void_bell_p3 の [piercing_beam, withering_aura] と同じ属性)。光＝直線
+        abilities: [piercing_beam]
         drops: []
       em_id_the_nether_bell_beam_boss_green_2_strength:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "光を抱く者 (剛力)"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 MINIBOSS = ×1.2。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。予告してから叩き落とす
+        abilities: [meteor_mark]
         drops: []
       em_id_the_nether_bell_beam_boss_green_3_night_vision:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "光を抱く者 (暗視)"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 MINIBOSS = ×1.2。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。留まらせない霧
+        abilities: [withering_aura]
         drops: []
       em_id_the_nether_bell_beam_boss_red_1_slow:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "虚無を抱く者 (鈍足)"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 MINIBOSS = ×1.2。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。鈍足＝凍気
+        abilities: [frost_field]
         drops: []
       em_id_the_nether_bell_beam_boss_red_2_hunger:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "虚無を抱く者 (飢餓)"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 MINIBOSS = ×1.2。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。虚無＝呑み込む(引き寄せ)
+        abilities: [abyssal_grip]
         drops: []
       em_id_the_nether_bell_beam_boss_red_3_darkness:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "虚無を抱く者 (暗闇)"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 MINIBOSS = ×1.2。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。暗闇＝背後を取る
+        abilities: [shadow_step]
         drops: []
       em_id_the_nether_bell_beam_boss_yellow_1_bogged:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "悲嘆を抱く者 (沼)"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 MINIBOSS = ×1.2。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。沼＝足を取る
+        abilities: [frost_field]
         drops: []
       em_id_the_nether_bell_beam_boss_yellow_1_bogged_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "悲嘆を抱く者 (召喚体) (沼)"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 MINIBOSS = ×1.2。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.02, resistance: 0.12 }
           magical:  { defense-rate: 0.11, resistance: 0.12 }
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
@@ -2002,13 +3230,28 @@ overrides:
       em_id_the_nether_bell_beam_boss_yellow_2_breeze:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "悲嘆を抱く者 (ブリーズ)"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 MINIBOSS = ×1.2。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ここだけ物理技なのは意図的。ブリーズ＝風で吹き飛ばすモブなので
+        # 見た目と技を一致させた(属性を揃える原則より、この1体は種族の見た目を優先)
+        abilities: [gale_smash]
         drops: []
       em_id_the_nether_bell_beam_boss_yellow_2_breeze_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "悲嘆を抱く者 (召喚体) (ブリーズ)"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 MINIBOSS = ×1.2。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.02, resistance: 0.12 }
           magical:  { defense-rate: 0.11, resistance: 0.12 }
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
@@ -2016,13 +3259,27 @@ overrides:
       em_id_the_nether_bell_beam_boss_yellow_3_warden:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "悲嘆を抱く者 (ウォーデン)"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 MINIBOSS = ×1.2。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。ウォーデン＝直線の咆哮
+        abilities: [piercing_beam]
         drops: []
       em_id_the_nether_bell_beam_boss_yellow_3_warden_power_dummy:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "悲嘆を抱く者 (ウォーデン・出力ダミー)"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 MINIBOSS = ×1.2。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.02, resistance: 0.12 }
           magical:  { defense-rate: 0.11, resistance: 0.12 }
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
@@ -2030,6 +3287,12 @@ overrides:
       em_id_the_nether_bell_beam_boss_yellow_3_warden_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "悲嘆を抱く者 (召喚体) (ウォーデン)"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 MINIBOSS = ×1.2。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.02, resistance: 0.12 }
           magical:  { defense-rate: 0.11, resistance: 0.12 }
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
@@ -2037,6 +3300,12 @@ overrides:
       em_id_the_nether_bell_boss_void_bell_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "虚無の鐘 (第1段階)"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 BOSS = ×1.3。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -2044,6 +3313,12 @@ overrides:
       em_id_the_nether_bell_boss_void_bell_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "虚無の鐘 (第2段階)"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 BOSS = ×1.3。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.068, resistance: 0.204 }
           magical:  { defense-rate: 0.374, resistance: 0.306 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
@@ -2051,10 +3326,35 @@ overrides:
       em_id_the_nether_bell_boss_void_bell_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "虚無の鐘 (第3段階)"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 BOSS = ×1.3。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.076, resistance: 0.228 }
           magical:  { defense-rate: 0.418, resistance: 0.342 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 7
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-01 特殊攻撃(柱2-1): 魔法防御が厚いダンジョンの踏破ボス。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
+        abilities: [piercing_beam, withering_aura]
+        # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_nether_bell", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_experience", chance: 0.2, min: 1, max: 1 }
       em_id_the_nether_bell_corpse_phase_1:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "腐らざる者 (第2段階) (亡骸)"
         stats:
@@ -2079,6 +3379,12 @@ overrides:
       em_id_the_nether_bell_summon_ancient_corpse:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "古代の死骸 (召喚体) (亡骸)"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 MINIBOSS = ×1.2。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.02, resistance: 0.12 }
           magical:  { defense-rate: 0.11, resistance: 0.12 }
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
@@ -2086,6 +3392,12 @@ overrides:
       em_id_the_nether_bell_summon_dwarven_corpse_knight:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "ドワーフの死の騎士 (召喚体) (亡骸)"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 MINIBOSS = ×1.2。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.02, resistance: 0.12 }
           magical:  { defense-rate: 0.11, resistance: 0.12 }
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
@@ -2093,6 +3405,12 @@ overrides:
       em_id_the_nether_bell_summon_fossilized_bones:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "化石化した骨 (召喚体)"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 MINIBOSS = ×1.2。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.02, resistance: 0.12 }
           magical:  { defense-rate: 0.11, resistance: 0.12 }
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
@@ -2121,6 +3439,12 @@ overrides:
       em_id_the_nether_bell_world_wither:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "虚無のモズ"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 EVENTBOSS = ×1.2。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.04, resistance: 0.12 }
           magical:  { defense-rate: 0.22, resistance: 0.18 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -2128,6 +3452,12 @@ overrides:
       em_id_the_nether_bell_world_wither_skeleton:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "虚無を歩む者"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 EVENTBOSS = ×1.2。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.04, resistance: 0.12 }
           magical:  { defense-rate: 0.22, resistance: 0.18 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -2135,6 +3465,12 @@ overrides:
       em_id_the_nether_bell_world_wither_skeleton_sniper:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "虚無を貫く者"
         stats:
+          # 2026-08-20(W-179 第2波): ボス係数 EVENTBOSS = ×1.2。
+          #   このダンジョンの EM ファイルには bossType: キーが無く、分類は name の
+          #   $bossLevel / $minibossLevel / $eventBossLevel プレースホルダで表現されている。
+          #   bossType だけを見て係数を配ると【このダンジョンだけ丸ごと素通り】して、
+          #   ボスが自分の配下の雑魚と同じ攻撃力のまま残る。実際 1 回そうなりかけた。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.04, resistance: 0.12 }
           magical:  { defense-rate: 0.22, resistance: 0.18 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -2144,6 +3480,15 @@ overrides:
   # ▼コンセプト: ハイブリッド(個体ごとに耐性型が混在) — ネザーの混成軍。装甲持ちと術者が入り混じる
   em_id_the_nether_wastes:
     display-name: "ネザーの荒野"
+    # 【コンセプト】物魔両方 —— 中庸。
+    stats:
+      # 【難易度 6/10・推奨戦闘Lv 60】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 1.18
+      attack: { magic-ratio: 0.25 }
     mobs:
       em_id_the_nether_wastes_lesser_nether_fiend:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "下級ネザーの魔物"
@@ -2155,16 +3500,29 @@ overrides:
       em_id_the_nether_wastes_miniboss_1_slow:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "重い瘴気"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。技の属性は【そのモブの耐性の逆】に揃える
+        # (物理装甲が厚い=魔法が通る敵は物理で殴ってくる)。重い瘴気＝足を止める
+        abilities: [crippling_stomp]
         drops: []
       em_id_the_nether_wastes_miniboss_2_blind:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "濃い瘴気"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.052, resistance: 0.156 }
           magical:  { defense-rate: 0.286, resistance: 0.234 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。魔法装甲が厚い個体なので技も魔法側で揃える
+        abilities: [withering_aura]
         drops: []
       em_id_the_nether_wastes_miniboss_2_summon_hard:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "呪術師 (召喚体) (上級)"
@@ -2190,10 +3548,27 @@ overrides:
       em_id_the_nether_wastes_miniboss_3_poison:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "有毒の瘴気"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.052, resistance: 0.156 }
           magical:  { defense-rate: 0.286, resistance: 0.234 }
+          # 【中ボスのHP】目標TTK 6秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 2.19M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 4
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-16 特殊攻撃: ミニボスは1種。魔法装甲が厚い個体なので技も魔法側。掴んで毒気の中へ引き込む
+        abilities: [abyssal_grip]
+        # 【ドロップ】中ボス(2026-08-14)。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:thread_apiarist", chance: 0.2, min: 1, max: 1 }
       em_id_the_nether_wastes_miniboss_3_summon:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "強化された骨組み (召喚体)"
         stats:
@@ -2204,9 +3579,15 @@ overrides:
       em_id_the_nether_wastes_miniboss_4_fire:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "致死の瘴気"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。物理側で揃える。噴き出す棘で足場を奪う
+        abilities: [quake_spikes]
         drops: []
       em_id_the_nether_wastes_miniboss_4_summon:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "ネザーの小悪魔 (召喚体)"
@@ -2218,6 +3599,10 @@ overrides:
       em_id_the_nether_wastes_miniboss_5_shroud_p1:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "黒曜石の帳 (第1段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
@@ -2225,10 +3610,33 @@ overrides:
       em_id_the_nether_wastes_miniboss_5_shroud_p2:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "黒曜石の帳 (第2段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 10
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-01 特殊攻撃(柱2-1): 低難度ダンジョンの踏破ボス。技は1つだけにして立ち位置の強制にとどめる
+        abilities: [frost_field]
+        # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_nether_wastes", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_backpack", chance: 0.2, min: 1, max: 1 }
       em_id_the_nether_wastes_miniboss_5_summon:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "黒曜石の猟犬 (召喚体)"
         stats:
@@ -2297,10 +3705,23 @@ overrides:
   # ▼コンセプト: ハイブリッド(個体ごとに耐性型が混在) — 宮殿の親衛隊。前衛と後衛で耐性が違う
   em_id_the_palace:
     display-name: "宮殿"
+    # 【コンセプト】物魔両方 —— 近衛と宮廷魔術師が揃う。中庸。
+    stats:
+      # 【難易度 4/10・推奨戦闘Lv 40】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 1.1
+      attack: { magic-ratio: 0.25 }
     mobs:
       the_palace_old_stone_king_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "古き石の王 (第1段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -2308,6 +3729,10 @@ overrides:
       the_palace_old_stone_king_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "古き石の王 (第2段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.238, resistance: 0.255 }
           magical:  { defense-rate: 0.238, resistance: 0.255 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
@@ -2315,10 +3740,33 @@ overrides:
       the_palace_old_stone_king_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "古き石の王 (第3段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.266, resistance: 0.285 }
           magical:  { defense-rate: 0.266, resistance: 0.285 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 3
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-01 特殊攻撃(柱2-1): 耐性が均等なダンジョンの踏破ボス。増援と足止めで手数を要求し、守衛のヘイトと軽減に価値を持たせる
+        abilities: [call_the_horde, crippling_stomp]
+        # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_palace", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_luck", chance: 0.2, min: 1, max: 1 }
       the_palace_old_stone_king_summon_1:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "石の守護者 (召喚体) (1体目)"
         stats:
@@ -2338,6 +3786,15 @@ overrides:
   # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — 採石場の重機械と石像。物理耐性が高い
   em_id_the_quarry:
     display-name: "採石場"
+    # 【コンセプト】魔法推奨(敵は物理型) —— 魔法が通り、物理防御が要る。
+    stats:
+      # 【難易度 8/10・推奨戦闘Lv 80】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 1.29
+      attack: { magic-ratio: 0.10 }
     mobs:
       LiftAirFiller:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "昇降機の送気装置"
@@ -2349,13 +3806,43 @@ overrides:
       LiftStateFinishDungeon:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "昇降機の管理者 (最終段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 19
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-14 特殊攻撃(柱2-1): em_id_the_quarry_royal_wizard_five_unlocker_p3 から【移動】。
+        # 名前は状態機械のように見えるが実体はモブID(custombosses/em_id_the_quarry/
+        # LiftStateFinishDungeon.yml は bossType: BOSS / name: $bossLevel &dLift Master /
+        # healthMultiplier: 8.5 の本物のボス定義)。the_quarry_dungeon.yml の dungeonObjectives の
+        # 最後がこれ。移動元の「術式守護のトーテム」は $normalLevel 表記・isRegionalBoss: false の
+        # 仕掛け(Royal Spellcaster の檻を割る係)で踏破ボスではない。
+        # 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
+        abilities: [shockwave, bull_rush]
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_quarry", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_diligence", chance: 0.2, min: 1, max: 1 }
       LiftStateFour:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "昇降機の管理者 (段階4)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -2363,6 +3850,10 @@ overrides:
       LiftStateOne:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "昇降機の管理者 (段階1)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -2370,6 +3861,10 @@ overrides:
       LiftStateThree:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "昇降機の管理者 (段階3)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -2377,6 +3872,10 @@ overrides:
       LiftStateTwo:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "昇降機の管理者 (段階2)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -2468,13 +3967,32 @@ overrides:
       em_id_the_quarry_quarry_smith:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "雷の鍛冶師"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
+          # 【中ボスのHP】目標TTK 6秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 2.19M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 6.6
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 【ドロップ】中ボス(2026-08-14)。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:thread_mana_amplify", chance: 0.2, min: 1, max: 1 }
       em_id_the_quarry_royal_wizard_five:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "王室の術士"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -2499,10 +4017,17 @@ overrides:
           physical: { defense-rate: 0.418, resistance: 0.342 }
           magical:  { defense-rate: 0.076, resistance: 0.228 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops: []
       em_id_the_quarry_royal_wizard_four:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "王室の速射術士"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -2510,6 +4035,10 @@ overrides:
       em_id_the_quarry_royal_wizard_one:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "王室の織成術士"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -2517,6 +4046,10 @@ overrides:
       em_id_the_quarry_royal_wizard_three:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "王室の詠唱術士"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -2524,6 +4057,10 @@ overrides:
       em_id_the_quarry_royal_wizard_two:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "王室の招霊術士"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -2533,6 +4070,15 @@ overrides:
   # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — 騎士団。プレートアーマーの塊
   em_knight_castle:
     display-name: "騎士団の城"
+    # 【コンセプト】魔法推奨(敵は物理型) —— 全身板金の騎士。魔法が通り、物理防御が要る。
+    stats:
+      # 【難易度 3/10・推奨戦闘Lv 30】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 1.06
+      attack: { magic-ratio: 0.10 }
     mobs:
       the_castle_arcane_knight:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "秘術の騎士"
@@ -2558,6 +4104,10 @@ overrides:
       the_castle_charlemagne_hellstar:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "地獄星"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -2565,6 +4115,10 @@ overrides:
       the_castle_charlemagne_mount:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "忠実な軍馬 (騎乗体)"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.11, resistance: 0.12 }
           magical:  { defense-rate: 0.02, resistance: 0.12 }
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
@@ -2572,6 +4126,10 @@ overrides:
       the_castle_charlemagne_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "シャルルマーニュ (第1段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.33, resistance: 0.27 }
           magical:  { defense-rate: 0.06, resistance: 0.18 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -2579,6 +4137,10 @@ overrides:
       the_castle_charlemagne_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "シャルルマーニュ (第2段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.374, resistance: 0.306 }
           magical:  { defense-rate: 0.068, resistance: 0.204 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
@@ -2586,17 +4148,47 @@ overrides:
       the_castle_charlemagne_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "シャルルマーニュ (第3段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.418, resistance: 0.342 }
           magical:  { defense-rate: 0.076, resistance: 0.228 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops: []
       the_castle_charlemagne_p4:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "シャルルマーニュ (第4段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 1.2
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-14 特殊攻撃(柱2-1): p3 から【移動】。このダンジョンの踏破ボスは p4(= 入口
+        # the_castle_charlemagne_p1.yml の phases が p2:0.80 / p3:0.50 / p4:0.30 で最深段。
+        # p4 だけが dropsEliteMobsLoot: true)。p3 は HP 50% で通過するだけの段階。
+        # 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
+        abilities: [shockwave, bull_rush]
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_knight_castle", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_damage_mana_recovery", chance: 0.2, min: 1, max: 1 }
       the_castle_cowardly_knight:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "臆病な騎士"
         stats:
@@ -2607,6 +4199,10 @@ overrides:
       the_castle_ser_prancelot_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "跳ねるランスロット卿 (第1段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.33, resistance: 0.27 }
           magical:  { defense-rate: 0.06, resistance: 0.18 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -2614,15 +4210,30 @@ overrides:
       the_castle_ser_prancelot_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "跳ねるランスロット卿 (第2段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.374, resistance: 0.306 }
           magical:  { defense-rate: 0.068, resistance: 0.204 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 技は最深段(p2)へ。騎乗突撃の騎士なので突進(物理側で揃える)
+        abilities: [bull_rush]
         drops: []
 
   # north_pole_minidungeon (DYNAMIC_DUNGEON) — custombosses/the_north_pole / 8体
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — 氷雪の魔物。氷魔法への耐性が高い
   em_north_pole:
     display-name: "北極ミニダンジョン"
+    # 【コンセプト】物理推奨(敵は魔法型) —— 氷雪の魔物は魔法防御が厚い。物理武器が通り、魔法防御が要る。
+    stats:
+      # 【難易度 7/10・推奨戦闘Lv 70】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 1.22
+      attack: { magic-ratio: 0.45 }
     mobs:
       northpole_elf:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "工房のエルフ"
@@ -2641,6 +4252,10 @@ overrides:
       northpole_jack_frost:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "ジャックフロスト"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.04, resistance: 0.12 }
           magical:  { defense-rate: 0.22, resistance: 0.18 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -2648,6 +4263,10 @@ overrides:
       northpole_krampus:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "クランプス"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.04, resistance: 0.12 }
           magical:  { defense-rate: 0.22, resistance: 0.18 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -2655,6 +4274,10 @@ overrides:
       northpole_mrs_claus:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "クロース夫人"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.04, resistance: 0.12 }
           magical:  { defense-rate: 0.22, resistance: 0.18 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -2662,10 +4285,34 @@ overrides:
       northpole_santa_claus:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "サンタクロース"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.04, resistance: 0.12 }
           magical:  { defense-rate: 0.22, resistance: 0.18 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 21
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-01 特殊攻撃(柱2-1): 低難度ダンジョンの踏破ボス。技は1つだけにして立ち位置の強制にとどめる
+        abilities: [frost_field]
+        # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_north_pole", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_fire_resistance", chance: 0.2, min: 1, max: 1 }
+          - { item: "ENCHANTED_GOLDEN_APPLE", chance: 0.1, min: 1, max: 1 }
       northpole_skeleton_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "お仕置きリストの魂 (召喚体)"
         stats:
@@ -2685,6 +4332,15 @@ overrides:
   # ▼コンセプト: ハイブリッド(個体ごとに耐性型が混在) — 下水の雑多な群れ。相手ごとに有効打が変わる
   em_sewer_maze:
     display-name: "下水道迷宮"
+    # 【コンセプト】物魔両方 —— 雑多な群れで個体ごとに耐性型が違う。相手ごとに有効打が変わる。
+    stats:
+      # 【難易度 7/10・推奨戦闘Lv 70】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 1.22
+      attack: { magic-ratio: 0.25 }
     mobs:
       sewer_tier_10:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "潜むもの"
@@ -2710,9 +4366,15 @@ overrides:
       sewer_tier_20_gravity_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "火花"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 下水道の各層ボスは1種ずつ。重力ギミックの層＝吹き飛ばし
+        abilities: [gale_smash]
         drops: []
       sewer_tier_20_water:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "密輸業者"
@@ -2724,30 +4386,54 @@ overrides:
       sewer_tier_20_water_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "忘れられた英雄"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。英雄＝踏み込んで斬る
+        abilities: [bull_rush]
         drops: []
       sewer_tier_20_wither_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "萎びた死骸"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。ウィザー層＝枯死の霧
+        abilities: [withering_aura]
         drops: []
       sewer_tier_30_ice_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "氷の亡霊"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。氷の層＝凍気
+        abilities: [frost_field]
         drops: []
       sewer_tier_30_invisibility_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "影の射手"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。透明化の層＝背後を取る
+        abilities: [shadow_step]
         drops: []
       sewer_tier_30_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "下水道の獣"
@@ -2773,9 +4459,15 @@ overrides:
       sewer_tier_40_darkness_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "影の支配者"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。暗闇の層＝闇に引きずり込む
+        abilities: [abyssal_grip]
         drops: []
       sewer_tier_40_darkness_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "影 (増援)"
@@ -2787,9 +4479,15 @@ overrides:
       sewer_tier_40_fire_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "焼き場の達人"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。炎の層＝火の粉
+        abilities: [ember_spray]
         drops: []
       sewer_tier_40_fire_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "焔 (増援)"
@@ -2801,9 +4499,15 @@ overrides:
       sewer_tier_40_poison_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "有毒の庭師"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。毒の層＝留まらせない霧
+        abilities: [withering_aura]
         drops: []
       sewer_tier_40_poison_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "堕ちた庭師 (増援)"
@@ -2829,23 +4533,41 @@ overrides:
       sewer_tier_50_lightning_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "ミョルニル"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。雷の層＝落ちる位置を予告してから撃つ
+        abilities: [meteor_mark]
         drops: []
       sewer_tier_50_ravager_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "下水道の異形"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。ラヴェジャー種＝突進
+        abilities: [bull_rush]
         drops: []
       sewer_tier_50_spider_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "古代の這うもの"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。蜘蛛＝群れを呼ぶ
+        abilities: [call_the_swarm]
         drops: []
       sewer_tier_50_spider_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "小蜘蛛 (増援)"
@@ -2857,10 +4579,27 @@ overrides:
       sewer_tier_50_water_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "ピラニアの王"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
+          # 【中ボスのHP】目標TTK 6秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 2.19M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 9.6
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。水の層＝水中へ引きずり込む
+        abilities: [abyssal_grip]
+        # 【ドロップ】中ボス(2026-08-14)。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:thread_mending_flesh", chance: 0.2, min: 1, max: 1 }
       sewer_tier_50_water_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "ピラニアの王子 (増援)"
         stats:
@@ -2878,10 +4617,33 @@ overrides:
       sewer_tier_70_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "溺死者の王"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 18
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-01 特殊攻撃(柱2-1): 耐性が均等なダンジョンの踏破ボス。増援と足止めで手数を要求し、守衛のヘイトと軽減に価値を持たせる
+        abilities: [call_the_horde, crippling_stomp]
+        # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_sewer_maze", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_mana_regen", chance: 0.2, min: 1, max: 1 }
       sewer_tier_70_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "溺死せし者 (増援)"
         stats:
@@ -2894,10 +4656,23 @@ overrides:
   # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — 蒸気機械。金属外装で刃が通らない
   em_steamworks_lair:
     display-name: "蒸気機関工房"
+    # 【コンセプト】魔法推奨(敵は物理型) —— 装甲された機械。魔法が通り、物理防御が要る。
+    stats:
+      # 【難易度 4/10・推奨戦闘Lv 40】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 1.1
+      attack: { magic-ratio: 0.10 }
     mobs:
       the_steamworks_clk_wrx702_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "CLK-WRx702 (第1段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.33, resistance: 0.27 }
           magical:  { defense-rate: 0.06, resistance: 0.18 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -2905,6 +4680,10 @@ overrides:
       the_steamworks_clk_wrx702_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "CLK-WRx702 (第2段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.374, resistance: 0.306 }
           magical:  { defense-rate: 0.068, resistance: 0.204 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
@@ -2912,13 +4691,24 @@ overrides:
       the_steamworks_clk_wrx702_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "CLK-WRx702 (第3段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.418, resistance: 0.342 }
           magical:  { defense-rate: 0.076, resistance: 0.228 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops: []
       the_steamworks_clk_wrx702_p4:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "CLK-WRx702 (第4段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -2926,6 +4716,10 @@ overrides:
       the_steamworks_clk_wrx702_p5:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "CLK-WRx702 (第5段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -2933,6 +4727,10 @@ overrides:
       the_steamworks_clk_wrx702_p6:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "CLK-WRx702 (第6段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
@@ -2940,10 +4738,34 @@ overrides:
       the_steamworks_clk_wrx702_p7:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "CLK-WRx702 (第7段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 6
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-14 特殊攻撃(柱2-1): p3 から【移動】。このダンジョンの踏破ボスは p7(= 入口
+        # the_steamworks_clk_wrx702_p1.yml の phases が p2:0.99999 / p3:0.80 / p4:0.60 /
+        # p5:0.30 / p6:0.10 / p7:0.03 の6段で、p7 が最深段かつ dropsEliteMobsLoot: true)。
+        # p3 は HP 80% で通過するだけの段階なので、そこに技を置くと本番の p7 が無技になる。
+        # 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
+        abilities: [shockwave, bull_rush]
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_steamworks", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_spoils", chance: 0.2, min: 1, max: 1 }
       the_steamworks_gnasuran_electrohead:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "グナスラの電気頭"
         stats:
@@ -2977,6 +4799,15 @@ overrides:
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — 呪術聖堂。魔法障壁が厚く、鋼で殴るほうが早い
   em_the_dark_cathedral:
     display-name: "闇の大聖堂"
+    # 【コンセプト】物理推奨(敵は魔法型) —— 邪教の術者。物理武器が通り、魔法防御が要る。
+    stats:
+      # 【難易度 1/10・推奨戦闘Lv 10】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 1
+      attack: { magic-ratio: 0.45 }
     mobs:
       dark_cathedral_tier_75_area_folk:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "深淵のクトゥルフ信徒 (エリア)"
@@ -2988,6 +4819,10 @@ overrides:
       dark_cathedral_tier_75_boss_phase_0:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "クトゥルフの狂信者 (第1段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -2995,6 +4830,10 @@ overrides:
       dark_cathedral_tier_75_boss_phase_1:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "クトゥルフの狂信者 (第2段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.068, resistance: 0.204 }
           magical:  { defense-rate: 0.374, resistance: 0.306 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
@@ -3002,6 +4841,10 @@ overrides:
       dark_cathedral_tier_75_boss_phase_2:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "クトゥルフの狂信者 (第3段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.076, resistance: 0.228 }
           magical:  { defense-rate: 0.418, resistance: 0.342 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
@@ -3009,13 +4852,34 @@ overrides:
       dark_cathedral_tier_75_boss_phase_3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "クトゥルフの狂信者 (第4段階)"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.076, resistance: 0.228 }
           magical:  { defense-rate: 0.418, resistance: 0.342 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-01 特殊攻撃(柱2-1): 魔法防御が厚いダンジョンの踏破ボス。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
+        abilities: [piercing_beam, withering_aura]
+        # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_dark_cathedral", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_gourmet", chance: 0.2, min: 1, max: 1 }
       dark_cathedral_tier_75_boss_phase_display:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "クトゥルフの狂信者"
         stats:
+          # 2026-08-20(W-179): ボス係数 BOSS = ×1.3。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.3
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
@@ -3051,9 +4915,15 @@ overrides:
       dark_cathedral_tier_75_miniboss_black_philip:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "黒山羊フィリップ"
         stats:
+          # 2026-08-20(W-179): ボス係数 MINIBOSS = ×1.2。scope 直下の難易度倍率に
+          #   これが掛かる(倍率は層ごとに掛け算になる)。これが無いとボスの攻撃力が
+          #   自分の配下の雑魚と完全に同じになる —— 121 体すべてがその状態だった。
+          attack-power-multiplier: 1.2
           physical: { defense-rate: 0.052, resistance: 0.156 }
           magical:  { defense-rate: 0.286, resistance: 0.234 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。魔法装甲が厚い個体なので技も魔法側(踏破ボスと同じ属性)
+        abilities: [meteor_mark]
         drops: []
       dark_cathedral_tier_75_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "クトゥルフの落とし子 (増援)"

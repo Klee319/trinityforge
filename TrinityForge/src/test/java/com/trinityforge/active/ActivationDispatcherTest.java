@@ -4,6 +4,11 @@ import com.trinityforge.combat.PlayerCombatAggregate;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.pdc.ItemData;
+import com.trinityforge.pdc.PlayerData;
+import com.trinityforge.skilltree.DedicatedEffectEntry;
+import com.trinityforge.skilltree.SkillNode;
+import com.trinityforge.skilltree.SkillRole;
+import com.trinityforge.skilltree.SkillTree;
 import com.trinityforge.stats.StatKeys;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -19,6 +24,8 @@ import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.Set;
@@ -56,6 +63,8 @@ class ActivationDispatcherTest {
     private ActivationDispatcher dispatcher;
     private PlayerMock player;
     private AtomicInteger activateCalls;
+    /** 直近の {@link ActiveContext#tier()}(ツリー別ゲート解決の検証用)。未発動なら {@code -1}。 */
+    private AtomicInteger lastTier;
 
     @BeforeEach
     void setUp() {
@@ -63,6 +72,7 @@ class ActivationDispatcherTest {
         dedicatedEffects = mock(DedicatedEffectsConfig.class);
         registry = new ActiveSkillRegistry();
         activateCalls = new AtomicInteger();
+        lastTier = new AtomicInteger(-1);
         registry.register(new ActiveSkill() {
             public String id() { return SKILL_ID; }
             public String gateEffectId() { return SKILL_ID; }
@@ -70,6 +80,7 @@ class ActivationDispatcherTest {
             public long cooldownMillis(int tier) { return 1000L; }
             public ActivationResult activate(Player p, ActiveContext ctx) {
                 activateCalls.incrementAndGet();
+                lastTier.set(ctx.tier());
                 return ActivationResult.success("発動！");
             }
         });
@@ -78,6 +89,16 @@ class ActivationDispatcherTest {
         stubSkillCooldownReduction(0.0); // no reduction by default: base 1000ms CT unless a test overrides it.
         dispatcher = new ActivationDispatcher(registry, dedicatedEffects, cooldowns, new FeedbackLayer(), aggregator);
         player = server.addPlayer();
+    }
+
+    /**
+     * Stubs the gate lookup the dispatcher actually performs — the <b>tree-scoped</b> three-argument
+     * {@code valueMax(player, effectId, useSkill)} (2026-08-01 実サーバ報告の修正) — for every skill
+     * scope. Tests that care about the scoping use a real {@link DedicatedEffectsConfig} instead
+     * (see {@code onlyTheHeldToolsOwnTree...} below).
+     */
+    private void stubUnlocked(OptionalDouble tier) {
+        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID), any())).thenReturn(tier);
     }
 
     /**
@@ -115,7 +136,7 @@ class ActivationDispatcherTest {
 
     @Test
     void unlockedAndOffCooldownActivatesAndCancelsEvent() {
-        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID))).thenReturn(OptionalDouble.of(1.0));
+        stubUnlocked(OptionalDouble.of(1.0));
         PlayerInteractEvent event = interactEvent(taggedItem(TARGET_SKILL), true);
 
         dispatcher.onInteract(event);
@@ -126,7 +147,7 @@ class ActivationDispatcherTest {
 
     @Test
     void notSneakingNeverActivatesOrCancels() {
-        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID))).thenReturn(OptionalDouble.of(1.0));
+        stubUnlocked(OptionalDouble.of(1.0));
         PlayerInteractEvent event = interactEvent(taggedItem(TARGET_SKILL), false);
 
         dispatcher.onInteract(event);
@@ -137,7 +158,7 @@ class ActivationDispatcherTest {
 
     @Test
     void itemNotTaggedNeverActivatesOrCancels() {
-        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID))).thenReturn(OptionalDouble.of(1.0));
+        stubUnlocked(OptionalDouble.of(1.0));
         PlayerInteractEvent event = interactEvent(new ItemStack(Material.DIAMOND_PICKAXE), true);
 
         dispatcher.onInteract(event);
@@ -148,7 +169,7 @@ class ActivationDispatcherTest {
 
     @Test
     void itemTaggedForDifferentSkillNeverActivatesOrCancels() {
-        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID))).thenReturn(OptionalDouble.of(1.0));
+        stubUnlocked(OptionalDouble.of(1.0));
         PlayerInteractEvent event = interactEvent(taggedItem("WOODCUTTING"), true);
 
         dispatcher.onInteract(event);
@@ -159,7 +180,7 @@ class ActivationDispatcherTest {
 
     @Test
     void notUnlockedNeverActivatesOrCancels() {
-        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID))).thenReturn(OptionalDouble.empty());
+        stubUnlocked(OptionalDouble.empty());
         PlayerInteractEvent event = interactEvent(taggedItem(TARGET_SKILL), true);
 
         dispatcher.onInteract(event);
@@ -170,7 +191,7 @@ class ActivationDispatcherTest {
 
     @Test
     void onCooldownRefusesButNeverCancels() {
-        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID))).thenReturn(OptionalDouble.of(1.0));
+        stubUnlocked(OptionalDouble.of(1.0));
         // First activation consumes the cooldown.
         dispatcher.onInteract(interactEvent(taggedItem(TARGET_SKILL), true));
         assertEquals(1, activateCalls.get());
@@ -189,7 +210,7 @@ class ActivationDispatcherTest {
         // (use-skill=MINING) and a shovel (use-skill=DIGGING) via ActiveSkill#targetSkills(). The
         // cooldown is keyed by ActiveSkill#id() alone, so activating via one tool must block an
         // immediate re-activation via the other tool — never two independent CT tracks.
-        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID))).thenReturn(OptionalDouble.of(1.0));
+        stubUnlocked(OptionalDouble.of(1.0));
 
         // Activate via a pickaxe tagged for MINING: succeeds, consumes the shared cooldown.
         PlayerInteractEvent pickaxeEvent = interactEvent(taggedItem(TARGET_SKILL), true);
@@ -206,9 +227,62 @@ class ActivationDispatcherTest {
         org.mockito.Mockito.verify(shovelEvent, org.mockito.Mockito.never()).setCancelled(true);
     }
 
+    // --- 2026-08-18 (W-59): cooldownGroup() で"別idの2スキル"がCTバケツを共有する ---
+
+    /**
+     * {@code cooldownIsSharedAcrossTargetSkillsNotPerTriggeringItem} は「1つの ActiveSkill が複数
+     * targetSkills() から届く」場合の共有を縛るが、こちらは<b>id()もgateEffectId()も別々の、独立した
+     * 2つの ActiveSkill インスタンス</b>が {@link ActiveSkill#cooldownGroup()} だけを同じ定数へ
+     * オーバーライドしたときの共有を縛る — haste-active-mining/haste-active-digging の実配線と同型。
+     */
+    @Test
+    void twoIndependentActiveSkillsSharingACooldownGroupBlockEachOtherAcrossToolSwitch() {
+        String groupSkillA = "fake-haste-mining";
+        String groupSkillB = "fake-haste-digging";
+        String sharedGroup = "fake-haste-group";
+        AtomicInteger groupBActivateCalls = new AtomicInteger();
+        registry.register(new ActiveSkill() {
+            public String id() { return groupSkillA; }
+            public String gateEffectId() { return groupSkillA; }
+            public Set<String> targetSkills() { return Set.of("SMITHING"); }
+            public long cooldownMillis(int tier) { return 1000L; }
+            public String cooldownGroup() { return sharedGroup; }
+            public ActivationResult activate(Player p, ActiveContext ctx) {
+                activateCalls.incrementAndGet();
+                return ActivationResult.success("A発動！");
+            }
+        });
+        registry.register(new ActiveSkill() {
+            public String id() { return groupSkillB; }
+            public String gateEffectId() { return groupSkillB; }
+            public Set<String> targetSkills() { return Set.of("ALCHEMY"); }
+            public long cooldownMillis(int tier) { return 200L; }
+            public String cooldownGroup() { return sharedGroup; }
+            public ActivationResult activate(Player p, ActiveContext ctx) {
+                groupBActivateCalls.incrementAndGet();
+                return ActivationResult.success("B発動！");
+            }
+        });
+        when(dedicatedEffects.valueMax(any(), eq(groupSkillA), any())).thenReturn(OptionalDouble.of(1.0));
+        when(dedicatedEffects.valueMax(any(), eq(groupSkillB), any())).thenReturn(OptionalDouble.of(1.0));
+
+        // スキルA(id=fake-haste-mining、SMITHINGツリー)を発動 -> 共有バケツを消費。
+        dispatcher.onInteract(interactEvent(taggedItem("SMITHING"), true));
+        assertEquals(1, activateCalls.get());
+
+        // 直後に別ツール(ALCHEMYツリー、id=fake-haste-digging、CT=200msと短い)へ持ち替えて
+        // 発動を試みても、id()が違う独立スキルであるにもかかわらず共有CTバケツでブロックされる。
+        PlayerInteractEvent secondTool = interactEvent(taggedItem("ALCHEMY"), true);
+        dispatcher.onInteract(secondTool);
+
+        assertEquals(0, groupBActivateCalls.get(),
+                "cooldownGroup()を共有する別スキルへ持ち替えても、共有バケツがロック中なら発動できないこと");
+        org.mockito.Mockito.verify(secondTool, org.mockito.Mockito.never()).setCancelled(true);
+    }
+
     @Test
     void offHandInteractIsIgnored() {
-        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID))).thenReturn(OptionalDouble.of(1.0));
+        stubUnlocked(OptionalDouble.of(1.0));
         player.getInventory().setItemInMainHand(taggedItem(TARGET_SKILL));
         player.setSneaking(true);
         PlayerInteractEvent event = mock(PlayerInteractEvent.class);
@@ -222,7 +296,7 @@ class ActivationDispatcherTest {
 
     @Test
     void quitClearsCooldownSoNextSessionActivatesImmediately() {
-        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID))).thenReturn(OptionalDouble.of(1.0));
+        stubUnlocked(OptionalDouble.of(1.0));
         dispatcher.onInteract(interactEvent(taggedItem(TARGET_SKILL), true));
         assertEquals(1, activateCalls.get());
 
@@ -237,7 +311,7 @@ class ActivationDispatcherTest {
     @Test
     void skillCooldownReductionShortensTheActiveSkillCooldown() throws InterruptedException {
         // 90% reduction -> base 1000ms CT becomes 100ms (CooldownManager.applyReduction clamp).
-        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID))).thenReturn(OptionalDouble.of(1.0));
+        stubUnlocked(OptionalDouble.of(1.0));
         stubSkillCooldownReduction(0.9);
         dispatcher.onInteract(interactEvent(taggedItem(TARGET_SKILL), true));
         assertEquals(1, activateCalls.get());
@@ -254,7 +328,7 @@ class ActivationDispatcherTest {
         // 2026-07-25 CT短縮ステータス分離 §1-B regression: cooldown-reduction (アイテムCT短縮) must never shorten
         // an active skill's CT — only skill-cooldown-reduction may. Stub the OLD key at 90% (would shrink the
         // 1000ms base to 100ms if it leaked through) while leaving skill-cooldown-reduction unset (0).
-        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID))).thenReturn(OptionalDouble.of(1.0));
+        stubUnlocked(OptionalDouble.of(1.0));
         when(aggregator.aggregate(any())).thenReturn(new PlayerCombatAggregate(
                 Map.of(ITEM_COOLDOWN_REDUCTION_KEY, 0.9), Map.of(), Map.of(), Map.of(), Map.of()));
 
@@ -269,13 +343,89 @@ class ActivationDispatcherTest {
                 "cooldown-reduction (item CT key) must not shorten the active skill's own CT");
     }
 
+    // --- 2026-08-01 実サーバ報告「シャベルを手に持っていても採掘速度上昇のバフが発動できる」 ---
+
+    /**
+     * 実配置の再現: {@code feature:haste-active-mining} は {@code mining.yml} A-1(value 1)/A-3(value 5) と
+     * {@code digging.yml} A-1(value 1) の<b>両方</b>が置く。ゲートを「どのツリーで解放したか」を無視して
+     * 引くと、採掘ツリーしか取っていないプレイヤーがシャベルでも発動できてしまう。
+     */
+    private ActivationDispatcher dispatcherWithRealGate(List<String> heldPerks) {
+        DedicatedEffectsConfig realGate = new DedicatedEffectsConfig();
+        realGate.reindex(List.of(
+                treeWithHasteNodes("MINING", Map.of("A-1", 1.0, "A-3", 5.0)),
+                treeWithHasteNodes("DIGGING", Map.of("A-1", 1.0))));
+        PlayerData.of(player).setHeldPerks(heldPerks);
+        return new ActivationDispatcher(registry, realGate, cooldowns, new FeedbackLayer(), aggregator);
+    }
+
+    private static SkillTree treeWithHasteNodes(String skill, Map<String, Double> tierByNodeId) {
+        Map<String, SkillNode> nodes = new LinkedHashMap<>();
+        tierByNodeId.forEach((nodeId, tier) -> nodes.put(nodeId, new SkillNode(
+                nodeId, nodeId, 10, SkillRole.MAIN, null, null, "STONE", 1, "desc",
+                Map.of(), Map.of(), List.of(), List.of(),
+                List.of(new DedicatedEffectEntry("feature:" + SKILL_ID, tier)))));
+        return new SkillTree(skill, skill, null, "2,10", null, nodes);
+    }
+
+    @Test
+    void miningTreeUnlockAloneMustNotLetAShovelFireTheSharedActive() {
+        // 採掘ツリーの A-1 だけを解放したプレイヤー。ツルハシでは撃てるが、シャベル(切削ツリー未解放)
+        // では撃てないのが正しい。旧実装はゲートをツリー横断で引いていたので撃ててしまった。
+        ActivationDispatcher realDispatcher = dispatcherWithRealGate(List.of("mining_perk_a_1"));
+
+        realDispatcher.onInteract(interactEvent(taggedItem(TARGET_SKILL), true));
+        assertEquals(1, activateCalls.get(), "採掘ツリーを解放したツルハシでは発動できること");
+        cooldowns.clear(player.getUniqueId());
+
+        PlayerInteractEvent shovelEvent = interactEvent(taggedItem(OTHER_TARGET_SKILL), true);
+        realDispatcher.onInteract(shovelEvent);
+
+        assertEquals(1, activateCalls.get(),
+                "切削ツリーのノードを解放していないのでシャベルでは発動できないこと");
+        org.mockito.Mockito.verify(shovelEvent, org.mockito.Mockito.never()).setCancelled(true);
+    }
+
+    @Test
+    void diggingTreeUnlockAloneMustNotLetAPickaxeFireTheSharedActive() {
+        ActivationDispatcher realDispatcher = dispatcherWithRealGate(List.of("digging_perk_a_1"));
+
+        realDispatcher.onInteract(interactEvent(taggedItem(OTHER_TARGET_SKILL), true));
+        assertEquals(1, activateCalls.get(), "切削ツリーを解放したシャベルでは発動できること");
+        cooldowns.clear(player.getUniqueId());
+
+        PlayerInteractEvent pickaxeEvent = interactEvent(taggedItem(TARGET_SKILL), true);
+        realDispatcher.onInteract(pickaxeEvent);
+
+        assertEquals(1, activateCalls.get(),
+                "採掘ツリーのノードを解放していないのでツルハシでは発動できないこと");
+        org.mockito.Mockito.verify(pickaxeEvent, org.mockito.Mockito.never()).setCancelled(true);
+    }
+
+    @Test
+    void tierComesFromTheHeldToolsOwnTreeNotTheHighestAcrossTrees() {
+        // 採掘 A-3(tier 5)と切削 A-1(tier 1)の両方を解放。シャベルで撃ったときの tier は
+        // 切削ツリーの 1 でなければならない(横断の最大値 5 を拾ってはいけない)。
+        ActivationDispatcher realDispatcher =
+                dispatcherWithRealGate(List.of("mining_perk_a_3", "digging_perk_a_1"));
+
+        realDispatcher.onInteract(interactEvent(taggedItem(OTHER_TARGET_SKILL), true));
+        assertEquals(1, activateCalls.get());
+        assertEquals(1, lastTier.get(), "シャベルの tier は切削ツリーの配置だけで決まること");
+
+        cooldowns.clear(player.getUniqueId());
+        realDispatcher.onInteract(interactEvent(taggedItem(TARGET_SKILL), true));
+        assertEquals(2, activateCalls.get());
+        assertEquals(5, lastTier.get(), "ツルハシの tier は採掘ツリーの最大値であること");
+    }
+
     @Test
     void anotherActiveSkillsCooldownReductionKeyHasNoEffectOnThisSkillsCooldown() throws InterruptedException {
         // 2026-07-25 CT設計一本化 §2 regression: the whole point of splitting the old global
         // skill-cooldown-reduction into per-ActiveSkill keys is that a stat leaking through for a
         // DIFFERENT active skill's key (e.g. some future "other-active-skill-cooldown-reduction") must
         // never shorten THIS skill's CT — only ActiveSkillCooldownKeys.forSkill(SKILL_ID) may.
-        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID))).thenReturn(OptionalDouble.of(1.0));
+        stubUnlocked(OptionalDouble.of(1.0));
         when(aggregator.aggregate(any())).thenReturn(new PlayerCombatAggregate(
                 Map.of(OTHER_SKILL_COOLDOWN_REDUCTION_KEY, 0.9), Map.of(), Map.of(), Map.of(), Map.of()));
 

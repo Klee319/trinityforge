@@ -32,7 +32,18 @@ import java.util.Set;
  * shovel). {@link #targetSkills()} therefore returns a {@link Set}, not a single id, and
  * {@link #id()}/{@link CooldownManager} stay keyed by the ONE skill id regardless of which tree's item
  * triggered it — a player who activates via a pickaxe and immediately tries again via a shovel must be
- * refused (single shared cooldown per active, never per-trigger-skill). Any new {@link ActiveSkill}
+ * refused (single shared cooldown per active, never per-trigger-skill).
+ *
+ * <p><b>2026-08-01 実サーバ報告の修正 — CTは共有だが「解放」は共有ではない</b>: 上の「共有」は
+ * <em>クールダウン</em>にだけ掛かる規則で、<em>解放判定</em>には掛からない。
+ * {@link ActivationDispatcher} は {@link #gateEffectId()} を
+ * <b>持ち替えたツールの {@code use-skill} と同じスキルツリーに置かれた配置だけ</b>に絞って解決する
+ * ({@code DedicatedEffectsConfig#valueMax(Player, String, String)})。そうしないと
+ * <b>{@code mining.yml} A-1 しか取っていないプレイヤーがシャベルでも発動できて</b>しまい、
+ * 「シャベルを持っていても採掘速度上昇が発動する」という実サーバ報告になっていた
+ * (tier も同様に、そのツリー内の配置の最大値だけを見る)。
+ *
+ * <p>Any new {@link ActiveSkill}
  * implementation, and any future migration of another gathering feature onto this framework, MUST treat
  * "one active reachable from several {@code use-skill} tags" as the default assumption, not a special
  * case to opt into — {@link ActiveSkillRegistry#forTargetSkill(String)} and
@@ -42,12 +53,48 @@ import java.util.Set;
  */
 public interface ActiveSkill {
 
-    /** Stable identifier used as the {@link CooldownManager} key and {@code /tf active} debug target. */
+    /** Stable identifier used as the {@code /tf active} debug target (and the default {@link #cooldownGroup()}). */
     String id();
 
     /**
-     * The {@code feature:<id>} (bare, no prefix) this skill's unlock/tier is gated on, queried via
-     * {@code DedicatedEffectsConfig#valueMax(player, gateEffectId())}.
+     * The {@link CooldownManager} key actually consumed/checked by {@link ActivationDispatcher} and
+     * {@link ActiveCooldownDisplay}. Defaults to {@link #id()} (one skill = one private CT bucket, the
+     * original framework shape).
+     *
+     * <p><b>2026-08-18 (W-59)</b> — override this to share a CT bucket with a DIFFERENT {@link ActiveSkill}
+     * that has its own independent {@link #id()}, {@link #gateEffectId()}, unlock level and
+     * {@link #cooldownMillis(int)}. This is how {@code haste-active-mining} (pickaxe) and
+     * {@code haste-active-digging} (shovel) are kept as two genuinely separate, separately-tunable skills
+     * while still guaranteeing "switching tools never grants extra combined uptime": both return the same
+     * constant from {@code cooldownGroup()}, so {@link CooldownManager} treats one activation as consuming
+     * the other's cooldown too — a player alternating pickaxe/shovel hits the shared lock on the second
+     * attempt instead of getting a fresh CT from the tool switch. Do NOT achieve this by registering the same
+     * ability under {@link #targetSkills()} covering both trees (see the class doc's warning above) — that
+     * reintroduces the tree-scoped-unlock bug this design fixed on 2026-08-01; two independent skills whose
+     * gates are each scoped to their own tree is the only way both requirements (shared CT, independent
+     * unlock/config) hold at once.
+     */
+    default String cooldownGroup() {
+        return id();
+    }
+
+    /**
+     * プレイヤーに見せる名前(CT残り表示など)。既定は {@link #id()} — 新しいアクティブスキルを
+     * 足すときは必ず日本語名で上書きすること(既定のままだと生IDがアクションバーに出る)。
+     */
+    default String displayName() {
+        return id();
+    }
+
+    /**
+     * The {@code feature:<id>} (bare, no prefix) this skill's unlock/tier is gated on.
+     *
+     * <p>実トリガー({@link ActivationDispatcher})はこれを<b>ツリー限定</b>で解決する:
+     * {@code DedicatedEffectsConfig#valueMax(player, gateEffectId(), useSkill)} — {@code useSkill} は
+     * 持ち替えたメインハンドの {@code use-skill}。ツリーを問わない2引数版
+     * ({@code valueMax(player, gateEffectId())}) を使ってよいのは、持ち物を前提にしない
+     * {@code /tf active <id>}(デバッグ専用、{@code com.trinityforge.command.ActiveCommand})だけである。
+     * 理由はクラスjavadocの「CTは共有だが『解放』は共有ではない」節を参照。
      */
     String gateEffectId();
 
@@ -69,4 +116,45 @@ public interface ActiveSkill {
      * resolved) and cooldown checks already passed — implementations do not need to re-check either.
      */
     ActivationResult activate(Player player, ActiveContext ctx);
+
+    /**
+     * この効果は<b>発動に使ったツールを持ち続けていないと維持できない</b>か
+     * (2026-08-18 ユーザー確定要件「該当のツールから持ち替えると効果が強制終了する」)。
+     *
+     * <p>{@code true} を返すと {@link ActivationDispatcher} が発動成功時に
+     * {@link ActiveEffectSessions} へセッションを開き、{@link ToolBoundEffectListener} が
+     * メインハンドが {@link #targetSkills()} 外になった瞬間に {@link #cancelEffect} を呼ぶ。
+     *
+     * <p><b>なぜCT共有ではなくこの形にしたか</b>: 2026-08-18 の初版は
+     * {@code haste-active-mining} と {@code haste-active-digging} で {@link #cooldownGroup()} を
+     * 共有し「持ち替えても連発できない」を担保していた。しかし共有CTでは
+     * <b>ツルハシで発動 → シャベルへ持ち替え</b>という順序で効果だけが残るため、
+     * 「シャベル側を解放していないのに掘削がヘイストで速い」というずるが成立していた。
+     * ユーザー確定要件により、CTの共有はやめ(各スキル独立CT)、
+     * <b>持ち替えた瞬間に効果を強制終了する</b>方式へ移した。CTは発動時から走ったままなので、
+     * 持ち替えは「効果を捨ててCTだけ払う」= 得をしない。
+     */
+    default boolean toolBound() {
+        return false;
+    }
+
+    /**
+     * 効果の持続tick({@link ActiveEffectSessions} の有効期限計算用)。
+     * {@link #toolBound()} が {@code true} のスキルは必ず上書きすること
+     * (0 のままだとセッションが即失効し、持ち替え検知が一度も働かない)。
+     */
+    default int effectDurationTicks(int tier) {
+        return 0;
+    }
+
+    /**
+     * 付与した効果を強制終了する({@link ToolBoundEffectListener} からのみ呼ばれる)。
+     *
+     * <p>実装は<b>自分が付けた効果だと確認できる場合だけ</b>取り消すこと ── ビーコンや
+     * ポーションで同じ型の効果が乗っていることがあり、無条件に
+     * {@code removePotionEffect} すると他人の効果を剥がす(W-54 と同型の事故)。
+     */
+    default void cancelEffect(Player player, int tier) {
+        // 既定は何もしない(効果が瞬間的なスキルは持ち替えで終了する対象が無い)。
+    }
 }

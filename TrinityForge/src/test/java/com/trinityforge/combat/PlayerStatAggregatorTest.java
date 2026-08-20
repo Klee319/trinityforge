@@ -6,6 +6,8 @@ import com.trinityforge.config.domains.CombatDamageConfig;
 import com.trinityforge.config.domains.ItemStatsConfig;
 import com.trinityforge.progression.PermanentBuffResolver;
 import com.trinityforge.progression.RoleBuffResolver;
+import com.trinityforge.progression.UseRequirementResolver;
+import com.trinityforge.progression.UseRequirementService;
 import com.trinityforge.skilltree.SkillNode;
 import com.trinityforge.skilltree.SkillRole;
 import com.trinityforge.skilltree.SkillTree;
@@ -32,6 +34,7 @@ import java.nio.file.Files;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -127,6 +130,38 @@ class PlayerStatAggregatorTest {
     }
 
     @Test
+    void equippedArmorStatTotalSeparatesHeavyAndLightArmor(@TempDir File dir) throws IOException {
+        File itemStats = new File(dir, ItemStatsConfig.PATH);
+        Files.createDirectories(itemStats.getParentFile().toPath());
+        Files.writeString(itemStats.toPath(), """
+                items:
+                  DIAMOND_CHESTPLATE:
+                    fixed: { defense-rate: 0.12 }
+                  CHAINMAIL_BOOTS:
+                    fixed: { defense-rate: 0.03 }
+                """);
+        ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
+        CombatDamageConfig damage = CombatWiringSupport.combatDamageFrom(dir, "");
+        PerkBuffResolver perks = new PerkBuffResolver(SkillPerkStatSource.EMPTY, () -> List.of());
+        PlayerStatAggregator aggregator =
+                new PlayerStatAggregator(cm.itemStats(), damage, perks, new RoleBuffResolver(cm.roleBuffs()));
+        Player player = equippedPlayer();
+        player.getInventory().setBoots(new ItemStack(Material.CHAINMAIL_BOOTS));
+
+        double heavy = aggregator.equippedArmorStatTotal(
+                player, "defense-rate",
+                item -> item.getType() == Material.DIAMOND_CHESTPLATE);
+        double light = aggregator.equippedArmorStatTotal(
+                player, "defense-rate",
+                item -> item.getType() == Material.CHAINMAIL_BOOTS);
+
+        assertEquals(0.12, heavy, 1e-9,
+                "heavy total must not include the chainmail piece or held/offhand items");
+        assertEquals(0.03, light, 1e-9,
+                "light total must not include the diamond piece or held/offhand items");
+    }
+
+    @Test
     void mainhandMap_excludesArmorAndOffhand(@TempDir File dir) throws IOException {
         PlayerStatAggregator aggregator = aggregator(dir, true);
         Player player = equippedPlayer();
@@ -150,6 +185,31 @@ class PlayerStatAggregatorTest {
                 "item()は防具由来のflat-defenseを常に含む(offhandの有無に関わらず)");
         assertTrue(agg.item().getOrDefault(ATTACK_POWER, 0.0) > 0.0,
                 "item()はメインハンド由来のattack-powerを常に含む");
+    }
+
+    @Test
+    void armorThatFailsUseRequirementDoesNotContributeWhileAwaitingRemoval(@TempDir File dir)
+            throws IOException {
+        writeItemStats(dir, false);
+        ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
+        CombatDamageConfig damage = CombatWiringSupport.combatDamageFrom(dir, "");
+        PerkBuffResolver perks = new PerkBuffResolver(SkillPerkStatSource.EMPTY, () -> List.of());
+        UseRequirementService gate = mock(UseRequirementService.class);
+        when(gate.denialFor(any(Player.class), any(ItemStack.class)))
+                .thenReturn(Optional.of(new UseRequirementResolver.Resolved("HEAVY_ARMOR", 50)));
+        PlayerStatAggregator aggregator = new PlayerStatAggregator(
+                cm.itemStats(), damage, perks, new RoleBuffResolver(cm.roleBuffs()), null, null,
+                null, null, gate);
+        Player player = server.addPlayer();
+        player.getInventory().setChestplate(new ItemStack(Material.DIAMOND_CHESTPLATE));
+        player.getInventory().setItemInMainHand(new ItemStack(Material.DIAMOND_SWORD));
+
+        PlayerCombatAggregate aggregate = aggregator.aggregate(player);
+
+        assertEquals(0.0, aggregate.item().getOrDefault(FLAT_DEFENSE, 0.0), 1e-9,
+                "要件未達防具は次tickの剥離前でも装備ステータスへ寄与してはならない");
+        assertEquals(10.0, aggregate.item().getOrDefault(ATTACK_POWER, 0.0), 1e-9,
+                "防具ゲートはメインハンドの集計まで誤って除外してはならない");
     }
 
     /**
@@ -244,20 +304,52 @@ class PlayerStatAggregatorTest {
         PlayerCombatAggregate agg = aggregator.aggregate(player);
 
         assertEquals(0.15, agg.perkDefense().getOrDefault(DODGE_CHANCE, 0.0), 1e-9,
-                "軽装2部位以上のset dodge-chance(NativeAttributeBridge)はperkDefenseへ合算される");
+                "NativeAttributeBridge由来のdodge-chance(set-buffsのDEFENSEチャネル)はperkDefenseへ合算される");
     }
 
     @Test
     void nativeAttributeBridgeZeroDodgeChance_addsNoKey(@TempDir File dir) throws IOException {
-        // Mirrors NativeAttributeBridge's own gate: below 2 matching light pieces it reports 0 (no key
-        // emitted by armorAttributesFor's add()), which must not fabricate a dodge_chance entry here.
+        // NativeAttributeBridge#armorAttributesFor's own add() never emits a zero-valued key, which must
+        // not fabricate a dodge_chance entry here.
         PlayerStatAggregator aggregator = aggregatorWithNativeBridge(dir, 0.0);
         Player player = server.addPlayer();
 
         PlayerCombatAggregate agg = aggregator.aggregate(player);
 
         assertFalse(agg.perkDefense().containsKey(DODGE_CHANCE),
-                "1部位(セット未成立)相当=bridgeがdodge_chance非報告のときはキー自体を追加しない");
+                "bridgeがdodge_chanceを非報告のときはキー自体を追加しない");
+    }
+
+    /**
+     * 2026-07-27(armor-set-buffs全面移行 §6汎化): set-buffsは任意のステキーを宣言できるため、
+     * NativeAttributeBridgeの出力はDEFENSE以外(ATTACK/GENERAL)のチャネルも取りうる。
+     * {@code nativeArmorSetContribution} がStatVocabulary.channelOfで判定し、それぞれの合流先
+     * (attack / item(GENERAL) / perkDefense)へ正しく振り分けることを検証する。
+     */
+    @Test
+    void nativeAttributeBridgeNonDefenseChannels_routeToAttackAndItemRespectively(@TempDir File dir)
+            throws IOException {
+        writeItemStats(dir, false);
+        ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
+        CombatDamageConfig damage = CombatWiringSupport.combatDamageFrom(dir, "");
+        PerkBuffResolver perks = new PerkBuffResolver(SkillPerkStatSource.EMPTY, () -> java.util.List.of());
+        NativeAttributeBridge bridge = mock(NativeAttributeBridge.class);
+        when(bridge.armorAttributesFor(any())).thenReturn(Map.of(
+                "crit_chance", 0.05,          // ATTACK channel
+                "mining_fortune", 0.2,        // GENERAL channel
+                "phys_flat_defense", 0.3));   // DEFENSE channel
+        PlayerStatAggregator aggregator = new PlayerStatAggregator(
+                cm.itemStats(), damage, perks, new RoleBuffResolver(cm.roleBuffs()), bridge);
+        Player player = server.addPlayer();
+
+        PlayerCombatAggregate agg = aggregator.aggregate(player);
+
+        assertEquals(0.05, agg.perkAttack().getOrDefault(StatKeys.canonical("crit-chance"), 0.0), 1e-9,
+                "ATTACKチャネルのset-buffsはattack()へ合流するべき");
+        assertEquals(0.2, agg.item().getOrDefault(StatKeys.canonical("mining-fortune"), 0.0), 1e-9,
+                "GENERALチャネルのset-buffsはitem()へ合流するべき");
+        assertEquals(0.3, agg.perkDefense().getOrDefault(PHYS_FLAT_DEFENSE, 0.0), 1e-9,
+                "DEFENSEチャネルのset-buffsはperkDefense()へ合流するべき");
     }
 
     // --- PermanentBuffResolver wiring (アチーブメント/図鑑報酬の永続ステータスバフ, Java-only拡張) ---
@@ -285,29 +377,34 @@ class PlayerStatAggregatorTest {
     }
 
     /**
-     * 修正B: {@code armor_defense_rate}(DEFENSE channel)の永続バフは {@link DefenseStatBridge} が
-     * item map 側で常に0固定にする経路には乗らず、perk同様に {@code perkDefense} 経路
-     * ({@link PlayerCombatAggregate#perkDefense()})へ合流して初めて防御側へ届く。
+     * 2026-08-15 防具値の廃止で消えた迂回路の非回帰。かつて {@code armor-defense-rate} は
+     * item map 側で {@link DefenseStatBridge} が常に0固定にしていた(バニラ防具属性ミラー専用の経路)ため、
+     * 永続バフのこのキーだけを {@code perkDefense} へ逃がす特別な振り分けがあった。
+     * 今は {@code defense-rate} を item map から直接読むので、他のステと同じく素直に
+     * {@link PlayerCombatAggregate#item()} へ入って防御側へ届く。
      */
     @Test
-    void permanentBuffResolver_armorDefenseRateRoutesToPerkDefenseNotItem(@TempDir File dir) throws IOException {
+    void permanentBuffResolver_defenseRateFlowsThroughTheItemMapLikeEveryOtherStat(@TempDir File dir)
+            throws IOException {
         writeItemStats(dir, false);
         ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
         CombatDamageConfig damage = CombatWiringSupport.combatDamageFrom(dir, "");
         PerkBuffResolver perks = new PerkBuffResolver(SkillPerkStatSource.EMPTY, () -> java.util.List.of());
-        String armorDefenseRateKey = StatKeys.canonical("armor-defense-rate");
+        String defenseRateKey = StatKeys.canonical("defense-rate");
         PermanentBuffResolver permanentBuffResolver = mock(PermanentBuffResolver.class);
-        when(permanentBuffResolver.buffsFor(any())).thenReturn(Map.of(armorDefenseRateKey, 0.1));
+        when(permanentBuffResolver.buffsFor(any())).thenReturn(Map.of(defenseRateKey, 0.1));
         PlayerStatAggregator aggregator = new PlayerStatAggregator(cm.itemStats(), damage, perks,
                 new RoleBuffResolver(cm.roleBuffs()), null, permanentBuffResolver);
         Player player = equippedPlayer();
 
         PlayerCombatAggregate agg = aggregator.aggregate(player);
 
-        assertEquals(0.1, agg.perkDefense().getOrDefault(armorDefenseRateKey, 0.0), 1e-9,
-                "permanent-buffのarmor_defense_rateはperkDefenseへ合流する");
-        assertFalse(agg.item().containsKey(armorDefenseRateKey),
-                "item()には混ぜない(DefenseStatBridgeが常に0固定にする経路のため合流させても無効)");
+        assertEquals(0.1, agg.item().getOrDefault(defenseRateKey, 0.0), 1e-9,
+                "permanent-buff の defense-rate は item() へ合流し、DefenseStatBridge がそこから読む");
+        // 実際に防御側へ届くことまで見る(item map に入っているだけでは「届いた」証明にならない)。
+        assertEquals(0.1,
+                DefenseStatBridge.bridge(agg.item(), DefenseStatKeys.DEFAULT, DamageType.PHYSICAL).defenseRate(),
+                1e-9, "ブリッジ通過後も防御率として残る");
     }
 
     @Test
@@ -371,7 +468,7 @@ class PlayerStatAggregatorTest {
 
     private static final String CRIT_CHANCE = StatKeys.canonical("crit-chance");
     private static final String PHYS_FLAT_DEFENSE = StatKeys.canonical("phys-flat-defense");
-    private static final String ARMOR_DEFENSE_RATE = StatKeys.canonical("armor-defense-rate");
+    private static final String DEFENSE_RATE = StatKeys.canonical("defense-rate");
 
     private BaseStatsConfig baseStatsFrom(File dir, String yaml) throws IOException {
         File file = new File(dir, BaseStatsConfig.PATH);
@@ -422,20 +519,23 @@ class PlayerStatAggregatorTest {
     }
 
     @Test
-    void baseStats_armorDefenseRateRoutesToPerkDefenseNotItem(@TempDir File dir) throws IOException {
-        // permanent-buff と同様、armor-defense-rate は item側では0固定される経路なので perkDefense へ回す。
+    void baseStats_defenseRateFlowsThroughTheItemMapLikeEveryOtherStat(@TempDir File dir) throws IOException {
+        // permanent-buff と同様、2026-08-15 の防具値廃止で perkDefense への特別振り分けは不要になった。
+        // 0.3 と書く(3 と書くと PercentStatNormalize が 0.03 へ矯正する率系キーなので、
+        // 「矯正が効いていること」自体は別テストの担当)。
         PlayerStatAggregator aggregator = aggregatorWithBaseStats(dir, """
                 base-stats:
-                  armor-defense-rate: 3
+                  defense-rate: 0.3
                 """);
         Player player = equippedPlayer();
 
         PlayerCombatAggregate agg = aggregator.aggregate(player);
 
-        assertEquals(3.0, agg.perkDefense().getOrDefault(ARMOR_DEFENSE_RATE, 0.0), 1e-9,
-                "base-statsのarmor-defense-rateはperkDefenseへ合流する");
-        assertFalse(agg.item().containsKey(ARMOR_DEFENSE_RATE),
-                "item()には混ぜない(DefenseStatBridgeが0固定にする経路のため)");
+        assertEquals(0.3, agg.item().getOrDefault(DEFENSE_RATE, 0.0), 1e-9,
+                "base-stats の defense-rate は item() へ合流する");
+        assertEquals(0.3,
+                DefenseStatBridge.bridge(agg.item(), DefenseStatKeys.DEFAULT, DamageType.PHYSICAL).defenseRate(),
+                1e-9, "ブリッジ通過後も防御率として残る");
     }
 
     @Test
@@ -470,7 +570,7 @@ class PlayerStatAggregatorTest {
     // PlayerStatAggregator#computeAggregate のソース3〜6(パーク general / 役職 attack・defense /
     // 永続バフ / base-stats)は #nonItemContribution へ切り出された。ここでは
     // (a) 4ソース(パーク・役職・永続バフ・base-stats・装備)を全部同時に持つプレイヤーの item() 合算結果が
-    //     切り出し前と一致すること(通常キー=全ソース合算、armor-defense-rateキー=perkDefenseへ集約)、
+    //     切り出し前と一致すること(2026-08-15 に防具値を廃止して以降は全キーが素直に全ソース合算)、
     // (b) 新しい公開API nonItemStatTotal が装備由来・addon由来を含まないこと、を検証する。
 
     private static final String MANA_BONUS = StatKeys.canonical("mana_bonus");
@@ -544,24 +644,23 @@ class PlayerStatAggregatorTest {
     }
 
     /**
-     * タスク2要件: armor_defense_rate をパークの{@code buffs:}に置いた場合の非回帰。
-     * {@code armor-defense-rate} は {@link com.trinityforge.stats.StatVocabulary#channelOf} により
+     * {@code defense-rate} をパークの{@code buffs:}に置いた場合の非回帰。
+     * このキーは {@link com.trinityforge.stats.StatVocabulary#channelOf} により
      * 常に DEFENSE チャンネルへ自動分類されるため、{@link PerkBuffResolver} の {@code accumulate} が
-     * そもそも {@code perkBuffs.general()} ではなく {@code perkBuffs.defense()} へ振り分ける
-     * (= {@link #nonItemContribution} が触る前の、perkBuffs 生成時点で既に分離済み)。
+     * そもそも {@code perkBuffs.general()} ではなく {@code perkBuffs.defense()} へ振り分ける。
      * よって {@code perkBuffs.defense()} は {@code computeAggregate} で直接 {@code perkDefense} 経路
-     * (via {@link PlayerStatAggregator#perkDefenseWithNativeArmorSets})に渡り、item() には現れない
-     * — これは切り出し前から変わらない挙動であり、{@code extraArmorDefenseRate} の特別振り分け
-     * (permanentBuffResolver/baseStats専用)とは別経路であることを確認する。
+     * (via {@code PlayerStatAggregator#nativeArmorSetContribution})に渡り、item() には現れない。
+     * item() 側にも perkDefense 側にも同じ量が二重に乗らないことがこのテストの本題
+     * ({@code PlayerDefenseResolver} は両方を combine するため)。
      */
     @Test
-    void armorDefenseRateFromPerkBuffs_routesToPerkDefenseViaVocabularyChannelNotItem(@TempDir File dir)
+    void defenseRateFromPerkBuffs_routesToPerkDefenseViaVocabularyChannelNotItem(@TempDir File dir)
             throws IOException {
         writeItemStats(dir, false);
         ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
         CombatDamageConfig damage = CombatWiringSupport.combatDamageFrom(dir, "");
         Map<String, Double> buffs = new LinkedHashMap<>();
-        buffs.put("armor-defense-rate", 0.2);
+        buffs.put("defense-rate", 0.2);
         SkillNode node = new SkillNode("A", "防御の型", 1, SkillRole.MAIN, null, null, "STONE", 1, "desc",
                 buffs, Map.of(), List.of(), List.of(), List.of());
         Map<String, SkillNode> nodes = new LinkedHashMap<>();
@@ -576,33 +675,33 @@ class PlayerStatAggregatorTest {
 
         PlayerCombatAggregate agg = aggregator.aggregate(player);
 
-        assertEquals(0.2, agg.perkDefense().getOrDefault(ARMOR_DEFENSE_RATE, 0.0), 1e-9,
-                "StatVocabularyのDEFENSEチャンネル自動分類により、perkの armor-defense-rate は"
+        assertEquals(0.2, agg.perkDefense().getOrDefault(DEFENSE_RATE, 0.0), 1e-9,
+                "StatVocabularyのDEFENSEチャンネル自動分類により、perkの defense-rate は"
                         + " perkBuffs.defense()経由でそのままperkDefenseへ入る");
-        assertFalse(agg.item().containsKey(ARMOR_DEFENSE_RATE),
-                "item()には現れない(perkBuffs.general()を経由しないため)");
+        assertFalse(agg.item().containsKey(DEFENSE_RATE),
+                "item()には現れない(perkBuffs.general()を経由しないため。両方に入ると防御率が二重計上される)");
     }
 
-    /** タスク2要件: armor_defense_rate を役職バフに置いた場合も、パーク general と同じく item() に
-     *  そのまま入り perkDefense へは回らないこと(役職 buff にもこのキーの振り分けが元々無い)。 */
+    /** {@code defense-rate} を役職バフに置いた場合は item() にそのまま入り perkDefense へは回らないこと
+     *  (役職 buff にはこのキーの振り分けが元々無い)。 */
     @Test
-    void armorDefenseRateFromRoleBuff_staysInItemNotRedirected(@TempDir File dir) throws IOException {
+    void defenseRateFromRoleBuff_staysInItemNotRedirected(@TempDir File dir) throws IOException {
         writeItemStats(dir, false);
         ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
         CombatDamageConfig damage = CombatWiringSupport.combatDamageFrom(dir, "");
         PerkBuffResolver perks = new PerkBuffResolver(SkillPerkStatSource.EMPTY, () -> List.of());
         RoleBuffResolver roleBuffResolver = mock(RoleBuffResolver.class);
         when(roleBuffResolver.contributionFor(any())).thenReturn(new RoleBuffResolver.Contribution(
-                Map.of(), Map.of(ARMOR_DEFENSE_RATE, 0.3), 1.0, null, 1.0));
+                Map.of(), Map.of(DEFENSE_RATE, 0.3), 1.0, null, 1.0));
         PlayerStatAggregator aggregator = new PlayerStatAggregator(
                 cm.itemStats(), damage, perks, roleBuffResolver);
         Player player = equippedPlayer();
 
         PlayerCombatAggregate agg = aggregator.aggregate(player);
 
-        assertEquals(0.3, agg.item().getOrDefault(ARMOR_DEFENSE_RATE, 0.0), 1e-9,
-                "役職defenseBuffのarmor-defense-rateは item()にそのまま入る");
-        assertFalse(agg.perkDefense().containsKey(ARMOR_DEFENSE_RATE),
+        assertEquals(0.3, agg.item().getOrDefault(DEFENSE_RATE, 0.0), 1e-9,
+                "役職defenseBuffのdefense-rateは item()にそのまま入る");
+        assertFalse(agg.perkDefense().containsKey(DEFENSE_RATE),
                 "役職バフ由来では perkDefense へ加算しない(振り分けが元々無いため)");
     }
 
@@ -669,5 +768,223 @@ class PlayerStatAggregatorTest {
         double nonItem = aggregator.nonItemStatTotal(player, "mana_regen");
         assertEquals(0.1, nonItem, 1e-9,
                 "nonItemStatTotalはaddon由来(99)を含まずパーク分(0.1)のみを返す");
+    }
+
+    // --- 2026-08-13 修正1(revert後の新仕様): 「実際に使ったアイテム(寄与アイテム)はどちらの手にあっても
+    // 常に合算される」。offhand-stats-apply の門は「オフハンドに持っているだけのアイテム」(スロット側)
+    // にだけ掛かる。 ---
+
+    /**
+     * オフハンド対応(offhand-stats-apply)が無くても、寄与アイテム自身(=今まさに使ったアイテム)は常に
+     * 合算される。item()には寄与アイテム(盾=7)だけが入る — contributorIsOffhand=true のとき
+     * 「実際に使ったアイテムではない実メインハンド(剣)」は合算対象に含まれない(offhand-stats-apply
+     * はオフハンドに「持っているだけ」のアイテム向けの門であり、寄与アイテムには掛からない)。
+     */
+    @Test
+    void contributorIsOffhand_contributorIsAlwaysSummedEvenWithoutOffhandStatsApply(@TempDir File dir)
+            throws IOException {
+        PlayerStatAggregator aggregator = aggregator(dir, false); // SHIELD offhand-stats-apply=false
+        Player player = server.addPlayer();
+        player.getInventory().setItemInMainHand(new ItemStack(Material.DIAMOND_SWORD));
+        player.getInventory().setItemInOffHand(new ItemStack(Material.SHIELD));
+        ItemStack contributorMirror = player.getInventory().getItemInOffHand().clone();
+
+        PlayerCombatAggregate agg = aggregator.aggregate(player, contributorMirror, true);
+
+        assertEquals(7.0, agg.item().getOrDefault(ATTACK_POWER, 0.0), 1e-9,
+                "offhand-stats-apply=falseでも寄与アイテム(盾=7)は常に合算される"
+                        + "(実際に使っていない実メインハンドの剣=10は含まれない)");
+    }
+
+    /**
+     * 寄与アイテムがオフハンドにあり、かつ「今のオフハンドの中身」と同一プロファイルのときは
+     * オフハンドスロット側の合算が除外されるので、寄与アイテムはちょうど1回だけ数えられる。
+     * この盾は offhand-stats-apply=true なので、excludeOffhandSlot が正しく効いていなければ
+     * スロット側からもう1回(mainhand合算の7 + スロット合算の7 = 14)加算されてしまう —
+     * それが起きず7のままであることが二重計上防止の固定点。
+     */
+    @Test
+    void contributorIsOffhand_offhandSlotExcludedSoContributorCountedExactlyOnce(
+            @TempDir File dir) throws IOException {
+        PlayerStatAggregator aggregator = aggregator(dir, true); // SHIELD offhand-stats-apply=true
+        Player player = server.addPlayer();
+        player.getInventory().setItemInMainHand(new ItemStack(Material.DIAMOND_SWORD));
+        player.getInventory().setItemInOffHand(new ItemStack(Material.SHIELD));
+        ItemStack contributorMirror = player.getInventory().getItemInOffHand().clone();
+
+        PlayerCombatAggregate agg = aggregator.aggregate(player, contributorMirror, true);
+
+        assertEquals(7.0, agg.item().getOrDefault(ATTACK_POWER, 0.0), 1e-9,
+                "寄与アイテム(盾=7)がオフハンドの中身と同一プロファイルなのでスロット側は除外され、"
+                        + "ちょうど7のまま(14への二重計上にならない)");
+    }
+
+    /**
+     * mainhand マップ(アイテムCT専用)は contributorIsOffhand=true のとき<b>寄与アイテム</b>から
+     * 作られる(実メインハンドではない) — 「今使ったアイテム」のCTが正しいため。
+     */
+    @Test
+    void contributorIsOffhand_mainhandMapReflectsContributor(@TempDir File dir)
+            throws IOException {
+        PlayerStatAggregator aggregator = aggregator(dir, true);
+        Player player = server.addPlayer();
+        player.getInventory().setItemInMainHand(new ItemStack(Material.DIAMOND_SWORD));
+        player.getInventory().setItemInOffHand(new ItemStack(Material.SHIELD));
+        ItemStack contributorMirror = player.getInventory().getItemInOffHand().clone();
+
+        PlayerCombatAggregate agg = aggregator.aggregate(player, contributorMirror, true);
+
+        assertEquals(7.0, agg.mainhand().getOrDefault(ATTACK_POWER, 0.0), 1e-9,
+                "mainhand()は寄与アイテム(盾=7)由来であるべきで、実メインハンド(剣=10)由来ではない");
+    }
+
+    /**
+     * 2026-08-13 回帰固定(CRITICALバグの再発防止): メインハンドに attack-power の大きいアイテムを、
+     * オフハンドに attack-power の小さい寄与アイテムを持って発射した場合、agg.item()のattack-power
+     * は寄与アイテム(発射した武器)の値だけであり、メインハンド側の値が混ざってはならない。
+     * 修正前のコード(実メインハンドを合算に使っていた)に戻すと、メインハンドの巨大な値がベース
+     * ダメージへ混入してしまう(2026-08-13 実サーバ回帰: ネザライト剣+弓でおよそ54倍の矢ダメージ)。
+     */
+    @Test
+    void offhandProjectile_baseAttackPowerComesFromFiredWeaponNotFromActualMainhand(@TempDir File dir)
+            throws IOException {
+        File itemStats = new File(dir, ItemStatsConfig.PATH);
+        Files.createDirectories(itemStats.getParentFile().toPath());
+        Files.writeString(itemStats.toPath(), """
+                items:
+                  NETHERITE_SWORD:
+                    fixed: { attack-power: 3780.0 }
+                  BOW:
+                    fixed: { attack-power: 69.0 }
+                """);
+        ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
+        CombatDamageConfig damage = CombatWiringSupport.combatDamageFrom(dir, "");
+        PerkBuffResolver perks = new PerkBuffResolver(SkillPerkStatSource.EMPTY, () -> java.util.List.of());
+        PlayerStatAggregator aggregator =
+                new PlayerStatAggregator(cm.itemStats(), damage, perks, new RoleBuffResolver(cm.roleBuffs()));
+        Player player = server.addPlayer();
+        player.getInventory().setItemInMainHand(new ItemStack(Material.NETHERITE_SWORD));
+        player.getInventory().setItemInOffHand(new ItemStack(Material.BOW));
+        ItemStack contributorMirror = player.getInventory().getItemInOffHand().clone();
+
+        PlayerCombatAggregate agg = aggregator.aggregate(player, contributorMirror, true);
+
+        assertEquals(69.0, agg.item().getOrDefault(ATTACK_POWER, 0.0), 1e-9,
+                "発射した弓(69)だけが合算され、メインハンドの剣(3780)は絶対に混ざってはならない");
+        assertEquals(69.0, agg.mainhand().getOrDefault(ATTACK_POWER, 0.0), 1e-9,
+                "mainhand()(武器CT)も寄与アイテム(弓=69)由来であるべき");
+    }
+
+    /**
+     * 2026-08-13 回帰固定: 寄与アイテム(contributorIsOffhand=true)とは<b>別</b>のアイテムが
+     * オフハンドにあり、そのオフハンドアイテムが offhand-stats-apply:true を持つ場合、
+     * その寄与が落ちてはならない(飛び道具は発射から着弾まで秒単位の遅延があり、その間に
+     * オフハンドの中身が入れ替わっていることがある — sameItemProfile が一致しないので
+     * excludeOffhandSlot は false になり、スロット側の合算は生きたままでなければならない)。
+     */
+    @Test
+    void contributorIsOffhand_offhandSwappedMidFlight_newOffhandItemStillCounts(@TempDir File dir)
+            throws IOException {
+        File itemStats = new File(dir, ItemStatsConfig.PATH);
+        Files.createDirectories(itemStats.getParentFile().toPath());
+        Files.writeString(itemStats.toPath(), """
+                items:
+                  BOW:
+                    fixed: { attack-power: 69.0 }
+                  SHIELD:
+                    fixed: { attack-power: 7.0 }
+                    offhand-stats-apply: true
+                """);
+        ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
+        CombatDamageConfig damage = CombatWiringSupport.combatDamageFrom(dir, "");
+        PerkBuffResolver perks = new PerkBuffResolver(SkillPerkStatSource.EMPTY, () -> java.util.List.of());
+        PlayerStatAggregator aggregator =
+                new PlayerStatAggregator(cm.itemStats(), damage, perks, new RoleBuffResolver(cm.roleBuffs()));
+        Player player = server.addPlayer();
+        // 発射時点のオフハンド寄与アイテムは弓(発射後にretainされたクローン)。
+        ItemStack contributorMirror = new ItemStack(Material.BOW);
+        // 着弾までの間にオフハンドの中身が盾へ入れ替わっている(BOW != SHIELD なので sameItemProfile=false)。
+        player.getInventory().setItemInOffHand(new ItemStack(Material.SHIELD));
+
+        PlayerCombatAggregate agg = aggregator.aggregate(player, contributorMirror, true);
+
+        assertEquals(76.0, agg.item().getOrDefault(ATTACK_POWER, 0.0), 1e-9,
+                "寄与アイテム(弓=69) + 入れ替わった新しいオフハンドの盾(offhand-stats-apply=true, 7) の"
+                        + "両方が合算されるべき(スロット除外は行われない)");
+    }
+
+    /**
+     * contributorIsOffhand=false の既存挙動は1バイトも変わらない(回帰固定)。
+     * 既存の offhandFlagTrue_includesOffhandStats / mainhandMap_excludesArmorAndOffhand と同じ
+     * フィクスチャで、2引数/3引数(false)経路が同一の結果を返すことを確認する。
+     */
+    @Test
+    void contributorIsOffhandFalse_behavesIdenticallyToTwoArgOverload(@TempDir File dir) throws IOException {
+        PlayerStatAggregator aggregator = aggregator(dir, true);
+        Player player = equippedPlayer();
+
+        PlayerCombatAggregate viaTwoArg = aggregator.aggregate(player);
+        PlayerCombatAggregate viaThreeArgFalse = aggregator.aggregate(
+                player, player.getInventory().getItemInMainHand(), false);
+
+        assertEquals(viaTwoArg.item().getOrDefault(ATTACK_POWER, 0.0),
+                viaThreeArgFalse.item().getOrDefault(ATTACK_POWER, 0.0), 1e-9);
+        assertEquals(viaTwoArg.mainhand().getOrDefault(ATTACK_POWER, 0.0),
+                viaThreeArgFalse.mainhand().getOrDefault(ATTACK_POWER, 0.0), 1e-9);
+    }
+
+    // --- 2026-08-13 修正2: nonPerkStatTotal(armor-set-bonus 総合値化のための読み取り口) ---
+
+    /**
+     * nonPerkStatTotal は base-stats / 役職 / 永続 / 装備(防具+実メインハンド)を足し、
+     * パーク general分は含まない(NativeAttributeBridge側が別途足すため二重計上防止)。
+     */
+    @Test
+    void nonPerkStatTotal_sumsBaseRolePermanentAndEquipmentButExcludesPerk(@TempDir File dir)
+            throws IOException {
+        writeItemStatsWithManaBonus(dir); // DIAMOND_SWORD.mana_bonus=1.0
+        ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
+        CombatDamageConfig damage = CombatWiringSupport.combatDamageFrom(dir, "");
+
+        Map<String, Double> buffs = new LinkedHashMap<>();
+        buffs.put("mana_bonus", 2.0); // パーク分: nonPerkStatTotalには含まれてはいけない
+        SkillNode node = new SkillNode("N", "マナの型", 1, SkillRole.MAIN, null, null, "STONE", 1, "desc",
+                buffs, Map.of(), List.of(), List.of(), List.of());
+        Map<String, SkillNode> nodes = new LinkedHashMap<>();
+        nodes.put("N", node);
+        SkillTree tree = new SkillTree("ARS_MAGIC", "アルス魔術", null, "1,1", null, nodes);
+        String perkId = PerkNaming.perkId("ARS_MAGIC", "N");
+        SkillPerkStatSource source = playerId -> java.util.Set.of(perkId);
+        PerkBuffResolver perks = new PerkBuffResolver(source, () -> List.of(tree));
+
+        RoleBuffResolver roleBuffResolver = mock(RoleBuffResolver.class);
+        when(roleBuffResolver.contributionFor(any())).thenReturn(new RoleBuffResolver.Contribution(
+                Map.of(MANA_BONUS, 3.0), Map.of(), 1.0, null, 1.0));
+        PermanentBuffResolver permanentBuffResolver = mock(PermanentBuffResolver.class);
+        when(permanentBuffResolver.buffsFor(any())).thenReturn(Map.of(MANA_BONUS, 5.0));
+        BaseStatsConfig baseStats = baseStatsFrom(dir, """
+                base-stats:
+                  mana_bonus: 7
+                """);
+
+        PlayerStatAggregator aggregator = new PlayerStatAggregator(cm.itemStats(), damage, perks,
+                roleBuffResolver, null, permanentBuffResolver, baseStats);
+        Player player = equippedPlayer(); // 剣(mana_bonus=1)を装備
+
+        double total = aggregator.nonPerkStatTotal(player, "mana_bonus");
+
+        assertEquals(16.0, total, 1e-9,
+                "装備(1) + 役職(3) + 永続(5) + base-stats(7) = 16。パーク分(2)は含まない");
+    }
+
+    @Test
+    void nonPerkStatTotal_includesActualMainhandItemStats(@TempDir File dir) throws IOException {
+        PlayerStatAggregator aggregator = aggregator(dir, false);
+        Player player = server.addPlayer();
+        player.getInventory().setItemInMainHand(new ItemStack(Material.DIAMOND_SWORD));
+
+        double total = aggregator.nonPerkStatTotal(player, "attack-power");
+
+        assertEquals(10.0, total, 1e-9, "実メインハンド(剣=10)のitem-statsが含まれる");
     }
 }

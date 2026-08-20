@@ -16,10 +16,14 @@ import java.util.logging.Logger;
 /**
  * Loader for {@code stats/farming-gimmick.yml}: tuning for the農業/畜産スキルツリーflag系
  * dedicated-effect consumers that have no existing config home ({@code area-harvest},
- * {@code animal-damage-4x}, {@code bee-no-aggro} — see {@code skilltree/dedicated-effects.yml}).
+ * {@code animal-damage-4x}, {@code bee-no-aggro} — see the {@code dedicated-effects:} field on each node in {@code skilltree/*.yml}).
  * 養蜂の幸運確率({@code hive_harvest_fortune})は装備+perk合算ステータスとして別経路
  * ({@code PlayerStatAggregator})で持つため、このconfigには含まない。Same raw-YAML loader style as
  * {@link MiningGimmickConfig}/{@link WoodcuttingGimmickConfig}。
+ *
+ * <p>2026-08-01 に新設した {@code drop-tables}(採取トリガー型の追加ドロップ)は 2026-08-09 に
+ * 機構ごと撤去した。採掘/伐採/掘削/釣りの drop-tables 機構({@code DropTableConfig}/
+ * {@code DropTablePolicy})はこのconfigとは独立しており、今回の撤去では触っていない。
  */
 public final class FarmingGimmickConfig {
 
@@ -87,7 +91,6 @@ public final class FarmingGimmickConfig {
                 "bee-no-aggro.calm-radius", DEFAULT_BEE_CALM_RADIUS, log);
         this.areaHarvestTiers = parseAreaHarvestTiers(yaml.getConfigurationSection("area-harvest.tiers"), log);
 
-        log.info("[" + PATH + "] loaded OK");
         return true;
     }
 

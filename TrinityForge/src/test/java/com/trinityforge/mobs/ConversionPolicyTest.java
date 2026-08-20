@@ -56,4 +56,50 @@ class ConversionPolicyTest {
         // sanity: a genuine zero ramp stays zero
         assertEquals(0.0, new DefenseRamp(zero, zero, zero, zero).at(5, 0.0).defenseRate(), DELTA);
     }
+
+    @Test
+    @DisplayName("Ramp 2-arg/4-arg back-compat constructors never trigger the high-level breakpoint")
+    void rampBackCompatConstructorsHaveNoHighLevelBreakpoint() {
+        Ramp linear = new Ramp(10.0, 2.0);
+        Ramp geometric = new Ramp(10.0, 2.0, 1.05, 1.0);
+        for (int level : new int[] {0, 1, 45, 60, 80, 100, 1000}) {
+            assertEquals(10.0 + 2.0 * Math.max(0, level), linear.at(level), DELTA);
+            assertEquals((10.0 + 2.0 * Math.max(0, level)) * Math.pow(1.05, Math.max(0, level)),
+                    geometric.at(level), DELTA);
+        }
+    }
+
+    @Test
+    @DisplayName("Ramp high-level breakpoint contributes exactly 0 at the threshold level itself")
+    void rampHighLevelBreakpointIsContinuousAtThreshold() {
+        Ramp r = new Ramp(100.0, 0.0, 1.0, 1.0, 45.0, 50.0);
+        assertEquals(100.0, r.at(45), DELTA, "at() at exactly the breakpoint must equal the base curve");
+        assertEquals(100.0, r.at(44), DELTA, "below the breakpoint must be completely unaffected");
+        assertEquals(100.0, r.at(0), DELTA, "far below the breakpoint must be completely unaffected");
+    }
+
+    @Test
+    @DisplayName("Ramp high-level breakpoint adds highLevelPerLevel per level strictly above the threshold")
+    void rampHighLevelBreakpointAddsLinearlyAboveThreshold() {
+        Ramp r = new Ramp(100.0, 0.0, 1.0, 1.0, 45.0, 50.0);
+        assertEquals(100.0 + 50.0 * 15, r.at(60), DELTA);
+        assertEquals(100.0 + 50.0 * 35, r.at(80), DELTA);
+    }
+
+    @Test
+    @DisplayName("Ramp high-level breakpoint works even when the base curve is zero at the threshold "
+            + "(e.g. mob-import.yml flat-defense/defense-rate, base=0 per-level=0)")
+    void rampHighLevelBreakpointWorksOnZeroBaseCurve() {
+        Ramp r = new Ramp(0.0, 0.0, 1.0, 1.0, 45.0, 15.0);
+        assertEquals(0.0, r.at(45), DELTA);
+        assertEquals(15.0 * 5, r.at(50), DELTA, "a multiplicative term would stay 0x anything=0 here; "
+                + "the additive design must not");
+    }
+
+    @Test
+    @DisplayName("Ramp high-level breakpoint is a no-op when highLevelPerLevel is 0 even past the threshold")
+    void rampHighLevelBreakpointZeroSlopeIsNoOp() {
+        Ramp r = new Ramp(10.0, 1.0, 1.0, 1.0, 45.0, 0.0);
+        assertEquals(10.0 + 1.0 * 100, r.at(100), DELTA);
+    }
 }

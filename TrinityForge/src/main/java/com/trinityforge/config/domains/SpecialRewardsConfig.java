@@ -58,13 +58,22 @@ public final class SpecialRewardsConfig implements LoadableConfig {
     public record ParticleSeed(String id, String seedItem, Particle particle, int count) {
     }
 
-    /** {@link #titleHeadOffsetY()} の既定値(ブロック単位)。詳細は同メソッドのjavadoc参照。 */
-    private static final double DEFAULT_TITLE_HEAD_OFFSET_Y = 0.75;
+    /** {@link #titleNametagClearance()} の既定値。ネームタグ上端と称号行のあいだに空けるブロック数。 */
+    private static final double DEFAULT_TITLE_NAMETAG_CLEARANCE = 0.4;
 
     private volatile Map<String, Title> titles = Map.of();
     private volatile Map<String, ParticleEffect> particles = Map.of();
     private volatile Map<String, ParticleSeed> particleSeeds = Map.of();
-    private volatile double titleHeadOffsetY = DEFAULT_TITLE_HEAD_OFFSET_Y;
+    private volatile double titleNametagClearance = DEFAULT_TITLE_NAMETAG_CLEARANCE;
+    // 孤児化した付与分の自動剥奪 (SpecialRewardPruner) の安全弁。既定true。壊れたYAMLを「全部未定義」と
+    // 誤判定して全員の報酬を消し飛ばす事故を防ぐため、これがfalseの間はプルーナー自体を丸ごとスキップできる。
+    private volatile boolean pruneOrphanedGrants = true;
+    // 直近の load() 呼び出しが成功(true)だったか。SpecialRewardPruner はこれもゲート条件に含める —
+    // YAML構文エラー/エントリ破損で load() が false を返した回に、たまたま titles/particles/
+    // particleSeeds が空(または一部欠落)のまま prune を走らせて全員の報酬を消し飛ばす事故を防ぐ。
+    // 起動直後(まだ一度も load() していない状態)は「未ロードでprune不可」ではなく安全側の true とする
+    // (このクラスは load() を呼ばれて初めて意味を持つため、初期値がpruneの成否を左右することはない)。
+    private volatile boolean lastLoadOk = true;
 
     public Map<String, Title> titles() {
         return titles;
@@ -84,15 +93,36 @@ public final class SpecialRewardsConfig implements LoadableConfig {
     }
 
     /**
-     * 称号(頭上表示)を {@code TextDisplay} のパッセンジャー既定マウント点から追加で持ち上げる高さ
-     * (ブロック単位、{@code TitleDisplayService})。バグ報告B1: 旧ハードコード値 0.35 だとちょうど
-     * ネームタグの位置に重なり、プレイヤー名が見えなくなっていた。既定値 0.75 は
-     * 実サーバで目視確認できない制約下での暫定値 — ネームタグに重なる/離れすぎる場合は
-     * {@code progression/special-rewards.yml} の {@code display.head-offset-y} を調整すること。
-     * {@code /trinityforge reload} で次回の表示張り直し(参加/リスポーン/ワールド移動/テレポート)から反映される。
+     * 称号の行(頭上の別行、{@link com.trinityforge.progression.TitleDisplayService})を、バニラの
+     * ネームタグの<b>上端からさらに何ブロック上</b>に置くかの余白。既定 0.4。
+     *
+     * <p>この値が「余白」であって「足元からの高さ」ではないことが重要。旧実装はパッセンジャーの
+     * マウント点からの相対オフセットを直接書いており、マウント点の実高さ(バニラ既定は
+     * {@code 高さ×0.75} = 1.35)を計算に入れていなかったため、0.35 でも 0.75 でもネームタグ
+     * (足元から {@code 高さ+0.5} = 2.3)に届かず<b>重なって名前を隠していた</b>のがバグ報告
+     * 「称号を付けている人にネームタグが表示されなかった」の正体。現在は
+     * {@code 高さ + 0.5 + この余白} という絶対座標へ毎tick追従させるので、マウント点という
+     * 未知数が式から消えている。
+     *
+     * <p>{@code progression/special-rewards.yml} の {@code display.nametag-clearance} から設定し、
+     * {@code /trinityforge reload} で次回の張り直しから反映される。
      */
-    public double titleHeadOffsetY() {
-        return titleHeadOffsetY;
+    public double titleNametagClearance() {
+        return titleNametagClearance;
+    }
+
+    /**
+     * true(既定) = このファイルから削除された報酬IDを、プレイヤーの保持分(付与リスト/装備欄)からも
+     * 自動で取り除く({@code SpecialRewardPruner})。false ならプルーナーはオンライン参加/reload の
+     * どちらでも一切走らない(安全弁)。
+     */
+    public boolean pruneOrphanedGrants() {
+        return pruneOrphanedGrants;
+    }
+
+    /** 直近の {@link #load(Plugin)} 呼び出しが成功(true)だったか。{@code SpecialRewardPruner} の安全弁。 */
+    public boolean lastLoadOk() {
+        return lastLoadOk;
     }
 
     @Override
@@ -109,6 +139,7 @@ public final class SpecialRewardsConfig implements LoadableConfig {
         } catch (InvalidConfigurationException | IOException ex) {
             log.log(Level.SEVERE, "[" + PATH + "] YAML構文エラーのため読み込みを中止しました。"
                     + "直前の設定値を維持します: " + ex.getMessage(), ex);
+            this.lastLoadOk = false;
             return false;
         }
 
@@ -116,18 +147,23 @@ public final class SpecialRewardsConfig implements LoadableConfig {
         this.titles = result.titles();
         this.particles = result.particles();
         this.particleSeeds = result.particleSeeds();
-        // display.head-offset-y (B1): 非有限値/未設定は既定へフォールバック。負値は「頭上表示を下げる」
-        // 正式な運用として許容する(称号を胸元に置く等の演出も構成できる)。
-        double headOffsetY = yaml.getDouble("display.head-offset-y", DEFAULT_TITLE_HEAD_OFFSET_Y);
-        this.titleHeadOffsetY = Double.isFinite(headOffsetY) ? headOffsetY : DEFAULT_TITLE_HEAD_OFFSET_Y;
+        // display.nametag-clearance: 0 も「ネームタグ上端にぴったり載せる」として正式に許容する。
+        // 負値/非有限値だけ既定へ戻す(負にするとネームタグへ再び重なり、直したはずのバグが戻るため)。
+        double clearance = yaml.getDouble("display.nametag-clearance", DEFAULT_TITLE_NAMETAG_CLEARANCE);
+        this.titleNametagClearance = Double.isFinite(clearance) && clearance >= 0.0
+                ? clearance
+                : DEFAULT_TITLE_NAMETAG_CLEARANCE;
+        this.pruneOrphanedGrants = yaml.getBoolean("prune-orphaned-grants", true);
 
         if (result.skipped() > 0) {
             log.warning("[" + PATH + "] loaded " + (titles.size() + particles.size() + particleSeeds.size())
                     + " special reward(s), " + result.skipped() + " skipped");
+            this.lastLoadOk = false;
             return false;
         }
         log.info("[" + PATH + "] loaded " + titles.size() + " title(s), " + particles.size()
                 + " particle(s), " + particleSeeds.size() + " particle-seed(s) OK");
+        this.lastLoadOk = true;
         return true;
     }
 
@@ -204,12 +240,24 @@ public final class SpecialRewardsConfig implements LoadableConfig {
         return new ParseResult(Map.copyOf(titles), Map.copyOf(particles), Map.copyOf(seeds), skipped);
     }
 
+    /**
+     * Particle 名を解決する。実在する名前でも、<b>追加データを必須とする種類は受け付けない</b>。
+     *
+     * <p>2026-07-31 追加のガード。演出側({@code ParticleEffectService} / {@code ParticleSeedListener})は
+     * {@code spawnParticle(particle, loc, count, ...)} をデータ引数なしで呼ぶため、{@code getDataType()}
+     * が {@code Void} でない種類(FLASH/DUST/BLOCK/ITEM/ENTITY_EFFECT/SHRIEK/SCULK_CHARGE/VIBRATION 等)を
+     * 設定すると発生の瞬間に {@code IllegalArgumentException} が飛ぶ。パーティクルは常時 tick で回る
+     * ので、1件の設定ミスがログを埋め尽くし、同じリスナーに乗っている処理も道連れにする。
+     * Paper 1.21.11 で {@code FLASH} が Color 必須になったとき、会心演出が落ちて戦闘処理が
+     * 丸ごと止まった実績があるので、設定を読む時点で弾いて WARNING に落とす。
+     */
     private static Particle parseParticle(String name) {
         if (name == null || name.isBlank()) {
             return null;
         }
         try {
-            return Particle.valueOf(name.trim().toUpperCase(Locale.ROOT));
+            Particle particle = Particle.valueOf(name.trim().toUpperCase(Locale.ROOT));
+            return particle.getDataType() == Void.class ? particle : null;
         } catch (IllegalArgumentException ex) {
             return null;
         }

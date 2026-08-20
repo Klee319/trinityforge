@@ -30,8 +30,10 @@ class AttributeApplierNoRollSeedSlotUniquenessTest {
 
     @Test
     void helmetAndChestplateWithoutRollSeedGetDistinctSuffixesForTheSameStat() {
-        String helmetSuffix = AttributeApplier.rollSeedSuffix(Optional.empty(), EquipmentSlotGroup.HEAD);
-        String chestSuffix = AttributeApplier.rollSeedSuffix(Optional.empty(), EquipmentSlotGroup.CHEST);
+        String helmetSuffix = AttributeApplier.rollSeedSuffix(Optional.empty(), EquipmentSlotGroup.HEAD,
+                EquipmentSlotResolver.Category.HEAD);
+        String chestSuffix = AttributeApplier.rollSeedSuffix(Optional.empty(), EquipmentSlotGroup.CHEST,
+                EquipmentSlotResolver.Category.CHEST);
 
         assertNotEquals(helmetSuffix, chestSuffix,
                 "CMB-19: rollSeed-less items in different slots must not collide on modifier key suffix");
@@ -41,8 +43,10 @@ class AttributeApplierNoRollSeedSlotUniquenessTest {
     void sameSlotWithoutRollSeedIsIdempotentAcrossReapplies() {
         // Re-applying the SAME slot (e.g. the same helmet re-processed) must keep producing the same
         // suffix, not grow a new one each time.
-        String first = AttributeApplier.rollSeedSuffix(Optional.empty(), EquipmentSlotGroup.HEAD);
-        String second = AttributeApplier.rollSeedSuffix(Optional.empty(), EquipmentSlotGroup.HEAD);
+        String first = AttributeApplier.rollSeedSuffix(Optional.empty(), EquipmentSlotGroup.HEAD,
+                EquipmentSlotResolver.Category.HEAD);
+        String second = AttributeApplier.rollSeedSuffix(Optional.empty(), EquipmentSlotGroup.HEAD,
+                EquipmentSlotResolver.Category.HEAD);
 
         assertEquals(first, second, "re-applying the same slot must be idempotent");
     }
@@ -51,18 +55,38 @@ class AttributeApplierNoRollSeedSlotUniquenessTest {
     void rollSeedBearingItemsKeepTheExistingHexSuffixUnaffectedByCmb19() {
         // Regression guard: items WITH a rollSeed must be entirely unaffected by the CMB-19 fix —
         // their suffix is still the plain per-item hex seed, with no slot mixed in.
-        String suffix = AttributeApplier.rollSeedSuffix(Optional.of(0xABCDEFL), EquipmentSlotGroup.HEAD);
+        String suffix = AttributeApplier.rollSeedSuffix(Optional.of(0xABCDEFL), EquipmentSlotGroup.HEAD,
+                EquipmentSlotResolver.Category.HEAD);
         assertEquals(".abcdef", suffix);
 
-        String otherSlotSameSeed =
-                AttributeApplier.rollSeedSuffix(Optional.of(0xABCDEFL), EquipmentSlotGroup.CHEST);
+        String otherSlotSameSeed = AttributeApplier.rollSeedSuffix(Optional.of(0xABCDEFL),
+                EquipmentSlotGroup.CHEST, EquipmentSlotResolver.Category.CHEST);
         assertEquals(suffix, otherSlotSameSeed,
                 "a rollSeed-bearing item's suffix must be slot-independent (identity already unique via seed)");
     }
 
     @Test
     void noRollSeedSuffixEndsWithTheSlotGroupsOwnKey() {
-        String suffix = AttributeApplier.rollSeedSuffix(Optional.empty(), EquipmentSlotGroup.MAINHAND);
-        assertEquals(".nosd." + EquipmentSlotGroup.MAINHAND, suffix);
+        String suffix = AttributeApplier.rollSeedSuffix(Optional.empty(), EquipmentSlotGroup.MAINHAND,
+                EquipmentSlotResolver.Category.MAINHAND);
+        assertEquals(".nosd." + EquipmentSlotGroup.MAINHAND + ".mainhand", suffix);
+    }
+
+    // ---- 2026-08-13バグ修正(レーンC ANY→HAND 変更によるキー衝突): rollSeed無しの MAINHAND 分類アイテムと
+    // ANY 分類アイテムが、offhand-stats-apply=true のときどちらも EquipmentSlotGroup.HAND へ落ちるため、
+    // Category も混ぜないと同じ ".nosd.hand" サフィックスを名乗って modifier キーが衝突していた。 ----
+
+    @Test
+    void mainhandAndAnyCategoryItemsInTheSameSlotGroupGetDistinctSuffixesWithoutRollSeed() {
+        // 両方とも offhandApplies=true で EquipmentSlotGroup.HAND に解決される状況を想定
+        // (例: 剣 = MAINHAND分類、ハサミ等 = ANY分類)。slotGroup だけでは区別できないので Category が必須。
+        String mainhandItemSuffix = AttributeApplier.rollSeedSuffix(Optional.empty(), EquipmentSlotGroup.HAND,
+                EquipmentSlotResolver.Category.MAINHAND);
+        String anyItemSuffix = AttributeApplier.rollSeedSuffix(Optional.empty(), EquipmentSlotGroup.HAND,
+                EquipmentSlotResolver.Category.ANY);
+
+        assertNotEquals(mainhandItemSuffix, anyItemSuffix,
+                "2026-08-13: rollSeed-less MAINHAND-category and ANY-category items sharing the same "
+                        + "EquipmentSlotGroup.HAND must not collide on modifier key suffix");
     }
 }

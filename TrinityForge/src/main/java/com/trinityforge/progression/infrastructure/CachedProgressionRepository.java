@@ -177,6 +177,17 @@ public final class CachedProgressionRepository implements ProgressionRepository 
     }
 
     @Override
+    public boolean prestige(
+            UUID playerId, String skillId, String ordinaryPerkPrefix,
+            String prestigePerkId, SkillProgress resetProgress, long refundPoints,
+            Set<String> retainedOrdinaryPerkIds) {
+        boolean ok = delegate.prestige(playerId, skillId, ordinaryPerkPrefix,
+                prestigePerkId, resetProgress, refundPoints, retainedOrdinaryPerkIds);
+        if (ok) invalidate(playerId);
+        return ok;
+    }
+
+    @Override
     public Collection<UUID> listPlayerIds() {
         return delegate.listPlayerIds();
     }

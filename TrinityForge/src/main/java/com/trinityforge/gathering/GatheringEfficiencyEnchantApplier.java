@@ -3,7 +3,6 @@ package com.trinityforge.gathering;
 import com.trinityforge.active.ActivationDispatcher;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.GatheringEfficiencyConfig;
-import com.trinityforge.config.domains.StatCapsConfig;
 import com.trinityforge.pdc.PdcKeys;
 import com.trinityforge.stats.StatKeys;
 import io.papermc.paper.event.entity.EntityEquipmentChangedEvent;
@@ -75,31 +74,21 @@ public final class GatheringEfficiencyEnchantApplier implements Listener {
     private final Plugin plugin;
     private final PlayerStatAggregator aggregator;
     private final GatheringEfficiencyConfig config;
-    private final StatCapsConfig statCaps;
 
     /** tick単位デバウンス(PerkAttributeApplierと同じ流儀): 同一tick内の複数装備変化を1回にまとめる。 */
     private final Map<UUID, Integer> lastAppliedTick = new ConcurrentHashMap<>();
 
-    public GatheringEfficiencyEnchantApplier(Plugin plugin, PlayerStatAggregator aggregator,
-                                             GatheringEfficiencyConfig config) {
-        this(plugin, aggregator, config, null);
-    }
-
     /**
-     * @param statCaps optional (may be {@code null}, e.g. existing tests/call sites that predate this
-     *                 parameter): {@code combat/stat-caps.yml}. When {@link StatCapsConfig
-     *                 #gatheringEfficiencyMaxEnchantLevel()} is non-null it overrides {@code config}'s
-     *                 {@code max-enchant-level} for the enchant-level ceiling (stat-caps.yml wins when
-     *                 both are set — see that config's javadoc). {@code null} (or an unset override
-     *                 inside it) reproduces the exact pre-existing behaviour (legacy
-     *                 {@code stats/gathering-efficiency.yml} alone decides the ceiling).
+     * エンチャントレベルの上限は {@code config}({@code stats/gathering-efficiency.yml} の
+     * {@code max-enchant-level})が唯一の設定箇所。2026-08-05 に {@code combat/stat-caps.yml} の
+     * {@code gathering-efficiency-max-enchant-level} 上書き経路(と、それを渡していた4引数版
+     * コンストラクタ)をユーザー決定で削除した。
      */
     public GatheringEfficiencyEnchantApplier(Plugin plugin, PlayerStatAggregator aggregator,
-                                             GatheringEfficiencyConfig config, StatCapsConfig statCaps) {
+                                             GatheringEfficiencyConfig config) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.aggregator = Objects.requireNonNull(aggregator, "aggregator");
         this.config = Objects.requireNonNull(config, "config");
-        this.statCaps = statCaps;
     }
 
     @EventHandler
@@ -235,12 +224,8 @@ public final class GatheringEfficiencyEnchantApplier implements Listener {
             return 0;
         }
         double total = aggregator.aggregate(player, mainhand).totalOf(STAT_KEY);
-        // stat-caps.yml の gathering-efficiency-max-enchant-level が設定されていればそちらを優先し、
-        // 未設定(null)なら旧 stats/gathering-efficiency.yml の max-enchant-level へフォールバックする
-        // (StatCapsConfig#gatheringEfficiencyMaxEnchantLevel javadoc参照)。
-        Integer override = statCaps == null ? null : statCaps.gatheringEfficiencyMaxEnchantLevel();
-        int maxLevel = override != null ? override : config.maxEnchantLevel();
-        return GatheringEfficiencyMath.resolveLevel(total, maxLevel);
+        // 上限は stats/gathering-efficiency.yml の max-enchant-level 一本(0以下=無制限)。
+        return GatheringEfficiencyMath.resolveLevel(total, config.maxEnchantLevel());
     }
 
     private void stripSlotIfMarked(PlayerInventory inv, int slot) {

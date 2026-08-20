@@ -1,5 +1,5 @@
 {
-  "parent": "minecraft:item/generated",
+  "parent": "minecraft:item/emerald",
   "textures": {
     "layer0": "trinityforge:item/tf_core_jewelry"
   }

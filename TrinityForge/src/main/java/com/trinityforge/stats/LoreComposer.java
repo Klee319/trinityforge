@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Builds categorized item stat lore with quality score header and stat-source coloring.
@@ -34,8 +35,76 @@ public final class LoreComposer {
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
     private final PlainTextComponentSerializer plain = PlainTextComponentSerializer.plainText();
 
+    /**
+     * 「config で機構ごと無効化されていて、値を持っていても<b>何も起きない</b>ステ」のキー供給元
+     * (2026-08-01)。既定は空 = 何も落とさない。
+     *
+     * <p>これは {@link StatDisplaySpec#hideWhenZero()} と<b>同じ規約の延長</b>: 効かない値は lore に
+     * 出さない(表示と実装を一致させる)。値が 0 なら消す、という判定だけでは足りないケースが
+     * {@code stats/craft-quality.yml} の分離(2026-08-01)で生まれた ——
+     * {@code workbench.upswing-scale} と {@code ritual.upswing-scale} を両方 0 にすると
+     * {@code craft_upswing_bonus} はどの経路にも寄与しなくなるのに、アイテムやパークが持っている値は
+     * 0 ではないので lore には「上振れ↑ +0.15」と出たままになる。
+     * 「設定で殺したのに説明文だけ生きている」は、このコードベースが繰り返し踏んできた
+     * <b>表示と実装の食い違い</b>そのものなので、供給元(config)側の判断で落とせるようにしてある。
+     *
+     * <p>供給元は実行時に差し替わりうる({@code /tf reload})ため、値ではなく {@link Supplier} を持つ。
+     * <b>要配線</b>: {@code TrinityForge} 側で
+     * {@code loreComposer.useInertStatKeys(configManager.craftQuality()::inertSpreadStatKeys)}。
+     * 未配線なら従来どおり全部表示されるだけで、壊れはしない。
+     */
+    private volatile Supplier<Set<String>> inertStatKeys = Set::of;
+
+    /** {@link #inertStatKeys} の配線。{@code null} を渡すと「無効化されたステは無い」に戻る。 */
+    public void useInertStatKeys(Supplier<Set<String>> supplier) {
+        this.inertStatKeys = supplier == null ? Set::of : supplier;
+    }
+
     /** Marker inserted where a separator belongs; replaced by the width-adapted rule in a post-pass. */
     private static final Component SEPARATOR_MARKER = Component.text("\u0000TF_SEPARATOR\u0000");
+
+    /** カテゴリの描画順。{@link #compose} と {@link #statLines} で同じ順序を使う。 */
+    private static final StatCategory[] CATEGORY_ORDER = {
+            StatCategory.ATTACK, StatCategory.DEFENSE, StatCategory.CRAFT, StatCategory.GATHERING,
+            StatCategory.UTILITY, StatCategory.ARS, StatCategory.OTHER};
+
+    /**
+     * ステ行<b>だけ</b>を返す({@code ====} の区切り線・header/footer・品質行を一切付けない)。
+     * 他のアイテムの lore へ差し込む用途／チャットへ出す用途の入口。
+     *
+     * <p><b>なぜ {@link #compose} を流用してはいけないか(2026-08-05)</b>:
+     * {@code compose} は非空カテゴリごとに区切り線を入れ、その<b>幅はそのときの最長行から決まる</b>
+     * ({@link #resolveSeparators})。差し込み先が「前回の行を内容一致で消してから新しい行を足す」
+     * 方式だと(ArsPaper のスレッド返却 {@code ThreadGui#restoreRoll} と
+     * {@code ThreadRerollRitualEffect} がこれ)、値の桁が変わって幅が変わった瞬間に
+     * <b>古い区切り線が消えずに溜まり続ける</b>。区切り線はアイテム自身の lore を組むときだけの装飾なので、
+     * 差し込み用の経路では最初から作らない。
+     *
+     * <p>ステ源の区別({@link StatSource})は渡せないので全行 {@code FIXED} 色で描かれる。
+     * 差し込み元(スレッド等)は fixed/per-quality/random を合算した値しか持たず内訳が復元できないため、
+     * 「ロール色を偽って付ける」より「一貫して固定色」を選んでいる。
+     */
+    public List<Component> statLines(Map<String, Double> stats,
+                                     Map<String, StatDisplaySpec> displayTable,
+                                     LoreLayout layout) {
+        Objects.requireNonNull(stats, "stats");
+        Objects.requireNonNull(displayTable, "displayTable");
+        Objects.requireNonNull(layout, "layout");
+
+        Map<String, StatDisplaySpec> canonicalTable = canonicalizeTable(displayTable);
+        Map<String, Double> displayStats = new LinkedHashMap<>(canonicalizeStats(stats));
+        Set<String> inert = canonicalizeKeys(inertStatKeys.get());
+        if (!inert.isEmpty()) {
+            displayStats.keySet().removeAll(inert);
+        }
+
+        List<Component> lines = new ArrayList<>();
+        for (StatCategory category : CATEGORY_ORDER) {
+            appendSection(lines, displayStats, canonicalTable, Map.of(), Set.of(), Set.of(),
+                    Map.of(), layout, category, false);
+        }
+        return List.copyOf(lines);
+    }
 
     /** Back-compat overload: use-requirement lore line falls back to {@link LoreConfig.BindLore#defaults()}. */
     public List<Component> compose(LoreComposeRequest request,
@@ -60,6 +129,17 @@ public final class LoreComposer {
         Set<String> chanceKeys = canonicalizeKeys(request.chanceKeys());
         Map<String, Map<String, Double>> multipliers = canonicalizeMultipliers(request.multipliers());
 
+        // config で機構ごと殺されているステは、値があっても行ごと出さない({@link #inertStatKeys})。
+        // forceShow(「デフォルト表示」ON)より強い: 0でも出す指定は「効くけれど今は0」のための機能で、
+        // 「そもそも効かない」を出す理由にはならない。乗算レイヤ側も落とさないと
+        // specsInCategory が乗算だけで行を復活させてしまう。
+        Set<String> inert = canonicalizeKeys(inertStatKeys.get());
+        if (!inert.isEmpty()) {
+            displayStats.keySet().removeAll(inert);
+            forceShow = withoutInert(forceShow, inert);
+            multipliers.values().forEach(values -> values.keySet().removeAll(inert));
+        }
+
         List<Component> lore = new ArrayList<>();
         layout.header().forEach(line -> lore.add(deserialize(line)));
 
@@ -77,11 +157,9 @@ public final class LoreComposer {
                     Placeholder.unparsed("score", String.valueOf(request.qualityScore())))));
         }
 
-        for (StatCategory category : new StatCategory[]{StatCategory.ATTACK, StatCategory.DEFENSE,
-                StatCategory.CRAFT, StatCategory.GATHERING, StatCategory.UTILITY,
-                StatCategory.ARS, StatCategory.OTHER}) {
+        for (StatCategory category : CATEGORY_ORDER) {
             appendSection(lore, displayStats, canonicalTable, displaySources, forceShow, chanceKeys,
-                    multipliers, layout, category);
+                    multipliers, layout, category, true);
         }
 
         // 使用可能レベル行: テンプレートは stats/lore.yml の bind.use-requirement-line
@@ -109,7 +187,7 @@ public final class LoreComposer {
                                Map<String, StatDisplaySpec> table, Map<String, StatSource> sources,
                                Set<String> forceShow, Set<String> chanceKeys,
                                Map<String, Map<String, Double>> multipliers,
-                               LoreLayout layout, StatCategory category) {
+                               LoreLayout layout, StatCategory category, boolean withSeparator) {
         List<StatDisplaySpec> specs = specsInCategory(stats, table, category, forceShow, multipliers);
         List<Component> lines = new ArrayList<>();
         for (StatDisplaySpec spec : specs) {
@@ -124,7 +202,9 @@ public final class LoreComposer {
         if (lines.isEmpty()) {
             return;
         }
-        lore.add(SEPARATOR_MARKER);
+        if (withSeparator) {
+            lore.add(SEPARATOR_MARKER);
+        }
         lore.addAll(lines);
     }
 
@@ -302,6 +382,16 @@ public final class LoreComposer {
             });
         }
         return canonical;
+    }
+
+    /** {@code keys} から無効化済みキーを除いた新しい集合(引数は不変集合のことがあるので複製する)。 */
+    private static Set<String> withoutInert(Set<String> keys, Set<String> inert) {
+        if (keys.isEmpty()) {
+            return keys;
+        }
+        Set<String> remaining = new LinkedHashSet<>(keys);
+        remaining.removeAll(inert);
+        return remaining;
     }
 
     private static Set<String> canonicalizeKeys(Set<String> raw) {

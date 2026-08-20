@@ -1,5 +1,8 @@
 # ---- ビルド成果物 ----
 build/
+# buildDir を変えて走らせたときの生成物（resources/main・test-results・reports が入る）。
+# 除外されていないと `git add TrinityForge` で生成物 87 本を巻き込む事故になる。
+build-*/
 .gradle/
 out/
 bin/
@@ -11,6 +14,12 @@ bin/
 
 # ---- 依存 ----
 node_modules/
+
+# Python のバイトコード。resourcepack/build_item_pack.py が同ディレクトリの
+# build_item_lang を import するようになったので、パックを 1 回ビルドしただけで
+# resourcepack/__pycache__/ が生えて public リポジトリへ混入しうる。
+__pycache__/
+*.pyc
 
 # ---- バックアップ（巨大・git で置き換わるもの） ----
 backups/
@@ -36,6 +45,14 @@ wiki/
 # 絶対パス（D:\game\...）を含むローカル運用スクリプト
 .cursor-rcon.py
 
+# IDE / 言語サーバ（Eclipse JDT）のメタデータ。
+# post-check フックの compile が吐くので、worktree を作るたび全ワークツリーに生える。
+# 除外していないと wip-audit.ps1 の「他 worktree の未コミット変更」が毎回 47 本 WARN になり、
+# 本物の取り残し（実ソースの未コミット変更）がノイズに埋もれる。2026-08-04 に実際に埋もれた。
+.project
+.classpath
+.settings/
+
 # ---- 実サーバ由来の運用データ ----
 server.properties
 ops.json
@@ -46,3 +63,6 @@ usercache.json
 *.pem
 .env
 .env.*
+
+# ops スクリプトのローカル設定（絶対パスを含む）。ops-config.sample.psd1 だけを版管理する。
+ops/ops-config.psd1

@@ -192,38 +192,8 @@ final class NativeSkillTreeCanvas {
     }
 
     static String mergeConnectorSuffix(String first, String second) {
-        int arms = connectorArms(first) | connectorArms(second);
-        return switch (arms) {
-            case 0b0011 -> "12";
-            case 0b0110 -> "13";
-            case 0b1100 -> "14";
-            case 0b1001 -> "15";
-            case 0b1011 -> "16";
-            case 0b0111 -> "17";
-            case 0b1110 -> "18";
-            case 0b1101 -> "19";
-            case 0b1111 -> "20";
-            case 0b0101 -> "06";
-            case 0b1010 -> "07";
-            default -> first;
-        };
-    }
-
-    private static int connectorArms(String suffix) {
-        return switch (suffix) {
-            case "00", "06", "10", "11" -> 0b0101;
-            case "07", "08", "09" -> 0b1010;
-            case "12" -> 0b0011;
-            case "13" -> 0b0110;
-            case "14" -> 0b1100;
-            case "15" -> 0b1001;
-            case "16" -> 0b1011;
-            case "17" -> 0b0111;
-            case "18" -> 0b1110;
-            case "19" -> 0b1101;
-            case "20" -> 0b1111;
-            default -> throw new IllegalArgumentException("unknown connector suffix: " + suffix);
-        };
+        // 2026-07-29: 実体は GridConnectorRouting へ集約(アチーブメントGUIと共有)。
+        return com.trinityforge.skilltree.generator.GridConnectorRouting.merge(first, second);
     }
 
     private static Set<String> union(Set<String> first, Set<String> second) {

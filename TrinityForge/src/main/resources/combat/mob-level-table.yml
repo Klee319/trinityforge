@@ -35,9 +35,9 @@
 # 【経験値: バニラEXPのみを対象にした理由】
 #   「討伐時に得られる経験値」という要望文言は Bukkit の EntityDeathEvent#setDroppedExp (オーブとして
 #   出るバニラEXP、拾うとPlayerExpChangeEvent経由でTFのバフ倍率が乗る)に対応する「討伐(kill)時点」の
-#   概念そのもの。一方 stats/skill-exp.yml の武器/防具スキルEXP(combat.exp-per-hit等)は「命中/被弾の
-#   都度」加算されるヒットベースの別パイプラインであり、「討伐時」ではない。よって vanilla-exp は
-#   バニラEXPのみを対象にする。
+#   概念そのもの。一方 stats/skill-exp.yml の武器/魔法スキルEXPは、敵レベル・最大体力・
+#   EntityType倍率を使う独立した討伐EXPパイプラインであり、vanilla-expとは別管理。防具EXPも
+#   被弾時の独立パイプラインなので、ここで設定するvanilla-expはバニラEXPのみを対象にする。
 #   dungeon-only-exp(stats/skill-exp.yml、武器/防具スキルEXPだけをゲートする既存フラグ)とは完全に
 #   別パイプライン・別ゲートなので二重ゲートは起きない — このファイルの dungeon-only は、この
 #   ファイル自身のドロップ削除/追加/バニラEXP上書きにのみ効く独立したトグル。
@@ -57,6 +57,23 @@
 #                    min/max : ドロップ個数の範囲 (両方0以上、min<=max、必須)
 #                    mobs    : このエントリを適用するEntityType名の一覧 (省略可。省略時は全モブに適用)
 #                    mob-ids : このエントリを適用するEliteMobsモブidの一覧 (省略可。同上)
+#                    chance-by-level : 討伐したモブのレベルで chance を線形補間するカーブ (省略可)。
+#                              { from-level, from-chance, to-level, to-chance } の4項目すべて必須。
+#                              範囲外はクランプ(外挿しない)。省略時は上の chance をそのまま使う。
+#                    where   : このエントリを適用する場所 (省略可。field / dungeon / any、既定 any)。
+#                    baby    : 子供個体だけ(true) / 大人個体だけ(false) に絞る (省略可)。
+#                              省略時は区別しない。判定は Bukkit の Ageable#isAdult()。
+#                    environment : 討伐したワールドのディメンションで絞る (省略可。NORMAL / NETHER /
+#                              THE_END の一覧)。省略時はディメンションを問わない。
+#                              where: とは別の軸 —— where: は「ダンジョンインスタンスワールドか」しか
+#                              見ないので、オーバーワールドとジ・エンドはどちらも field になり
+#                              区別できない。両方に出るモブ(エンダードラゴン等)を片方だけに
+#                              限定したいときはこちらを使う。
+#                    roles   : このエントリを適用する【倒したプレイヤーの職業】の一覧 (省略可)。
+#                              省略時は職業を問わない(従来どおり)。戦闘職・補助職のどちらの枠で
+#                              一致しても通る。職業未選択のプレイヤーには落ちない。
+#                              IDは progression/role-buffs.yml のキー。帯そのものには書けない
+#                              (帯ごと絞ると remove-drops や vanilla-exp まで職業依存になるため)。
 #   vanilla-exp  : この帯の討伐で付与するバニラEXP(整数、0以上)。省略時はバニラ/既定の量のまま。
 #   mobs         : 【帯そのもの】の適用対象EntityType一覧 (省略可。省略時はレベルが合う全モブ)
 #   mob-ids      : 【帯そのもの】の適用対象EliteMobsモブid一覧 (省略可。同上)
@@ -72,17 +89,257 @@
 #     「AかBか」をやりたい場合はどちらか片方だけを使うこと。
 #   ・【帯レベル】に書くと、その帯の remove-drops / add-drops / vanilla-exp が丸ごと対象外のモブに
 #     適用されなくなる。【add-drops エントリ】に書くと、その1エントリだけが絞り込まれる。
+#
+# 【EXP対象モブの選定方針】 2026-07-27(2026-07-27 改訂: バニラEXP完全0化案は取り下げ)
+#   下の各帯の mobs: からは、プレイヤーが自分で無限に増やせるモブを意図的に外してある。
+#   帯の vanilla-exp はバニラEXPを丸ごと上書きする(Lv0帯でも8、Lv85帯では140)ため、
+#   繁殖・建造で増やせるモブを対象に含めると「安全な自宅の牧場を殴るだけ」が帯のEXPボーナス
+#   (8〜140)を稼げてしまい、ダンジョン/フィールド戦闘の意味が消えるため。
+#     - 外したモブ: BEE / GOAT / LLAMA / TRADER_LLAMA / PANDA / WOLF (いずれも繁殖可能)、
+#                   IRON_GOLEM (村人+鉄ブロックで無限に建造できる)
+#     - 残した中立モブ: DOLPHIN / POLAR_BEAR — どちらも繁殖手段が無く、自然スポーンに
+#                   依存するため「気軽に量産」できない。
+#     - 友好・受動モブ(C群 40種)はもともと一度も列挙していない(= バニラEXPのまま)。
+#   外したモブを討伐しても、バニラ本来のEXPオーブ(動物なら1〜3)は従来どおり落ちる
+#   (エンチャント等の用途があるため、バニラEXP自体を止める変更は行わない — ユーザー判断)。
+#   代わりに、下の no-skill-exp-mobs: によって「TrinityForgeが独自に付与する戦闘スキルEXP」
+#   (武器/魔法=討伐、防具=被弾)だけを完全に止める。牧場で繁殖させた個体を倒しても
+#   スキルEXPは一切増えない(繁殖でスキルEXPを稼ぐ抜け道も、この一覧が同時に塞ぐ)。
+#
+# 【2026-08-14 フィールドドロップ配線: chance-by-level / where / baby】
+#   討伐素材17種・スレッド5種をフィールドのモブへ、ガチャ券【I】をダンジョンのモブへ配るために
+#   add-drops へ3キーを追加した。どれも省略可・省略時は従来どおりの挙動(完全な後方互換)。
+#
+#   ・chance-by-level: 「レベルが高いほど落ちやすい」を1エントリで書くためのもの。
+#     これが無いと帯(tier)ごとにエントリを複製して階段状に近似するしかなく、帯境界で確率が
+#     段差になる。カーブは討伐したモブの【実レベル】で補間するので、帯をまたいでも滑らか。
+#
+#   ・where: field / dungeon / any。判定は「討伐したワールドが DungeonWorldRegistry に
+#     登録されたダンジョンインスタンスか」の一点。
+#     【MOB_TYPE_STAMPED や MOB_PROFILE_ID の有無では判定しない】——
+#     combat/mob-import.yml の unknown-mobs.synthesize: true により、EliteMobs のダンジョン
+#     モブにも MOB_LEVEL が合成付与される。つまり mobs: [RAVAGER] と書いただけでは、
+#     ダンジョン内の「見た目替え RAVAGER」にも当たってしまう。ワールドで切るのが、
+#     フィールド専用ドロップを構造的に保証できる唯一の手段。
+#     逆に言うと、EliteMobs フォークがインスタンスワールドを登録し損ねているダンジョンが
+#     あれば field 扱いで漏れる。dungeon-only: が効いているかの確認と等価。
+#
+#   ・baby: true / false。Bukkit に BABY_ZOMBIE のような EntityType は存在せず、子供かどうかは
+#     実行時プロパティなので mobs: では絶対に表現できない。Ageable を実装しないモブ(シュルカー等)
+#     に書くと【常に不一致 = 1個も落ちない】ので、ロード時に警告を出す。
+#
+# 【min: 0, max: 2 は「当選しても 1/3 は 0 個」】 2026-08-14
+#   個数は MobDropRoller#rollCount(min, max, ...) が min〜max を【一様】に引くので、
+#   0〜2 なら 0/1/2 がそれぞれ 1/3。個数 0 はリスナー側で捨てられる(continue)ため、
+#   「実際にアイテムが出る確率」= chance × 2/3、「1討伐あたりの期待個数」= chance × 1.0 になる。
+#   dragon_scale の chance: 1.0 は【100% なのに3回に1回は0枚】ということ —— これは意図どおり
+#   (ユーザー指示「100% で 0〜2個のランダム」)。空振りを無くしたいなら min: 1 にすること。
+#   なお個数 0 で捨てられた抽選はドロップ増加ステの加算にも到達しない(救済されない)。
+#
+# 【ガチャ券の入手経路】 2026-07-31 追加 / 2026-08-14 復元
+#   各帯の add-drops 先頭に置いてある custom:gacha_ticket_0 は、素の券(gacha.yml の standard
+#   プール)の【唯一の恒常入手経路】。ほかに素の券が手に入るのは
+#     ・progression/achievements.yml の進捗 first_step の報酬2枚(一回きり)
+#     ・gacha.yml の standard プールの景品(券を消費して券を引く自己循環)
+#   の2つだけで、どちらも恒常供給にはならない。ここを消すとガチャの周回ループが恒久的に止まる。
+#   2026-08-14 のフィールドドロップ配線作業でこの6エントリが一度まるごと消えた(指示外の削除)
+#   ため、二度と同じことが起きないよう経緯をここに残す。
+#   ShippedGachaTicketRouteTest が「宣言された券は全件がモブ討伐ドロップの経路を持つ」
+#   「複数の帯に載る券は6帯すべてに載っている」「1帯だけの上位券は番号順に上位帯へ並ぶ
+#   連続した階段になっている」を機械的に固定する。
+#
+#   ・【なぜ帯ごとに chance が違うのか】 0.005 / 0.008 / 0.012 / 0.016 / 0.02 / 0.025 と、
+#     帯が上がるほど上げてある。強い(=レベルの高い)モブを狩るほど券が出る、という報酬設計。
+#     このエントリだけは chance-by-level を使わず【帯ごとの階段】のまま維持する ——
+#     2026-07-31 に決めた実績値をそのまま残すため(線形補間へ置き換えると帯の内側の値が
+#     全部変わり、当時の調整とは別物になる)。帯を増減したらこの6段も必ず追随させること。
+#
+#   ・【なぜ where: を書かないのか】 既定の any のままにしてある。元々この券にダンジョン/
+#     フィールドの区別は無く、どちらで狩っても出るのが仕様だから。where: を足すと片側の
+#     プレイヤーの供給が黙って消える。ガチャ券【I】(gacha_ticket_1、where: dungeon)とは
+#     別エントリなので、ダンジョン内では素の券と【I】の両方が独立に抽選される。
+#     これが「2026-07-31 の既存仕様 + 2026-08-14 の新要件」の正しい合成。
+#
+#   ・【gacha_ticket_2 / 3 / 4 は HEAD の値で復元済み】 2026-08-14 の作業でこの3件も帯から
+#     消えていた。「上位券は踏破ボスドロップ(mob-overrides.yml の 0.05〜0.45)で入手できるから
+#     不要」という理屈で削除されたが、削除はそもそも指示に無かったので HEAD と同じ
+#     chance 0.004 / 1個固定 / where 無し で Lv45(【II】)・Lv65(【III】)・Lv85(【IV】)へ戻した。
+#     ボスドロップと併存させる意図: あちらは踏破1回で 5〜45% の太い経路、こちらは 0.4%
+#     (=平均250体)の細い保険経路で、1回の踏破は雑魚 12〜112体分に相当する。
+#     ダンジョンへ行かない日でも上位プールが完全に閉じないようにするためのもので、
+#     ボス周回の動機を置き換える量ではない。
+#   ・【この3件だけ全帯に置かない理由】 券の番号を帯に対応させている(Lv45→II / Lv65→III /
+#     Lv85→IV)。帯の解決は floor lookup で1帯しか選ばれないので、この書き方だと
+#     「Lv45〜64 の敵からは II だけ」が落ちる。全帯へ複製すると Lv0 の敵からも IV が出る。
+#     素の券(gacha_ticket_0)とガチャ券【I】は逆に全帯へ置く —— こちらは帯を問わない供給源。
+#     (gacha_ticket_5 はそもそもこのファイルに書かれたことが無い。踏破ボス限定のまま。)
+#
+# 【モブ別素材ドロップ】 2026-07-31 追加 / 2026-08-14 改訂
+#   「どの敵を狩るか」に意味を持たせるための固有ドロップ。ArsPaper の materials.yml 側には
+#   recipe が無いので、ここと EM ボス個別ドロップ(combat/mob-overrides.yml)だけが入手経路。
+#   ・必ず custom:<id> で書く —— 素のidはバニラ Material 扱いになり、解決に失敗して
+#     WARNING 1行で無言に消える(プレイヤーからは「落ちない」としか見えない)。
+#   ・2026-07-31 版は Lv45/65/85 の3帯だけに置き、帯ごとに 2% -> 5% -> 10% と階段状に
+#     上げていた。2026-08-14 に chance-by-level(Lv1 5% -> Lv100 50%)へ移し、6帯すべてへ
+#     同じ内容を置く形へ変えた。帯の解決は floor lookup で1帯しか選ばれないため、
+#     一部の帯にしか書かないと他の帯のレベルでは1個も落ちない(無言の no-op)。
+#   ・フィールドモブのレベルはワールド原点からの距離で決まる
+#     (coordinate-coefficient 0.02 = 50ブロックで+1)。chance-by-level はその【実レベル】で
+#     補間するので、「遠くへ出るほど落ちやすい」という当初の狙いはそのまま生きている。
+#   ・EM ダンジョンのモブは見た目替えの ZOMBIE 等なので EntityType では狙い撃ちできない。
+#     ダンジョン限定の素材/武器は mob-overrides.yml の drops: 側で配線している。
+#
+# 【スレッドの入手経路と EntityType 依存の危険】 2026-08-02 追加 / 2026-08-14 改訂
+#   進捗 thread_all(progression/achievements.yml)が「45種すべてのスレッドを集める」を
+#   達成条件にしている。つまりスレッドは1種でも入手経路が無いと、その進捗と配下の進捗ツリーが
+#   【全プレイヤーにとって永久に未達成】になる。
+#   ・2026-08-02 版は戦闘系8種を mobs: 無し(=帯の対象モブ全部)で置いていた。理由は
+#     「特定 EntityType に紐づけると、そのモブが湧かない/届かないプレイヤーは永久に集められない」。
+#     2026-08-14 にユーザー指示で5種を EntityType 指定へ変えた(昏倒=VINDICATOR /
+#     射手=SKELETON / 浮遊=SHULKER / 詠唱効率=EVOKER / 速攻=子ZOMBIE)ので、この危険は残る。
+#   ・帯の制約(Lv65/85 帯にしか無い)は chance-by-level の6帯化で解消済み。残っている依存は
+#     EntityType のスポーン条件そのもの。特に【thread_slow_falling = SHULKER はエンドシティ限定】で、
+#     エンドへ到達していないプレイヤーには経路がゼロになる。エンド解放を絞る運用に変えるなら
+#     ここを必ず見直すこと。roles: を足すのも同じ理由で危険(職業未選択・別職業には落ちない)。
+#   ・スレッドをここへ足す/ここから外すときは、必ず他の経路
+#     (combat/mob-overrides.yml の drops: / gacha.yml / items/catalog.yml の recipe: /
+#      progression/achievements.yml の報酬)と合わせて「経路が1本以上あるか」を確認する。
+#     ShippedThreadAcquisitionRouteTest がこの突き合わせを機械的に行う。
+#
+# 【no-skill-exp-mobs: TrinityForgeの戦闘スキルEXPを完全に0にするモブ一覧】 2026-07-27
+#   このEntityTypeのモブを相手にしても、TrinityForge の戦闘スキルEXP
+#   (軽・重武器/魔法=討伐、弓術=命中、防具=被弾)は
+#   一切加算されない。バニラのEXPオーブ(討伐時にsetDroppedExpされる値)は
+#   このリストの対象外で、従来どおり落ちる — このファイルの MobLevelTableListener 自体は
+#   このリストを一切読まない(setDroppedExpを書き換える処理には触れない)。
+#   実際の抑止は CombatListener(武器・弓術)、ArsMagicExperienceListener(魔法)と
+#   NativeSkillExperienceListener(攻撃してきた側が防具スキルEXPの対象かどうか)の
+#   各リスナーが、それぞれの付与直前にこのリストを読んで判定する。
+#   ・魔法(ARS_MAGIC)の討伐EXPも同じ一覧を参照する。旧「詠唱/消費マナEXP」は廃止済みなので、
+#     空撃ちや牧場対象から魔法EXPを得る経路はない。
+#   ・帯システム(tiers:)とは無関係の別レイヤー。tiers: の vanilla-exp はバニラEXPだけを
+#     扱うため、そもそも競合しない。
+#   ・dungeon-only: の影響を受けない。牧場は当然ダンジョン外にあるので、ダンジョン限定に
+#     すると意味がない(常に全ワールドで有効)。stats/skill-exp.yml の
+#     dungeon-only-exp/outside-dungeon-exp-rate とも独立に、常に効く。
+#   ・remove-drops/add-drops/バニラEXPオーブには一切影響しない(戦闘スキルEXPだけを対象にする)。
+#   ・省略/空リストなら何もしない(完全な後方互換)。
+#   ・未知の EntityType 名は警告してスキップし、他のエントリの読み込みは継続する。
+#   ・2026-08-03: 判定基準を「Paper の Enemy インターフェースを実装しているか」に統一した。
+#     イルカ・ホッキョクグマ・骸馬はそもそも敵対モブではないので、討伐しても戦闘スキルEXPは0にする。
+#     この3種は tiers: の mobs: には残す — 帯の mobs: はレベル決定と add-drops のゲートなので、
+#     ここから外すとドロップとレベル付けまで消える(EXPを止めたいだけなのに別の機構が壊れる)。
+#     stats/skill-exp.yml と防具2ファイルの倍率表からは行ごと削除済み
+#     (このリストに載っているモブは倍率表に書かない、が現在の規約)。
+
+no-skill-exp-mobs:
+  - BEE
+  - GOAT
+  - LLAMA
+  - TRADER_LLAMA
+  - PANDA
+  - WOLF
+  - IRON_GOLEM
+  - DOLPHIN
+  - POLAR_BEAR
+  - SKELETON_HORSE
 # ============================================================================
 # 設定リファレンス(本文コメント移設先): docs/config-reference/combat/mob-level-table.md
-
-
 dungeon-only: false
-
 tiers:
   - min-level: 0
     vanilla-exp: 8
+    add-drops:
+      # ---- ガチャ券(素の券) ---------------------------------------------------------
+      # 素の券 gacha_ticket_0 の【唯一の恒常入手経路】。where: を書かない(=既定の any)ので
+      #   フィールドでもダンジョンでも出る。ダンジョンではガチャ券【I】と両方が抽選される。
+      #   chance はこの帯だけの値(帯が上がるほど上がる階段。6帯で 0.005/0.008/0.012/0.016/0.02/0.025)。
+      #   帯ごとに値が違うのは意図どおり —— 詳しい理由はファイル冒頭の【ガチャ券の入手経路】参照。
+      - { material: "custom:gacha_ticket_0", chance: 0.005, min: 1, max: 1 }
+      #
+      # ---- 2026-08-14 討伐素材/スレッド/ガチャ券のドロップ配線 ----------------------------
+      # 【この23エントリは6帯すべてに同じ内容で置く】帯の解決は floor lookup(min-level <= L を満たす
+      #   最大の帯が1つだけ選ばれる)で、上の帯から下の帯へ継承されない。min-level: 0 の帯にだけ
+      #   書くと Lv0〜9 のモブでしか抽選されず、Lv10 以上では1個も落ちない(=無言の no-op)。
+      #   確率そのものは chance-by-level が討伐したモブの実レベルで補間するので、6帯へ複製しても
+      #   帯境界で段差にはならない。ShippedFieldDropWiringTest が「複数の帯に載るエントリは
+      #   6帯すべてに同一内容で載っていること」を固定する(上のガチャ券【II〜IV】のように
+      #   意図して1帯だけに置くエントリは、単帯であること自体を別の検査が固定する)。
+      # 詳細な設計意図(0〜2個の1/3空振り・where/baby の意味)はファイル冒頭のコメント参照。
+      #
+      # 【討伐素材16種】フィールドのみ / 0〜2個 / Lv1 5% → Lv100 50%。
+      # ラヴェジャーの革
+      - { material: "custom:ravager_hide", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [RAVAGER], where: field }
+      # ピグリンブルートの鎧片
+      - { material: "custom:piglin_brute_plate", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PIGLIN_BRUTE], where: field }
+      # ピリジャーの鎧片
+      - { material: "custom:pillager_plate", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PILLAGER], where: field }
+      # ウィッチの秘薬
+      - { material: "custom:witch_elixir", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [WITCH], where: field }
+      # ピグリンの耳
+      - { material: "custom:piglin_ear", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PIGLIN], where: field }
+      # ストレイの布片
+      - { material: "custom:stray_cloth", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [STRAY], where: field }
+      # スケルトンホースの骨
+      - { material: "custom:skeleton_horse_bone", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [SKELETON_HORSE], where: field }
+      # エンダーマイトの煤
+      - { material: "custom:endermite_soot", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [ENDERMITE], where: field }
+      # ガーディアンの棘
+      - { material: "custom:guardian_spine", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [GUARDIAN, ELDER_GUARDIAN], where: field }
+      # ハスクの布片
+      - { material: "custom:husk_cloth", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [HUSK], where: field }
+      # ボグドの苔むした骨
+      - { material: "custom:bogged_mossy_bone", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [BOGGED], where: field }
+      # ホグリンの牙
+      - { material: "custom:hoglin_fang", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [HOGLIN, ZOGLIN], where: field }
+      # 砂まみれの骨
+      - { material: "custom:parched_sandy_bone", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PARCHED], where: field }
+      # エルダーガーディアンの棘
+      - { material: "custom:elder_guardian_spike", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [ELDER_GUARDIAN], where: field }
+      # ウィザーの頭蓋骨
+      - { material: "custom:wither_skull_fragment", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [WITHER], where: field }
+      # ウォーデンの触覚
+      - { material: "custom:warden_tendril", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [WARDEN], where: field }
+      #
+      # 【エンダードラゴンの鱗】レベルが Lv60 前後に張り付く(mob-types.yml の level: 60 +
+      #   座標係数がほぼ効かない)ため、レベル比例にすると事実上の固定値になる。そこで
+      #   chance-by-level を使わず 100% にし、個数側(0〜2個)だけを揺らす。
+      # エンダードラゴンの鱗
+      - { material: "custom:dragon_scale", chance: 1.0, min: 0, max: 2, mobs: [ENDER_DRAGON], where: field }
+      # 【ドラゴンの卵】エンダードラゴンの討伐で 100% 1個(2026-08-19 / W-128 → 2026-08-20 / W-178 で改訂)。
+      #   hero 武器(Lv100)の儀式コア素材が DRAGON_EGG なのに、バニラでは「ジ・エンドの初回討伐1個きり」で
+      #   再入手できず、上位帯が事実上作れなかった。
+      #   2026-08-19 は environment: [NORMAL](オーバーワールド限定)を付けていたが、実サーバには
+      #   オーバーワールドへエンダードラゴンが出る経路が無く、この行は一度も発火できていなかった
+      #   (資源鯖に EliteMobs は無く、導入データパックにも湧きは無い。EM 側の ENDER_DRAGON は
+      #    束縛者のダンジョンボスなので where: field から外れる)。2026-08-20 に environment: を外し、
+      #   【どのディメンションでも落ちる】ようにした。
+      #   where: field は残す —— ダンジョンインスタンス(束縛者)のボスからは落とさないため。
+      #   ジ・エンドではエンドクリスタルで復活させれば反復入手できる(クリスタル4個/回が実質のコスト)。
+      - { material: DRAGON_EGG, chance: 1.0, min: 1, max: 1, mobs: [ENDER_DRAGON], where: field }
+      #
+      # 【スレッド5種】フィールドのみ / 1個固定 / Lv1 1% → Lv100 10%。
+      #   min:1,max:1 は意図的 ——【1個固定のエントリだけドロップ増加ステが"抽選確率"側に乗る】
+      #   (MobDropRoller#isSingleFixed → boostedChance)。min<max にすると同じステが
+      #   "個数への加算"に化け、レアドロップとしての意味が消える。
+      # 昏倒のスレッド
+      - { material: "custom:thread_concussion", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [VINDICATOR], where: field }
+      # 射手のスレッド
+      - { material: "custom:thread_marksman", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [SKELETON], where: field }
+      # 浮遊のスレッド
+      - { material: "custom:thread_slow_falling", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [SHULKER], where: field }
+      # 詠唱効率のスレッド
+      - { material: "custom:thread_spell_cost_down", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [EVOKER], where: field }
+      # 速攻のスレッド(子ゾンビ限定)
+      - { material: "custom:thread_swiftcast", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [ZOMBIE], where: field, baby: true }
+      #
+      # 【ガチャ券【I】】ダンジョン内の討伐のみ(where: dungeon)。1個固定なのでドロップ増加ステは
+      #   確率側に乗る。難易度D のダンジョンは推奨Lv = D×10 なので、実質 p = 0.005×D
+      #   (難易度1で 0.5% = 200体、難易度10で 5% = 20体)。削除前の gacha_ticket_0 の
+      #   実績値(帯ごとに 0.005〜0.025)を基準にしている。
+      # ガチャ券【I】(ダンジョン限定。mobs: 未指定 = 帯の対象モブ全部)
+      - { material: "custom:gacha_ticket_1", chance: 0.005, chance-by-level: { from-level: 10, from-chance: 0.005, to-level: 100, to-chance: 0.05 }, min: 1, max: 1, where: dungeon }
     mobs:
-      - BEE
       - BLAZE
       - BOGGED
       - BREEZE
@@ -98,15 +355,11 @@ tiers:
       - EVOKER
       - GHAST
       - GIANT
-      - GOAT
       - GUARDIAN
       - HOGLIN
       - HUSK
       - ILLUSIONER
-      - IRON_GOLEM
-      - LLAMA
       - MAGMA_CUBE
-      - PANDA
       - PARCHED
       - PHANTOM
       - PIGLIN
@@ -117,25 +370,113 @@ tiers:
       - SHULKER
       - SILVERFISH
       - SKELETON
+      - SKELETON_HORSE
       - SLIME
       - SPIDER
       - STRAY
-      - TRADER_LLAMA
       - VEX
       - VINDICATOR
       - WARDEN
       - WITCH
       - WITHER
       - WITHER_SKELETON
-      - WOLF
       - ZOGLIN
       - ZOMBIE
       - ZOMBIE_VILLAGER
       - ZOMBIFIED_PIGLIN
   - min-level: 10
     vanilla-exp: 15
+    add-drops:
+      # ---- ガチャ券(素の券) ---------------------------------------------------------
+      # 素の券 gacha_ticket_0 の【唯一の恒常入手経路】。where: を書かない(=既定の any)ので
+      #   フィールドでもダンジョンでも出る。ダンジョンではガチャ券【I】と両方が抽選される。
+      #   chance はこの帯だけの値(帯が上がるほど上がる階段。6帯で 0.005/0.008/0.012/0.016/0.02/0.025)。
+      #   帯ごとに値が違うのは意図どおり —— 詳しい理由はファイル冒頭の【ガチャ券の入手経路】参照。
+      - { material: "custom:gacha_ticket_0", chance: 0.008, min: 1, max: 1 }
+      #
+      # ---- 2026-08-14 討伐素材/スレッド/ガチャ券のドロップ配線 ----------------------------
+      # 【この23エントリは6帯すべてに同じ内容で置く】帯の解決は floor lookup(min-level <= L を満たす
+      #   最大の帯が1つだけ選ばれる)で、上の帯から下の帯へ継承されない。min-level: 0 の帯にだけ
+      #   書くと Lv0〜9 のモブでしか抽選されず、Lv10 以上では1個も落ちない(=無言の no-op)。
+      #   確率そのものは chance-by-level が討伐したモブの実レベルで補間するので、6帯へ複製しても
+      #   帯境界で段差にはならない。ShippedFieldDropWiringTest が「複数の帯に載るエントリは
+      #   6帯すべてに同一内容で載っていること」を固定する(上のガチャ券【II〜IV】のように
+      #   意図して1帯だけに置くエントリは、単帯であること自体を別の検査が固定する)。
+      # 詳細な設計意図(0〜2個の1/3空振り・where/baby の意味)はファイル冒頭のコメント参照。
+      #
+      # 【討伐素材16種】フィールドのみ / 0〜2個 / Lv1 5% → Lv100 50%。
+      # ラヴェジャーの革
+      - { material: "custom:ravager_hide", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [RAVAGER], where: field }
+      # ピグリンブルートの鎧片
+      - { material: "custom:piglin_brute_plate", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PIGLIN_BRUTE], where: field }
+      # ピリジャーの鎧片
+      - { material: "custom:pillager_plate", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PILLAGER], where: field }
+      # ウィッチの秘薬
+      - { material: "custom:witch_elixir", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [WITCH], where: field }
+      # ピグリンの耳
+      - { material: "custom:piglin_ear", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PIGLIN], where: field }
+      # ストレイの布片
+      - { material: "custom:stray_cloth", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [STRAY], where: field }
+      # スケルトンホースの骨
+      - { material: "custom:skeleton_horse_bone", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [SKELETON_HORSE], where: field }
+      # エンダーマイトの煤
+      - { material: "custom:endermite_soot", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [ENDERMITE], where: field }
+      # ガーディアンの棘
+      - { material: "custom:guardian_spine", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [GUARDIAN, ELDER_GUARDIAN], where: field }
+      # ハスクの布片
+      - { material: "custom:husk_cloth", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [HUSK], where: field }
+      # ボグドの苔むした骨
+      - { material: "custom:bogged_mossy_bone", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [BOGGED], where: field }
+      # ホグリンの牙
+      - { material: "custom:hoglin_fang", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [HOGLIN, ZOGLIN], where: field }
+      # 砂まみれの骨
+      - { material: "custom:parched_sandy_bone", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PARCHED], where: field }
+      # エルダーガーディアンの棘
+      - { material: "custom:elder_guardian_spike", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [ELDER_GUARDIAN], where: field }
+      # ウィザーの頭蓋骨
+      - { material: "custom:wither_skull_fragment", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [WITHER], where: field }
+      # ウォーデンの触覚
+      - { material: "custom:warden_tendril", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [WARDEN], where: field }
+      #
+      # 【エンダードラゴンの鱗】レベルが Lv60 前後に張り付く(mob-types.yml の level: 60 +
+      #   座標係数がほぼ効かない)ため、レベル比例にすると事実上の固定値になる。そこで
+      #   chance-by-level を使わず 100% にし、個数側(0〜2個)だけを揺らす。
+      # エンダードラゴンの鱗
+      - { material: "custom:dragon_scale", chance: 1.0, min: 0, max: 2, mobs: [ENDER_DRAGON], where: field }
+      # 【ドラゴンの卵】エンダードラゴンの討伐で 100% 1個(2026-08-19 / W-128 → 2026-08-20 / W-178 で改訂)。
+      #   hero 武器(Lv100)の儀式コア素材が DRAGON_EGG なのに、バニラでは「ジ・エンドの初回討伐1個きり」で
+      #   再入手できず、上位帯が事実上作れなかった。
+      #   2026-08-19 は environment: [NORMAL](オーバーワールド限定)を付けていたが、実サーバには
+      #   オーバーワールドへエンダードラゴンが出る経路が無く、この行は一度も発火できていなかった
+      #   (資源鯖に EliteMobs は無く、導入データパックにも湧きは無い。EM 側の ENDER_DRAGON は
+      #    束縛者のダンジョンボスなので where: field から外れる)。2026-08-20 に environment: を外し、
+      #   【どのディメンションでも落ちる】ようにした。
+      #   where: field は残す —— ダンジョンインスタンス(束縛者)のボスからは落とさないため。
+      #   ジ・エンドではエンドクリスタルで復活させれば反復入手できる(クリスタル4個/回が実質のコスト)。
+      - { material: DRAGON_EGG, chance: 1.0, min: 1, max: 1, mobs: [ENDER_DRAGON], where: field }
+      #
+      # 【スレッド5種】フィールドのみ / 1個固定 / Lv1 1% → Lv100 10%。
+      #   min:1,max:1 は意図的 ——【1個固定のエントリだけドロップ増加ステが"抽選確率"側に乗る】
+      #   (MobDropRoller#isSingleFixed → boostedChance)。min<max にすると同じステが
+      #   "個数への加算"に化け、レアドロップとしての意味が消える。
+      # 昏倒のスレッド
+      - { material: "custom:thread_concussion", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [VINDICATOR], where: field }
+      # 射手のスレッド
+      - { material: "custom:thread_marksman", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [SKELETON], where: field }
+      # 浮遊のスレッド
+      - { material: "custom:thread_slow_falling", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [SHULKER], where: field }
+      # 詠唱効率のスレッド
+      - { material: "custom:thread_spell_cost_down", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [EVOKER], where: field }
+      # 速攻のスレッド(子ゾンビ限定)
+      - { material: "custom:thread_swiftcast", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [ZOMBIE], where: field, baby: true }
+      #
+      # 【ガチャ券【I】】ダンジョン内の討伐のみ(where: dungeon)。1個固定なのでドロップ増加ステは
+      #   確率側に乗る。難易度D のダンジョンは推奨Lv = D×10 なので、実質 p = 0.005×D
+      #   (難易度1で 0.5% = 200体、難易度10で 5% = 20体)。削除前の gacha_ticket_0 の
+      #   実績値(帯ごとに 0.005〜0.025)を基準にしている。
+      # ガチャ券【I】(ダンジョン限定。mobs: 未指定 = 帯の対象モブ全部)
+      - { material: "custom:gacha_ticket_1", chance: 0.005, chance-by-level: { from-level: 10, from-chance: 0.005, to-level: 100, to-chance: 0.05 }, min: 1, max: 1, where: dungeon }
     mobs:
-      - BEE
       - BLAZE
       - BOGGED
       - BREEZE
@@ -151,15 +492,11 @@ tiers:
       - EVOKER
       - GHAST
       - GIANT
-      - GOAT
       - GUARDIAN
       - HOGLIN
       - HUSK
       - ILLUSIONER
-      - IRON_GOLEM
-      - LLAMA
       - MAGMA_CUBE
-      - PANDA
       - PARCHED
       - PHANTOM
       - PIGLIN
@@ -170,25 +507,113 @@ tiers:
       - SHULKER
       - SILVERFISH
       - SKELETON
+      - SKELETON_HORSE
       - SLIME
       - SPIDER
       - STRAY
-      - TRADER_LLAMA
       - VEX
       - VINDICATOR
       - WARDEN
       - WITCH
       - WITHER
       - WITHER_SKELETON
-      - WOLF
       - ZOGLIN
       - ZOMBIE
       - ZOMBIE_VILLAGER
       - ZOMBIFIED_PIGLIN
   - min-level: 25
     vanilla-exp: 28
+    add-drops:
+      # ---- ガチャ券(素の券) ---------------------------------------------------------
+      # 素の券 gacha_ticket_0 の【唯一の恒常入手経路】。where: を書かない(=既定の any)ので
+      #   フィールドでもダンジョンでも出る。ダンジョンではガチャ券【I】と両方が抽選される。
+      #   chance はこの帯だけの値(帯が上がるほど上がる階段。6帯で 0.005/0.008/0.012/0.016/0.02/0.025)。
+      #   帯ごとに値が違うのは意図どおり —— 詳しい理由はファイル冒頭の【ガチャ券の入手経路】参照。
+      - { material: "custom:gacha_ticket_0", chance: 0.012, min: 1, max: 1 }
+      #
+      # ---- 2026-08-14 討伐素材/スレッド/ガチャ券のドロップ配線 ----------------------------
+      # 【この23エントリは6帯すべてに同じ内容で置く】帯の解決は floor lookup(min-level <= L を満たす
+      #   最大の帯が1つだけ選ばれる)で、上の帯から下の帯へ継承されない。min-level: 0 の帯にだけ
+      #   書くと Lv0〜9 のモブでしか抽選されず、Lv10 以上では1個も落ちない(=無言の no-op)。
+      #   確率そのものは chance-by-level が討伐したモブの実レベルで補間するので、6帯へ複製しても
+      #   帯境界で段差にはならない。ShippedFieldDropWiringTest が「複数の帯に載るエントリは
+      #   6帯すべてに同一内容で載っていること」を固定する(上のガチャ券【II〜IV】のように
+      #   意図して1帯だけに置くエントリは、単帯であること自体を別の検査が固定する)。
+      # 詳細な設計意図(0〜2個の1/3空振り・where/baby の意味)はファイル冒頭のコメント参照。
+      #
+      # 【討伐素材16種】フィールドのみ / 0〜2個 / Lv1 5% → Lv100 50%。
+      # ラヴェジャーの革
+      - { material: "custom:ravager_hide", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [RAVAGER], where: field }
+      # ピグリンブルートの鎧片
+      - { material: "custom:piglin_brute_plate", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PIGLIN_BRUTE], where: field }
+      # ピリジャーの鎧片
+      - { material: "custom:pillager_plate", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PILLAGER], where: field }
+      # ウィッチの秘薬
+      - { material: "custom:witch_elixir", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [WITCH], where: field }
+      # ピグリンの耳
+      - { material: "custom:piglin_ear", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PIGLIN], where: field }
+      # ストレイの布片
+      - { material: "custom:stray_cloth", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [STRAY], where: field }
+      # スケルトンホースの骨
+      - { material: "custom:skeleton_horse_bone", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [SKELETON_HORSE], where: field }
+      # エンダーマイトの煤
+      - { material: "custom:endermite_soot", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [ENDERMITE], where: field }
+      # ガーディアンの棘
+      - { material: "custom:guardian_spine", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [GUARDIAN, ELDER_GUARDIAN], where: field }
+      # ハスクの布片
+      - { material: "custom:husk_cloth", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [HUSK], where: field }
+      # ボグドの苔むした骨
+      - { material: "custom:bogged_mossy_bone", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [BOGGED], where: field }
+      # ホグリンの牙
+      - { material: "custom:hoglin_fang", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [HOGLIN, ZOGLIN], where: field }
+      # 砂まみれの骨
+      - { material: "custom:parched_sandy_bone", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PARCHED], where: field }
+      # エルダーガーディアンの棘
+      - { material: "custom:elder_guardian_spike", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [ELDER_GUARDIAN], where: field }
+      # ウィザーの頭蓋骨
+      - { material: "custom:wither_skull_fragment", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [WITHER], where: field }
+      # ウォーデンの触覚
+      - { material: "custom:warden_tendril", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [WARDEN], where: field }
+      #
+      # 【エンダードラゴンの鱗】レベルが Lv60 前後に張り付く(mob-types.yml の level: 60 +
+      #   座標係数がほぼ効かない)ため、レベル比例にすると事実上の固定値になる。そこで
+      #   chance-by-level を使わず 100% にし、個数側(0〜2個)だけを揺らす。
+      # エンダードラゴンの鱗
+      - { material: "custom:dragon_scale", chance: 1.0, min: 0, max: 2, mobs: [ENDER_DRAGON], where: field }
+      # 【ドラゴンの卵】エンダードラゴンの討伐で 100% 1個(2026-08-19 / W-128 → 2026-08-20 / W-178 で改訂)。
+      #   hero 武器(Lv100)の儀式コア素材が DRAGON_EGG なのに、バニラでは「ジ・エンドの初回討伐1個きり」で
+      #   再入手できず、上位帯が事実上作れなかった。
+      #   2026-08-19 は environment: [NORMAL](オーバーワールド限定)を付けていたが、実サーバには
+      #   オーバーワールドへエンダードラゴンが出る経路が無く、この行は一度も発火できていなかった
+      #   (資源鯖に EliteMobs は無く、導入データパックにも湧きは無い。EM 側の ENDER_DRAGON は
+      #    束縛者のダンジョンボスなので where: field から外れる)。2026-08-20 に environment: を外し、
+      #   【どのディメンションでも落ちる】ようにした。
+      #   where: field は残す —— ダンジョンインスタンス(束縛者)のボスからは落とさないため。
+      #   ジ・エンドではエンドクリスタルで復活させれば反復入手できる(クリスタル4個/回が実質のコスト)。
+      - { material: DRAGON_EGG, chance: 1.0, min: 1, max: 1, mobs: [ENDER_DRAGON], where: field }
+      #
+      # 【スレッド5種】フィールドのみ / 1個固定 / Lv1 1% → Lv100 10%。
+      #   min:1,max:1 は意図的 ——【1個固定のエントリだけドロップ増加ステが"抽選確率"側に乗る】
+      #   (MobDropRoller#isSingleFixed → boostedChance)。min<max にすると同じステが
+      #   "個数への加算"に化け、レアドロップとしての意味が消える。
+      # 昏倒のスレッド
+      - { material: "custom:thread_concussion", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [VINDICATOR], where: field }
+      # 射手のスレッド
+      - { material: "custom:thread_marksman", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [SKELETON], where: field }
+      # 浮遊のスレッド
+      - { material: "custom:thread_slow_falling", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [SHULKER], where: field }
+      # 詠唱効率のスレッド
+      - { material: "custom:thread_spell_cost_down", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [EVOKER], where: field }
+      # 速攻のスレッド(子ゾンビ限定)
+      - { material: "custom:thread_swiftcast", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [ZOMBIE], where: field, baby: true }
+      #
+      # 【ガチャ券【I】】ダンジョン内の討伐のみ(where: dungeon)。1個固定なのでドロップ増加ステは
+      #   確率側に乗る。難易度D のダンジョンは推奨Lv = D×10 なので、実質 p = 0.005×D
+      #   (難易度1で 0.5% = 200体、難易度10で 5% = 20体)。削除前の gacha_ticket_0 の
+      #   実績値(帯ごとに 0.005〜0.025)を基準にしている。
+      # ガチャ券【I】(ダンジョン限定。mobs: 未指定 = 帯の対象モブ全部)
+      - { material: "custom:gacha_ticket_1", chance: 0.005, chance-by-level: { from-level: 10, from-chance: 0.005, to-level: 100, to-chance: 0.05 }, min: 1, max: 1, where: dungeon }
     mobs:
-      - BEE
       - BLAZE
       - BOGGED
       - BREEZE
@@ -204,15 +629,11 @@ tiers:
       - EVOKER
       - GHAST
       - GIANT
-      - GOAT
       - GUARDIAN
       - HOGLIN
       - HUSK
       - ILLUSIONER
-      - IRON_GOLEM
-      - LLAMA
       - MAGMA_CUBE
-      - PANDA
       - PARCHED
       - PHANTOM
       - PIGLIN
@@ -223,25 +644,128 @@ tiers:
       - SHULKER
       - SILVERFISH
       - SKELETON
+      - SKELETON_HORSE
       - SLIME
       - SPIDER
       - STRAY
-      - TRADER_LLAMA
       - VEX
       - VINDICATOR
       - WARDEN
       - WITCH
       - WITHER
       - WITHER_SKELETON
-      - WOLF
       - ZOGLIN
       - ZOMBIE
       - ZOMBIE_VILLAGER
       - ZOMBIFIED_PIGLIN
   - min-level: 45
     vanilla-exp: 50
+    add-drops:
+      # ---- ガチャ券(素の券) ---------------------------------------------------------
+      # 素の券 gacha_ticket_0 の【唯一の恒常入手経路】。where: を書かない(=既定の any)ので
+      #   フィールドでもダンジョンでも出る。ダンジョンではガチャ券【I】と両方が抽選される。
+      #   chance はこの帯だけの値(帯が上がるほど上がる階段。6帯で 0.005/0.008/0.012/0.016/0.02/0.025)。
+      #   帯ごとに値が違うのは意図どおり —— 詳しい理由はファイル冒頭の【ガチャ券の入手経路】参照。
+      - { material: "custom:gacha_ticket_0", chance: 0.016, min: 1, max: 1 }
+      #
+      # ---- ガチャ券【II】(この帯だけ) ---------------------------------------------------
+      # 2026-07-31 から Lv45 帯にだけ置いてある上位券。2026-08-14 に一度削除されたが、削除は
+      #   指示に無かったので HEAD と同じ値(chance 0.004 / 1個固定 / where 無し)で復元した。
+      # 【ボスドロップ(0.05〜0.45)と併存させる意図】上位券の主経路は combat/mob-overrides.yml の
+      #   踏破ボスドロップ。あちらは1回の踏破で 5〜45% という太い経路で、ダンジョン踏破の
+      #   報酬そのもの。こちらは 0.4%(=平均250体)しかない細い経路で、1回の踏破は雑魚
+      #   12〜112体分に相当する —— ボス周回の動機を置き換える量ではない。
+      #   ダンジョンへ行けない日でも上位プールが完全に閉じないための保険として併存させる。
+      # 【なぜ3帯だけか】券の番号を帯へ対応させている(Lv45→【II】/ Lv65→【III】/ Lv85→【IV】)。
+      #   帯の解決は floor lookup で1帯しか選ばれないので、この書き方だと Lv45〜64 の敵からは
+      #   【II】だけ、Lv65〜84 からは【III】だけが落ちる。「強い敵ほど上位の券」という設計。
+      #   6帯すべてへ複製すると Lv0 の敵からも【IV】が出てしまうので、ここは複製しない。
+      # 【where: を書かない】= 既定の any。HEAD の挙動をそのまま維持する。
+      - { material: "custom:gacha_ticket_2", chance: 0.004, min: 1, max: 1 }
+      #
+      # ---- 2026-08-14 討伐素材/スレッド/ガチャ券のドロップ配線 ----------------------------
+      # 【この23エントリは6帯すべてに同じ内容で置く】帯の解決は floor lookup(min-level <= L を満たす
+      #   最大の帯が1つだけ選ばれる)で、上の帯から下の帯へ継承されない。min-level: 0 の帯にだけ
+      #   書くと Lv0〜9 のモブでしか抽選されず、Lv10 以上では1個も落ちない(=無言の no-op)。
+      #   確率そのものは chance-by-level が討伐したモブの実レベルで補間するので、6帯へ複製しても
+      #   帯境界で段差にはならない。ShippedFieldDropWiringTest が「複数の帯に載るエントリは
+      #   6帯すべてに同一内容で載っていること」を固定する(上のガチャ券【II〜IV】のように
+      #   意図して1帯だけに置くエントリは、単帯であること自体を別の検査が固定する)。
+      # 詳細な設計意図(0〜2個の1/3空振り・where/baby の意味)はファイル冒頭のコメント参照。
+      #
+      # 【討伐素材16種】フィールドのみ / 0〜2個 / Lv1 5% → Lv100 50%。
+      # ラヴェジャーの革
+      - { material: "custom:ravager_hide", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [RAVAGER], where: field }
+      # ピグリンブルートの鎧片
+      - { material: "custom:piglin_brute_plate", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PIGLIN_BRUTE], where: field }
+      # ピリジャーの鎧片
+      - { material: "custom:pillager_plate", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PILLAGER], where: field }
+      # ウィッチの秘薬
+      - { material: "custom:witch_elixir", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [WITCH], where: field }
+      # ピグリンの耳
+      - { material: "custom:piglin_ear", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PIGLIN], where: field }
+      # ストレイの布片
+      - { material: "custom:stray_cloth", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [STRAY], where: field }
+      # スケルトンホースの骨
+      - { material: "custom:skeleton_horse_bone", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [SKELETON_HORSE], where: field }
+      # エンダーマイトの煤
+      - { material: "custom:endermite_soot", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [ENDERMITE], where: field }
+      # ガーディアンの棘
+      - { material: "custom:guardian_spine", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [GUARDIAN, ELDER_GUARDIAN], where: field }
+      # ハスクの布片
+      - { material: "custom:husk_cloth", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [HUSK], where: field }
+      # ボグドの苔むした骨
+      - { material: "custom:bogged_mossy_bone", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [BOGGED], where: field }
+      # ホグリンの牙
+      - { material: "custom:hoglin_fang", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [HOGLIN, ZOGLIN], where: field }
+      # 砂まみれの骨
+      - { material: "custom:parched_sandy_bone", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PARCHED], where: field }
+      # エルダーガーディアンの棘
+      - { material: "custom:elder_guardian_spike", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [ELDER_GUARDIAN], where: field }
+      # ウィザーの頭蓋骨
+      - { material: "custom:wither_skull_fragment", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [WITHER], where: field }
+      # ウォーデンの触覚
+      - { material: "custom:warden_tendril", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [WARDEN], where: field }
+      #
+      # 【エンダードラゴンの鱗】レベルが Lv60 前後に張り付く(mob-types.yml の level: 60 +
+      #   座標係数がほぼ効かない)ため、レベル比例にすると事実上の固定値になる。そこで
+      #   chance-by-level を使わず 100% にし、個数側(0〜2個)だけを揺らす。
+      # エンダードラゴンの鱗
+      - { material: "custom:dragon_scale", chance: 1.0, min: 0, max: 2, mobs: [ENDER_DRAGON], where: field }
+      # 【ドラゴンの卵】エンダードラゴンの討伐で 100% 1個(2026-08-19 / W-128 → 2026-08-20 / W-178 で改訂)。
+      #   hero 武器(Lv100)の儀式コア素材が DRAGON_EGG なのに、バニラでは「ジ・エンドの初回討伐1個きり」で
+      #   再入手できず、上位帯が事実上作れなかった。
+      #   2026-08-19 は environment: [NORMAL](オーバーワールド限定)を付けていたが、実サーバには
+      #   オーバーワールドへエンダードラゴンが出る経路が無く、この行は一度も発火できていなかった
+      #   (資源鯖に EliteMobs は無く、導入データパックにも湧きは無い。EM 側の ENDER_DRAGON は
+      #    束縛者のダンジョンボスなので where: field から外れる)。2026-08-20 に environment: を外し、
+      #   【どのディメンションでも落ちる】ようにした。
+      #   where: field は残す —— ダンジョンインスタンス(束縛者)のボスからは落とさないため。
+      #   ジ・エンドではエンドクリスタルで復活させれば反復入手できる(クリスタル4個/回が実質のコスト)。
+      - { material: DRAGON_EGG, chance: 1.0, min: 1, max: 1, mobs: [ENDER_DRAGON], where: field }
+      #
+      # 【スレッド5種】フィールドのみ / 1個固定 / Lv1 1% → Lv100 10%。
+      #   min:1,max:1 は意図的 ——【1個固定のエントリだけドロップ増加ステが"抽選確率"側に乗る】
+      #   (MobDropRoller#isSingleFixed → boostedChance)。min<max にすると同じステが
+      #   "個数への加算"に化け、レアドロップとしての意味が消える。
+      # 昏倒のスレッド
+      - { material: "custom:thread_concussion", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [VINDICATOR], where: field }
+      # 射手のスレッド
+      - { material: "custom:thread_marksman", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [SKELETON], where: field }
+      # 浮遊のスレッド
+      - { material: "custom:thread_slow_falling", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [SHULKER], where: field }
+      # 詠唱効率のスレッド
+      - { material: "custom:thread_spell_cost_down", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [EVOKER], where: field }
+      # 速攻のスレッド(子ゾンビ限定)
+      - { material: "custom:thread_swiftcast", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [ZOMBIE], where: field, baby: true }
+      #
+      # 【ガチャ券【I】】ダンジョン内の討伐のみ(where: dungeon)。1個固定なのでドロップ増加ステは
+      #   確率側に乗る。難易度D のダンジョンは推奨Lv = D×10 なので、実質 p = 0.005×D
+      #   (難易度1で 0.5% = 200体、難易度10で 5% = 20体)。削除前の gacha_ticket_0 の
+      #   実績値(帯ごとに 0.005〜0.025)を基準にしている。
+      # ガチャ券【I】(ダンジョン限定。mobs: 未指定 = 帯の対象モブ全部)
+      - { material: "custom:gacha_ticket_1", chance: 0.005, chance-by-level: { from-level: 10, from-chance: 0.005, to-level: 100, to-chance: 0.05 }, min: 1, max: 1, where: dungeon }
     mobs:
-      - BEE
       - BLAZE
       - BOGGED
       - BREEZE
@@ -257,15 +781,11 @@ tiers:
       - EVOKER
       - GHAST
       - GIANT
-      - GOAT
       - GUARDIAN
       - HOGLIN
       - HUSK
       - ILLUSIONER
-      - IRON_GOLEM
-      - LLAMA
       - MAGMA_CUBE
-      - PANDA
       - PARCHED
       - PHANTOM
       - PIGLIN
@@ -276,25 +796,119 @@ tiers:
       - SHULKER
       - SILVERFISH
       - SKELETON
+      - SKELETON_HORSE
       - SLIME
       - SPIDER
       - STRAY
-      - TRADER_LLAMA
       - VEX
       - VINDICATOR
       - WARDEN
       - WITCH
       - WITHER
       - WITHER_SKELETON
-      - WOLF
       - ZOGLIN
       - ZOMBIE
       - ZOMBIE_VILLAGER
       - ZOMBIFIED_PIGLIN
   - min-level: 65
     vanilla-exp: 85
+    add-drops:
+      # ---- ガチャ券(素の券) ---------------------------------------------------------
+      # 素の券 gacha_ticket_0 の【唯一の恒常入手経路】。where: を書かない(=既定の any)ので
+      #   フィールドでもダンジョンでも出る。ダンジョンではガチャ券【I】と両方が抽選される。
+      #   chance はこの帯だけの値(帯が上がるほど上がる階段。6帯で 0.005/0.008/0.012/0.016/0.02/0.025)。
+      #   帯ごとに値が違うのは意図どおり —— 詳しい理由はファイル冒頭の【ガチャ券の入手経路】参照。
+      - { material: "custom:gacha_ticket_0", chance: 0.02, min: 1, max: 1 }
+      #
+      # ---- ガチャ券【III】(この帯だけ) --------------------------------------------------
+      # Lv45 帯の【II】と同じ扱い(2026-08-14 に HEAD の値で復元)。理由の全文は Lv45 帯の
+      #   同じブロックのコメントを参照。踏破ボスドロップ(0.05〜0.45)との併存は意図どおりで、
+      #   こちらは 0.4% の細い保険経路。券の番号は帯に対応させているのでこの帯だけに置く。
+      - { material: "custom:gacha_ticket_3", chance: 0.004, min: 1, max: 1 }
+      #
+      # ---- 2026-08-14 討伐素材/スレッド/ガチャ券のドロップ配線 ----------------------------
+      # 【この23エントリは6帯すべてに同じ内容で置く】帯の解決は floor lookup(min-level <= L を満たす
+      #   最大の帯が1つだけ選ばれる)で、上の帯から下の帯へ継承されない。min-level: 0 の帯にだけ
+      #   書くと Lv0〜9 のモブでしか抽選されず、Lv10 以上では1個も落ちない(=無言の no-op)。
+      #   確率そのものは chance-by-level が討伐したモブの実レベルで補間するので、6帯へ複製しても
+      #   帯境界で段差にはならない。ShippedFieldDropWiringTest が「複数の帯に載るエントリは
+      #   6帯すべてに同一内容で載っていること」を固定する(上のガチャ券【II〜IV】のように
+      #   意図して1帯だけに置くエントリは、単帯であること自体を別の検査が固定する)。
+      # 詳細な設計意図(0〜2個の1/3空振り・where/baby の意味)はファイル冒頭のコメント参照。
+      #
+      # 【討伐素材16種】フィールドのみ / 0〜2個 / Lv1 5% → Lv100 50%。
+      # ラヴェジャーの革
+      - { material: "custom:ravager_hide", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [RAVAGER], where: field }
+      # ピグリンブルートの鎧片
+      - { material: "custom:piglin_brute_plate", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PIGLIN_BRUTE], where: field }
+      # ピリジャーの鎧片
+      - { material: "custom:pillager_plate", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PILLAGER], where: field }
+      # ウィッチの秘薬
+      - { material: "custom:witch_elixir", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [WITCH], where: field }
+      # ピグリンの耳
+      - { material: "custom:piglin_ear", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PIGLIN], where: field }
+      # ストレイの布片
+      - { material: "custom:stray_cloth", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [STRAY], where: field }
+      # スケルトンホースの骨
+      - { material: "custom:skeleton_horse_bone", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [SKELETON_HORSE], where: field }
+      # エンダーマイトの煤
+      - { material: "custom:endermite_soot", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [ENDERMITE], where: field }
+      # ガーディアンの棘
+      - { material: "custom:guardian_spine", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [GUARDIAN, ELDER_GUARDIAN], where: field }
+      # ハスクの布片
+      - { material: "custom:husk_cloth", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [HUSK], where: field }
+      # ボグドの苔むした骨
+      - { material: "custom:bogged_mossy_bone", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [BOGGED], where: field }
+      # ホグリンの牙
+      - { material: "custom:hoglin_fang", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [HOGLIN, ZOGLIN], where: field }
+      # 砂まみれの骨
+      - { material: "custom:parched_sandy_bone", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PARCHED], where: field }
+      # エルダーガーディアンの棘
+      - { material: "custom:elder_guardian_spike", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [ELDER_GUARDIAN], where: field }
+      # ウィザーの頭蓋骨
+      - { material: "custom:wither_skull_fragment", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [WITHER], where: field }
+      # ウォーデンの触覚
+      - { material: "custom:warden_tendril", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [WARDEN], where: field }
+      #
+      # 【エンダードラゴンの鱗】レベルが Lv60 前後に張り付く(mob-types.yml の level: 60 +
+      #   座標係数がほぼ効かない)ため、レベル比例にすると事実上の固定値になる。そこで
+      #   chance-by-level を使わず 100% にし、個数側(0〜2個)だけを揺らす。
+      # エンダードラゴンの鱗
+      - { material: "custom:dragon_scale", chance: 1.0, min: 0, max: 2, mobs: [ENDER_DRAGON], where: field }
+      # 【ドラゴンの卵】エンダードラゴンの討伐で 100% 1個(2026-08-19 / W-128 → 2026-08-20 / W-178 で改訂)。
+      #   hero 武器(Lv100)の儀式コア素材が DRAGON_EGG なのに、バニラでは「ジ・エンドの初回討伐1個きり」で
+      #   再入手できず、上位帯が事実上作れなかった。
+      #   2026-08-19 は environment: [NORMAL](オーバーワールド限定)を付けていたが、実サーバには
+      #   オーバーワールドへエンダードラゴンが出る経路が無く、この行は一度も発火できていなかった
+      #   (資源鯖に EliteMobs は無く、導入データパックにも湧きは無い。EM 側の ENDER_DRAGON は
+      #    束縛者のダンジョンボスなので where: field から外れる)。2026-08-20 に environment: を外し、
+      #   【どのディメンションでも落ちる】ようにした。
+      #   where: field は残す —— ダンジョンインスタンス(束縛者)のボスからは落とさないため。
+      #   ジ・エンドではエンドクリスタルで復活させれば反復入手できる(クリスタル4個/回が実質のコスト)。
+      - { material: DRAGON_EGG, chance: 1.0, min: 1, max: 1, mobs: [ENDER_DRAGON], where: field }
+      #
+      # 【スレッド5種】フィールドのみ / 1個固定 / Lv1 1% → Lv100 10%。
+      #   min:1,max:1 は意図的 ——【1個固定のエントリだけドロップ増加ステが"抽選確率"側に乗る】
+      #   (MobDropRoller#isSingleFixed → boostedChance)。min<max にすると同じステが
+      #   "個数への加算"に化け、レアドロップとしての意味が消える。
+      # 昏倒のスレッド
+      - { material: "custom:thread_concussion", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [VINDICATOR], where: field }
+      # 射手のスレッド
+      - { material: "custom:thread_marksman", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [SKELETON], where: field }
+      # 浮遊のスレッド
+      - { material: "custom:thread_slow_falling", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [SHULKER], where: field }
+      # 詠唱効率のスレッド
+      - { material: "custom:thread_spell_cost_down", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [EVOKER], where: field }
+      # 速攻のスレッド(子ゾンビ限定)
+      - { material: "custom:thread_swiftcast", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [ZOMBIE], where: field, baby: true }
+      #
+      # 【ガチャ券【I】】ダンジョン内の討伐のみ(where: dungeon)。1個固定なのでドロップ増加ステは
+      #   確率側に乗る。難易度D のダンジョンは推奨Lv = D×10 なので、実質 p = 0.005×D
+      #   (難易度1で 0.5% = 200体、難易度10で 5% = 20体)。削除前の gacha_ticket_0 の
+      #   実績値(帯ごとに 0.005〜0.025)を基準にしている。
+      # ガチャ券【I】(ダンジョン限定。mobs: 未指定 = 帯の対象モブ全部)
+      - { material: "custom:gacha_ticket_1", chance: 0.005, chance-by-level: { from-level: 10, from-chance: 0.005, to-level: 100, to-chance: 0.05 }, min: 1, max: 1, where: dungeon }
     mobs:
-      - BEE
       - BLAZE
       - BOGGED
       - BREEZE
@@ -310,15 +924,11 @@ tiers:
       - EVOKER
       - GHAST
       - GIANT
-      - GOAT
       - GUARDIAN
       - HOGLIN
       - HUSK
       - ILLUSIONER
-      - IRON_GOLEM
-      - LLAMA
       - MAGMA_CUBE
-      - PANDA
       - PARCHED
       - PHANTOM
       - PIGLIN
@@ -329,25 +939,119 @@ tiers:
       - SHULKER
       - SILVERFISH
       - SKELETON
+      - SKELETON_HORSE
       - SLIME
       - SPIDER
       - STRAY
-      - TRADER_LLAMA
       - VEX
       - VINDICATOR
       - WARDEN
       - WITCH
       - WITHER
       - WITHER_SKELETON
-      - WOLF
       - ZOGLIN
       - ZOMBIE
       - ZOMBIE_VILLAGER
       - ZOMBIFIED_PIGLIN
   - min-level: 85
     vanilla-exp: 140
+    add-drops:
+      # ---- ガチャ券(素の券) ---------------------------------------------------------
+      # 素の券 gacha_ticket_0 の【唯一の恒常入手経路】。where: を書かない(=既定の any)ので
+      #   フィールドでもダンジョンでも出る。ダンジョンではガチャ券【I】と両方が抽選される。
+      #   chance はこの帯だけの値(帯が上がるほど上がる階段。6帯で 0.005/0.008/0.012/0.016/0.02/0.025)。
+      #   帯ごとに値が違うのは意図どおり —— 詳しい理由はファイル冒頭の【ガチャ券の入手経路】参照。
+      - { material: "custom:gacha_ticket_0", chance: 0.025, min: 1, max: 1 }
+      #
+      # ---- ガチャ券【IV】(この帯だけ) ---------------------------------------------------
+      # Lv45 帯の【II】と同じ扱い(2026-08-14 に HEAD の値で復元)。理由の全文は Lv45 帯の
+      #   同じブロックのコメントを参照。踏破ボスドロップ(0.05〜0.45)との併存は意図どおりで、
+      #   こちらは 0.4% の細い保険経路。券の番号は帯に対応させているのでこの帯だけに置く。
+      - { material: "custom:gacha_ticket_4", chance: 0.004, min: 1, max: 1 }
+      #
+      # ---- 2026-08-14 討伐素材/スレッド/ガチャ券のドロップ配線 ----------------------------
+      # 【この23エントリは6帯すべてに同じ内容で置く】帯の解決は floor lookup(min-level <= L を満たす
+      #   最大の帯が1つだけ選ばれる)で、上の帯から下の帯へ継承されない。min-level: 0 の帯にだけ
+      #   書くと Lv0〜9 のモブでしか抽選されず、Lv10 以上では1個も落ちない(=無言の no-op)。
+      #   確率そのものは chance-by-level が討伐したモブの実レベルで補間するので、6帯へ複製しても
+      #   帯境界で段差にはならない。ShippedFieldDropWiringTest が「複数の帯に載るエントリは
+      #   6帯すべてに同一内容で載っていること」を固定する(上のガチャ券【II〜IV】のように
+      #   意図して1帯だけに置くエントリは、単帯であること自体を別の検査が固定する)。
+      # 詳細な設計意図(0〜2個の1/3空振り・where/baby の意味)はファイル冒頭のコメント参照。
+      #
+      # 【討伐素材16種】フィールドのみ / 0〜2個 / Lv1 5% → Lv100 50%。
+      # ラヴェジャーの革
+      - { material: "custom:ravager_hide", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [RAVAGER], where: field }
+      # ピグリンブルートの鎧片
+      - { material: "custom:piglin_brute_plate", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PIGLIN_BRUTE], where: field }
+      # ピリジャーの鎧片
+      - { material: "custom:pillager_plate", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PILLAGER], where: field }
+      # ウィッチの秘薬
+      - { material: "custom:witch_elixir", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [WITCH], where: field }
+      # ピグリンの耳
+      - { material: "custom:piglin_ear", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PIGLIN], where: field }
+      # ストレイの布片
+      - { material: "custom:stray_cloth", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [STRAY], where: field }
+      # スケルトンホースの骨
+      - { material: "custom:skeleton_horse_bone", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [SKELETON_HORSE], where: field }
+      # エンダーマイトの煤
+      - { material: "custom:endermite_soot", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [ENDERMITE], where: field }
+      # ガーディアンの棘
+      - { material: "custom:guardian_spine", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [GUARDIAN, ELDER_GUARDIAN], where: field }
+      # ハスクの布片
+      - { material: "custom:husk_cloth", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [HUSK], where: field }
+      # ボグドの苔むした骨
+      - { material: "custom:bogged_mossy_bone", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [BOGGED], where: field }
+      # ホグリンの牙
+      - { material: "custom:hoglin_fang", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [HOGLIN, ZOGLIN], where: field }
+      # 砂まみれの骨
+      - { material: "custom:parched_sandy_bone", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [PARCHED], where: field }
+      # エルダーガーディアンの棘
+      - { material: "custom:elder_guardian_spike", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [ELDER_GUARDIAN], where: field }
+      # ウィザーの頭蓋骨
+      - { material: "custom:wither_skull_fragment", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [WITHER], where: field }
+      # ウォーデンの触覚
+      - { material: "custom:warden_tendril", chance: 0.05, chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }, min: 0, max: 2, mobs: [WARDEN], where: field }
+      #
+      # 【エンダードラゴンの鱗】レベルが Lv60 前後に張り付く(mob-types.yml の level: 60 +
+      #   座標係数がほぼ効かない)ため、レベル比例にすると事実上の固定値になる。そこで
+      #   chance-by-level を使わず 100% にし、個数側(0〜2個)だけを揺らす。
+      # エンダードラゴンの鱗
+      - { material: "custom:dragon_scale", chance: 1.0, min: 0, max: 2, mobs: [ENDER_DRAGON], where: field }
+      # 【ドラゴンの卵】エンダードラゴンの討伐で 100% 1個(2026-08-19 / W-128 → 2026-08-20 / W-178 で改訂)。
+      #   hero 武器(Lv100)の儀式コア素材が DRAGON_EGG なのに、バニラでは「ジ・エンドの初回討伐1個きり」で
+      #   再入手できず、上位帯が事実上作れなかった。
+      #   2026-08-19 は environment: [NORMAL](オーバーワールド限定)を付けていたが、実サーバには
+      #   オーバーワールドへエンダードラゴンが出る経路が無く、この行は一度も発火できていなかった
+      #   (資源鯖に EliteMobs は無く、導入データパックにも湧きは無い。EM 側の ENDER_DRAGON は
+      #    束縛者のダンジョンボスなので where: field から外れる)。2026-08-20 に environment: を外し、
+      #   【どのディメンションでも落ちる】ようにした。
+      #   where: field は残す —— ダンジョンインスタンス(束縛者)のボスからは落とさないため。
+      #   ジ・エンドではエンドクリスタルで復活させれば反復入手できる(クリスタル4個/回が実質のコスト)。
+      - { material: DRAGON_EGG, chance: 1.0, min: 1, max: 1, mobs: [ENDER_DRAGON], where: field }
+      #
+      # 【スレッド5種】フィールドのみ / 1個固定 / Lv1 1% → Lv100 10%。
+      #   min:1,max:1 は意図的 ——【1個固定のエントリだけドロップ増加ステが"抽選確率"側に乗る】
+      #   (MobDropRoller#isSingleFixed → boostedChance)。min<max にすると同じステが
+      #   "個数への加算"に化け、レアドロップとしての意味が消える。
+      # 昏倒のスレッド
+      - { material: "custom:thread_concussion", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [VINDICATOR], where: field }
+      # 射手のスレッド
+      - { material: "custom:thread_marksman", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [SKELETON], where: field }
+      # 浮遊のスレッド
+      - { material: "custom:thread_slow_falling", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [SHULKER], where: field }
+      # 詠唱効率のスレッド
+      - { material: "custom:thread_spell_cost_down", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [EVOKER], where: field }
+      # 速攻のスレッド(子ゾンビ限定)
+      - { material: "custom:thread_swiftcast", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [ZOMBIE], where: field, baby: true }
+      #
+      # 【ガチャ券【I】】ダンジョン内の討伐のみ(where: dungeon)。1個固定なのでドロップ増加ステは
+      #   確率側に乗る。難易度D のダンジョンは推奨Lv = D×10 なので、実質 p = 0.005×D
+      #   (難易度1で 0.5% = 200体、難易度10で 5% = 20体)。削除前の gacha_ticket_0 の
+      #   実績値(帯ごとに 0.005〜0.025)を基準にしている。
+      # ガチャ券【I】(ダンジョン限定。mobs: 未指定 = 帯の対象モブ全部)
+      - { material: "custom:gacha_ticket_1", chance: 0.005, chance-by-level: { from-level: 10, from-chance: 0.005, to-level: 100, to-chance: 0.05 }, min: 1, max: 1, where: dungeon }
     mobs:
-      - BEE
       - BLAZE
       - BOGGED
       - BREEZE
@@ -363,15 +1067,11 @@ tiers:
       - EVOKER
       - GHAST
       - GIANT
-      - GOAT
       - GUARDIAN
       - HOGLIN
       - HUSK
       - ILLUSIONER
-      - IRON_GOLEM
-      - LLAMA
       - MAGMA_CUBE
-      - PANDA
       - PARCHED
       - PHANTOM
       - PIGLIN
@@ -382,17 +1082,16 @@ tiers:
       - SHULKER
       - SILVERFISH
       - SKELETON
+      - SKELETON_HORSE
       - SLIME
       - SPIDER
       - STRAY
-      - TRADER_LLAMA
       - VEX
       - VINDICATOR
       - WARDEN
       - WITCH
       - WITHER
       - WITHER_SKELETON
-      - WOLF
       - ZOGLIN
       - ZOMBIE
       - ZOMBIE_VILLAGER

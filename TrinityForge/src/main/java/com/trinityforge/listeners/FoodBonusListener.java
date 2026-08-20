@@ -3,9 +3,7 @@ package com.trinityforge.listeners;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.config.domains.FoodGimmickConfig;
-import com.trinityforge.food.FoodGimmickPolicy;
 import com.trinityforge.stats.StatKeys;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -13,12 +11,14 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
 import java.util.Objects;
 import java.util.OptionalDouble;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 食事系のstat consumer(2件): {@code food_restore_bonus}(満腹度の回復量を割増)と
@@ -42,8 +42,13 @@ public final class FoodBonusListener implements Listener {
     private final DedicatedEffectsConfig dedicatedEffects;
     private final FoodGimmickConfig foodGimmickConfig;
     // PlayerItemConsumeEvent(HIGH)からFoodLevelChangeEvent(同tick、HIGH)へ「何を食べたか」を橋渡し
-    // する短命マップ。FoodLevelChangeEvent自体は消費アイテムを保持しないため必要。
-    private final ConcurrentHashMap<UUID, Material> pendingConsumed = new ConcurrentHashMap<>();
+    // する短命マップ。FoodLevelChangeEvent自体は消費アイテムを保持しないため必要。2026-07-27:
+    // カスタム食料をゴミ食判定できるよう、Material単体ではなくItemStack(クローン)を保持する。
+    private final ConcurrentHashMap<UUID, PendingConsumed> pendingConsumed = new ConcurrentHashMap<>();
+    private final AtomicLong pendingSequence = new AtomicLong();
+
+    private record PendingConsumed(long sequence, ItemStack item) {
+    }
 
     public FoodBonusListener(Plugin plugin, PlayerStatAggregator aggregator) {
         this(plugin, aggregator, null, null);
@@ -62,20 +67,35 @@ public final class FoodBonusListener implements Listener {
         this.foodGimmickConfig = foodGimmickConfig;
     }
 
-    /** {@link #onFoodChange}が「何を食べたか」を読めるよう、消費アイテムのMaterialを橋渡しする。 */
+    /** {@link #onFoodChange}が「何を食べたか」を読めるよう、消費アイテムを橋渡しする。 */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onConsumeTrackItem(PlayerItemConsumeEvent event) {
-        pendingConsumed.put(event.getPlayer().getUniqueId(), event.getItem().getType());
+        UUID playerId = event.getPlayer().getUniqueId();
+        PendingConsumed pending = new PendingConsumed(
+                pendingSequence.incrementAndGet(), event.getItem().clone());
+        pendingConsumed.put(playerId, pending);
+        // FoodLevelChangeEvent normally follows in the same consume tick. If a later listener cancels
+        // consumption, or no food-level event is produced, this generation expires on the next tick.
+        plugin.getServer().getScheduler().runTask(plugin, () -> pendingConsumed.remove(playerId, pending));
+    }
+
+    /** A later-priority cancellation is known at MONITOR, so discard its bridge value immediately. */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onConsumeFinished(PlayerItemConsumeEvent event) {
+        if (event.isCancelled()) {
+            pendingConsumed.remove(event.getPlayer().getUniqueId());
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onFoodChange(FoodLevelChangeEvent event) {
         if (!(event.getEntity() instanceof Player player)) return;
+        PendingConsumed pending = pendingConsumed.remove(player.getUniqueId());
         int oldLevel = player.getFoodLevel();
         int newLevel = event.getFoodLevel();
         if (newLevel <= oldLevel) return; // 回復(増加)のみ対象。減少はhunger_save_chance側の担当。
 
-        Material consumed = pendingConsumed.remove(player.getUniqueId());
+        ItemStack consumed = pending == null ? null : pending.item();
         double effectiveBonus = resolveFoodRestoreBonus(player, consumed);
         if (effectiveBonus <= 0.0) return;
         int gained = newLevel - oldLevel;
@@ -89,7 +109,7 @@ public final class FoodBonusListener implements Listener {
         pendingConsumed.remove(event.getPlayer().getUniqueId());
     }
 
-    private double resolveFoodRestoreBonus(Player player, Material consumed) {
+    private double resolveFoodRestoreBonus(Player player, ItemStack consumed) {
         double genericBonus = aggregator.aggregate(player).totalOf(FOOD_RESTORE_BONUS);
         if (dedicatedEffects == null || foodGimmickConfig == null) {
             return genericBonus; // A-alpha-2未配線: 従来通り一律適用。
@@ -98,7 +118,7 @@ public final class FoodBonusListener implements Listener {
         if (junkBoostPercent.isEmpty()) {
             return genericBonus; // A-alpha-2未保持: 従来通り一律適用。
         }
-        boolean junk = FoodGimmickPolicy.isJunkFood(consumed, foodGimmickConfig.junkFoodMaterials());
+        boolean junk = foodGimmickConfig.isJunkFood(consumed);
         if (junk) {
             return genericBonus + Math.max(0.0, junkBoostPercent.getAsDouble()) / 100.0;
         }

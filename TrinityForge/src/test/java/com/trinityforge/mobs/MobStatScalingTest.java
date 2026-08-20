@@ -33,6 +33,21 @@ class MobStatScalingTest {
     }
 
     @Test
+    void scaleMaxHealthHighLevelBreakpointOmittedIsBackCompat() {
+        // 5-arg overload (呼び出し側 MobTypeSpawnListener の既存経路) は高レベル加速なしのまま。
+        assertEquals(380.0 + 55.0 * 100, MobStatScaling.scaleMaxHealth(380.0, 55.0, 1.0, 1.0, 100), DELTA);
+    }
+
+    @Test
+    void scaleMaxHealthHighLevelBreakpointAddsAboveThreshold() {
+        // base=100, growth=1.0(線形), Lv45から+20/レベル。
+        assertEquals(100.0, MobStatScaling.scaleMaxHealth(100.0, 0.0, 1.0, 1.0, 45.0, 20.0, 45), DELTA);
+        assertEquals(100.0 + 20.0 * 15, MobStatScaling.scaleMaxHealth(100.0, 0.0, 1.0, 1.0, 45.0, 20.0, 60), DELTA);
+        // 閾値未満は完全無干渉。
+        assertEquals(100.0, MobStatScaling.scaleMaxHealth(100.0, 0.0, 1.0, 1.0, 45.0, 20.0, 30), DELTA);
+    }
+
+    @Test
     void scaleAttackPowerGrowthOmittedIsLinearBackCompat() {
         // AttackCoeffs.ZERO leaves attackPowerGrowth=1.0/interval=1.0 (back-compat default),
         // so attack-power must reduce to the historical base + coeff * level formula.

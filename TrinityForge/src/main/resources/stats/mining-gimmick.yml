@@ -1,16 +1,14 @@
-# TrinityForge - 採掘ギミック(skilltree/dedicated-effects.yml のflag系consumer)チューニング
+# TrinityForge - 採掘ギミック(各 skilltree/*.yml ノードの dedicated-effects: フィールドが付与する flag系consumer)チューニング
 # 対象effectId: vein-mining / haste-active-mining
 # ドロップテーブル(drop-tables)は「鉱脈破壊」トリガー型の追加ドロップ(2026-07-23 stat-gate-overhaul §4)。
 # fortune は旧 stats/gathering.yml mining.* を統合したもの(§D廃止)。
 # 数値は全て暫定(要調整)。
 # 設定リファレンス(本文コメント移設先): docs/config-reference/stats/mining-gimmick.md
 
-
 suspicious-block-respawn:
   loot-tables:
     suspicious-sand: DESERT_PYRAMID_ARCHAEOLOGY
     suspicious-gravel: TRAIL_RUINS_ARCHAEOLOGY_COMMON
-
 vein-mining:
   ore-blocks:
     - COAL_ORE
@@ -38,41 +36,19 @@ haste-active-mining:
   duration-ticks: 200
   cooldown-ticks: 600
   tiers:
-    1: { amplifier: 3, duration-ticks: 160 }
-    3: { amplifier: 4, duration-ticks: 200 }
-    5: { amplifier: 5, duration-ticks: 240 }
+    "1":
+      amplifier: 3
+      duration-ticks: 100
+    "2":
+      amplifier: 4
+      duration-ticks: 200
+    "3":
+      amplifier: 5
+      duration-ticks: 300
 drop-tables:
-  categories:
-    gacha_tier1:
-      display-name: ガチャ券(初級)
-      trigger-chance-percent: 3
-      entries:
-        - item: tf_gacha_ticket_1
-          weight: 1
-          amount: 1
-    gacha_tier2:
-      display-name: ガチャ券(中級)
-      trigger-chance-percent: 2
-      entries:
-        - item: tf_gacha_ticket_2
-          weight: 1
-          amount: 1
-    gacha_tier3:
-      display-name: ガチャ券(上級)
-      trigger-chance-percent: 1
-      entries:
-        - item: tf_gacha_ticket_3
-          weight: 1
-          amount: 1
-    ancient_debris:
-      display-name: 古代のがれき
-      trigger-chance-percent: 5
-      entries:
-        - item: ANCIENT_DEBRIS
-          weight: 1
-          amount: 1
+  categories: {}
 fortune:
-  fortune-per-level: 0.01
+  fortune-per-level: 0
   fortune-blocks:
     - COAL_ORE
     - DEEPSLATE_COAL_ORE
@@ -102,3 +78,5 @@ fortune:
     - BEETROOTS
     - MELON
     - PUMPKIN
+    - SEA_LANTERN
+    - COCOA

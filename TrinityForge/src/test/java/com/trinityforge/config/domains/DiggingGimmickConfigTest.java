@@ -64,39 +64,138 @@ class DiggingGimmickConfigTest {
         assertEquals(100.0, config.durabilityPerPercent(), 1e-9);
     }
 
+    // --- 2026-07-28 数値のギミックyml集約: durability-exp.vanilla-exp/job-exp の独立tiersテーブル ---
+
     @Test
-    void tieredAccessorFallsBackToGlobalScalarWhenTiersUndefined(@TempDir File tempDir) throws IOException {
-        DiggingGimmickConfig config = loaded(tempDir, "durability-exp:\n  durability-per-percent: 80\n");
-        // 2026-07-26 tier-expand: tiers 未定義なら完全後方互換。
-        assertEquals(80.0, config.durabilityPerPercent(25), 1e-9);
-        assertEquals(80.0, config.durabilityPerPercent(50), 1e-9);
+    void vanillaAndJobExpCapPercentDefaultToZeroWhenUndefined(@TempDir File tempDir) throws IOException {
+        DiggingGimmickConfig config = loaded(tempDir, "# empty\n");
+        assertEquals(0.0, config.vanillaExpCapPercent(1), 1e-9);
+        assertEquals(0.0, config.jobExpCapPercent(1), 1e-9);
     }
 
     @Test
-    void tieredAccessorResolvesFloorEntryFromTiersTable(@TempDir File tempDir) throws IOException {
+    void vanillaAndJobExpCapPercentResolveIndependentTierTables(@TempDir File tempDir) throws IOException {
         DiggingGimmickConfig config = loaded(tempDir, """
                 durability-exp:
                   durability-per-percent: 100
-                  tiers:
-                    25: { durability-per-percent: 120 }
-                    50: { durability-per-percent: 80 }
+                  vanilla-exp:
+                    tiers:
+                      1: { cap-percent: 50 }
+                  job-exp:
+                    tiers:
+                      1: { cap-percent: 25 }
                 """);
-        assertEquals(100.0, config.durabilityPerPercent(10), 1e-9, "below the lowest tier -> global scalar");
-        assertEquals(120.0, config.durabilityPerPercent(25), 1e-9);
-        assertEquals(120.0, config.durabilityPerPercent(40), 1e-9, "floor resolve: 40 -> tier 25 row");
-        assertEquals(80.0, config.durabilityPerPercent(50), 1e-9);
-        assertEquals(80.0, config.durabilityPerPercent(99), 1e-9);
+        assertEquals(50.0, config.vanillaExpCapPercent(1), 1e-9);
+        assertEquals(25.0, config.jobExpCapPercent(1), 1e-9);
+        // 完全一致もフロアも無い(tier<1)なら無効(0)。
+        assertEquals(0.0, config.vanillaExpCapPercent(0), 1e-9);
+    }
+
+    @Test
+    void tierAboveHighestDefinedFloorsToTheHighestRow(@TempDir File tempDir) throws IOException {
+        DiggingGimmickConfig config = loaded(tempDir, """
+                durability-exp:
+                  vanilla-exp:
+                    tiers:
+                      1: { cap-percent: 50 }
+                      2: { cap-percent: 70 }
+                """);
+        assertEquals(70.0, config.vanillaExpCapPercent(2), 1e-9);
+        assertEquals(70.0, config.vanillaExpCapPercent(5), 1e-9, "floor resolve: 5 -> tier 2 row");
+        assertEquals(50.0, config.vanillaExpCapPercent(1), 1e-9);
+    }
+
+    @Test
+    void durabilityPerPercentOverrideFallsBackToGlobalWhenRowOmitsIt(@TempDir File tempDir) throws IOException {
+        DiggingGimmickConfig config = loaded(tempDir, """
+                durability-exp:
+                  durability-per-percent: 100
+                  vanilla-exp:
+                    tiers:
+                      1: { cap-percent: 50 }
+                  job-exp:
+                    tiers:
+                      1: { cap-percent: 25, durability-per-percent: 120 }
+                """);
+        assertEquals(100.0, config.durabilityPerPercentForVanillaExp(1), 1e-9, "row omits override -> global default");
+        assertEquals(120.0, config.durabilityPerPercentForJobExp(1), 1e-9, "row overrides the global default");
     }
 
     @Test
     void malformedTierRowIsSkippedWithoutThrowing(@TempDir File tempDir) throws IOException {
         DiggingGimmickConfig config = loaded(tempDir, """
                 durability-exp:
-                  durability-per-percent: 100
-                  tiers:
-                    25: { durability-per-percent: -5 }
-                    notanumber: { durability-per-percent: 60 }
+                  vanilla-exp:
+                    tiers:
+                      1: { cap-percent: -5 }
+                      notanumber: { cap-percent: 60 }
                 """);
-        assertEquals(100.0, config.durabilityPerPercent(25), 1e-9);
+        assertEquals(0.0, config.vanillaExpCapPercent(1), 1e-9);
+    }
+
+    // --- 2026-08-18 (W-59): haste-active-digging — mining-gimmick.yml haste-active-mining と同型の
+    // 独立scalar+tiers表(MiningGimmickConfigTest#tieredAccessorsFallBackToGlobalScalarWhenTiersUndefined
+    // 等と対称のケース)。数値・段数は意図的にミラーしない(別クラスの別フィールド)。
+
+    @Test
+    void hasteDefaultsWhenSectionAbsent(@TempDir File tempDir) throws IOException {
+        DiggingGimmickConfig config = loaded(tempDir, "# empty\n");
+        assertEquals(1, config.hasteAmplifier());
+        assertEquals(120, config.hasteDurationTicks());
+        assertEquals(800, config.hasteCooldownTicks());
+    }
+
+    @Test
+    void hasteHonorsExplicitOverrides(@TempDir File tempDir) throws IOException {
+        DiggingGimmickConfig config = loaded(tempDir, """
+                haste-active-digging:
+                  amplifier: 2
+                  duration-ticks: 100
+                  cooldown-ticks: 300
+                """);
+        assertEquals(2, config.hasteAmplifier());
+        assertEquals(100, config.hasteDurationTicks());
+        assertEquals(300, config.hasteCooldownTicks());
+    }
+
+    @Test
+    void hasteNonPositiveTickValuesFallBackToDefault(@TempDir File tempDir) throws IOException {
+        DiggingGimmickConfig config = loaded(tempDir, """
+                haste-active-digging:
+                  duration-ticks: 0
+                  cooldown-ticks: -1
+                """);
+        assertEquals(120, config.hasteDurationTicks());
+        assertEquals(800, config.hasteCooldownTicks());
+    }
+
+    @Test
+    void hasteTieredAccessorsFallBackToGlobalScalarWhenTiersUndefined(@TempDir File tempDir) throws IOException {
+        DiggingGimmickConfig config = loaded(tempDir, """
+                haste-active-digging:
+                  amplifier: 1
+                  duration-ticks: 120
+                  cooldown-ticks: 800
+                """);
+        assertEquals(1, config.hasteAmplifier(1));
+        assertEquals(120, config.hasteDurationTicks(1));
+        // CTはmining側と同じ設計方針でtier不変 — グローバルscalarの1値のみ。
+        assertEquals(800, config.hasteCooldownTicks());
+    }
+
+    @Test
+    void hasteTieredAccessorsResolveFloorEntryFromTiersTable(@TempDir File tempDir) throws IOException {
+        DiggingGimmickConfig config = loaded(tempDir, """
+                haste-active-digging:
+                  cooldown-ticks: 800
+                  tiers:
+                    1: { amplifier: 1, duration-ticks: 100 }
+                    3: { amplifier: 2, duration-ticks: 160 }
+                """);
+        assertEquals(1, config.hasteAmplifier(1));
+        assertEquals(100, config.hasteDurationTicks(1));
+        assertEquals(2, config.hasteAmplifier(3));
+        assertEquals(2, config.hasteAmplifier(99), "floor resolve: 99 -> tier 3 row");
+        assertEquals(800, config.hasteCooldownTicks());
     }
 }

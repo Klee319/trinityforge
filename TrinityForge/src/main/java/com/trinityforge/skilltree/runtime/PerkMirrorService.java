@@ -1,6 +1,7 @@
 package com.trinityforge.skilltree.runtime;
 
 import com.trinityforge.pdc.PlayerData;
+import com.trinityforge.progression.repository.LoadResult;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -23,10 +24,10 @@ import java.util.Set;
  * rides {@code ValhallaSkillPerkStatSource}'s per-player TTL cache, and {@link PerkMirror#needsWrite} skips the
  * PDC write whenever nothing changed, so steady-state cost is negligible.
  *
- * <p>The mirror copies the source verbatim, including an empty set: the same source the combat pipeline already
- * trusts degrades to empty on an unavailable/failed read, and a transient empty self-heals on the next interval
- * (ArsPaper gates fail-open when TrinityForge is absent, so a missing addon never blocks anyone). Both reads are
- * ValhallaMMO reflection and must run on the main thread, so the task is a plain {@code runTaskTimer}.
+ * <p>The mirror copies a successful source result verbatim, including an empty set. A failed read leaves the
+ * existing PDC value untouched as last-known-good; otherwise a transient database outage would revoke every
+ * mirrored gate until the next successful interval. Both reads and the PDC write run on the main thread, so the
+ * task is a plain {@code runTaskTimer}.
  */
 public final class PerkMirrorService {
 
@@ -53,7 +54,11 @@ public final class PerkMirrorService {
      */
     public void sync(Player player) {
         Objects.requireNonNull(player, "player");
-        Set<String> unlocked = source.unlockedPerkIds(player.getUniqueId());
+        LoadResult<Set<String>> load = source.loadUnlockedPerkIds(player.getUniqueId());
+        if (load.isFailed()) {
+            return;
+        }
+        Set<String> unlocked = load.orElseGet(Set::of);
         List<String> canonical = PerkMirror.canonical(unlocked);
         PlayerData data = PlayerData.of(player);
         if (PerkMirror.needsWrite(data.heldPerks(), canonical)) {

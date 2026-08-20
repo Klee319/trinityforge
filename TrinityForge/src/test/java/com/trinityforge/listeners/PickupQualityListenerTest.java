@@ -58,6 +58,8 @@ class PickupQualityListenerTest {
     private PickupQualityListener listener;
 
     private QualityConfig quality;
+    private ItemCatalogConfig itemCatalog;
+    private PlayerLootLuckSource lootLuck;
 
     @BeforeEach
     void setUp() {
@@ -69,9 +71,9 @@ class PickupQualityListenerTest {
         when(quality.maxQuality()).thenReturn(9);
         when(quality.spreadUp()).thenReturn(1.5);
         when(quality.spreadDown()).thenReturn(1.5);
-        ItemCatalogConfig itemCatalog = mock(ItemCatalogConfig.class);
+        itemCatalog = mock(ItemCatalogConfig.class);
         when(itemCatalog.all()).thenReturn(java.util.Map.of());
-        PlayerLootLuckSource lootLuck = new PlayerLootLuckSource(
+        lootLuck = new PlayerLootLuckSource(
                 java.util.logging.Logger.getLogger("test"), null);
         listener = new PickupQualityListener(
                 MockBukkit.createMockPlugin(), itemFactory, itemStats, qualityTiers, quality, itemCatalog, lootLuck);
@@ -95,6 +97,60 @@ class PickupQualityListenerTest {
 
     private void configureUnconfigured() {
         when(itemStats.profileFor(any(), any())).thenReturn(Optional.empty());
+    }
+
+    /**
+     * 2026-08-04 仕様変更: 儀式クラフトの成果物は「品質未決定」マーカーだけを持って台座にドロップされ、
+     * <b>最初にインベントリへ入ったプレイヤー</b>のステータスで品質が決まる。
+     *
+     * <p>旧実装(ArsPaper fork {@code TrinityForgeBridge#stampCraftedQuality})は儀式時点で rollSeed+quality
+     * を PDC へ書くだけで <b>lore/属性のフル再組み立て({@code ItemFactory#stamp})を呼んでいなかった</b>ため、
+     * 「品質は入っているのにステータスが表示されない=手に持つまでステータスがつかない」不具合になっていた。
+     * このテストは (1) マーカー品が回収時に stamp される (2) 品質が<b>回収者</b>のステを見て決まる
+     * (3) マーカーが剥がされる(二度目の走査で振り直されない) の3点を固定する。
+     * 詳細は {@code PdcKeys#ITEM_PENDING_CRAFT_QUALITY}。
+     */
+    @Test
+    void pendingCraftQualityIsRolledFromThePickerStatsAndFullyRestamped() {
+        PlayerMock player = server.addPlayer();
+        // 儀式経路のσを両側とも潰す → ロール結果は mode そのもの = 回収者の ritual_quality_bonus。
+        com.trinityforge.combat.PlayerStatAggregator aggregator =
+                mock(com.trinityforge.combat.PlayerStatAggregator.class);
+        when(aggregator.aggregate(player)).thenReturn(new com.trinityforge.combat.PlayerCombatAggregate(
+                Map.of("ritual_quality_bonus", 5.0), Map.of(), Map.of(), Map.of(), Map.of()));
+        com.trinityforge.config.domains.CraftQualityConfig craftConfig =
+                new com.trinityforge.config.domains.CraftQualityConfig();
+        craftConfig.apply(org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(
+                new java.io.StringReader("""
+                        ritual:
+                          upswing-flat: -999.0
+                          downswing-reduction-flat: 999.0
+                        """)));
+        PickupQualityListener wired = new PickupQualityListener(
+                MockBukkit.createMockPlugin(), itemFactory, itemStats, qualityTiers, quality,
+                itemCatalog, lootLuck,
+                new com.trinityforge.stats.CraftQualityService(
+                        com.trinityforge.progression.SkillLevelSource.EMPTY, craftConfig,
+                        new QualityConfig(), aggregator, null));
+
+        // item-stats 未設定でも儀式成果物は刻印される(旧 stampCraftedQuality が無条件だったのを維持)。
+        configureUnconfigured();
+        ItemStack ritualResult = diamondSword();
+        ItemMeta meta = ritualResult.getItemMeta();
+        ItemData.of(meta).markPendingCraftQuality();
+        ritualResult.setItemMeta(meta);
+        player.getInventory().setItem(0, ritualResult);
+
+        wired.sweepInventory(player);
+
+        verify(itemFactory, times(1)).stamp(any(ItemStack.class), anyLong(), eq(5));
+        ItemStack after = player.getInventory().getItem(0);
+        assertFalse(ItemData.of(after.getItemMeta()).pendingCraftQuality(),
+                "品質を確定したらマーカーを剥がす(以後の走査で振り直されない)");
+
+        // 2度目の走査では何も起きない(冪等)。
+        wired.sweepInventory(player);
+        verify(itemFactory, times(1)).stamp(any(ItemStack.class), anyLong(), eq(5));
     }
 
     @Test

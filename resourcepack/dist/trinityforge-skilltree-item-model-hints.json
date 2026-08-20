@@ -1,0 +1,274 @@
+{
+  "entries": [
+    {
+      "item_model": "trinityforge:gui/skilltree_n",
+      "base_item": "minecraft:arrow"
+    },
+    {
+      "item_model": "trinityforge:gui/skilltree_ne",
+      "base_item": "minecraft:arrow"
+    },
+    {
+      "item_model": "trinityforge:gui/skilltree_e",
+      "base_item": "minecraft:arrow"
+    },
+    {
+      "item_model": "trinityforge:gui/skilltree_se",
+      "base_item": "minecraft:arrow"
+    },
+    {
+      "item_model": "trinityforge:gui/skilltree_s",
+      "base_item": "minecraft:arrow"
+    },
+    {
+      "item_model": "trinityforge:gui/skilltree_sw",
+      "base_item": "minecraft:arrow"
+    },
+    {
+      "item_model": "trinityforge:gui/skilltree_w",
+      "base_item": "minecraft:arrow"
+    },
+    {
+      "item_model": "trinityforge:gui/skilltree_nw",
+      "base_item": "minecraft:arrow"
+    },
+    {
+      "item_model": "trinityforge:gui/node_locked",
+      "base_item": "minecraft:rotten_flesh",
+      "display_name": "未解放"
+    },
+    {
+      "item_model": "trinityforge:gui/node_confirm",
+      "base_item": "minecraft:structure_void",
+      "display_name": "確認"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/locked_continuous_horizontal",
+      "base_item": "minecraft:gray_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/locked_continuous_vertical",
+      "base_item": "minecraft:gray_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/locked_corner_ne",
+      "base_item": "minecraft:gray_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/locked_corner_nw",
+      "base_item": "minecraft:gray_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/locked_corner_se",
+      "base_item": "minecraft:gray_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/locked_corner_sw",
+      "base_item": "minecraft:gray_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/locked_cross_nesw",
+      "base_item": "minecraft:gray_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/locked_direct_vertical",
+      "base_item": "minecraft:gray_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/locked_endpoint_horiz_left",
+      "base_item": "minecraft:gray_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/locked_endpoint_horiz_right",
+      "base_item": "minecraft:gray_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/locked_endpoint_verti_bottom",
+      "base_item": "minecraft:gray_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/locked_endpoint_verti_top",
+      "base_item": "minecraft:gray_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/locked_junction_esw",
+      "base_item": "minecraft:gray_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/locked_junction_nes",
+      "base_item": "minecraft:gray_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/locked_junction_new",
+      "base_item": "minecraft:gray_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/locked_junction_nsw",
+      "base_item": "minecraft:gray_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlockable_continuous_horizontal",
+      "base_item": "minecraft:orange_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlockable_continuous_vertical",
+      "base_item": "minecraft:orange_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlockable_corner_ne",
+      "base_item": "minecraft:orange_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlockable_corner_nw",
+      "base_item": "minecraft:orange_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlockable_corner_se",
+      "base_item": "minecraft:orange_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlockable_corner_sw",
+      "base_item": "minecraft:orange_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlockable_cross_nesw",
+      "base_item": "minecraft:orange_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlockable_direct_vertical",
+      "base_item": "minecraft:orange_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlockable_endpoint_horiz_left",
+      "base_item": "minecraft:orange_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlockable_endpoint_horiz_right",
+      "base_item": "minecraft:orange_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlockable_endpoint_verti_bottom",
+      "base_item": "minecraft:orange_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlockable_endpoint_verti_top",
+      "base_item": "minecraft:orange_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlockable_junction_esw",
+      "base_item": "minecraft:orange_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlockable_junction_nes",
+      "base_item": "minecraft:orange_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlockable_junction_new",
+      "base_item": "minecraft:orange_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlockable_junction_nsw",
+      "base_item": "minecraft:orange_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlocked_continuous_horizontal",
+      "base_item": "minecraft:lime_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlocked_continuous_vertical",
+      "base_item": "minecraft:lime_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlocked_corner_ne",
+      "base_item": "minecraft:lime_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlocked_corner_nw",
+      "base_item": "minecraft:lime_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlocked_corner_se",
+      "base_item": "minecraft:lime_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlocked_corner_sw",
+      "base_item": "minecraft:lime_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlocked_cross_nesw",
+      "base_item": "minecraft:lime_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlocked_direct_vertical",
+      "base_item": "minecraft:lime_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlocked_endpoint_horiz_left",
+      "base_item": "minecraft:lime_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlocked_endpoint_horiz_right",
+      "base_item": "minecraft:lime_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlocked_endpoint_verti_bottom",
+      "base_item": "minecraft:lime_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlocked_endpoint_verti_top",
+      "base_item": "minecraft:lime_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlocked_junction_esw",
+      "base_item": "minecraft:lime_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlocked_junction_nes",
+      "base_item": "minecraft:lime_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlocked_junction_new",
+      "base_item": "minecraft:lime_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/connection/unlocked_junction_nsw",
+      "base_item": "minecraft:lime_dye"
+    },
+    {
+      "item_model": "trinityforge:gui/skill/power",
+      "base_item": "minecraft:armor_stand"
+    },
+    {
+      "item_model": "trinityforge:gui/skill/mining",
+      "base_item": "minecraft:iron_pickaxe"
+    },
+    {
+      "item_model": "trinityforge:gui/skill/farming",
+      "base_item": "minecraft:iron_hoe"
+    },
+    {
+      "item_model": "trinityforge:gui/skill/archery",
+      "base_item": "minecraft:bow"
+    },
+    {
+      "item_model": "trinityforge:gui/skill/lightweapons",
+      "base_item": "minecraft:diamond_sword"
+    },
+    {
+      "item_model": "trinityforge:gui/skill/heavyweapons",
+      "base_item": "minecraft:netherite_axe"
+    },
+    {
+      "item_model": "trinityforge:gui/skill/lightarmor",
+      "base_item": "minecraft:leather_chestplate"
+    },
+    {
+      "item_model": "trinityforge:gui/skill/heavyarmor",
+      "base_item": "minecraft:iron_chestplate"
+    },
+    {
+      "item_model": "trinityforge:gui/skill/landscaping",
+      "base_item": "minecraft:iron_axe"
+    }
+  ]
+}

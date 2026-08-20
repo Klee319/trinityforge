@@ -83,6 +83,18 @@ public final class OverEnchantListener implements Listener {
             if (overMax <= ench.getMaxLevel()) {
                 continue;
             }
+            if (!canCarry(out, ench)) {
+                // 実サーバ報告「ツルハシに射撃ダメージが付く」(2026-08-04)の真因。
+                // 候補は first / second / result の3つから集めるので、金床の2枠目に置いた
+                // エンチャント本(例: 射撃ダメージ増加)のエンチャントも必ず候補に入る。
+                // 下の合成は b>0 なら a=0 でも「combined = max(a,b)」を結果へ書き込み、
+                // 書き込みは addUnsafeEnchantment なので【対象種別の検査を素通りする】。
+                // 結果、ツルハシ + 射撃ダメージ増加の本 が「射撃ダメージ付きツルハシ」になっていた。
+                // バニラの金床は canEnchant を見て弾くので、ここでも同じ判定で門を作る。
+                // 既に載ってしまっている分をここで剥がしはしない(他プラグイン/管理付与を壊さないため。
+                // 剥がすなら別途、移行用の掃除として明示的にやる)。
+                continue;
+            }
             int a = enchantLevel(first, ench);
             int b = second == null ? 0 : enchantLevel(second, ench);
             if (a <= 0 && b <= 0) {
@@ -115,6 +127,25 @@ public final class OverEnchantListener implements Listener {
 
     private int maxLevel(Player player, Enchantment ench) {
         return features.overEnchantMaxLevel(id -> dedicatedEffects.isActive(player, GATE_PREFIX + id), ench);
+    }
+
+    /**
+     * そのアイテムが本来このエンチャントを載せてよいか。バニラの金床と同じ判定
+     * ({@link Enchantment#canEnchantItem}) を使う。
+     *
+     * <p>エンチャント本({@link EnchantmentStorageMeta})だけは例外で常に true を返す。本は
+     * 「どの装備向けのエンチャントでも保管できる入れ物」であって装備ではないため、
+     * {@code canEnchantItem} は本に対してほぼ常に false を返す。ここで弾くと
+     * 本 + 本 の合成で上限突破が効かなくなる(＝この機能そのものが死ぬ)。
+     */
+    private static boolean canCarry(ItemStack stack, Enchantment ench) {
+        if (stack == null || ench == null) {
+            return false;
+        }
+        if (stack.getItemMeta() instanceof EnchantmentStorageMeta) {
+            return true;
+        }
+        return ench.canEnchantItem(stack);
     }
 
     private static Set<Enchantment> enchantKeys(ItemStack stack) {

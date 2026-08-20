@@ -1,0 +1,7 @@
+# 氷結の彷徨い骨 (frost_wraith_skeleton) — 通常攻撃の7割が魔法として解決される派生モブ(magic-ratio: 0.7)。
+# combat/mob-overrides.yml の overrides.default.mobs.frost_wraith_skeleton が強さ/技/ドロップを上書きする。
+# 配備手順は ops/deploy-elitemobs-magic-mobs.md を参照。
+isEnabled: true
+entityType: SKELETON
+name: "&b氷結の彷徨い骨"
+level: 22

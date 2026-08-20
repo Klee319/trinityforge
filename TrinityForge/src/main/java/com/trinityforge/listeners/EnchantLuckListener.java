@@ -5,6 +5,7 @@ import com.trinityforge.config.domains.CraftingFeaturesConfig;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.config.domains.EnchantLuckConfig;
 import com.trinityforge.stats.StatKeys;
+import io.papermc.paper.registry.keys.tags.EnchantmentTagKeys;
 import org.bukkit.Registry;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
@@ -15,6 +16,7 @@ import org.bukkit.event.enchantment.EnchantItemEvent;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +37,9 @@ import java.util.Random;
  *   <li>各エンチャントのレベルを追加で+1格上げ(config-driven確率、最大{@link EnchantLuckConfig#levelBoostMaxSteps()}回)</li>
  *   <li>バニラ上限に達している場合、{@code overenchant:<id>} を解放しているプレイヤーだけ、
  *       そのプロファイルの絶対上限までさらに格上げを試行(解放者ほど出現率が上がる)</li>
- *   <li>確率で、まだ付与されていない互換エンチャントを1つ追加</li>
+ *   <li>確率で、まだ付与されていない互換エンチャントを1つ追加。
+ *       候補は**バニラのエンチャントテーブルで出得るものだけ**({@code #minecraft:in_enchanting_table})に
+ *       限る — 詳細と経緯は {@link #enchantingTablePool()}</li>
  * </ol>
  * を行う。重み付けの係数は {@code stats/enchant-luck.yml}(config駆動、ハードコードしない)。
  *
@@ -107,7 +111,8 @@ public final class EnchantLuckListener implements Listener {
 
         double extraChance = Math.min(1.0, config.extraEnchantChancePerLuck() * luck);
         if (extraChance > 0.0 && random.nextDouble() < extraChance) {
-            Enchantment extra = pickCompatibleEnchant(event.getItem(), enchants);
+            Enchantment extra = pickCompatibleEnchant(
+                    enchantingTablePool(), event.getItem(), enchants, random);
             if (extra != null) {
                 enchants.put(extra, 1);
             }
@@ -119,12 +124,64 @@ public final class EnchantLuckListener implements Listener {
                 id -> dedicatedEffects.isActive(player, GATE_PREFIX + id), ench) > ench.getMaxLevel();
     }
 
-    private Enchantment pickCompatibleEnchant(ItemStack item, Map<Enchantment, Integer> already) {
+    /**
+     * 追加抽選の母集団(= 「バニラのエンチャントテーブルで出得るもの」)を解決する。
+     *
+     * <p>これは飾りではなくバグ修正の本体: 以前はここが {@link Registry#ENCHANTMENT} の全走査で、
+     * フィルタが {@code canEnchantItem} と {@code conflictsWith} の2つしか無かったため、
+     * テーブルの抽選対象外である treasure 系(修繕 / 氷結歩行 / 魂の速さ / 忍び歩き /
+     * 束縛の呪い / 消滅の呪い / 風の衝撃)が追加抽選で出ていた。
+     *
+     * <p>バニラでは「テーブルに出得るか」は {@code #minecraft:in_enchanting_table} タグで定義されている
+     * ので、Paper のタグ API ({@link Registry#getTagValues}) で**タグを引くのが第一経路**。
+     * ハードコードした除外リストと違い、バニラ側でエンチャントが増減しても自動で追随する。
+     *
+     * <p>第二経路は {@link Enchantment#isTreasure()}。タグ API を実装していない環境
+     * (MockBukkit 4.110.0 は {@code Registry#hasTag} / {@code getTagValues} がどちらも
+     * {@code UnimplementedOperationException} を投げる)向けのフォールバック。
+     * {@code isTreasure()} は 1.21 で「タグで管理するようになった」として非推奨になっているが、
+     * 契約は「looting / 交易 / 釣りでしか手に入らない = テーブルでは出ない」なので、
+     * テーブル抽選の母集団としては同じ意味で使える。
+     * ※ {@code isDiscoverable()} は javadoc に「エンチャントテーブルで見つかるか」と書いてあるが
+     * 実際には {@code #minecraft:on_random_loot} 相当で、修繕が {@code true} を返す。使ってはいけない。
+     */
+    @SuppressWarnings("deprecation") // isTreasure(): タグ API が無い環境向けのフォールバックとしてのみ使う
+    static Iterable<Enchantment> enchantingTablePool() {
+        try {
+            if (Registry.ENCHANTMENT.hasTag(EnchantmentTagKeys.IN_ENCHANTING_TABLE)) {
+                Collection<Enchantment> tagged =
+                        Registry.ENCHANTMENT.getTagValues(EnchantmentTagKeys.IN_ENCHANTING_TABLE);
+                if (!tagged.isEmpty()) {
+                    return tagged;
+                }
+            }
+        } catch (RuntimeException | LinkageError ignored) {
+            // タグ API 未実装/未ロードの環境。下の isTreasure() 経路へ落ちる。
+            // ここで全走査へ fail-open してはいけない(それが元のバグそのもの)。
+        }
+        List<Enchantment> pool = new ArrayList<>();
+        for (Enchantment candidate : Registry.ENCHANTMENT) {
+            if (!candidate.isTreasure()) {
+                pool.add(candidate);
+            }
+        }
+        return pool;
+    }
+
+    /**
+     * {@code pool} から、{@code item} に付けられて既存エンチャントと衝突しないものを1つ等確率で選ぶ。
+     *
+     * <p>母集団を引数で受けるのはテスト用の seam: MockBukkit がタグ API を未実装なので、
+     * タグ経路の母集団はテストから直接渡す(でないとタグ解決の時点で
+     * {@code UnimplementedOperationException} → SKIPPED に化けてテストが素通りする)。
+     */
+    static Enchantment pickCompatibleEnchant(Iterable<Enchantment> pool, ItemStack item,
+                                             Map<Enchantment, Integer> already, Random random) {
         if (item == null) {
             return null;
         }
         List<Enchantment> candidates = new ArrayList<>();
-        for (Enchantment candidate : Registry.ENCHANTMENT) {
+        for (Enchantment candidate : pool) {
             if (already.containsKey(candidate) || !candidate.canEnchantItem(item)) {
                 continue;
             }

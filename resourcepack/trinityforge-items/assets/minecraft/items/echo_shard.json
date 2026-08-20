@@ -8,6 +8,13 @@
     },
     "entries": [
       {
+        "threshold": 5452,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/reality_thread_core"
+        }
+      },
+      {
         "threshold": 100081,
         "model": {
           "model": "minecraft:item/echo_shard",
@@ -19,6 +26,20 @@
         "model": {
           "type": "minecraft:model",
           "model": "trinityforge:item/warden_tendril"
+        }
+      },
+      {
+        "threshold": 100083,
+        "model": {
+          "model": "minecraft:item/echo_shard",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 100084,
+        "model": {
+          "model": "minecraft:item/echo_shard",
+          "type": "minecraft:model"
         }
       }
     ]

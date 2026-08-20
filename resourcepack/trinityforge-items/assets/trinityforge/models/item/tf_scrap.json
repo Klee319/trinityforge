@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/iron_nugget",
+  "textures": {
+    "layer0": "trinityforge:item/tf_scrap"
+  }
+}

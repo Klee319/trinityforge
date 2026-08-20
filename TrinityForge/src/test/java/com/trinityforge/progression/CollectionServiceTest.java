@@ -106,6 +106,44 @@ class CollectionServiceTest {
         assertEquals(List.of("bronze"), data.claimedCollectionTiers());
     }
 
+    /**
+     * 解放通知の title は collection.yml 由来で MiniMessage 記法を持つ(出荷値に
+     * {@code <aqua>記録者</aqua>} 等)。{@code Component.text()} に渡していたため、実サーバの
+     * チャットに <b>タグがそのまま出ていた</b>(2026-08-04 報告)。
+     */
+    @Test
+    void tierAnnouncementRendersMiniMessageInsteadOfShowingRawTags(@TempDir File dir)
+            throws IOException {
+        CollectionConfig config = loadedConfig(dir, """
+                enabled: true
+                reward-tiers:
+                  scribe:
+                    threshold: 1
+                    title: "<aqua>記録者</aqua>"
+                """);
+        CollectionService service = new CollectionService(config, LOG);
+        org.mockbukkit.mockbukkit.entity.PlayerMock player = server.addPlayer();
+        player.nextComponentMessage(); // 参加メッセージ等を捨てる
+
+        service.record(player, Set.of(CollectionService.itemEntryId("core_ember")));
+
+        String seen = null;
+        for (net.kyori.adventure.text.Component msg = player.nextComponentMessage();
+                msg != null; msg = player.nextComponentMessage()) {
+            String plain = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
+                    .plainText().serialize(msg);
+            if (plain.contains("コレクション報酬解放")) {
+                seen = plain;
+                break;
+            }
+        }
+
+        assertTrue(seen != null, "コレクション報酬解放の通知が飛んでいない");
+        assertTrue(seen.contains("記録者"), "称号名が出ていない: " + seen);
+        assertTrue(!seen.contains("<aqua>") && !seen.contains("</aqua>"),
+                "MiniMessage タグが生のまま表示されている: " + seen);
+    }
+
     @Test
     void disabledConfigRecordsNothing(@TempDir File dir) throws IOException {
         CollectionConfig config = loadedConfig(dir, "enabled: false");
@@ -247,5 +285,154 @@ class CollectionServiceTest {
         assertEquals(1, service.record(player, Set.of(CollectionService.itemEntryId("core_ember"))));
 
         org.mockito.Mockito.verifyNoInteractions(applier);
+    }
+
+    /**
+     * 遡り登録 (2026-07-31, K-11): {@code announce=false} では 1件ごとの「図鑑に登録」チャットも、
+     * {@code broadcast: true} のサーバー全体告知も出さない。報酬(claimed への記録)は通常どおり行う。
+     *
+     * <p>K-11(素のバニラ品が1件も記録されていなかった)の修正で、既存プレイヤーの参加時に
+     * 最大16件が一括登録される。通知したままだと t3(60)/t4(120)/t5(200) を跨いだ人数分の
+     * 全体告知が連続発火して事故に見えるため、遡り分だけ黙らせる口を入れた。
+     *
+     * <p><b>全体告知に落ちていないことをどう確かめているか</b>: MockBukkit の
+     * {@code Bukkit.getServer().sendMessage(Component)} は<b>未実装</b>で
+     * {@code UnimplementedOperationException} を投げる(このテストを書く過程で実測)。つまり
+     * 抑止が壊れて broadcast 経路へ入った瞬間にテストは例外で中断し、
+     * {@code UnintendedSkipGuardListener} がそれをビルド失敗に変える。加えて本人通知
+     * ({@code player.sendMessage}) は else 側にしか無いので、「本人が受け取っている」こと自体が
+     * 非broadcast経路を通った証拠になる。逆向き(broadcast: true が実際に全体告知になること)は
+     * MockBukkit では実行できないため、ここでは固定できない。
+     */
+    @Test
+    void retroactiveRecordSuppressesEntryChatAndTierBroadcast(@TempDir File dir) throws IOException {
+        CollectionConfig config = loadedConfig(dir, """
+                enabled: true
+                reward-tiers:
+                  bronze:
+                    threshold: 1
+                    title: "駆け出し収集家"
+                    broadcast: true
+                """);
+        CollectionService service = new CollectionService(config, LOG);
+        Player player = server.addPlayer();
+        drainMessages(player);
+
+        assertEquals(1, service.record(player,
+                java.util.Map.of(CollectionService.itemEntryId("core_ember"), 0), false));
+
+        assertEquals(List.of("bronze"), PlayerData.of(player).claimedCollectionTiers(),
+                "通知を抑止しても報酬ティアの解放そのものは通常どおり行う");
+        List<String> messages = allMessages(player);
+        assertTrue(messages.stream().noneMatch(m -> m.contains("図鑑に登録")),
+                "遡り登録では1件ごとのチャットを出さない(最大16行流れる)");
+        assertTrue(messages.stream().anyMatch(m -> m.contains("コレクション報酬解放")),
+                "報酬が付与された事実は本人にだけ伝える(黙って称号が増えると理由が分からない)");
+        assertTrue(messages.stream().noneMatch(m -> m.contains(player.getName())),
+                "全体告知フォーマット(\"<name> が...\")が本人の受信箱にも来ていないこと");
+    }
+
+    @Test
+    void normalRecordStillAnnouncesEachNewEntry(@TempDir File dir) throws IOException {
+        // 遡りでない通常経路(拾得・インベントリ操作)は従来どおり通知する。
+        // broadcast は書かない(既定 false): MockBukkit は Server#sendMessage(Component) が
+        // 未実装なので、全体告知そのものはテストから実行できない。
+        CollectionConfig config = loadedConfig(dir, """
+                enabled: true
+                reward-tiers:
+                  bronze:
+                    threshold: 1
+                    title: "駆け出し収集家"
+                """);
+        CollectionService service = new CollectionService(config, LOG);
+        Player player = server.addPlayer();
+        drainMessages(player);
+
+        assertEquals(1, service.record(player, Set.of(CollectionService.itemEntryId("core_ember"))));
+
+        List<String> messages = allMessages(player);
+        assertTrue(messages.stream().anyMatch(m -> m.contains("図鑑に登録")),
+                "通常の新規登録は1件ごとに通知する");
+        assertTrue(messages.stream().anyMatch(m -> m.contains("コレクション報酬解放")),
+                "ティア解放も通常どおり通知する");
+    }
+
+    /**
+     * 敵対的レビュー指摘4(2026-08-02)の回帰ガード: {@code draft: true} の catalog ID は
+     * {@link CollectionService#progress} の分母(候補集合)から除外され、100%到達を妨げないこと。
+     * {@code collection.yml} 側のカテゴリ列挙は draft ID を含んだままでよい(消してはいけない仕様)。
+     */
+    @Test
+    void progressExcludesDraftItemsFromDenominatorWhenItemResolverInjected(@TempDir File dir) throws IOException {
+        CollectionConfig config = loadedConfig(dir, """
+                enabled: true
+                categories:
+                  items:
+                    weapons:
+                      display-name: "武器"
+                      order: 1
+                      entries:
+                        - core_ember
+                        - draft_sword
+                """);
+        CrossPluginItemResolver itemResolver = mock(CrossPluginItemResolver.class);
+        when(itemResolver.isDraft("core_ember")).thenReturn(false);
+        when(itemResolver.isDraft("draft_sword")).thenReturn(true);
+        CollectionService service = new CollectionService(config, LOG, itemResolver, null);
+        Player player = server.addPlayer();
+
+        int[] scopeAll = service.progress(player, "all", List.of());
+        assertEquals(1, scopeAll[1],
+                "draft アイテムが scope:all の分母に残っている(=100%へ永久に到達できない)");
+
+        int[] scopeCategory = service.progress(player, "category", List.of("weapons"));
+        assertEquals(1, scopeCategory[1], "draft アイテムが scope:category の分母に残っている");
+
+        int[] scopeItem = service.progress(player, "item", List.of("core_ember", "draft_sword"));
+        assertEquals(1, scopeItem[1], "draft アイテムが scope:item の分母に残っている");
+
+        // 実際に core_ember を所持していれば1/1=100%になる(母数が縮んだことの直接証拠)。
+        assertEquals(1, service.record(player, java.util.Map.of(CollectionService.itemEntryId("core_ember"), 0)));
+        int[] afterRecord = service.progress(player, "all", List.of());
+        assertEquals(1, afterRecord[0]);
+        assertEquals(1, afterRecord[1]);
+    }
+
+    /**
+     * itemResolver 未注入(既存の2引数コンストラクタ)では draft 判定ができないため、
+     * 従来どおり無条件で候補に含める(fail-open、既存呼び出し側の挙動を変えない)。
+     */
+    @Test
+    void progressIncludesAllItemsWhenItemResolverNotInjected(@TempDir File dir) throws IOException {
+        CollectionConfig config = loadedConfig(dir, """
+                enabled: true
+                categories:
+                  items:
+                    weapons:
+                      display-name: "武器"
+                      order: 1
+                      entries:
+                        - core_ember
+                        - draft_sword
+                """);
+        CollectionService service = new CollectionService(config, LOG);
+        Player player = server.addPlayer();
+
+        int[] scopeAll = service.progress(player, "all", List.of());
+        assertEquals(2, scopeAll[1], "itemResolver未注入では draft 判定できないため除外しない");
+    }
+
+    private static void drainMessages(Player player) {
+        allMessages(player);
+    }
+
+    /** PlayerMock の受信箱を空になるまで読み切る。 */
+    private static List<String> allMessages(Player player) {
+        List<String> out = new java.util.ArrayList<>();
+        String message;
+        while ((message = ((org.mockbukkit.mockbukkit.entity.PlayerMock) player).nextMessage()) != null) {
+            out.add(message);
+        }
+        return out;
     }
 }

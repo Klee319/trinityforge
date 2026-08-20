@@ -1,7 +1,6 @@
 package com.trinityforge.config.domains;
 
 import com.trinityforge.mobs.DungeonGate;
-import org.bukkit.Material;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 
@@ -38,26 +37,55 @@ class DungeonGateConfigTest {
 
         DungeonGate crypt = result.gatesByWorld().get("dungeon_crypt");
         assertEquals(40, crypt.requiredCombatLevel());
-        assertEquals(Material.TRIPWIRE_HOOK, crypt.keyMaterial());
+        assertEquals("TRIPWIRE_HOOK", crypt.keyItem());
         assertEquals(2, crypt.keyAmount());
         assertTrue(crypt.keyRequired());
 
         DungeonGate open = result.gatesByWorld().get("dungeon_open");
         assertEquals(10, open.requiredCombatLevel());
-        assertNull(open.keyMaterial());
+        assertNull(open.keyItem());
         assertFalse(open.keyRequired());
     }
 
     @Test
-    void unknownKeyMaterialKeepsLevelGate() throws Exception {
+    void keyItemTakesPrecedenceOverLegacyKeyMaterial() throws Exception {
+        // 2026-07-27 カスタムアイテム鍵対応: key-item と旧 key-material が両方あれば key-item が勝つ。
+        DungeonGate gate = parse("""
+                gates:
+                  dungeon_crypt:
+                    required-combat-level: 40
+                    key-item: tf_crypt_sigil
+                    key-material: TRIPWIRE_HOOK
+                """).gatesByWorld().get("dungeon_crypt");
+        assertEquals("tf_crypt_sigil", gate.keyItem());
+    }
+
+    @Test
+    void legacyKeyMaterialAloneStillLoads() throws Exception {
+        // 後方互換: key-item が無ければ旧 key-material をそのまま keyItem として読む。
+        DungeonGate gate = parse("""
+                gates:
+                  dungeon_crypt:
+                    required-combat-level: 40
+                    key-material: TRIPWIRE_HOOK
+                """).gatesByWorld().get("dungeon_crypt");
+        assertEquals("TRIPWIRE_HOOK", gate.keyItem());
+        assertTrue(gate.keyRequired());
+    }
+
+    @Test
+    void customCatalogKeyItemLoadsAsPlainString() throws Exception {
+        // 2026-07-27: key-item はカタログID/ArsPaper IDでもよい。config ロード時点では解決せず、文字列
+        // をそのまま保持する(解決は実行時の GateKeyMatcher に委ねる)。
         DungeonGate gate = parse("""
                 gates:
                   d:
                     required-combat-level: 5
-                    key-material: NOT_A_REAL_ITEM
+                    key-item: tf_core_meat
                 """).gatesByWorld().get("d");
         assertEquals(5, gate.requiredCombatLevel());
-        assertNull(gate.keyMaterial()); // unknown material -> no key gate; level gate remains
+        assertEquals("tf_core_meat", gate.keyItem());
+        assertTrue(gate.keyRequired());
     }
 
     @Test
@@ -87,6 +115,76 @@ class DungeonGateConfigTest {
         assertFalse(gate.region().contains("other_world", 1300, 60, -200));
         // 移動チェック用インデックスは region.world 名で引く(ゲート名ではない)。
         assertEquals(1, result.regionGatesByWorld().get("world").size());
+    }
+
+    @Test
+    void parsesEntryLocationWithExplicitWorld() throws Exception {
+        // 2026-07-27 鍵アイテムGUI入場対応。
+        DungeonGate gate = parse("""
+                gates:
+                  dungeon_sanctum:
+                    required-combat-level: 0
+                    entry-location:
+                      world: instance_world
+                      x: 100.5
+                      y: 64.0
+                      z: -20.5
+                      yaw: 90.0
+                      pitch: 10.0
+                """).gatesByWorld().get("dungeon_sanctum");
+        assertTrue(gate.hasEntryLocation());
+        assertEquals("instance_world", gate.entryLocation().world());
+        assertEquals(100.5, gate.entryLocation().x());
+        assertEquals(64.0, gate.entryLocation().y());
+        assertEquals(-20.5, gate.entryLocation().z());
+        assertEquals(90.0f, gate.entryLocation().yaw());
+        assertEquals(10.0f, gate.entryLocation().pitch());
+    }
+
+    @Test
+    void entryLocationDefaultsWorldToGateId() throws Exception {
+        DungeonGate gate = parse("""
+                gates:
+                  dungeon_sanctum:
+                    required-combat-level: 0
+                    entry-location:
+                      x: 1.0
+                      y: 2.0
+                      z: 3.0
+                """).gatesByWorld().get("dungeon_sanctum");
+        assertTrue(gate.hasEntryLocation());
+        assertEquals("dungeon_sanctum", gate.entryLocation().world());
+        // yaw/pitch省略時は0.0。
+        assertEquals(0.0f, gate.entryLocation().yaw());
+        assertEquals(0.0f, gate.entryLocation().pitch());
+    }
+
+    @Test
+    void entryLocationMissingCoordinateIsIgnoredButGateSurvives() throws Exception {
+        // x/y/zが3つ揃っていないentry-locationは無視され警告のみ(ゲート自体はskipped扱いにしない)。
+        DungeonGateConfig.ParseResult result = parse("""
+                gates:
+                  dungeon_sanctum:
+                    required-combat-level: 5
+                    entry-location:
+                      x: 1.0
+                      y: 2.0
+                """);
+        assertEquals(0, result.skipped());
+        DungeonGate gate = result.gatesByWorld().get("dungeon_sanctum");
+        assertFalse(gate.hasEntryLocation());
+        assertNull(gate.entryLocation());
+        assertEquals(5, gate.requiredCombatLevel());
+    }
+
+    @Test
+    void noEntryLocationSectionYieldsNullEntryLocation() throws Exception {
+        DungeonGate gate = parse("""
+                gates:
+                  dungeon_open:
+                    required-combat-level: 10
+                """).gatesByWorld().get("dungeon_open");
+        assertFalse(gate.hasEntryLocation());
     }
 
     @Test

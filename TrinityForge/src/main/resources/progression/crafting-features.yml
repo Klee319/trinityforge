@@ -6,24 +6,122 @@
 # 武器コーティング (weapon-coating-unlock / coating-stack-increase)
 # materials: catalog id → 1スタックあたりダメージ / その素材使用時のスタック上限
 
+# 経験値瓶格納 (xp-bottle-store-unlock)
+# エンチャントツリーの EXPフリーザー(feature:xp-bottle-store-unlock)で解放される機能。
+# tier は解放段階(未解放者/tiers未定義時はグローバル既定値 store-amount/return-rate へフォールバック)。
+# 2026-08-15: stats/fishing-gimmick.yml から移設(釣りとは無関係な設定がそちらに置かれていたため)。
+xp-bottle-store:
+  store-amount: 100
+  return-rate: 0.5
+  tiers:
+    "1":
+      store-amount: 200
+      return-rate: 0.6
+    "2":
+      store-amount: 300
+      return-rate: 0.7
+    "3":
+      store-amount: 400
+      return-rate: 0.8
+
 coating:
   base-max-stacks: 3
   materials:
     source_gem:
-      bonus-damage: 2
-      max-stacks: 3
+      bonus-damage: 10
+      max-stacks: 10
+    source_gem_block_1x:
+      bonus-damage: 90
+      max-stacks: 10
 wood-repair:
   materials:
-    compressed_wood_1x:
+    oak_wood_1x:
       durability: 200
+      quick-repair: true
+    oak_wood_2x:
+      durability: 1800
+      quick-repair: true
+    birch_wood_1x:
+      durability: 200
+      quick-repair: true
+    birch_wood_2x:
+      durability: 1800
+      quick-repair: true
+    spruce_wood_1x:
+      durability: 200
+      quick-repair: true
+    spruce_wood_2x:
+      durability: 1800
+      quick-repair: true
+    jungle_wood_1x:
+      durability: 200
+      quick-repair: true
+    jungle_wood_2x:
+      durability: 1800
+      quick-repair: true
+    acacia_wood_1x:
+      durability: 200
+      quick-repair: true
+    acacia_wood_2x:
+      durability: 1800
+      quick-repair: true
+    dark_oak_wood_1x:
+      durability: 200
+      quick-repair: true
+    dark_oak_wood_2x:
+      durability: 1800
+      quick-repair: true
+    mangrove_wood_1x:
+      durability: 200
+      quick-repair: true
+    mangrove_wood_2x:
+      durability: 1800
+      quick-repair: true
+    pale_oak_wood_1x:
+      durability: 200
+      quick-repair: true
+    pale_oak_wood_2x:
+      durability: 1800
+      quick-repair: true
+    cherry_blossom_wood_1x:
+      durability: 200
+      quick-repair: true
+    cherry_blossom_wood_2x:
+      durability: 1800
+      quick-repair: true
+    # 3x（27倍圧縮）の9種。2026-08-15 の db6d4b1 が「xp-bottle-store を移す」コミットの
+    # ついでに黙って削除していたぶんを復旧した（2026-08-18 / W-109）。
+    # 耐久 16200 = 1800 × 9 で 1x→2x→3x の等比を保つ。
+    oak_wood_3x:
+      durability: 16200
+      quick-repair: true
+    birch_wood_3x:
+      durability: 16200
+      quick-repair: true
+    spruce_wood_3x:
+      durability: 16200
+      quick-repair: true
+    jungle_wood_3x:
+      durability: 16200
+      quick-repair: true
+    acacia_wood_3x:
+      durability: 16200
+      quick-repair: true
+    dark_oak_wood_3x:
+      durability: 16200
+      quick-repair: true
+    mangrove_wood_3x:
+      durability: 16200
+      quick-repair: true
+    pale_oak_wood_3x:
+      durability: 16200
+      quick-repair: true
+    cherry_blossom_wood_3x:
+      durability: 16200
       quick-repair: true
 disassembly:
   percent-per-level: 25
   items:
-    wooden_*:
-      - input: list:planks
-        output: custom:plank_scrap
-        multiplier: 2
     copper_*:
       - input: COPPER_INGOT
         output: custom:copper_ingot_scrap
@@ -52,121 +150,272 @@ disassembly:
       - input: TURTLE_SCUTE
         output: custom:turtle_scute_scrap
         multiplier: 2
+  tiers:
+    "1":
+      percent: 10
+    "2":
+      percent: 30
+    "3":
+      percent: 50
+scrap-conversion:
+  tf_scrap:
+    base-amount: 4
+    outputs:
+      - item: custom:copper_ingot_scrap
+        weight: 25
+      - item: custom:iron_ingot_scrap
+        weight: 25
+      - item: custom:leather_scrap
+        weight: 20
+      - item: custom:gold_ingot_scrap
+        weight: 12
+      - item: custom:turtle_scute_scrap
+        weight: 5
+      - item: custom:diamond_scrap
+        weight: 5
+      - item: custom:netherite_ingot_scrap
+        weight: 1
 potion-merge:
   max-effects: 5
   max-duration-seconds: 960
-  # tier別設定(任意、2026-07-26): 未記載なら上のグローバル既定値がそのまま全員に使われる(完全後方互換)。
-  # tierはスキルツリーのノード value から決まる(feature:potion-merge は SCALE、
-  # value省略時はtier1が自動補完されるため既存の単一解放ノードは無改変で従来どおり動作する)。
-  # tiers:
-  #   1: { max-effects: 5, max-duration-seconds: 960 }
-  #   2: { max-effects: 7, max-duration-seconds: 1200 }
+  tiers:
+    "1":
+      max-effects: 2
+      max-duration-seconds: 1200
+    "2":
+      max-effects: 3
+      max-duration-seconds: 1800
 brew-unlocks:
   swiftness-jump:
     potions:
-      - base: AWKWARD
+      - base: THICK
         ingredient: SUGAR
         result:
           type: SPEED
           duration: 3600
-          amplifier: 0
-      - base: AWKWARD
+          amplifier: 2
+      - base: THICK
         ingredient: RABBIT_FOOT
         result:
           type: JUMP_BOOST
           duration: 3600
-          amplifier: 0
+          amplifier: 2
   healthboost-haste:
     potions:
-      - base: AWKWARD
+      - base: THICK
         ingredient: GLISTERING_MELON_SLICE
         result:
           type: HEALTH_BOOST
           duration: 3600
           amplifier: 0
-      - base: AWKWARD
+      - base: THICK
         ingredient: GOLDEN_CARROT
         result:
           type: HASTE
           duration: 3600
           amplifier: 0
+  healthboost-haste-2:
+    potions:
+      - base: MUNDANE
+        ingredient: GLISTERING_MELON_SLICE
+        result:
+          type: HEALTH_BOOST
+          duration: 3600
+          amplifier: 1
+      - base: MUNDANE
+        ingredient: GOLDEN_CARROT
+        result:
+          type: HASTE
+          duration: 3600
+          amplifier: 1
+      - base: MUNDANE
+        ingredient: custom:ravager_hide
+        result:
+          type: RESISTANCE
+          duration: 3600
+          amplifier: 1
+  hunter-hex:
+    potions:
+      - base: THICK
+        ingredient: custom:witch_elixir
+        result:
+          type: WEAKNESS
+          duration: 3600
+          amplifier: 2
+      - base: THICK
+        ingredient: custom:endermite_soot
+        result:
+          type: BLINDNESS
+          duration: 1200
+          amplifier: 0
+      - base: THICK
+        ingredient: custom:stray_cloth
+        result:
+          type: SLOWNESS
+          duration: 1800
+          amplifier: 2
+      - base: THICK
+        ingredient: custom:piglin_ear
+        result:
+          type: NAUSEA
+          duration: 1200
+          amplifier: 0
+  luck:
+    effect: ""
+    potions:
+      - base: MUNDANE
+        ingredient: GOLDEN_APPLE
+        result:
+          type: LUCK
+          duration: 1200
+          amplifier: 0
+      - base: MUNDANE
+        ingredient: custom:tf_crystal_apple
+        result:
+          type: LUCK
+          duration: 3600
+          amplifier: 1
+  healing:
+    effect: ""
+    potions:
+      - base: THICK
+        ingredient: custom:sweet_berries_2x
+        result:
+          type: INSTANT_HEALTH
+          duration: 3600
+          amplifier: 2
+      - base: THICK
+        ingredient: custom:bogged_mossy_bone
+        result:
+          type: REGENERATION
+          duration: 3600
+          amplifier: 2
 over-enchant:
-  lv1:
+  alpha-1:
     enchants:
       SHARPNESS: 6
       SMITE: 6
       BANE_OF_ARTHROPODS: 6
       POWER: 6
       IMPALING: 6
+      DENSITY: 6
+  beta-1:
+    enchants:
       PROTECTION: 5
-      BLAST_PROTECTION: 5
-      PROJECTILE_PROTECTION: 5
       FIRE_PROTECTION: 5
       FEATHER_FALLING: 5
+      PROJECTILE_PROTECTION: 5
+      BLAST_PROTECTION: 5
+  gamma-1:
+    enchants:
       EFFICIENCY: 6
-      FORTUNE: 4
-  lv2:
+      UNBREAKING: 4
+      DEPTH_STRIDER: 4
+      LURE: 4
+  alpha-2:
     enchants:
       SHARPNESS: 7
       SMITE: 7
+      IMPALING: 7
       BANE_OF_ARTHROPODS: 7
       POWER: 7
-      IMPALING: 7
+      DENSITY: 7
+  beta-2:
+    enchants:
       PROTECTION: 6
+      FEATHER_FALLING: 6
+      FIRE_PROTECTION: 6
       BLAST_PROTECTION: 6
       PROJECTILE_PROTECTION: 6
-      FIRE_PROTECTION: 6
-      FEATHER_FALLING: 6
+      THORNS: 5
+  gamma-2:
+    enchants:
       EFFICIENCY: 7
       FORTUNE: 5
-  lv3:
-    enchants:
-      SHARPNESS: 8
-      SMITE: 8
-      BANE_OF_ARTHROPODS: 8
-      POWER: 8
-      IMPALING: 8
-      PROTECTION: 7
-      BLAST_PROTECTION: 7
-      PROJECTILE_PROTECTION: 7
-      FIRE_PROTECTION: 7
-      FEATHER_FALLING: 7
-      EFFICIENCY: 8
-      FORTUNE: 6
-# エンチャントテーブルの「本棚パワー」config化(2026-07-26新設)
-# バニラ仕様: エンチャントテーブル周囲の本棚(規定の配置)は最大15個までがエンチャントパワーとして
-# 有効(Bukkit/Paper API の PrepareItemEnchantEvent#getEnchantmentBonus() が返す値)。
-# バニラでは本棚15個で頭打ちになり、それ以上置いても効果は増えない。この「15」という上限と
-# 「本棚1個=パワー1」という係数を、ここで調整できるようにする。
-#
-# 既定値(max-bookshelves: 15, power-per-bookshelf: 1.0)ではバニラ実効パワーと完全に一致するため、
-# 挙動は一切変化しない(EnchantCostReductionListener が本棚パワー由来の補正倍率=1.0のときは
-# 何も書き換えずに終わる)。
-#
-# 注意: 上限を極端に上げる/係数を大きくすると、少ない本棚数でも高コスト・高レベルの提示が
-# 出やすくなり、エンチャントが簡単になりすぎる。バランス調整は慎重に。
+      LOOTING: 5
+      LUCK_OF_THE_SEA: 5
+      DEPTH_STRIDER: 5
+      LURE: 5
+      UNBREAKING: 5
+      FROST_WALKER: 3
+      RIPTIDE: 6
 enchant-bookshelf-power:
-  # 考慮する本棚の最大数。バニラ既定は15(これを超えて本棚を置いても本来は無効)。
   max-bookshelves: 15
-  # 本棚1個あたりのエンチャントパワー係数。バニラは常に1.0固定(本棚1個=パワー1)。
-  power-per-bookshelf: 1.0
+  power-per-bookshelf: 0.7
 thread-slots:
   max-by-category:
     armor: 5
-    weapon: 0
-    tool: 0
-    other: 0
-removed-vanilla-recipes:
-  - minecraft:wooden_axe
-  - minecraft:stone_axe
-  - minecraft:copper_axe
-  - minecraft:iron_axe
-  - minecraft:golden_axe
-  - minecraft:diamond_axe
-  - minecraft:netherite_axe_smithing
+    weapon: 5
+    tool: 5
+    other: 5
+recipe-book:
+  reveal-plugin-recipes: true
+  hide-locked-recipes: true
+removed-vanilla-recipes: []
 removed-vanilla-items:
-  # 2026-07-25: 修繕本の入手経路遮断だけでは、チェスト戦利品/村人取引で生成される「修繕付きの防具/
-  # 道具そのもの」(material が ENCHANTED_BOOK ではない)を見逃していた。ANY:<enchant> はワイルドカード
-  # (全material対象、enchant一致のみで判定)— 修繕付きのアイテムは種類を問わず生成/入手時点で除去される。
   - ANY:MENDING
 gated-catalog-recipes: {}
+added-recipes:
+  - result: COPPER_INGOT
+    amount: 1
+    method: inventory
+    type: shaped
+    shape:
+      - ii
+      - ii
+    ingredients:
+      i: custom:copper_ingot_scrap
+  - result: IRON_INGOT
+    amount: 1
+    method: inventory
+    type: shaped
+    shape:
+      - ii
+      - ii
+    ingredients:
+      i: custom:iron_ingot_scrap
+  - result: GOLD_INGOT
+    amount: 1
+    method: inventory
+    type: shaped
+    shape:
+      - ii
+      - ii
+    ingredients:
+      i: custom:gold_ingot_scrap
+  - result: DIAMOND
+    amount: 1
+    method: inventory
+    type: shaped
+    shape:
+      - ii
+      - ii
+    ingredients:
+      i: custom:diamond_scrap
+  - result: NETHERITE_INGOT
+    amount: 1
+    method: inventory
+    type: shaped
+    shape:
+      - ii
+      - ii
+    ingredients:
+      i: custom:netherite_ingot_scrap
+  - result: LEATHER
+    amount: 1
+    method: inventory
+    type: shaped
+    shape:
+      - ii
+      - ii
+    ingredients:
+      i: custom:leather_scrap
+  - result: TURTLE_SCUTE
+    amount: 1
+    method: inventory
+    type: shaped
+    shape:
+      - ii
+      - ii
+    ingredients:
+      i: custom:turtle_scute_scrap

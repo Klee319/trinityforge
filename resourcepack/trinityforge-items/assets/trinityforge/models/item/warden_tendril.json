@@ -1,5 +1,5 @@
 {
-  "parent": "minecraft:item/generated",
+  "parent": "minecraft:item/echo_shard",
   "textures": {
     "layer0": "trinityforge:item/warden_tendril"
   }

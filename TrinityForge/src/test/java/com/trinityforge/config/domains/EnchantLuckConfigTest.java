@@ -60,7 +60,8 @@ class EnchantLuckConfigTest {
 
         EnchantLuckConfig config = new EnchantLuckConfig();
         assertTrue(config.domain().load(fakePlugin(tempDir)), "bundled enchant-luck.yml must parse without validation issues");
-        assertEquals(0.01, config.levelBoostChancePerLuck());
+        // 出荷値。2026-07-30 に 0.01 -> 0.02 へ引き上げ(overenchant-bonus-chance-per-luck と同値に揃えた)。
+        assertEquals(0.02, config.levelBoostChancePerLuck());
     }
 
     @Test

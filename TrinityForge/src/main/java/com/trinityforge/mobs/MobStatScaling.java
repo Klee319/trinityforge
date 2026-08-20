@@ -41,8 +41,23 @@ public final class MobStatScaling {
      */
     public static double scaleMaxHealth(double baseMaxHealth, double maxHealthCoeff,
                                         double growth, double growthInterval, int effectiveLevel) {
+        return scaleMaxHealth(baseMaxHealth, maxHealthCoeff, growth, growthInterval,
+                Double.POSITIVE_INFINITY, 0.0, effectiveLevel);
+    }
+
+    /**
+     * Same as the 5-arg overload but also applies {@link ConversionPolicy.Ramp}'s high-level
+     * breakpoint (2026-08-03, 45+難易度修正): {@code + highLevelPerLevel * (level - highLevelFrom)}
+     * for {@code level >= highLevelFrom}. {@code highLevelFrom = Double.POSITIVE_INFINITY} (the 5-arg
+     * overload's implicit default) never triggers, so existing callers are unaffected.
+     */
+    public static double scaleMaxHealth(double baseMaxHealth, double maxHealthCoeff,
+                                        double growth, double growthInterval,
+                                        double highLevelFrom, double highLevelPerLevel,
+                                        int effectiveLevel) {
         int level = Math.max(0, effectiveLevel);
-        ConversionPolicy.Ramp ramp = new ConversionPolicy.Ramp(baseMaxHealth, maxHealthCoeff, growth, growthInterval);
+        ConversionPolicy.Ramp ramp = new ConversionPolicy.Ramp(baseMaxHealth, maxHealthCoeff, growth,
+                growthInterval, highLevelFrom, highLevelPerLevel);
         return Math.max(1.0, ramp.at(level));
     }
 
@@ -66,7 +81,10 @@ public final class MobStatScaling {
                 base.critDamage() + coeffs.critDamage() * level,
                 base.penetration() + coeffs.penetration() * level,
                 base.damageModifier() + coeffs.damageModifier() * level,
-                base.fixedDamage() + coeffs.fixedDamage() * level);
+                base.fixedDamage() + coeffs.fixedDamage() * level,
+                // magic-ratio はレベルで伸びる「量」ではなく攻撃の「型」の分類なので、
+                // 他の係数と違いレベル係数を持たず base の値をそのまま通す(2026-08-02)。
+                base.magicRatio());
     }
 
 }

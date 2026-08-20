@@ -12,8 +12,68 @@ require("../public/js/gate-effects.js");
 const {
   parseGateEffectId, parseDropTarget, isLegacyGateEffectId,
   gateEffectTypeLabel, isUniqueGateEffectType, computeDuplicateGateEffectIds,
-  resolveFeatureValueEdit
+  computeDuplicateGateEffectLocations, gateEffectDuplicateKey, resolveFeatureValueEdit,
+  normalizeRecipeGateTarget, gateChannelMismatch
 } = global.window.GATE_EFFECTS;
+
+// --- 2026-08-16 追加分 ---------------------------------------------------------
+
+test("バニラMaterial形式のレシピゲート対象は小文字へ正規化する", () => {
+  // 実行時のゲートキーはレシピキーの path(小文字)。大文字のままだと一致せず無言で効かない。
+  assert.equal(normalizeRecipeGateTarget("DIAMOND_SWORD"), "diamond_sword");
+  assert.equal(normalizeRecipeGateTarget(" NETHERITE_PICKAXE "), "netherite_pickaxe");
+  // カタログID / Ars のエントリIDは元から小文字なので触らない。
+  assert.equal(normalizeRecipeGateTarget("core_wood"), "core_wood");
+  assert.equal(normalizeRecipeGateTarget("tf_core_dirt"), "tf_core_dirt");
+  // 大文字小文字が混ざっているものは判断できないので触らない(勝手に壊さない)。
+  assert.equal(normalizeRecipeGateTarget("Waystone"), "Waystone");
+  assert.equal(normalizeRecipeGateTarget(null), "");
+});
+
+test("recipe:/ritual: のチャンネル取り違えを検出する", () => {
+  const vocab = { recipes: ["core_wood"], rituals: ["waystone", "enchant_book_share"] };
+
+  const misplacedRitual = gateChannelMismatch("recipe", "waystone", vocab);
+  assert.equal(misplacedRitual.correct, "ritual");
+  assert.match(misplacedRitual.message, /常時解放/);
+
+  const misplacedRecipe = gateChannelMismatch("ritual", "core_wood", vocab);
+  assert.equal(misplacedRecipe.correct, "recipe");
+
+  // 正しいチャンネル、語彙に無いID、空はいずれも警告しない。
+  assert.equal(gateChannelMismatch("recipe", "core_wood", vocab), null);
+  assert.equal(gateChannelMismatch("ritual", "waystone", vocab), null);
+  assert.equal(gateChannelMismatch("recipe", "unknown_id", vocab), null);
+  assert.equal(gateChannelMismatch("recipe", "", vocab), null);
+
+  // 両方に載っているID(workbench と ritual の両レシピを持つ)はどちらでも正しい。
+  const both = { recipes: ["source_gem_block"], rituals: ["source_gem_block"] };
+  assert.equal(gateChannelMismatch("recipe", "source_gem_block", both), null);
+  assert.equal(gateChannelMismatch("ritual", "source_gem_block", both), null);
+});
+
+test("一回性の解放効果の重複はツリーをまたいでも検出する", () => {
+  // 2026-08-16以前は開いている1ファイルしか見ておらず、alchemy と ars_magic に同じ
+  // glyph:snare が置かれていたのを editor は一度も表示できなかった。
+  const nodes = { "C-1": { "dedicated-effects": [{ id: "glyph:snare" }] } };
+  const others = [{ id: "glyph:snare", where: "スキル: Ars魔法/B-1-2" }];
+
+  assert.equal(computeDuplicateGateEffectIds(nodes).has("glyph:snare"), false,
+    "他ツリーを渡さなければ従来どおりファイル内だけの判定");
+  assert.equal(computeDuplicateGateEffectIds(nodes, others).has("glyph:snare"), true);
+
+  const where = computeDuplicateGateEffectLocations(nodes, others, "スキル: 錬金").get("glyph:snare");
+  assert.deepEqual(where, ["スキル: 錬金/C-1", "スキル: Ars魔法/B-1-2"]);
+});
+
+test("ツリーをまたぐ判定でも feature は tier 違いを別物として扱う", () => {
+  const nodes = { A: { "dedicated-effects": [{ id: "feature:vein-mining", value: 1 }] } };
+  const others = [{ id: "feature:vein-mining", value: 2, where: "スキル: 切削/B" }];
+  assert.equal(computeDuplicateGateEffectIds(nodes, others).size, 0);
+
+  const same = [{ id: "feature:vein-mining", value: 1, where: "スキル: 切削/B" }];
+  assert.equal(computeDuplicateGateEffectIds(nodes, same).has("feature:vein-mining#1"), true);
+});
 
 test("プレフィックス付きIDを type/target に解析する", () => {
   assert.deepEqual(parseGateEffectId("glyph:blink"), { type: "glyph", target: "blink", raw: "glyph:blink" });
@@ -103,6 +163,71 @@ test("computeDuplicateGateEffectIds: ノード/dedicated-effects欠損でも落�
   assert.equal(computeDuplicateGateEffectIds({}).size, 0);
   assert.equal(computeDuplicateGateEffectIds({ "node-1": {} }).size, 0);
   assert.equal(computeDuplicateGateEffectIds({ "node-1": { "dedicated-effects": "not-array" } }).size, 0);
+});
+
+// ---- 引数(tier)違いを重複と誤判定していたバグ (2026-08-14 実利用報告) ----
+// feature:<id> の value は「そのノードが解放する段階(tier)」であり、Java 側は
+// DedicatedEffectGateIndex#valueMaxByPerks で保持ノードのうち最大の tier を採る。
+// つまり同じ機能を tier 違いで複数ノードに置くのは設計どおりの正しい形で、
+// 「⚠ 重複」を出してはいけない。id だけで数えていたので全部重複扱いになっていた。
+
+test("computeDuplicateGateEffectIds: 同じfeatureでもtierが違えば重複ではない", () => {
+  const nodes = {
+    "node-1": { "dedicated-effects": [{ id: "feature:vein-mining", value: 1 }] },
+    "node-2": { "dedicated-effects": [{ id: "feature:vein-mining", value: 2 }] },
+    "node-3": { "dedicated-effects": [{ id: "feature:vein-mining", value: 3 }] }
+  };
+  assert.equal(computeDuplicateGateEffectIds(nodes).size, 0);
+});
+
+test("computeDuplicateGateEffectIds: 同じfeatureでtierも同じなら重複", () => {
+  const nodes = {
+    "node-1": { "dedicated-effects": [{ id: "feature:vein-mining", value: 2 }] },
+    "node-2": { "dedicated-effects": [{ id: "feature:vein-mining", value: 2 }] }
+  };
+  const dup = computeDuplicateGateEffectIds(nodes);
+  assert.equal(dup.size, 1);
+  assert.ok(dup.has(gateEffectDuplicateKey({ id: "feature:vein-mining", value: 2 })));
+});
+
+test("computeDuplicateGateEffectIds: scaleの空欄(tier1相当)と明示value:1は同じ段階として重複", () => {
+  // FeatureEffectParam#defaultsMissingValue: value キーが無い scale 配置は tier1 として読まれる。
+  const nodes = {
+    "node-1": { "dedicated-effects": [{ id: "feature:vein-mining" }] },
+    "node-2": { "dedicated-effects": [{ id: "feature:vein-mining", value: 1 }] }
+  };
+  assert.equal(computeDuplicateGateEffectIds(nodes).size, 1);
+});
+
+test("computeDuplicateGateEffectIds: feature以外のunique種別はvalueが違っても重複", () => {
+  // glyph/brew/trade/recipe/drop/overenchant/reward は純粋な on/off 解放で value に意味が無い。
+  // 手書き yml に紛れ込んだ value で重複警告が消えてはいけない。
+  const nodes = {
+    "node-1": { "dedicated-effects": [{ id: "glyph:blink", value: 1 }] },
+    "node-2": { "dedicated-effects": [{ id: "glyph:blink", value: 2 }] }
+  };
+  const dup = computeDuplicateGateEffectIds(nodes);
+  assert.equal(dup.size, 1);
+  assert.ok(dup.has("glyph:blink"));
+});
+
+test("gateEffectDuplicateKey: 判定対象外(ars-tier/旧形式/欠損)は null", () => {
+  assert.equal(gateEffectDuplicateKey({ id: "ars-tier", value: 1 }), null);
+  assert.equal(gateEffectDuplicateKey({ id: "blacksmith-unlock" }), null);
+  assert.equal(gateEffectDuplicateKey(null), null);
+  assert.equal(gateEffectDuplicateKey({}), null);
+});
+
+test("gateEffectDuplicateKey: featureはtierまで含み、他種別はidそのまま", () => {
+  assert.equal(gateEffectDuplicateKey({ id: "glyph:blink" }), "glyph:blink");
+  assert.notEqual(
+    gateEffectDuplicateKey({ id: "feature:vein-mining", value: 1 }),
+    gateEffectDuplicateKey({ id: "feature:vein-mining", value: 2 })
+  );
+  assert.equal(
+    gateEffectDuplicateKey({ id: "feature:vein-mining" }),
+    gateEffectDuplicateKey({ id: "feature:vein-mining", value: 1 })
+  );
 });
 
 // resolveFeatureValueEdit: 2026-07-25 アクティブスキルtier常時1固定バグ修正のUI側ロジック。

@@ -184,7 +184,10 @@ class MobLevelTableListenerTest {
                 """);
         ItemStack builtStack = new ItemStack(Material.LEATHER);
         CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
-        when(resolver.create("tf_core_meat")).thenReturn(Optional.of(builtStack));
+        // 2026-08-19 W-130: 品質を渡す3引数版で組むようになったので、stub も3引数で置く。
+        when(resolver.create(org.mockito.ArgumentMatchers.eq("tf_core_meat"),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(Optional.of(builtStack));
         MobLevelTableListener listener = new MobLevelTableListener(
                 config, dungeonWorldRegistry, resolver, new SplittableRandom(0));
 
@@ -199,6 +202,245 @@ class MobLevelTableListenerTest {
     }
 
     @Test
+    void customDropQualityFollowsMobLevel(@TempDir File dir) throws Exception {
+        // 2026-08-19 W-130 回帰: 以前はここで1引数版 create(id) を呼んでいて、あの版は品質を 0 に
+        // 固定する。結果としてスレッド等の品質付きカスタム品が【モブレベルに関係なく必ず劣悪】で
+        // 落ちていた。修正を戻すと捕捉した品質が全部 0 になり、このテストが落ちる。
+        MobLevelTableConfig config = loadedConfig(dir, """
+                tiers:
+                  - min-level: 0
+                    add-drops:
+                      - { material: "custom:tf_core_meat", chance: 1.0, min: 1, max: 1 }
+                """);
+        CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
+        when(resolver.create(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(Optional.of(new ItemStack(Material.LEATHER)));
+
+        com.trinityforge.config.domains.CraftQualityConfig craftQuality =
+                mock(com.trinityforge.config.domains.CraftQualityConfig.class);
+        when(craftQuality.dropEnabled()).thenReturn(true);
+        when(craftQuality.dropStrengthPerQuality()).thenReturn(10);
+        when(craftQuality.dropBaseQuality()).thenReturn(0);
+        com.trinityforge.config.domains.QualityConfig quality =
+                mock(com.trinityforge.config.domains.QualityConfig.class);
+        when(quality.maxQuality()).thenReturn(7);
+        when(quality.spreadUp()).thenReturn(0.5);
+        when(quality.spreadDown()).thenReturn(0.5);
+
+        MobLevelTableListener listener = new MobLevelTableListener(
+                config, dungeonWorldRegistry, resolver, new SplittableRandom(0));
+        listener.setQualityResolver(new com.trinityforge.mobs.MobDropQualityResolver(
+                craftQuality, quality, null, null));
+
+        Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
+        // レベル200 / 10レベルごとに品質1段 ⇒ 中心値20、最大品質7で頭打ち＝ほぼ確実に最高品質。
+        EntityDeathEvent event = deathEventFor(zombie, 200);
+        listener.onDeath(event);
+
+        org.mockito.ArgumentCaptor<Integer> qualityArg = org.mockito.ArgumentCaptor.forClass(Integer.class);
+        org.mockito.Mockito.verify(resolver, org.mockito.Mockito.atLeastOnce())
+                .create(org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyLong(), qualityArg.capture());
+        assertTrue(qualityArg.getAllValues().stream().anyMatch(q -> q > 0),
+                "高レベルモブのカスタムドロップは品質0(劣悪)固定であってはならない: "
+                        + qualityArg.getAllValues());
+    }
+
+    @Test
+    void customDropStaysQualityZeroWhenResolverIsUnwired(@TempDir File dir) throws Exception {
+        // 品質決定器が未配線でもドロップ自体は従来どおり出る(fail-open)。
+        MobLevelTableConfig config = loadedConfig(dir, """
+                tiers:
+                  - min-level: 0
+                    add-drops:
+                      - { material: "custom:tf_core_meat", chance: 1.0, min: 1, max: 1 }
+                """);
+        CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
+        when(resolver.create(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(Optional.of(new ItemStack(Material.LEATHER)));
+        MobLevelTableListener listener = new MobLevelTableListener(
+                config, dungeonWorldRegistry, resolver, new SplittableRandom(0));
+
+        Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
+        EntityDeathEvent event = deathEventFor(zombie, 200);
+        listener.onDeath(event);
+
+        assertEquals(1, event.getDrops().size());
+        assertEquals(Material.LEATHER, event.getDrops().get(0).getType());
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // 2026-08-14 フィールドドロップ配線: where(場所) / baby(子供) / chance-by-level(レベル比例確率)
+    // ------------------------------------------------------------------------------------------
+
+    /** {@code where:} 判定用: このテスト内でダンジョン扱いにするワールドを作る。 */
+    private WorldMock dungeonWorld(String name) {
+        WorldMock dungeon = server.addSimpleWorld(name);
+        dungeonWorldRegistry.register(dungeon.getUID());
+        return dungeon;
+    }
+
+    @Test
+    void whereFieldDropsOutsideDungeonsButNotInside(@TempDir File dir) throws Exception {
+        // 討伐素材は「フィールドの該当モブから。ダンジョンモブには適用しない」がユーザー指示。
+        // ダンジョンモブにも MOB_LEVEL は刻まれる(mob-import.yml の synthesize)ので、mobs: だけでは
+        // 絞れない —— ワールドで切れていることをここで固定する。
+        MobLevelTableConfig config = loadedConfig(dir, """
+                tiers:
+                  - min-level: 0
+                    add-drops:
+                      - { material: BONE, chance: 1.0, min: 1, max: 1, mobs: [ZOMBIE], where: field }
+                """);
+        CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
+        MobLevelTableListener listener = new MobLevelTableListener(
+                config, dungeonWorldRegistry, resolver, new SplittableRandom(0));
+
+        Zombie fieldMob = world.spawn(world.getSpawnLocation(), Zombie.class);
+        EntityDeathEvent fieldEvent = deathEventFor(fieldMob, 0);
+        listener.onDeath(fieldEvent);
+        assertEquals(1, fieldEvent.getDrops().size(), "where: field はフィールドで落ちること");
+
+        WorldMock dungeon = dungeonWorld("em_id_the_deep_mines_1");
+        Zombie dungeonMob = dungeon.spawn(dungeon.getSpawnLocation(), Zombie.class);
+        EntityDeathEvent dungeonEvent = deathEventFor(dungeonMob, 0);
+        listener.onDeath(dungeonEvent);
+        assertTrue(dungeonEvent.getDrops().isEmpty(),
+                "where: field はダンジョンインスタンス内では1個も落ちてはいけない");
+    }
+
+    @Test
+    void whereDungeonDropsInsideDungeonsButNotOutside(@TempDir File dir) throws Exception {
+        // ガチャ券【I】は「ダンジョン内のモブに限定」がユーザー指示。
+        MobLevelTableConfig config = loadedConfig(dir, """
+                tiers:
+                  - min-level: 0
+                    add-drops:
+                      - { material: BONE, chance: 1.0, min: 1, max: 1, where: dungeon }
+                """);
+        CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
+        MobLevelTableListener listener = new MobLevelTableListener(
+                config, dungeonWorldRegistry, resolver, new SplittableRandom(0));
+
+        Zombie fieldMob = world.spawn(world.getSpawnLocation(), Zombie.class);
+        EntityDeathEvent fieldEvent = deathEventFor(fieldMob, 0);
+        listener.onDeath(fieldEvent);
+        assertTrue(fieldEvent.getDrops().isEmpty(),
+                "where: dungeon はフィールドでは1個も落ちてはいけない");
+
+        WorldMock dungeon = dungeonWorld("em_id_the_city_1");
+        Zombie dungeonMob = dungeon.spawn(dungeon.getSpawnLocation(), Zombie.class);
+        EntityDeathEvent dungeonEvent = deathEventFor(dungeonMob, 0);
+        listener.onDeath(dungeonEvent);
+        assertEquals(1, dungeonEvent.getDrops().size(), "where: dungeon はダンジョン内で落ちること");
+    }
+
+    @Test
+    void whereOmittedStillDropsEverywhere(@TempDir File dir) throws Exception {
+        // 後方互換: where を書いていない既存エントリの挙動は変わらない。
+        MobLevelTableConfig config = loadedConfig(dir, """
+                tiers:
+                  - min-level: 0
+                    add-drops:
+                      - { material: BONE, chance: 1.0, min: 1, max: 1 }
+                """);
+        CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
+        MobLevelTableListener listener = new MobLevelTableListener(
+                config, dungeonWorldRegistry, resolver, new SplittableRandom(0));
+
+        Zombie fieldMob = world.spawn(world.getSpawnLocation(), Zombie.class);
+        EntityDeathEvent fieldEvent = deathEventFor(fieldMob, 0);
+        listener.onDeath(fieldEvent);
+        assertEquals(1, fieldEvent.getDrops().size());
+
+        WorldMock dungeon = dungeonWorld("em_id_the_quarry_1");
+        Zombie dungeonMob = dungeon.spawn(dungeon.getSpawnLocation(), Zombie.class);
+        EntityDeathEvent dungeonEvent = deathEventFor(dungeonMob, 0);
+        listener.onDeath(dungeonEvent);
+        assertEquals(1, dungeonEvent.getDrops().size());
+    }
+
+    @Test
+    void babyTrueDropsOnlyForBabyMobs(@TempDir File dir) throws Exception {
+        // 速攻のスレッドは「子ゾンビ」限定。Bukkit に BABY_ZOMBIE という EntityType は無いので、
+        // mobs: [ZOMBIE] だけでは大人のゾンビにも落ちてしまう。
+        MobLevelTableConfig config = loadedConfig(dir, """
+                tiers:
+                  - min-level: 0
+                    add-drops:
+                      - { material: BONE, chance: 1.0, min: 1, max: 1, mobs: [ZOMBIE], baby: true }
+                """);
+        CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
+        MobLevelTableListener listener = new MobLevelTableListener(
+                config, dungeonWorldRegistry, resolver, new SplittableRandom(0));
+
+        Zombie adult = world.spawn(world.getSpawnLocation(), Zombie.class);
+        adult.setAdult();
+        EntityDeathEvent adultEvent = deathEventFor(adult, 0);
+        listener.onDeath(adultEvent);
+        assertTrue(adultEvent.getDrops().isEmpty(), "baby: true は大人のゾンビでは落ちてはいけない");
+
+        Zombie baby = world.spawn(world.getSpawnLocation(), Zombie.class);
+        baby.setBaby();
+        EntityDeathEvent babyEvent = deathEventFor(baby, 0);
+        listener.onDeath(babyEvent);
+        assertEquals(1, babyEvent.getDrops().size(), "baby: true は子ゾンビで落ちること");
+    }
+
+    @Test
+    void babyFilterNeverMatchesMobsWithoutAnAgeConcept(@TempDir File dir) throws Exception {
+        // Ageable でないモブ(年齢の概念が無い)に baby: を書くと【常に不一致=1個も落ちない】。
+        // ロード時に警告を出す仕様なので、挙動としてはここで固定する。
+        MobLevelTableConfig config = loadedConfig(dir, """
+                tiers:
+                  - min-level: 0
+                    add-drops:
+                      - { material: BONE, chance: 1.0, min: 1, max: 1, baby: true }
+                      - { material: STICK, chance: 1.0, min: 1, max: 1, baby: false }
+                """);
+        CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
+        MobLevelTableListener listener = new MobLevelTableListener(
+                config, dungeonWorldRegistry, resolver, new SplittableRandom(0));
+
+        org.bukkit.entity.Skeleton skeleton =
+                world.spawn(world.getSpawnLocation(), org.bukkit.entity.Skeleton.class);
+        EntityDeathEvent event = deathEventFor(skeleton, 0);
+        listener.onDeath(event);
+        assertTrue(event.getDrops().isEmpty(),
+                "SKELETON は Ageable ではないので baby: true も baby: false も一致しない");
+    }
+
+    @Test
+    void chanceByLevelActuallyGatesTheRollAtRuntime(@TempDir File dir) throws Exception {
+        // カーブの端点を 0.0 と 1.0 にして、レベルだけで「絶対落ちない/必ず落ちる」を作る。
+        // chance: 0.0(素の値)を無視してカーブを見ていることも同時に固定できる。
+        MobLevelTableConfig config = loadedConfig(dir, """
+                tiers:
+                  - min-level: 0
+                    add-drops:
+                      - material: BONE
+                        chance: 0.0
+                        chance-by-level: { from-level: 0, from-chance: 0.0, to-level: 100, to-chance: 1.0 }
+                        min: 1
+                        max: 1
+                """);
+        CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
+        MobLevelTableListener listener = new MobLevelTableListener(
+                config, dungeonWorldRegistry, resolver, new SplittableRandom(0));
+
+        Zombie low = world.spawn(world.getSpawnLocation(), Zombie.class);
+        EntityDeathEvent lowEvent = deathEventFor(low, 0);
+        listener.onDeath(lowEvent);
+        assertTrue(lowEvent.getDrops().isEmpty(), "Lv0 はカーブ下端 0.0 なので絶対に落ちない");
+
+        Zombie high = world.spawn(world.getSpawnLocation(), Zombie.class);
+        EntityDeathEvent highEvent = deathEventFor(high, 100);
+        listener.onDeath(highEvent);
+        assertEquals(1, highEvent.getDrops().size(), "Lv100 はカーブ上端 1.0 なので必ず落ちる");
+    }
+
+    @Test
     void unresolvableCustomIdIsSkippedWithoutThrowing(@TempDir File dir) throws Exception {
         // テスト必須10: 解決不能なIDは警告+スキップで起動が止まらない(ここでは onDeath が例外を投げない
         // ことと、対応するドロップが単に発生しないことを確認する)。
@@ -210,7 +452,9 @@ class MobLevelTableListenerTest {
                       - { material: BONE, chance: 1.0, min: 1, max: 1 }
                 """);
         CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
-        when(resolver.create("not_a_real_catalog_id")).thenReturn(Optional.empty());
+        when(resolver.create(org.mockito.ArgumentMatchers.eq("not_a_real_catalog_id"),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(Optional.empty());
         MobLevelTableListener listener = new MobLevelTableListener(
                 config, dungeonWorldRegistry, resolver, new SplittableRandom(0));
 

@@ -89,6 +89,38 @@ test("normalizeAchievementTrigger: 既存値は保持する", () => {
   assert.equal(t.threshold, 500);
 });
 
+// 2026-07-31: threshold 未指定の既定が常に 1 だったため、「targets を3つ並べて threshold 省略
+// = 3種そろったら達成」と書いた yml をエディタで開いて保存し直すだけで threshold: 1 が入り、
+// 「どれか1つ登録で達成」へ無言で格下げされていた(条件が緩む方向なので気づけない)。
+test("normalizeAchievementTrigger: item スコープの threshold 未指定は targets の件数になる", () => {
+  const t = normalizeAchievementTrigger({
+    type: "static",
+    collection: { scope: "item", targets: ["a", "b", "c"] }
+  });
+  assert.equal(t.collection.threshold, 3);
+  assert.deepEqual(t.collection.targets, ["a", "b", "c"]);
+  assert.equal(t.collection.target, "a", "単数キーは後方互換で targets[0] に保つ");
+});
+
+test("normalizeAchievementTrigger: category / percent は threshold 未指定でも 1 のまま", () => {
+  const category = normalizeAchievementTrigger({
+    type: "static", collection: { scope: "category", targets: ["dungeon", "source"] }
+  });
+  assert.equal(category.collection.threshold, 1, "候補数と列挙数が一致しないので件数を既定にできない");
+
+  const percent = normalizeAchievementTrigger({
+    type: "static", collection: { scope: "item", targets: ["a", "b"], percent: true }
+  });
+  assert.equal(percent.collection.threshold, 1, "percent は百分率なので件数を既定にできない");
+});
+
+test("normalizeAchievementTrigger: 明示された threshold は件数で上書きしない", () => {
+  const t = normalizeAchievementTrigger({
+    type: "static", collection: { scope: "item", targets: ["a", "b", "c"], threshold: 2 }
+  });
+  assert.equal(t.collection.threshold, 2);
+});
+
 test("normalizeAchievementRewards: 未定義配列を実体化する", () => {
   const r = normalizeAchievementRewards({});
   assert.deepEqual(r.special, []);
@@ -155,4 +187,45 @@ test("filterRewardExtras: vanilla-expが空/未設定ならキーを削除する
   assert.equal("vanilla-exp" in c, false);
   const c2 = filterRewardExtras({ "vanilla-exp": 0, items: [], "job-exp": [], "permanent-buffs": {} });
   assert.equal(c2["vanilla-exp"], 0);
+});
+
+// --- 図鑑トリガの閾値の自動追随 (2026-07-27) ---
+
+const { autoCollectionThreshold } = require("../public/js/tf-rewards-forms.js");
+
+test("autoCollectionThreshold: scope=item は対象数へ追随する", () => {
+  const c = { scope: "item", targets: ["a", "b", "c"], threshold: 1, percent: false };
+  assert.equal(autoCollectionThreshold(c, false), 3);
+});
+
+test("autoCollectionThreshold: 既に一致していれば追随不要(null)", () => {
+  const c = { scope: "mob", targets: ["ZOMBIE", "CREEPER"], threshold: 2, percent: false };
+  assert.equal(autoCollectionThreshold(c, false), null);
+});
+
+test("autoCollectionThreshold: 手で閾値を触った後は追随しない", () => {
+  const c = { scope: "item", targets: ["a", "b", "c"], threshold: 1, percent: false };
+  assert.equal(autoCollectionThreshold(c, true), null);
+});
+
+test("autoCollectionThreshold: percent 判定は百分率なので追随しない", () => {
+  const c = { scope: "item", targets: ["a", "b"], threshold: 50, percent: true };
+  assert.equal(autoCollectionThreshold(c, false), null);
+});
+
+test("autoCollectionThreshold: category/all は候補数と列挙数が一致しないので追随しない", () => {
+  assert.equal(autoCollectionThreshold(
+    { scope: "category", targets: ["weapons"], threshold: 10, percent: false }, false), null);
+  assert.equal(autoCollectionThreshold(
+    { scope: "all", targets: [], threshold: 10, percent: false }, false), null);
+});
+
+test("autoCollectionThreshold: 対象が空でも1未満にはしない", () => {
+  const c = { scope: "item", targets: [], threshold: 5, percent: false };
+  assert.equal(autoCollectionThreshold(c, false), 1);
+});
+
+test("autoCollectionThreshold: 壊れた入力でも例外を投げない", () => {
+  assert.equal(autoCollectionThreshold(null, false), null);
+  assert.equal(autoCollectionThreshold({ scope: "item", targets: null, threshold: 1 }, false), null);
 });

@@ -3,8 +3,32 @@
 # 収集記録(図鑑)→ 段階的報酬解放。報酬は 称号 / コスメ / 恒久QoL に限定し、
 # 縦強化(戦闘ステータス)にしないこと(スペック上の憲法。中身はこの config の運用で守る)。
 #
+# ============================================================================
+# 2026-08-16: 全カタログ品・全モブ規模へ拡充した (現在 816 エントリ)
+# ============================================================================
+# アチーブメント再構築(冒険者の道が図鑑コンプリートで終わる形)に合わせて、
+# 140 件だった図鑑を出荷 yml から機械生成し直した。生成スクリプトは tmp/gen-collection.js。
+#
+# 【手で書かない理由】600 件超を手で並べると必ず綴り違いが混ざり、混ざったエントリは
+# 「絶対に埋まらない枠」になる。しかも症状は「図鑑の 100% が構造的に到達不能」という
+# 気づきにくい形で出る。生成元は items/catalog.yml(draft: true は除外) /
+# ArsPaper の materials・threads・sourcejars・sourcelinks・functional-items。
+#
+# 【重複を作らないこと】scope: all の分母はカテゴリ entries の総和なので、同じIDを
+# 2 つのカテゴリに書くと分母だけ増えて 100% に到達できなくなる。生成側は既存カテゴリ
+# (infinity / dungeon / source / mob_parts)にあるIDを除外している。
+#
+# 【カテゴリ別コンプリート】achievements.yml から
+#   collection.scope: category + percent: true + threshold: 100
+# と書くと「このカテゴリを全部埋めた」を条件にできる(新機構は不要)。
+#
+# 【バニラ品】CollectionListener は「設定から参照されている Material」しか記録しない
+# (全 Material を載せるとプレイヤーPDCが青天井になる)。つまり vanilla_* カテゴリに
+# 書いた分だけが図鑑に載る。
+#
 # 記録されるエントリ:
 #   item:<catalogId>   items/catalog.yml のアイテムを入手した(取得/クラフト/釣り/ガチャ等)
+#   item:<MATERIAL>    バニラアイテムを入手した(上記の理由で参照されている物だけ)
 #   mob:<ENTITY_TYPE>  そのEntityTypeのモブをプレイヤーが討伐した
 #
 # 進捗はプレイヤーPDC(trinityforge:collection_entries / collection_claimed_tiers)に保持。
@@ -19,17 +43,22 @@ enabled: true
 sources:
   catalog-items: true
   mob-kills: true
+gui:
+  locked-icon: BARRIER
+display-names:
+  items: {}
+  mobs: {}
 categories:
   items:
     infinity:
-      display-name: インフィニティ
+      display-name: 最上位装備
       order: 1
       entries:
         - infinity_axe
         - infinity_axe_tool
         - infinity_boots
         - infinity_bow
-        - infinity_cane
+        - infinity_catalyst
         - infinity_chestplate
         - infinity_crossbow
         - infinity_dagger
@@ -47,5 +76,967 @@ categories:
         - infinity_sword
         - infinity_trident
         - infinity_warhammer
-  mobs: {}
-reward-tiers: {}
+    dungeon:
+      display-name: 踏破の証
+      order: 2
+      entries:
+        - dungeon_seal_mines
+        - dungeon_seal_deep_mines
+        - dungeon_seal_quarry
+        - dungeon_seal_cave
+        - dungeon_seal_bridge
+        - dungeon_seal_city
+        - dungeon_seal_climb
+        - dungeon_seal_palace
+        - dungeon_seal_knight_castle
+        - dungeon_seal_sewer_maze
+        - dungeon_seal_steamworks
+        - dungeon_seal_nether_bell
+        - dungeon_seal_nether_wastes
+        - dungeon_seal_dark_cathedral
+        - dungeon_seal_enchant_trial_1
+        - dungeon_seal_enchant_trial_2
+        - dungeon_seal_enchant_trial_3
+        - dungeon_seal_enchant_trial_4
+        - dungeon_seal_enchant_trial_5
+        - dungeon_seal_enchant_trial_6
+        - dungeon_seal_enchant_trial_7
+        - dungeon_seal_enchant_trial_8
+        - dungeon_seal_enchant_trial_9
+        - dungeon_seal_enchant_trial_10
+        - dungeon_seal_fireworks
+        - dungeon_seal_hallosseum
+        - dungeon_seal_north_pole
+        - dungeon_seal_binder
+        - binder_fragment
+        - reality_thread_core
+        - abyssal_ingot
+    source:
+      display-name: ソースの階梯
+      order: 3
+      entries:
+        - source_shard
+        - source_jar_ii
+        - source_crystal
+        - source_jar_iii
+        - source_condenser
+        - source_reservoir
+        - source_engine
+        # 2026-08-16 追加。貯水槽(200万)と特異点の壺(5,000万)の間が25倍で空いていたので挟んだ段。
+        - source_vault
+        - source_singularity_jar
+        - infinity_source_core
+        - source_jar
+    mob_parts:
+      display-name: 討伐素材
+      order: 4
+      entries:
+        - ravager_hide
+        - piglin_brute_plate
+        - pillager_plate
+        - witch_elixir
+        - piglin_ear
+        - stray_cloth
+        - skeleton_horse_bone
+        - endermite_soot
+        - hoglin_fang
+        - guardian_spine
+        - husk_cloth
+        - bogged_mossy_bone
+        - parched_sandy_bone
+        - dragon_scale
+        - elder_guardian_spike
+        - wither_skull_fragment
+        - warden_tendril
+    weapon_basic:
+      display-name: 武器(基本)
+      order: 5
+      entries:
+        - copper_axe_tf
+        - copper_bow
+        - copper_crossbow
+        - copper_dagger
+        - copper_grate_sword
+        - copper_greataxe
+        - copper_mace
+        - copper_rapier
+        - copper_scythe
+        - copper_trident
+        - copper_wand
+        - copper_warhammer
+        - diamond_bow
+        - diamond_crossbow
+        - diamond_mace
+        - diamond_trident
+        - golad_scythe
+        - golden_axe_tf
+        - golden_bow
+        - golden_crossbow
+        - golden_dagger
+        - golden_grate_sword
+        - golden_greataxe
+        - golden_mace
+        - golden_rapier
+        - golden_trident
+        - golden_wand
+        - golden_warhammer
+        - iron_axe_tf
+        - iron_bow
+        - iron_crossbow
+        - iron_dagger
+        - iron_grate_sword
+        - iron_greataxe
+        - iron_mace
+        - iron_rapier
+        - iron_scythe
+        - iron_trident
+        - iron_wand
+        - iron_warhammer
+        - nether_star_bow
+        - netherite_bow
+        - netherite_crossbow
+        - netherite_mace
+        - netherite_trident
+        - source_gem_bow
+        - source_gem_crossbow
+        - source_gem_mace
+        - source_gem_trident
+        - stone_axe_tf
+        - stone_bow
+        - stone_crossbow
+        - stone_dagger
+        - stone_grate_sword
+        - stone_greataxe
+        - stone_mace
+        - stone_rapier
+        - stone_scythe
+        - stone_trident
+        - stone_wand
+        - stone_warhammer
+        - wooden_axe_tf
+        - wooden_dagger
+        - wooden_grate_sword
+        - wooden_greataxe
+        - wooden_mace
+        - wooden_rapier
+        - wooden_scythe
+        - wooden_trident
+        - wooden_wand
+        - wooden_warhammer
+    weapon_advanced:
+      display-name: 武器(上位)
+      order: 6
+      entries:
+        - abyss_wand
+        - boundary_wand
+        - diamond_axe_tf
+        - diamond_dagger
+        - diamond_grate_sword
+        - diamond_greataxe
+        - diamond_rapier
+        - diamond_scythe
+        - diamond_wand
+        - diamond_warhammer
+        - magic_wand
+        - netherite_axe_tf
+        - netherite_dagger
+        - netherite_grate_sword
+        - netherite_greataxe
+        - netherite_rapier
+        - netherite_wand
+        - netherite_warhammer
+        - revolution_bow
+        - source_gem_axe
+        - source_gem_axe_tool
+        - source_gem_dagger
+        - source_gem_grate_sword
+        - source_gem_greataxe
+        - source_gem_hoe
+        - source_gem_rapier
+        - source_gem_scythe
+        - source_gem_spear
+        - source_gem_sword
+        - source_gem_warhammer
+    weapon_apex:
+      display-name: 武器(最上位)
+      order: 7
+      entries:
+        - hero_axe
+        - hero_bow
+        - hero_crossbow
+        - hero_dagger
+        - hero_grate_sword
+        - hero_greataxe
+        - hero_mace
+        - hero_rapier
+        - hero_scythe
+        - hero_spear
+        - hero_sword
+        - hero_trident
+        - hero_warhammer
+        - nuclear_axe
+        - nuclear_bow
+        - nuclear_crossbow
+        - nuclear_dagger
+        - nuclear_grate_sword
+        - nuclear_greataxe
+        - nuclear_mace
+        - nuclear_rapier
+        - nuclear_scythe
+        - nuclear_spear
+        - nuclear_sword
+        - nuclear_trident
+        - nuclear_warhammer
+    armor_basic:
+      display-name: 防具(基本)
+      order: 8
+      entries:
+        - bone_guard_boots
+        - bone_guard_chestplate
+        - bone_guard_helmet
+        - bone_guard_leggings
+        - carapace_mail_boots
+        - carapace_mail_chestplate
+        - carapace_mail_helmet
+        - carapace_mail_leggings
+        - copper_stud_boots
+        - copper_stud_chestplate
+        - copper_stud_helmet
+        - copper_stud_leggings
+        - gilded_thread_boots
+        - gilded_thread_chestplate
+        - gilded_thread_helmet
+        - gilded_thread_leggings
+        - mage_arcane_apprentice_boots
+        - mage_arcane_apprentice_chestplate
+        - mage_arcane_apprentice_helmet
+        - mage_arcane_apprentice_leggings
+        - mage_arcane_archmage_boots
+        - mage_arcane_archmage_chestplate
+        - mage_arcane_archmage_helmet
+        - mage_arcane_archmage_leggings
+        - mage_arcane_novice_boots
+        - mage_arcane_novice_chestplate
+        - mage_arcane_novice_helmet
+        - mage_arcane_novice_leggings
+        - mage_arcane_sage_boots
+        - mage_arcane_sage_chestplate
+        - mage_arcane_sage_helmet
+        - mage_arcane_sage_leggings
+        - mage_arcane_starseer_boots
+        - mage_arcane_starseer_chestplate
+        - mage_arcane_starseer_helmet
+        - mage_arcane_starseer_leggings
+        - mage_guardian_apprentice_boots
+        - mage_guardian_apprentice_chestplate
+        - mage_guardian_apprentice_helmet
+        - mage_guardian_apprentice_leggings
+        - mage_guardian_archmage_boots
+        - mage_guardian_archmage_chestplate
+        - mage_guardian_archmage_helmet
+        - mage_guardian_archmage_leggings
+        - mage_guardian_novice_boots
+        - mage_guardian_novice_chestplate
+        - mage_guardian_novice_helmet
+        - mage_guardian_novice_leggings
+        - mage_guardian_sage_boots
+        - mage_guardian_sage_chestplate
+        - mage_guardian_sage_helmet
+        - mage_guardian_sage_leggings
+        - mage_guardian_starseer_boots
+        - mage_guardian_starseer_chestplate
+        - mage_guardian_starseer_helmet
+        - mage_guardian_starseer_leggings
+        - mage_weaver_apprentice_boots
+        - mage_weaver_apprentice_chestplate
+        - mage_weaver_apprentice_helmet
+        - mage_weaver_apprentice_leggings
+        - mage_weaver_archmage_boots
+        - mage_weaver_archmage_chestplate
+        - mage_weaver_archmage_helmet
+        - mage_weaver_archmage_leggings
+        - mage_weaver_novice_boots
+        - mage_weaver_novice_chestplate
+        - mage_weaver_novice_helmet
+        - mage_weaver_novice_leggings
+        - mage_weaver_sage_boots
+        - mage_weaver_sage_chestplate
+        - mage_weaver_sage_helmet
+        - mage_weaver_sage_leggings
+        - mage_weaver_starseer_boots
+        - mage_weaver_starseer_chestplate
+        - mage_weaver_starseer_helmet
+        - mage_weaver_starseer_leggings
+        - phantom_shroud_boots
+        - phantom_shroud_chestplate
+        - phantom_shroud_helmet
+        - phantom_shroud_leggings
+        - withered_silk_boots
+        - withered_silk_chestplate
+        - withered_silk_helmet
+        - withered_silk_leggings
+    armor_advanced:
+      display-name: 防具(上位)
+      order: 9
+      entries:
+        - dragon_boots
+        - dragon_chestplate
+        - dragon_helmet
+        - dragon_leggings
+        - source_gem_boots
+        - source_gem_chestplate
+        - source_gem_helmet
+        - source_gem_leggings
+        - wither_boots
+        - wither_chestplate
+        - wither_helmet
+        - wither_leggings
+    armor_apex:
+      display-name: 防具(最上位)
+      order: 10
+      entries:
+        - abyssal_scale_boots
+        - abyssal_scale_chestplate
+        - abyssal_scale_helmet
+        - abyssal_scale_leggings
+    tool:
+      display-name: 採取道具
+      order: 11
+      entries:
+        - source_gem_pickaxe
+        - source_gem_shovel
+    catalyst:
+      display-name: 触媒・魔導書
+      order: 12
+      entries:
+        - spell_book_apprentice
+        - spell_book_archmage
+        - spell_book_novice
+    thread:
+      display-name: スレッド
+      order: 13
+      entries:
+        - thread_angler
+        - thread_apiarist
+        - thread_appraiser
+        - thread_artisan
+        - thread_backpack
+        - thread_better_fortune
+        - thread_blindness
+        - thread_concussion
+        - thread_conduit_power
+        - thread_damage_mana_recovery
+        - thread_diligence
+        - thread_dolphins_grace
+        - thread_empty
+        - thread_endurance
+        - thread_excavation
+        - thread_experience
+        - thread_fire_resistance
+        - thread_flight
+        - thread_gacha
+        - thread_gourmet
+        - thread_harvest
+        - thread_health_boost
+        - thread_herder
+        - thread_hero_of_the_village
+        - thread_hit_mana_recovery
+        - thread_jump_boost
+        - thread_luck
+        - thread_mana_amplify
+        - thread_mana_boost
+        - thread_mana_circulate
+        - thread_mana_regen
+        - thread_marksman
+        - thread_mending_flesh
+        - thread_miner
+        - thread_night_vision
+        - thread_perfumer
+        - thread_ritualist
+        - thread_role_effeciency
+        - thread_role_luck
+        - thread_salvage
+        - thread_scholar
+        - thread_slow_falling
+        - thread_source_thrift
+        - thread_speed
+        - thread_spell_cost_down
+        - thread_spoils
+        - thread_swiftcast
+        - thread_thorn
+        - thread_thrift
+        - thread_timber
+        - thread_translate
+    material_tf:
+      display-name: TF素材
+      # 2026-08-18: thread_* 51件がここと thread カテゴリの両方に入っていて図鑑で二重に
+      # 並んでいたので落とした(スレッドには専用カテゴリがある)。うち6件は thread 側に
+      # 一度も入っておらず、この移動でようやくスレッドの定義51件と図鑑が一致した。
+      order: 14
+      entries:
+        - key_binder
+        - key_bridge
+        - key_cave
+        - key_city
+        - key_climb
+        - key_dark_cathedral
+        - key_deep_mines
+        - key_enchant_trial_1
+        - key_enchant_trial_10
+        - key_enchant_trial_2
+        - key_enchant_trial_3
+        - key_enchant_trial_4
+        - key_enchant_trial_5
+        - key_enchant_trial_6
+        - key_enchant_trial_7
+        - key_enchant_trial_8
+        - key_enchant_trial_9
+        - key_fireworks
+        - key_hallosseum
+        - key_knight_castle
+        - key_mines
+        - key_nether_bell
+        - key_nether_wastes
+        - key_north_pole
+        - key_palace
+        - key_quarry
+        - key_sewer_maze
+        - key_steamworks
+        - koujien
+        - quality_upgrade_ticket
+        - role_reselect_ticket
+        - skill_node_lock
+        - skill_tree_reset
+        - someones_eyes
+        - stat_reroll_ticket
+    material_misc:
+      display-name: 素材等
+      # 2026-08-18: 圧縮素材(*_4x / stone_5x の11件)が混ざっていたので material_compressed へ移し、
+      # 残りはコア・ガチャ券・スクラップ・中間素材で「Ars素材」という括りが実態と合わないため改名した。
+      # 旧カテゴリID: material_ars (他の yml から参照されていないことを確認済み)。
+      order: 15
+      entries:
+        - copper_ingot_scrap
+        - core_ground
+        - core_jewelry
+        - core_meat
+        - core_vegetable
+        - core_wood
+        - diamond_scrap
+        - gacha_ticket_0
+        - gacha_ticket_1
+        - gacha_ticket_2
+        - gacha_ticket_3
+        - gacha_ticket_4
+        - gacha_ticket_5
+        - gacha_ticket_digging
+        - gacha_ticket_fishing
+        - gold_ingot_scrap
+        - hard_metal
+        - heavy_metal
+        - iron_ingot_scrap
+        - leather_scrap
+        - magebloom_fiber
+        - netherite_ingot_scrap
+        - reinforced_fiber
+        - reinforced_leather
+        - source_gem
+        - source_gem_block
+        - sourcestone
+        - tf_crystal_apple
+        - tf_scrap
+        - turtle_scute_scrap
+    material_compressed:
+      display-name: 圧縮素材
+      order: 16
+      entries:
+        - acacia_wood_1x
+        - acacia_wood_2x
+        - acacia_wood_3x
+        - amethyst_block_1x
+        - amethyst_block_2x
+        - amethyst_block_3x
+        - andesite_1x
+        - andesite_2x
+        - andesite_3x
+        - andesite_4x
+        - apple_1x
+        - apple_2x
+        - apple_3x
+        - baked_cod_1x
+        - baked_potato_1x
+        - baked_salon_1x
+        - beef_1x
+        - beef_2x
+        - beef_3x
+        - beetroot_1x
+        - beetroot_2x
+        - beetroot_3x
+        - birch_wood_1x
+        - birch_wood_2x
+        - birch_wood_3x
+        - blaze_rod_1x
+        - blaze_rod_2x
+        - blaze_rod_3x
+        - breeze_rod_1x
+        - breeze_rod_2x
+        - breeze_rod_3x
+        - carrot_1x
+        - carrot_2x
+        - carrot_3x
+        - cherry_blossom_wood_1x
+        - cherry_blossom_wood_2x
+        - cherry_blossom_wood_3x
+        - chicken_1x
+        - chicken_2x
+        - chicken_3x
+        - coal_block_1x
+        - coal_block_2x
+        - coal_block_3x
+        - cod_1x
+        - cod_2x
+        - cod_3x
+        - compressed_bread_1x
+        - compressed_cooked_beef_1x
+        - cooked_chicken_1x
+        - cooked_mutton_1x
+        - cooked_porkchop_1x
+        - cookie_1x
+        - copper_block_1x
+        - copper_block_2x
+        - copper_block_3x
+        - dark_oak_wood_1x
+        - dark_oak_wood_2x
+        - dark_oak_wood_3x
+        - deepslate_1x
+        - deepslate_2x
+        - deepslate_3x
+        - deepslate_4x
+        - diamond_block_1x
+        - diamond_block_2x
+        - diamond_block_3x
+        - diorite_1x
+        - diorite_2x
+        - diorite_3x
+        - diorite_4x
+        - dirt_1x
+        - dirt_2x
+        - dirt_3x
+        - dirt_4x
+        - dragon_breath_1x
+        - dragon_breath_2x
+        - dragon_breath_3x
+        - echo_shard_1x
+        - echo_shard_2x
+        - emerald_block_1x
+        - emerald_block_2x
+        - emerald_block_3x
+        - emerald_block_4x
+        - end_stone_1x
+        - end_stone_2x
+        - end_stone_3x
+        - end_stone_4x
+        - glow_berries_1x
+        - glow_berries_2x
+        - glow_berries_3x
+        - gold_block_1x
+        - gold_block_2x
+        - gold_block_3x
+        - granite_1x
+        - granite_2x
+        - granite_3x
+        - granite_4x
+        - hay_block_1x
+        - hay_block_2x
+        - hay_block_3x
+        - iron_block_1x
+        - iron_block_2x
+        - iron_block_3x
+        - jungle_wood_1x
+        - jungle_wood_2x
+        - jungle_wood_3x
+        - lapis_block_1x
+        - lapis_block_2x
+        - lapis_block_3x
+        - mangrove_wood_1x
+        - mangrove_wood_2x
+        - mangrove_wood_3x
+        - melon_1x
+        - melon_2x
+        - melon_3x
+        - mutton_1x
+        - mutton_2x
+        - mutton_3x
+        - netherite_block_1x
+        - netherrack_1x
+        - netherrack_2x
+        - netherrack_3x
+        - netherrack_4x
+        - oak_wood_1x
+        - oak_wood_2x
+        - oak_wood_3x
+        - pale_oak_wood_1x
+        - pale_oak_wood_2x
+        - pale_oak_wood_3x
+        - porkchop_1x
+        - porkchop_2x
+        - porkchop_3x
+        - potato_1x
+        - potato_2x
+        - potato_3x
+        - pumpkin_1x
+        - pumpkin_2x
+        - pumpkin_3x
+        - pumpkin_pie_1x
+        - quartz_block_1x
+        - quartz_block_2x
+        - quartz_block_3x
+        - rabbit_1x
+        - rabbit_2x
+        - rabbit_3x
+        - redstone_block_1x
+        - redstone_block_2x
+        - redstone_block_3x
+        - salmon_1x
+        - salmon_2x
+        - salmon_3x
+        - sand_1x
+        - sand_2x
+        - sand_3x
+        - sand_4x
+        - shulker_shell_1x
+        - shulker_shell_2x
+        - source_gem_block_1x
+        - source_gem_block_2x
+        - spruce_wood_1x
+        - spruce_wood_2x
+        - spruce_wood_3x
+        - stone_1x
+        - stone_2x
+        - stone_3x
+        - stone_4x
+        - stone_5x
+        - sweet_berries_1x
+        - sweet_berries_2x
+        - sweet_berries_3x
+        - wither_rose_1x
+        - wither_rose_2x
+    functional:
+      display-name: 機能アイテム
+      order: 17
+      entries:
+        - dominion_wand
+        - enchant_book_mana_boost_1
+        - enchant_book_mana_boost_2
+        - enchant_book_mana_boost_3
+        - enchant_book_mana_regen_1
+        - enchant_book_mana_regen_2
+        - enchant_book_mana_regen_3
+        - enchant_book_share
+        - enchant_book_soulbound
+        - pedestal
+        - ritual_core
+        - scribing_table
+        - source_berry
+        - teleport_compass
+        - waystone
+    sourcelink:
+      display-name: ソースリンク
+      order: 18
+      entries:
+        - alchemical_sourcelink
+        - alchemical_sourcelink_ii
+        - alchemical_sourcelink_iii
+        - alchemical_sourcelink_iv
+        - alchemical_sourcelink_v
+        - botanical_sourcelink
+        - botanical_sourcelink_ii
+        - botanical_sourcelink_iii
+        - botanical_sourcelink_iv
+        - botanical_sourcelink_v
+        - mycelial_sourcelink
+        - mycelial_sourcelink_ii
+        - mycelial_sourcelink_iii
+        - mycelial_sourcelink_iv
+        - mycelial_sourcelink_v
+        - vitalic_sourcelink
+        - vitalic_sourcelink_ii
+        - vitalic_sourcelink_iii
+        - vitalic_sourcelink_iv
+        - vitalic_sourcelink_v
+        - volcanic_sourcelink
+        - volcanic_sourcelink_ii
+        - volcanic_sourcelink_iii
+        - volcanic_sourcelink_iv
+        - volcanic_sourcelink_v
+    ore:
+      display-name: 鉱石と地下資源
+      order: 19
+      entries:
+        - AMETHYST_SHARD
+        - ANCIENT_DEBRIS
+        - COAL
+        - DIAMOND
+        - EMERALD
+        - LAPIS_LAZULI
+        - NETHERITE_INGOT
+        - QUARTZ
+        - RAW_COPPER
+        - RAW_GOLD
+        - RAW_IRON
+        - REDSTONE
+    nature:
+      display-name: 自然の恵み
+      order: 20
+      entries:
+        - BAMBOO
+        - BLAZE_ROD
+        - CHORUS_FRUIT
+        - GHAST_TEAR
+        - GLOWSTONE_DUST
+        - GLOW_BERRIES
+        - GLOW_INK_SAC
+        - HONEYCOMB
+        - INK_SAC
+        - MAGMA_CREAM
+        - NAUTILUS_SHELL
+        - PRISMARINE_CRYSTALS
+        - PRISMARINE_SHARD
+        - SLIME_BALL
+        - SWEET_BERRIES
+        - TURTLE_SCUTE
+    structure:
+      display-name: 構造物の遺物
+      order: 21
+      entries:
+        - BREEZE_ROD
+        - DRAGON_BREATH
+        - DRAGON_EGG
+        - ECHO_SHARD
+        - ELYTRA
+        - ENCHANTED_GOLDEN_APPLE
+        - HEART_OF_THE_SEA
+        - HEAVY_CORE
+        - MACE
+        - MUSIC_DISC_OTHERSIDE
+        - MUSIC_DISC_PIGSTEP
+        - NETHER_STAR
+        - OMINOUS_TRIAL_KEY
+        - RECOVERY_COMPASS
+        - SHULKER_SHELL
+        - SNIFFER_EGG
+        - TOTEM_OF_UNDYING
+        - TRIAL_KEY
+        - TRIDENT
+        - WIND_CHARGE
+    # 2026-08-18: バニラの武器・道具が1件も載っていなかった(TRIDENT/MACE/ELYTRA だけが
+    # structure に混ざっている状態)。TF品の weapon_*/tool と混ぜず、ore/nature/structure と
+    # 同じ「バニラ枠」の末尾に置く。斧は TF の採取スキル側では採取道具扱いだが、
+    # 図鑑では素直に武器へ入れる(プレイヤーの認識に合わせる)。
+    weapon_vanilla:
+      display-name: 武器(バニラ)
+      order: 22
+      entries:
+        - BOW
+        - COPPER_AXE
+        - COPPER_SWORD
+        - CROSSBOW
+        - DIAMOND_AXE
+        - DIAMOND_SWORD
+        - GOLDEN_AXE
+        - GOLDEN_SWORD
+        - IRON_AXE
+        - IRON_SWORD
+        - NETHERITE_AXE
+        - NETHERITE_SWORD
+        - SHIELD
+        - STONE_AXE
+        - STONE_SWORD
+        - WOODEN_AXE
+        - WOODEN_SWORD
+    tool_vanilla:
+      display-name: 道具(バニラ)
+      order: 23
+      entries:
+        - COPPER_HOE
+        - COPPER_PICKAXE
+        - COPPER_SHOVEL
+        - DIAMOND_HOE
+        - DIAMOND_PICKAXE
+        - DIAMOND_SHOVEL
+        - FISHING_ROD
+        - FLINT_AND_STEEL
+        - GOLDEN_HOE
+        - GOLDEN_PICKAXE
+        - GOLDEN_SHOVEL
+        - IRON_HOE
+        - IRON_PICKAXE
+        - IRON_SHOVEL
+        - NETHERITE_HOE
+        - NETHERITE_PICKAXE
+        - NETHERITE_SHOVEL
+        - SHEARS
+        - STONE_HOE
+        - STONE_PICKAXE
+        - STONE_SHOVEL
+        - WOODEN_HOE
+        - WOODEN_PICKAXE
+        - WOODEN_SHOVEL
+  mobs:
+    undead:
+      display-name: アンデッド
+      order: 1
+      entries:
+        - ZOMBIE
+        - ZOMBIE_VILLAGER
+        - HUSK
+        - DROWNED
+        - SKELETON
+        - STRAY
+        - BOGGED
+        - WITHER_SKELETON
+        - SKELETON_HORSE
+        - ZOMBIFIED_PIGLIN
+        - ZOGLIN
+        - PHANTOM
+        - ZOMBIE_HORSE
+        # 2026-08-18 追加。PARCHED は API 上 AbstractSkeleton(スケルトン系)なのでここ。
+        - PARCHED
+    apex:
+      display-name: 強敵
+      order: 2
+      entries:
+        - ENDER_DRAGON
+        - WITHER
+        - WARDEN
+        - ELDER_GUARDIAN
+        - EVOKER
+        - RAVAGER
+        - PIGLIN_BRUTE
+        - BREEZE
+        - CREAKING
+    hostile:
+      display-name: 敵対モブ
+      order: 3
+      entries:
+        - CREEPER
+        - SPIDER
+        - CAVE_SPIDER
+        - ENDERMAN
+        - ENDERMITE
+        - SILVERFISH
+        - SLIME
+        - WITCH
+        - GUARDIAN
+        - SHULKER
+        - BLAZE
+        - MAGMA_CUBE
+        - GHAST
+        - HOGLIN
+        - PIGLIN
+        - STRIDER
+        - VEX
+    illager:
+      display-name: 略奪者
+      order: 4
+      entries:
+        - PILLAGER
+        - VINDICATOR
+        - ILLUSIONER
+    aquatic:
+      display-name: 水棲
+      order: 5
+      entries:
+        - COD
+        - SALMON
+        - TROPICAL_FISH
+        - PUFFERFISH
+        - SQUID
+        - GLOW_SQUID
+        - DOLPHIN
+        - TURTLE
+        - AXOLOTL
+        - TADPOLE
+        - FROG
+        # 2026-08-18 追加。どちらも API 上 AbstractNautilus なので同じ水棲枠に置く。
+        - NAUTILUS
+        - ZOMBIE_NAUTILUS
+    passive:
+      display-name: 友好モブ
+      order: 6
+      entries:
+        - COW
+        - PIG
+        - SHEEP
+        - CHICKEN
+        - RABBIT
+        - HORSE
+        - DONKEY
+        - MULE
+        - LLAMA
+        - TRADER_LLAMA
+        - WOLF
+        - CAT
+        - OCELOT
+        - FOX
+        - PANDA
+        - POLAR_BEAR
+        - BEE
+        - GOAT
+        - CAMEL
+        - SNIFFER
+        - ARMADILLO
+        - MOOSHROOM
+        - PARROT
+        - BAT
+        - VILLAGER
+        - WANDERING_TRADER
+        - IRON_GOLEM
+        - SNOW_GOLEM
+        - ALLAY
+        # 2026-08-18 追加。API 上 CAMEL_HUSK は Camel、COPPER_GOLEM は Golem、
+        # HAPPY_GHAST は Animals なのでいずれも友好枠。
+        - CAMEL_HUSK
+        - COPPER_GOLEM
+        - HAPPY_GHAST
+    # ⚠️ 意図的に載せていない EntityType (2026-08-18):
+    #   GIANT     — 実装は残っているが自然スポーンもスポーンエッグも無く、討伐経路が無い。
+    #   MANNEQUIN — Mob ではなく LivingEntity(プレイヤー像の設置物)で、討伐という概念が無い。
+    # どちらも載せると「永久に埋まらない枠」が分母に入り、collection の percent: 100 系
+    # アチーブメント(goal_completionist)を到達不能にする。K-11 と同じ形の事故になるので入れない。
+# 報酬ティア。2026-08-16 に図鑑を 140 → 750 件規模へ拡充したのに合わせて引き直した。
+# 旧しきい値(10/30/60/120/200)のままだと t5「万象を知る者」が全体の 26% で解放されてしまい、
+# 最終目標の称号が序盤の称号に化ける。おおむね 4% / 13% / 33% / 60% / 93% になるよう置いた。
+reward-tiers:
+  t1:
+    threshold: 30
+    title: <gray>収集家</gray>
+    special:
+      - title_collector
+  t2:
+    threshold: 100
+    title: <white>探究者</white>
+    special:
+      - title_seeker
+      - particle_sparkle
+  t3:
+    threshold: 250
+    title: <aqua>記録者</aqua>
+    broadcast: true
+    special:
+      - title_archivist
+      - particle_ember_aura
+  t4:
+    threshold: 450
+    title: <gradient:#7f5af0:#2cb67d>世界渡り</gradient>
+    broadcast: true
+    special:
+      - title_worldwalker
+      - particle_void_aura
+  t5:
+    threshold: 700
+    title: <gradient:#ffd700:#ff8c00:#ffd700>万象を知る者</gradient>
+    broadcast: true
+    special:
+      - title_completionist
+      - particle_dragon_aura

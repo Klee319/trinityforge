@@ -1,0 +1,32 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["C:/Users/T-319/Documents/Program/ClaudeCodeDev/products/minecraft/trinityforge/.claude/hooks/pre-guard.py"],
+            "timeout": 10,
+            "statusMessage": "tf-guard: D:/game 書込・git add -A チェック"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["C:/Users/T-319/Documents/Program/ClaudeCodeDev/products/minecraft/trinityforge/.claude/hooks/post-check.py"],
+            "timeout": 120,
+            "statusMessage": "post-check: compile / node --check"
+          }
+        ]
+      }
+    ]
+  }
+}

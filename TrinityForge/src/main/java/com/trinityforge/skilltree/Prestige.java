@@ -21,6 +21,7 @@ public record Prestige(
         Map<String, Double> mainhandBuffs,
         Map<String, Map<String, Double>> multipliers,
         Map<String, Map<String, Double>> mainhandMultipliers,
+        Map<Integer, Map<String, Double>> setBuffs,
         Map<String, Object> native_,
         int maxTimes) {
 
@@ -29,14 +30,25 @@ public record Prestige(
         mainhandBuffs = mainhandBuffs == null ? Map.of() : Map.copyOf(mainhandBuffs);
         multipliers = deepCopy(multipliers);
         mainhandMultipliers = deepCopy(mainhandMultipliers);
+        setBuffs = deepCopyInt(setBuffs);
         native_ = native_ == null ? Map.of() : Map.copyOf(native_);
         maxTimes = Math.max(1, maxTimes);
+    }
+
+    /** Source-compatible constructor for the pre-set-buffs prestige shape. */
+    public Prestige(boolean enabled, int atLevel, String name, String effectText,
+                    Map<String, Double> buffs, Map<String, Double> mainhandBuffs,
+                    Map<String, Map<String, Double>> multipliers,
+                    Map<String, Map<String, Double>> mainhandMultipliers,
+                    Map<String, Object> native_, int maxTimes) {
+        this(enabled, atLevel, name, effectText, buffs, mainhandBuffs, multipliers, mainhandMultipliers,
+                Map.of(), native_, maxTimes);
     }
 
     /** Backward-compatible constructor for additive-only prestige definitions. */
     public Prestige(boolean enabled, int atLevel, String name, String effectText,
                     Map<String, Double> buffs, Map<String, Object> native_, int maxTimes) {
-        this(enabled, atLevel, name, effectText, buffs, Map.of(), Map.of(), Map.of(), native_, maxTimes);
+        this(enabled, atLevel, name, effectText, buffs, Map.of(), Map.of(), Map.of(), Map.of(), native_, maxTimes);
     }
 
     private static Map<String, Map<String, Double>> deepCopy(Map<String, Map<String, Double>> raw) {
@@ -45,6 +57,15 @@ public record Prestige(
         }
         java.util.LinkedHashMap<String, Map<String, Double>> copy = new java.util.LinkedHashMap<>();
         raw.forEach((layer, stats) -> copy.put(layer, stats == null ? Map.of() : Map.copyOf(stats)));
+        return Map.copyOf(copy);
+    }
+
+    private static Map<Integer, Map<String, Double>> deepCopyInt(Map<Integer, Map<String, Double>> raw) {
+        if (raw == null || raw.isEmpty()) {
+            return Map.of();
+        }
+        java.util.LinkedHashMap<Integer, Map<String, Double>> copy = new java.util.LinkedHashMap<>();
+        raw.forEach((tier, stats) -> copy.put(tier, stats == null ? Map.of() : Map.copyOf(stats)));
         return Map.copyOf(copy);
     }
 }

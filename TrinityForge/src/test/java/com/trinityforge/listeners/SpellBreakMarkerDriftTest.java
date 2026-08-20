@@ -47,20 +47,37 @@ class SpellBreakMarkerDriftTest {
 
     @Test
     void forkActuallySetsAndRemovesTheMarkerAroundCallEvent() throws IOException {
-        // 定数が一致していても、フォークが実際にセット/除去していなければガードは働かない。
-        for (String file : new String[] {"AdvancedBreakEffect.java", "BreakEffect.java"}) {
+        // セット/発火/finally除去は共通ヘルパーに集約する。各エフェクトへ直接コピーすると、新しい
+        // 破壊経路だけ片方を欠くドリフトが再発するため、ここではヘルパー自身の契約を固定する。
+        String markerSource = Files.readString(FORK_MARKER);
+        assertTrue(markerSource.contains("setMetadata(METADATA_KEY"),
+                "SpellBreakMarker が魔法破壊マーカーを立てていない");
+        assertTrue(markerSource.contains("callEvent(event)"),
+                "SpellBreakMarker がマーカー中に合成BlockBreakEventを発火していない");
+        assertTrue(markerSource.contains("finally"),
+                "SpellBreakMarker の除去がfinallyで保護されていない");
+        assertTrue(markerSource.contains("removeMetadata(METADATA_KEY"),
+                "SpellBreakMarker がマーカーを除去していない");
+
+        // 魔法で実ブロックを破壊する全経路が、上の例外安全な共通ヘルパーを通ることも固定する。
+        for (String file : new String[] {
+                "AdvancedBreakEffect.java",
+                "BreakEffect.java",
+                "ExplosionEffect.java",
+                "FellEffect.java",
+                "CrushEffect.java",
+                "CutEffect.java",
+                "HarvestEffect.java",
+                "SmeltEffect.java"
+        }) {
             Path path = Path.of(
                     "../fork-handoff/arspaper/fork/src/main/java/com/arspaper/spell/effect/" + file);
             assertTrue(Files.exists(path), "フォーク側の破壊エフェクトが見つからない: " + path.toAbsolutePath());
 
             String source = Files.readString(path);
-            assertTrue(source.contains("SpellBreakMarker.METADATA_KEY"),
-                    file + " が魔法破壊マーカーを立てていない(TF側の採取系ガードが全不発になる)");
-            assertTrue(source.contains("setMetadata"),
-                    file + " に setMetadata が無い(マーカーが立たない)");
-            assertTrue(source.contains("removeMetadata"),
-                    file + " に removeMetadata が無い(マーカーが残留し、以後その座標の通常破壊まで"
-                            + "採取恩恵を失う)");
+            assertTrue(source.contains("SpellBreakMarker.callMarkedBreakEvent("),
+                    file + " が共通マーカーヘルパーを通していない"
+                            + "(TF側の採取系ガードが全不発、またはマーカー残留になる)");
         }
     }
 }

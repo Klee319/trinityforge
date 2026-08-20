@@ -28,8 +28,8 @@ public final class StatCategoryInference {
                 // (さもないと下の key.contains("mining") 等の部分一致ルールに先取りされ、意図しない
                 // カテゴリに落ちる)。
                 || key.equals("haste_active_mining_cooldown_reduction")
+                || key.equals("haste_active_digging_cooldown_reduction")
                 || key.equals("tree_fell_cooldown_reduction")
-                || key.equals("bow_cooldown_reduction")
                 || key.equals("distance_damage_bonus")) {
             return StatCategory.ATTACK;
         }
@@ -37,11 +37,15 @@ public final class StatCategoryInference {
                 || key.equals("reflect_flat") || key.equals("reflect_percent")) {
             return StatCategory.DEFENSE;
         }
-        if (key.equals("lapis_cost_reduction")
+        // 2026-07-31: workbench_* / ritual_* は品質(quality-bonus)と上振れ/下振れ(upswing/downswing)の
+        // クラフト系キー群。旧 craft_* は下の key.contains("craft") で拾えていたが、分割後の名前には
+        // craft が含まれないので明示ルールが必要(さもないと OTHER に落ちる)。
+        if (key.startsWith("workbench_")
+                || key.startsWith("ritual_")
+                // 2026-08-14: lapis_cost_reduction を廃止(ArsPaper の消費側リスナーごと削除)。
                 || key.equals("material_refund_chance")
                 || key.equals("ingredient_save_chance")
                 || key.equals("enchant_luck")
-                || key.equals("enchant_exp_gain_bonus")
                 || key.equals("potion_quality_bonus")
                 || key.equals("brew_speed_bonus")) {
             return StatCategory.CRAFT;
@@ -57,7 +61,16 @@ public final class StatCategoryInference {
                 || key.equals("loot_luck")
                 || key.equals("gacha_rate_bonus")
                 || key.startsWith("mob_drop_")
-                || key.equals("skill_exp_bonus")) {
+                || key.equals("skill_exp_bonus")
+                // スキル別EXP倍率(2026-08-02 柱5-3)。endsWith("_exp_bonus") では
+                // vanilla_exp_bonus 系まで巻き込んで既存の分類を変えてしまうので、
+                // SkillId.ALL から導出した集合(SkillExpBonusKeys)で判定する。
+                || SkillExpBonusKeys.contains(key)
+                // 破壊時バニラEXP増加(採取スキル別、2026-08-15)。スコープ無しの
+                // break_vanilla_exp_bonus と同じ UTILITY に揃える。ここより下の
+                // contains("mining") へ落とすと mining_break_vanilla_exp_bonus だけ
+                // GATHERING になり、4キーが別々のタブへ散る。
+                || BreakVanillaExpBonusKeys.contains(key)) {
             return StatCategory.UTILITY;
         }
         if (key.equals("suspicious_respawn_chance") || key.equals("hive_harvest_fortune")) {

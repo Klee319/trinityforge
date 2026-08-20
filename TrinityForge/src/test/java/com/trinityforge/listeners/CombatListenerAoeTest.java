@@ -1,10 +1,13 @@
 package com.trinityforge.listeners;
 
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 /**
  * Pure-logic coverage for {@link CombatListener#aoeEligible}: the AoE (#2) target filter — self/primary
@@ -91,5 +94,57 @@ class CombatListenerAoeTest {
         assertEquals(100.0, CombatListener.distanceDamage(100.0, 0.2, 0.0), 1e-9);
         assertEquals(100.0, CombatListener.distanceDamage(100.0, Double.NaN, 16.0), 1e-9);
         assertEquals(100.0, CombatListener.distanceDamage(100.0, 0.2, Double.NaN), 1e-9);
+    }
+
+    // --- launchDistanceBlocks (2026-08-04, distance-damage-bonus 悪用防止) ---
+    //
+    // 発射地点↔着弾地点の距離を測る純粋関数。射手の「着弾時点の現在地」を絶対に使わないことが
+    // このバグ修正の核心なので、World が食い違う/null な異常系は必ず0(ボーナス無し)へ落ちることを固定する。
+
+    @Test
+    void launchDistanceBlocksMeasuresLaunchToImpactDistance() {
+        World world = mock(World.class);
+        Location launch = new Location(world, 0.0, 64.0, 0.0);
+        Location impact = new Location(world, 16.0, 64.0, 0.0);
+        assertEquals(16.0, CombatListener.launchDistanceBlocks(launch, impact), 1e-9);
+    }
+
+    @Test
+    void launchDistanceBlocksIgnoresWhereTheShooterCurrentlyIs() {
+        // launch と impact が同一地点なら、このメソッドの呼び出し側(CombatListener本体)が渡す
+        // impact 引数は victim の位置であって shooter の現在地ではない ── shooter がどれだけ離れて
+        // いても、このメソッド自体はその情報を一切受け取らない(=引数に無い値は結果に影響し得ない)。
+        World world = mock(World.class);
+        Location launch = new Location(world, 100.0, 64.0, 100.0);
+        Location impact = new Location(world, 100.0, 64.0, 100.0);
+        assertEquals(0.0, CombatListener.launchDistanceBlocks(launch, impact), 1e-9);
+    }
+
+    @Test
+    void launchDistanceBlocksFallsBackToZeroAcrossDifferentWorlds() {
+        World worldA = mock(World.class);
+        World worldB = mock(World.class);
+        Location launch = new Location(worldA, 0.0, 64.0, 0.0);
+        Location impact = new Location(worldB, 100.0, 64.0, 0.0);
+        assertEquals(0.0, CombatListener.launchDistanceBlocks(launch, impact), 1e-9,
+                "Location#distance throws across different worlds; this must fall back to 0, not throw");
+    }
+
+    @Test
+    void launchDistanceBlocksFallsBackToZeroWithNullArguments() {
+        World world = mock(World.class);
+        Location loc = new Location(world, 0.0, 64.0, 0.0);
+        assertEquals(0.0, CombatListener.launchDistanceBlocks(null, loc), 1e-9);
+        assertEquals(0.0, CombatListener.launchDistanceBlocks(loc, null), 1e-9);
+        assertEquals(0.0, CombatListener.launchDistanceBlocks(null, null), 1e-9);
+    }
+
+    @Test
+    void launchDistanceBlocksFallsBackToZeroWithNullWorld() {
+        World world = mock(World.class);
+        Location noWorld = new Location(null, 0.0, 64.0, 0.0);
+        Location withWorld = new Location(world, 100.0, 64.0, 0.0);
+        assertEquals(0.0, CombatListener.launchDistanceBlocks(noWorld, withWorld), 1e-9);
+        assertEquals(0.0, CombatListener.launchDistanceBlocks(withWorld, noWorld), 1e-9);
     }
 }

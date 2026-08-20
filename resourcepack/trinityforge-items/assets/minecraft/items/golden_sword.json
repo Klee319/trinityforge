@@ -36,17 +36,17 @@
         }
       },
       {
-        "threshold": 59,
-        "model": {
-          "type": "minecraft:model",
-          "model": "trinityforge:item/gold_test"
-        }
-      },
-      {
         "threshold": 66,
         "model": {
           "model": "minecraft:item/golden_sword",
           "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 400005,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/golden_wand"
         }
       }
     ]

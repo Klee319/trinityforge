@@ -2,13 +2,20 @@
 # Perk tree runtime SoT is skilltree/<skill>.yml (this file: curves + EXP producer rates).
 # Source: vendored from ValhallaMMO jar defaults; edit curves via ConfigEditor skill-exp screen.
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skills/base/archery_progression.md
+#
+# N5(2026-07-31 ユーザー報告「弓術のスキルだけ経験値が討伐時ベースではなくダメージベース」):
+# 弓術EXPの【獲得量】はこのファイルではなく stats/skill-exp.yml の combat.kill-exp が持つ
+# (軽武器・重武器とまったく同じ経路・同じキー)。このファイルに残るのはレベル曲線
+# (次のレベルに必要なEXP量)だけで、獲得量の係数は1つも無い。
+# 以前ここにあった per-hit 係数
+#   bow_exp_base / crossbow_exp_base / damage_exp_bonus / distance_exp_multiplier_base /
+#   distance_exp_multiplier / distance_limit / infinity_multiplier /
+#   spawner_spawned_multiplier / max_health_limitation / pvp_multiplier / entity_exp_multipliers
+# は「命中1回ごとに与ダメージ比例で即時付与」する旧方式専用だったので、方式ごと削除した
+# (残すと editor から編集できるのに効かないキーになる)。
+# これに伴い距離ボーナス・無限エンチャント減額・スポナー産減額・弓/クロスボウ差は廃止。
+# 敵種別倍率は stats/skill-exp.yml の combat.kill-exp.entity-type-multipliers を近接と共有する。
+
 experience:
   max_level: 100
-  exp_level_curve: '(%level% + 75 * 2^(%level%/7.6)) + 300'
-  bow_exp_base: 30 # base exp for hitting an arrow with a bow
-  crossbow_exp_base: 40 # base exp for hitting an arrow with a crossbow
-  damage_exp_bonus: 0.1 # bonus multiplier per 1 point of damage (5 damage = +50% exp)
-  distance_exp_multiplier_base: 1 # base exp multiplier for hitting an arrow at point-blank range
-  distance_exp_multiplier: 0.75 # additional exp multiplier per 10 blocks distance between shooter and target (50 blocks would be 1 + 3.75 = 4.75x exp)
-  distance_limit: 100 # max distance for for exp calculation (distance beyond 100 blocks does not add to exp gain)
-  legacy:
+  exp_level_curve: (%level% + 75 * 2^(%level%/7.6)) + 300

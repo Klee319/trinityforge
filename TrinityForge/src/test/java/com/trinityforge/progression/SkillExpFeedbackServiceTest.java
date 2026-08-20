@@ -164,6 +164,38 @@ class SkillExpFeedbackServiceTest {
         assertEquals(0.25f, bar.progress(), 1e-6f);
     }
 
+    @Test
+    @DisplayName("日次逓減が効いていると、EXP表示に ×70% が付く（2026-08-18）")
+    void expDisplayCarriesTheDailyRateBadge() {
+        // 逓減は 2026-07-31 から動いていたのに、倍率を確認できる場所がどこにも無かった。
+        // EXPを稼いだ瞬間に必ず出るのはこの表示だけなので、ここに出さないと気づく機会が無い。
+        stubConfig(true, 4.0, false, false, "ENTITY_PLAYER_LEVELUP", 10);
+        SkillExpFeedbackService service = new SkillExpFeedbackService(plugin, config, catalog,
+                id -> "TestSkill",
+                (playerId, skillId) -> new DailyExpDiminishing.Status(0.7, 120_000.0, -1.0, -1.0, 3_600_000.0));
+
+        service.onExpGranted(player.getUniqueId(), SKILL_ID, 5.0, unchangedResult());
+        server.getScheduler().performOneTick();
+
+        String actionBar = PlainTextComponentSerializer.plainText().serialize(player.nextActionBar());
+        assertTrue(actionBar.contains("×70%"), actionBar);
+    }
+
+    @Test
+    @DisplayName("逓減が等倍なら何も足さない（常時ノイズにしない）")
+    void expDisplayStaysCleanAtFullRate() {
+        stubConfig(true, 4.0, false, false, "ENTITY_PLAYER_LEVELUP", 10);
+        SkillExpFeedbackService service = new SkillExpFeedbackService(plugin, config, catalog,
+                id -> "TestSkill",
+                (playerId, skillId) -> new DailyExpDiminishing.Status(1.0, 10.0, 90.0, -1.0, -1.0));
+
+        service.onExpGranted(player.getUniqueId(), SKILL_ID, 5.0, unchangedResult());
+        server.getScheduler().performOneTick();
+
+        String actionBar = PlainTextComponentSerializer.plainText().serialize(player.nextActionBar());
+        assertTrue(!actionBar.contains("×"), actionBar);
+    }
+
     // --- B3: 複数スキル同時ボスバー / 上限FIFO失効 / ログアウト掃除 ------------------------------------
 
     private SkillExpFeedbackService newIdentityNamedService() {

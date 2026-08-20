@@ -1,6 +1,7 @@
 package com.trinityforge.skilltree.runtime;
 
 import com.trinityforge.combat.PlayerStatAggregator;
+import com.trinityforge.mobs.MobDropRoller;
 import com.trinityforge.stats.StatKeys;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -11,6 +12,7 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerExpChangeEvent;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
@@ -58,6 +60,10 @@ public final class NativeSurvivalPerkListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDeathDrops(EntityDeathEvent event) {
         LivingEntity entity = event.getEntity();
+        // プレイヤーの死亡(PlayerDeathEventはEntityDeathEventのサブクラスなのでここにも来る)を
+        // 倍率対象にすると、被害者の持ち物がそのまま増える=アイテム複製になる。
+        // mob_drop_bonus/kill_vanilla_exp_bonus はモブ討伐報酬なのでPvPでは一切効かせない。
+        if (entity instanceof Player) return;
         Player killer = entity.getKiller();
         if (killer == null) return;
         var totals = aggregator.aggregate(killer);
@@ -66,16 +72,24 @@ public final class NativeSurvivalPerkListener implements Listener {
         // vanilla_exp_bonus/kill_vanilla_exp_bonus のみでEXPブーストが効くようにするため、
         // どちらか一方が0でも早期returnしない(旧実装はmob_drop_bonus<=0で丸ごとreturnしていた)。
         double dropMultAdd = totals.totalOf(MOB_DROP_BONUS);
-        double dropFactor = Math.min(3.0, 1.0 + Math.max(0.0, dropMultAdd));
-        if (dropFactor > 1.0) {
+        double dropBonus = MobDropRoller.clampBonus(dropMultAdd);
+        if (dropBonus > 0.0 && !carriesPlayerFillableStorage(entity)) {
+            // モブの装備欄由来(プレイヤーが持たせた/モブが拾った)のスタックは戦利品ではないので
+            // 倍率から除外する。ゾンビ等の拾得アイテムも装備スロットに入るため、装備欄の突合せで両方賄える。
+            // 専用収納を持つモブ(アレイ/ピグリン等)は突合せ自体が成立しないので
+            // carriesPlayerFillableStorage で丸ごと対象外にしてある(同メソッドの javadoc 参照)。
+            List<ItemStack> exclusions = equipmentExclusions(entity);
             List<ItemStack> drops = new ArrayList<>(event.getDrops());
             event.getDrops().clear();
             for (ItemStack drop : drops) {
                 if (drop == null || drop.getType().isAir()) continue;
+                if (consumeExclusion(exclusions, drop)) {
+                    event.getDrops().add(drop);
+                    continue;
+                }
                 ItemStack copy = drop.clone();
-                int amount = Math.min(copy.getMaxStackSize() * 8,
-                        Math.max(1, (int) Math.round(copy.getAmount() * dropFactor)));
-                copy.setAmount(amount);
+                copy.setAmount(scaleAmount(copy.getAmount(), dropBonus,
+                        copy.getMaxStackSize(), ThreadLocalRandom.current().nextDouble()));
                 event.getDrops().add(copy);
             }
         }
@@ -87,6 +101,102 @@ public final class NativeSurvivalPerkListener implements Listener {
         if (expFactor > 1.0) {
             event.setDroppedExp((int) Math.round(event.getDroppedExp() * expFactor));
         }
+    }
+
+    /**
+     * ドロップ増加ステをバニラドロップへ効かせる。<b>2026-08-13 の仕様変更で乗算から加算になった。</b>
+     *
+     * <p>ユーザー指示の新仕様は「1個固定のドロップは確率を上げる／個数がランダムなものは個数を足す」。
+     * バニラドロップは {@code EntityDeathEvent#getDrops()} に<b>抽選済みの結果しか無く</b>、
+     * 元の chance も min/max も復元できないので、<b>確率を上げる方の規則は適用できない</b>。
+     * したがってここは常に個数を足す側で扱う(+50% なら50%の確率で+1、+150% なら確定+1と50%でもう+1)。
+     *
+     * <p>旧実装は個数への乗算だったので、32個スタックに +100% を盛ると +32 個だった。
+     * 新仕様は +1 個。この弱体化は意図したもの(ユーザー指示)。
+     *
+     * @param roll 0.0以上1.0未満の乱数。テストのために引数化している。
+     */
+    static int scaleAmount(int baseAmount, double dropBonus, int maxStackSize, double roll) {
+        // 2026-08-09: 実装は MobDropRoller へ移した。TF追加ドロップ側でも同じ整数化が
+        // 必要になり、2か所に同じ式を置くと片方だけ直す事故が起きるため。
+        return MobDropRoller.cappedCount(baseAmount + MobDropRoller.extraCount(dropBonus, roll), maxStackSize);
+    }
+
+    /**
+     * 「プレイヤーが中身を詰められる収納を持つモブ」か。真なら<b>そのモブのドロップには倍率を一切
+     * 適用しない</b>。
+     *
+     * <p><b>2026-08-03 実サーバ報告「アレイ等に意図的に持たせたアイテムが増える」の真因。</b>
+     * 2026-08-02 の修正は {@code entity instanceof InventoryHolder} なら {@code getInventory()} の
+     * 中身を除外リストに積む、というものだった。<b>これは実サーバでは常に空リストになる。</b>
+     * Minecraft 1.21.11 の死亡処理は
+     * <pre>
+     *   LivingEntity.dropAllDeathLoot():
+     *       dropEquipment()          // ← Allay はここで inventory.removeAllItems() し、MAINHAND も空にする
+     *       dropFromLootTable()
+     *       dropCustomDeathLoot()    // ← Piglin はここで inventory.removeAllItems() する
+     *       CraftEventFactory.callEntityDeathEvent(...)   // ← EntityDeathEvent はここでやっと発火
+     * </pre>
+     * の順で、<b>収納が空にされたあとで</b> {@link EntityDeathEvent} が飛ぶ。つまりイベント中に
+     * {@code getInventory()} を読んでも必ず空で、除外は 1 件も成立しない。
+     * 通常の装備スロットが読めるのは CraftBukkit が {@code LivingEntity.clearEquipmentSlots} で
+     * <em>クリアを死亡イベントの後ろへ遅延させている</em>からで、Allay/Piglin の収納クリアは
+     * その遅延の対象外である(Allay の MAINHAND クリアも遅延対象外)。
+     * MockBukkit はこのバニラ順序を再現しないため、旧修正の単体テストは緑のまま実サーバだけが
+     * 壊れていた。
+     *
+     * <p>そこで「イベント時の読み取り」に頼るのをやめ、<b>収納持ちモブは丸ごと倍率の対象外</b>にする。
+     * 状態を持たない判定で複製経路が原理的に消える。失うのは
+     * {@code InventoryHolder} モブの自然ドロップへの倍率だけだが、該当するのは
+     * アレイ/ピグリン/村人/行商人/ピリジャー(いずれも自然ドロップ無し)と
+     * ウマ系(革0-2)/オウムガイ程度なので実害が無い。
+     */
+    static boolean carriesPlayerFillableStorage(LivingEntity entity) {
+        return entity instanceof InventoryHolder;
+    }
+
+    /**
+     * 装備スロット(手・オフハンド・防具)の中身を倍率除外リストとして返す。
+     *
+     * <p>プレイヤーが持たせたアイテムも、モブが地面から拾ったアイテムも、Bukkit上では装備スロットに入る。
+     * これらは {@code EntityDeathEvent#getDrops()} に戦利品と混ざって現れるため、突合せて除外しないと
+     * 「渡した装備が倍率で増える」＝アイテム複製になる。
+     *
+     * <p>装備スロットに限ってこの読み取りが成立するのは、CraftBukkit が
+     * {@code Mob.dropCustomDeathLoot} のスロットクリアを {@code clearEquipmentSlots} フラグで
+     * <b>死亡イベントの後ろへ遅延</b>させているため(耐久ランダム化も同じスタック実体に効くので
+     * {@code isSimilar} は一致する)。専用収納({@code InventoryHolder})はこの遅延の対象外なので、
+     * そちらは読み取りではなく {@link #carriesPlayerFillableStorage} による丸ごと除外で守る。
+     */
+    static List<ItemStack> equipmentExclusions(LivingEntity entity) {
+        List<ItemStack> exclusions = new ArrayList<>();
+        var equipment = entity.getEquipment();
+        if (equipment != null) {
+            for (ItemStack item : new ItemStack[]{
+                    equipment.getItemInMainHand(), equipment.getItemInOffHand(),
+                    equipment.getHelmet(), equipment.getChestplate(),
+                    equipment.getLeggings(), equipment.getBoots()}) {
+                if (item != null && !item.getType().isAir()) exclusions.add(item.clone());
+            }
+        }
+        return exclusions;
+    }
+
+    /**
+     * {@code drop} が除外リストに載っていれば1件だけ消費して true を返す。
+     *
+     * <p>1件ずつ消費するのは、同じ材質が「装備1個＋戦利品1個」で落ちるとき
+     * (骨を落とすスケルトンが弓を装備している等)に、戦利品側まで除外しないため。
+     */
+    private static boolean consumeExclusion(List<ItemStack> exclusions, ItemStack drop) {
+        for (int i = 0; i < exclusions.size(); i++) {
+            ItemStack candidate = exclusions.get(i);
+            if (candidate.isSimilar(drop) && candidate.getAmount() == drop.getAmount()) {
+                exclusions.remove(i);
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

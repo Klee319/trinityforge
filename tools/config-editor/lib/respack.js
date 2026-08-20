@@ -81,6 +81,12 @@ function normalizeAssetName(id) {
   return normalized || "item";
 }
 
+// 【後方互換のみ】material 名の部分一致で handheld / generated の2択を返す旧推定。
+// 2026-08-03 に自動生成モデルの親決定からは外した(下記 vanillaLeafModels を参照)。
+// 「BOW を含むから handheld」のような2択では、バニラが弓・メイス・槍・トライデントごとに
+// 別々の display 変換を持っていることを表現できず、3人称の構え方が全部剣と同じになっていた。
+// 台帳(cmd-registry.json)の parent 列と、それを表示する editor UI がまだこの語彙を使うため
+// 関数自体は残す。生成される描画には影響しない。
 function inferParent(material) {
   const mat = String(material || "").toUpperCase();
   return HANDHELD_HINTS.some((hint) => mat.includes(hint)) ? "handheld" : "generated";
@@ -291,15 +297,20 @@ function writeTexture(opts, packRoot, registryPath) {
   } else if (fs.existsSync(mcmetaPath)) {
     fs.unlinkSync(mcmetaPath);
   }
-  const modelJson = {
-    parent: `minecraft:item/${parent}`,
-    textures: { layer0: `trinityforge:item/${assetName}` }
-  };
-  fs.writeFileSync(
-    path.join(modelsDir(packRoot), `${assetName}.json`),
-    JSON.stringify(modelJson, null, 2) + "\n",
-    "utf8"
-  );
+  // バニラ定義のリーフごとにモデルを書く。単純なマテリアル(剣・防具・素材など)は
+  // リーフ1つなので従来どおり <assetName>.json だけが出る。BOW / *_SPEAR のように
+  // 引き絞りや手持ち専用モデルを持つマテリアルでは、その分だけ
+  // <assetName>__pulling_0.json / <assetName>__in_hand.json …が追加で出る。
+  // テクスチャは1枚しか無いので全リーフが同じ layer0 を指す(差は parent の display 変換)。
+  // 専用の引き絞り絵などを後から足したくなったときは、このファイルを差し替えるだけでよい。
+  for (const leaf of vanillaLeafModels(material)) {
+    const leafAsset = leafAssetName(assetName, leaf.suffix);
+    fs.writeFileSync(
+      path.join(modelsDir(packRoot), `${leafAsset}.json`),
+      JSON.stringify(generatedLeafModel(leaf.vanillaId, assetName), null, 2) + "\n",
+      "utf8"
+    );
+  }
 
   const idx = registry.allocations.findIndex((a) => a.material === material && a.cmd === cmd);
   const nextAllocations = [...registry.allocations];
@@ -412,6 +423,166 @@ function fallbackForMaterial(material) {
   return deepClone(def.model);
 }
 
+// ---------------------------------------------------------------------------
+// バニラのモデル構造を保ったまま、テクスチャだけカスタムへ差し替えるための仕組み
+// (2026-08-03)。
+//
+// 以前は CMD エントリを常に素の {type:"minecraft:model"} 1個へ潰していたため、
+// バニラ側がマテリアルごとに持っている描画の作りが丸ごと失われていた:
+//   - TRIDENT      : minecraft:special の専用レンダラ(立体モデル+投擲アニメーション)
+//   - BOW          : using_item + use_duration による引き絞り3段階の切替
+//   - *_SPEAR      : display_context による GUI アイコンと手持ちモデルの出し分け
+// fallback(CMDなし) だけは正しくバニラ定義を deep clone していたので、
+// 「素の鉄の剣は正常なのに、CMD 付きのカスタム武器だけ板ポリになる」状態だった。
+//
+// 方針: バニラ定義のツリーをそのまま複製し、その中の minecraft:model リーフだけを
+// カスタムモデルへ差し替える。minecraft:special は専用レンダラであり、テクスチャを
+// 差し替える手段がそもそも無いので触らない(＝バニラの見た目と挙動を残す)。
+// ---------------------------------------------------------------------------
+
+// モデルツリーを走査して minecraft:model リーフのノード自体を出現順に集める。
+// minecraft:special の内側へは降りない(差し替え対象にしないため)。
+function collectModelLeaves(node, out = []) {
+  if (Array.isArray(node)) {
+    for (const child of node) collectModelLeaves(child, out);
+    return out;
+  }
+  if (!node || typeof node !== "object") return out;
+  if (node.type === "minecraft:model") {
+    out.push(node);
+    return out;
+  }
+  if (node.type === "minecraft:special") return out;
+  for (const key of ["cases", "fallback", "on_true", "on_false", "entries"]) {
+    if (key in node) collectModelLeaves(node[key], out);
+  }
+  // cases[] / entries[] の各要素は {when|threshold, model:{...}} という形なので、
+  // type を持たないオブジェクトからは model プロパティを辿る。
+  if (!node.type && node.model && typeof node.model === "object") {
+    collectModelLeaves(node.model, out);
+  }
+  return out;
+}
+
+// 「同じアイテムが、状況によって別のモデルで描かれる」ことを表す property。
+// これらが入っているマテリアルだけ、バニラの構造を保ったまま差し替える。
+//
+// 逆に minecraft:trim_material のような「データ差分」による分岐は対象にしない。
+// カスタムアイテムのテクスチャは1枚しか無く、鍛冶型16種ぶんのリーフを作っても
+// 全部同じ絵になるだけで、モデルファイルが17倍に増える以外の効果が無いため。
+// (分岐を保持しないので、鍛冶型を付けたカスタム防具のアイコンは従来どおり
+//  カスタム絵のまま変わらない — これは以前からの挙動で、退行ではない。)
+const RENDER_CONTEXT_PROPERTIES = new Set([
+  "minecraft:display_context",
+  "minecraft:using_item",
+  "minecraft:use_duration"
+]);
+
+function hasRenderContextSplit(node) {
+  if (Array.isArray(node)) return node.some((child) => hasRenderContextSplit(child));
+  if (!node || typeof node !== "object") return false;
+  if (RENDER_CONTEXT_PROPERTIES.has(node.property)) return true;
+  return Object.values(node).some((value) => hasRenderContextSplit(value));
+}
+
+// リーフのバニラ model id から、生成するカスタムモデルのサフィックスを決める。
+// 例) bow / bow_pulling_0        → ""      / "pulling_0"
+//     netherite_spear / _in_hand → ""      / "in_hand"
+function leafSuffix(primaryId, leafId, index) {
+  const base = (id) => String(id).split("/").pop();
+  const primary = base(primaryId);
+  const leaf = base(leafId);
+  if (leaf === primary) return "";
+  if (leaf.startsWith(`${primary}_`)) return leaf.slice(primary.length + 1);
+  return `alt${index}`;
+}
+
+// material のバニラ定義から「差し替えるべきリーフ」の一覧を返す。
+// 戻り値: [{ vanillaId, suffix }] — 先頭が主モデル(GUI アイコン等に使われるもの)。
+// 主モデルは「id が item/<material小文字> と一致するリーフ」を優先する。BOW のように
+// 走査順の先頭が bow_pulling_0 になるケースでも、意味的な主モデルを先頭へ固定するため。
+function vanillaLeafModels(material) {
+  const mat = String(material || "").toUpperCase();
+  const def = DEFS[mat];
+  if (!def) {
+    throw new Error(`material "${material}" の item 定義データが見つかりません`);
+  }
+  // 描画コンテキストによる出し分けを持たないマテリアルは、主モデル1枚だけを見る
+  // (大多数のアイテムがここ。従来と同じく <assetName>.json が1つ出るだけ)。
+  const ids = hasRenderContextSplit(def.model)
+    ? [...new Set(collectModelLeaves(def.model).map((n) => n.model))]
+    : [`minecraft:item/${mat.toLowerCase()}`].filter((id) =>
+        collectModelLeaves(def.model).some((n) => n.model === id));
+  if (ids.length === 0) {
+    // 全リーフが minecraft:special のマテリアル(PLAYER_HEAD 等)。差し替え先が無いので
+    // 主モデル1枚だけを素の generated として扱う(従来どおり平面アイコンになる)。
+    return [{ vanillaId: null, suffix: "" }];
+  }
+  const primaryId = `minecraft:item/${mat.toLowerCase()}`;
+  const at = ids.indexOf(primaryId);
+  if (at > 0) {
+    ids.splice(at, 1);
+    ids.unshift(primaryId);
+  }
+  return ids.map((vanillaId, index) => ({
+    vanillaId,
+    suffix: leafSuffix(ids[0], vanillaId, index)
+  }));
+}
+
+// assetName + サフィックスから、実際に書き出すモデルファイル名を決める。
+function leafAssetName(assetName, suffix) {
+  return suffix ? `${assetName}__${suffix}` : assetName;
+}
+
+// 自動生成モデル(テクスチャ1枚ルート)のリーフ1つぶんの json。
+// parent はバニラの同リーフをそのまま指すので、display 変換(構え方・大きさ)は
+// マテリアル本来のものを継承し、layer0 だけがカスタムテクスチャになる。
+function generatedLeafModel(vanillaId, assetName) {
+  return {
+    parent: vanillaId || "minecraft:item/generated",
+    textures: { layer0: `trinityforge:item/${assetName}` }
+  };
+}
+
+// 配線済み1行ぶんの CMD エントリのモデルノードを組み立てる。
+//
+// 自動生成モデル(テクスチャ1枚ルート)は、バニラ定義の構造を丸ごと複製してから
+// minecraft:model リーフだけをカスタムモデルへ差し替える。これにより
+// トライデントの専用レンダラ・弓の引き絞り・槍の手持ちモデルがカスタム品でも生き残る。
+//
+// カスタムモデル(bbmodel アップロード, customModel:true)は素の minecraft:model のままにする。
+// 立体モデルを自分で作った以上、全ての表示コンテキストでそれを出すのが作者の意図であり、
+// GUI だけ独自でその他はバニラ、という中途半端な合成にはしない。
+function entryModelFor(material, allocation) {
+  const custom = `trinityforge:item/${allocation.assetName}`;
+  if (allocation.customModel) {
+    return { type: "minecraft:model", model: custom };
+  }
+  const tree = fallbackForMaterial(material);
+  // バニラ自身が素の単一モデル(剣・素材など大多数)、あるいは分岐が描画コンテキスト由来で
+  // ないもの(防具の鍛冶型など)は、複製しても意味が無いので素で返す。
+  if (tree.type === "minecraft:model" || !hasRenderContextSplit(tree)) {
+    return { type: "minecraft:model", model: custom };
+  }
+  const byVanillaId = new Map(
+    vanillaLeafModels(material)
+      .filter((leaf) => leaf.vanillaId)
+      .map((leaf) => [leaf.vanillaId, `trinityforge:item/${leafAssetName(allocation.assetName, leaf.suffix)}`])
+  );
+  const targets = collectModelLeaves(tree).filter((node) => byVanillaId.has(node.model));
+  // 差し替えられる minecraft:model リーフが1つも無いマテリアル(PLAYER_HEAD 等、全リーフが
+  // minecraft:special)。構造を残してもカスタムテクスチャを出す場所が無いので、
+  // 素のモデルへ倒す(頭モデルではなく登録した平面アイコンを出す＝従来どおりの意図した挙動)。
+  if (targets.length === 0) {
+    return { type: "minecraft:model", model: custom };
+  }
+  for (const node of targets) {
+    node.model = byVanillaId.get(node.model);
+  }
+  return tree;
+}
+
 // 台帳を material ごとにグループし、assets/minecraft/items/<material>.json (range_dispatch) を
 // 全再生成する。
 //
@@ -466,7 +637,7 @@ function regenerateItemDefinitions(packRoot, registryPath) {
     const fallback = fallbackForMaterial(material);
     const entries = sorted.map((a) => ({
       threshold: a.cmd,
-      model: hasModel(a) ? { type: "minecraft:model", model: `trinityforge:item/${a.assetName}` } : fallback
+      model: hasModel(a) ? entryModelFor(material, a) : fallback
     }));
     // defs[material] の "model" 以外のトップレベルキー(例: WOODEN_SPEAR等のswap_animation_scale)を
     // そのまま生成ファイルのトップレベルへ引き継ぐ(バニラの手持ちアニメーション等を壊さないため)。
@@ -624,9 +795,13 @@ module.exports = {
   writeModel,
   regenerateItemDefinitions,
   buildPack,
-  regenerateItemDefinitions,
   status,
   previewInfo,
   normalizeAssetName,
-  inferParent
+  inferParent,
+  // バニラ構造の保持まわり(テストと一括移行スクリプトから使う)。
+  vanillaLeafModels,
+  leafAssetName,
+  generatedLeafModel,
+  entryModelFor
 };

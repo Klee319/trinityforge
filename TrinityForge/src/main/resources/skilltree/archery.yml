@@ -30,270 +30,338 @@
 # ============================================================================
 
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/archery.md
+
 skill: ARCHERY
-display-name: "弓術"
+display-name: 弓術
 icon: BOW
-starting-coords: "2,10"
+starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  max-times: 3
   at-level: 100
-  name: "弓聖の境地"
-  effect-text: "ダメージ・命中精度・節約率が永続で増加"
+  name: 弓聖の境地
+  effect-text: ダメージ・命中精度・節約率が永続で増加
   buffs:
-    attack-power: 0.15
-    bow_accuracy: 0.1        # 旧 archery_inaccuracy_add: -0.1 (符号反転)
-    ammo_save_chance: 0.1
-
+    percent-bonus-damage: 0.05
+    bow-accuracy: 0.05
+    ammo-save-chance: 0.1
+  description: |-
+    追加ダメージ率+5%
+    弓精度+5%
+    矢節約率+10%
 nodes:
   A:
-    name: "弓引きの心得"
+    name: 弓引きの心得
     level: 10
     role: main
-    parent: null
+    parent:
     icon: BOW
     cost: 1
-    effect-text: "ダメージ増加・射撃精度アップ"
+    effect-text: ダメージ増加・射撃精度アップ
     buffs:
-      attack-power: 0.1
-      bow_accuracy: 0.05      # 旧 archery_inaccuracy_add: -0.05 (符号反転)
+      percent-bonus-damage: 0.03
+      bow-accuracy: 0.05
+    description: |-
+      追加ダメージ率+3%
+      弓精度+5%
   B:
-    name: "追尾の射手"
+    name: 追尾の射手
     level: 30
     role: main
     parent: A
     icon: SPECTRAL_ARROW
     cost: 1
-    effect-text: "射撃距離ボーナス・一定確率でホーミング"
+    effect-text: 射撃距離ボーナス・一定確率でホーミング
     buffs:
-      distance_damage_bonus: 0.1
-      arrow_piercing: 1
+      distance-damage-bonus: 0.1
+      arrow-piercing: 1
     effects:
-      - "一定確率で矢がホーミング"
+      - 一定確率で矢がホーミング
+    description: |-
+      距離ダメージ+10%
+      矢貫通+1体
   C:
-    name: "速射の型"
+    name: 速射の型
     level: 50
     role: main
     parent: B
     icon: ARROW
     cost: 1
-    effect-text: "射撃精度アップ(バニラと同等)・射撃速度アップ"
+    effect-text: 射撃精度アップ(バニラと同等)・射撃速度アップ
     buffs:
-      bow_accuracy: 0.1        # 旧 archery_inaccuracy_add: -0.1 (符号反転)
-      arrow_velocity: 0.1
+      bow-accuracy: 0.1
+      arrow-velocity: 0.1
+    description: |-
+      弓精度+10%
+      矢速度+10%
   D:
-    name: "剛弓の境地"
+    name: 剛弓の境地
     level: 70
     role: main
     parent: C
     icon: CROSSBOW
     cost: 1
-    effect-text: "チャージ速度短縮・ダメージ増加"
+    effect-text: ダメージ増加
     buffs:
-      attack-power: 0.1
-      bow_cooldown_reduction: 0.1   # 旧 archery_chargedshotcooldown_add: -0.1 (符号反転)
+      percent-bonus-damage: 0.05
+    description: 追加ダメージ率+5%
   E:
-    name: "極意・貫空"
+    name: 極意・貫空
     level: 90
     role: main
     parent: D
     icon: TIPPED_ARROW
     cost: 1
-    effect-text: "2弾チャージで確定ホーミング・節約率増加"
+    effect-text: 2弾チャージで確定ホーミング・節約率増加
     buffs:
-      arrow_piercing: 2
-      ammo_save_chance: 0.1
+      arrow-piercing: 2
+      ammo-save-chance: 0.1
     effects:
-      - "2段チャージで確定ホーミング"
-
+      - 2段チャージで確定ホーミング
+    description: |-
+      矢貫通+2体
+      矢節約率+10%
   C-1-1:
-    name: "弾き矢"
+    name: 弾き矢
     level: 50
     role: branch
     parent: C
     icon: STICK
     cost: 1
-    effect-text: "ノックバック距離増加"
+    effect-text: ノックバック距離増加
     buffs:
-      arrow_knockback: 0.3
+      arrow-knockback: 0.3
+    description: 矢ノックバック+0.3m
   C-1-2:
-    name: "大弾き矢"
+    name: 大弾き矢
     level: 70
     role: branch
     parent: C-1-1
     icon: STICK
     cost: 1
-    effect-text: "ノックバック距離増加"
+    effect-text: ノックバック距離増加
     buffs:
-      arrow_knockback: 0.3
+      arrow-knockback: 0.3
+    description: 矢ノックバック+0.3m
   D-1-1:
-    name: "貫通の矢"
+    name: 貫通の矢
     level: 70
     role: branch
     parent: D
     icon: SPECTRAL_ARROW
     cost: 1
-    effect-text: "矢の貫通レベル増加・節約率増加"
     buffs:
-      arrow_piercing: 1
-      ammo_save_chance: 0.05
+      arrow-piercing: 1
+      ammo-save-chance: 0.05
+    description: |-
+      矢貫通+1体
+      矢節約率+5%
   D-1-2:
-    name: "剛貫の矢"
+    name: 剛貫の矢
     level: 90
     role: branch
     parent: D-1-1
     icon: SPECTRAL_ARROW
     cost: 1
-    effect-text: "矢の貫通レベル増加・節約率増加"
+    effect-text: 矢の貫通レベル増加・節約率増加
     buffs:
-      arrow_piercing: 1
-      ammo_save_chance: 0.05
-
+      arrow-piercing: 1
+      ammo-save-chance: 0.05
+    description: |-
+      矢貫通+1体
+      矢節約率+5%
   A-alpha-1:
-    name: "剛・弓引"
+    name: 剛・弓引
     level: 10
     role: greek
     parent: A
     group: A-greek
     icon: RED_DYE
     cost: 1
-    effect-text: "距離ダメージ増加"
-    # 2026-07-26 職業別草案(戦闘)準拠: α=遠距離火力型。attack-power→distance-damage-bonus。
-    buffs: { distance-damage-bonus: 0.04 }
+    effect-text: 距離ダメージ増加
+    buffs:
+      distance-damage-bonus: 0.04
+    description: 距離ダメージ+4%
   A-beta-1:
-    name: "疾・弓引"
+    name: 疾・弓引
     level: 10
     role: greek
     parent: A
     group: A-greek
     icon: YELLOW_DYE
     cost: 1
-    effect-text: "会心率・矢速度増加"
-    buffs: { crit-chance: 0.02, arrow-velocity: 0.02 }
+    effect-text: 会心率・矢速度増加
+    buffs:
+      crit-chance: 0.02
+      arrow-velocity: 0.02
+    description: |-
+      会心率+2%
+      矢速度+2%
   A-gamma-1:
-    name: "貫・弓引"
-    # 2026-07-26 職業別草案(戦闘)準拠: 旧名称「冴・弓引」を変更。中身が会心ダメージから
-    # 矢貫通・節約率に変わり、「冴(鋭さ)」より「貫(貫通)」の方が実態を表すため。
+    name: 貫・弓引
     level: 10
     role: greek
     parent: A
     group: A-greek
     icon: LIGHT_BLUE_DYE
     cost: 1
-    effect-text: "矢節約率増加"
-    # 2026-07-26 職業別草案(戦闘)準拠: γ=貫通経済型。crit-damage(α/βと同じ火力路線に戻ってしまう)
-    # から矢節約率へ全面差し替え。
-    buffs: { ammo-save-chance: 0.02 }
-  # 2026-07-26 路線固定(lane-lock): B〜E のギリシャノードは parent を「同じ路線の1つ前」に向ける。
-  # 排他は『同じ親を持つ同group兄弟』にしか効かない仕様(NativePerkService / SkillTreeProgressionGenerator)
-  # なので、親が路線ごとに分かれる B〜E に group を書いても no-op になり、AllSkillTreesLoadTest が
-  # 警告で落ちる。路線の固定は parent 連鎖だけで担保し、group は A 段(同じ親A)にのみ置く。
+    effect-text: 矢節約率増加
+    buffs:
+      ammo-save-chance: 0.02
+    description: 矢節約率+2%
   B-alpha-1:
-    name: "剛・追尾"
+    name: 剛・追尾
     level: 30
     role: greek
-    parent: A-alpha-1
+    parent: B
     icon: RED_DYE
     cost: 1
-    effect-text: "距離ダメージ増加"
-    buffs: { distance-damage-bonus: 0.04 }
+    effect-text: 距離ダメージ増加
+    buffs:
+      distance-damage-bonus: 0.04
+    group: B-greek
+    description: 距離ダメージ+4%
   B-beta-1:
-    name: "疾・追尾"
+    name: 疾・追尾
     level: 30
     role: greek
-    parent: A-beta-1
+    parent: B
     icon: YELLOW_DYE
     cost: 1
-    effect-text: "会心率・矢速度増加"
-    buffs: { crit-chance: 0.02, arrow-velocity: 0.02 }
+    effect-text: 会心率・矢速度増加
+    buffs:
+      crit-chance: 0.02
+      arrow-velocity: 0.02
+    group: B-greek
+    description: |-
+      会心率+2%
+      矢速度+2%
   B-gamma-1:
-    name: "貫・追尾"
+    name: 貫・追尾
     level: 30
     role: greek
-    parent: A-gamma-1
+    parent: B
     icon: LIGHT_BLUE_DYE
     cost: 1
-    effect-text: "矢節約率増加"
-    buffs: { ammo-save-chance: 0.02 }
+    effect-text: 矢節約率増加
+    buffs:
+      ammo-save-chance: 0.02
+    group: B-greek
+    description: 矢節約率+2%
   C-alpha-1:
-    name: "剛・速射"
+    name: 剛・速射
     level: 50
     role: greek
-    parent: B-alpha-1
+    parent: C
     icon: RED_DYE
     cost: 1
-    effect-text: "距離ダメージ増加"
-    buffs: { distance-damage-bonus: 0.04 }
+    effect-text: 距離ダメージ増加
+    buffs:
+      distance-damage-bonus: 0.04
+    group: C-greek
+    description: 距離ダメージ+4%
   C-beta-1:
-    name: "疾・速射"
+    name: 疾・速射
     level: 50
     role: greek
-    parent: B-beta-1
+    parent: C
     icon: YELLOW_DYE
     cost: 1
-    effect-text: "会心率・矢速度増加"
-    buffs: { crit-chance: 0.02, arrow-velocity: 0.02 }
+    effect-text: 会心率・矢速度増加
+    buffs:
+      crit-chance: 0.02
+      arrow-velocity: 0.02
+    group: C-greek
+    description: |-
+      会心率+2%
+      矢速度+2%
   C-gamma-1:
-    name: "貫・速射"
+    name: 貫・速射
     level: 50
     role: greek
-    parent: B-gamma-1
+    parent: C
     icon: LIGHT_BLUE_DYE
     cost: 1
-    effect-text: "矢貫通増加"
-    buffs: { arrow-piercing: 1 }
+    effect-text: 矢貫通増加
+    buffs:
+      arrow-piercing: 1
+    group: C-greek
+    description: 矢貫通+1体
   D-alpha-1:
-    name: "剛・剛弓"
+    name: 剛・剛弓
     level: 70
     role: greek
-    parent: C-alpha-1
+    parent: D
     icon: RED_DYE
     cost: 1
-    effect-text: "距離ダメージ増加"
-    buffs: { distance-damage-bonus: 0.04 }
+    effect-text: 距離ダメージ増加
+    buffs:
+      distance-damage-bonus: 0.04
+    group: D-greek
+    description: 距離ダメージ+4%
   D-beta-1:
-    name: "疾・剛弓"
+    name: 疾・剛弓
     level: 70
     role: greek
-    parent: C-beta-1
+    parent: D
     icon: YELLOW_DYE
     cost: 1
-    effect-text: "会心率・矢速度増加"
-    buffs: { crit-chance: 0.02, arrow-velocity: 0.02 }
+    effect-text: 会心率・矢速度増加
+    buffs:
+      crit-chance: 0.02
+      arrow-velocity: 0.02
+    group: D-greek
+    description: |-
+      会心率+2%
+      矢速度+2%
   D-gamma-1:
-    name: "貫・剛弓"
+    name: 貫・剛弓
     level: 70
     role: greek
-    parent: C-gamma-1
+    parent: D
     icon: LIGHT_BLUE_DYE
     cost: 1
-    effect-text: "矢節約率増加"
-    buffs: { ammo-save-chance: 0.03 }
+    effect-text: 矢節約率増加
+    buffs:
+      ammo-save-chance: 0.03
+    group: D-greek
+    description: 矢節約率+3%
   E-alpha-1:
-    name: "剛・貫空"
+    name: 剛・貫空
     level: 90
     role: greek
-    parent: D-alpha-1
+    parent: E
     icon: RED_DYE
     cost: 1
-    effect-text: "距離ダメージ増加"
-    buffs: { distance-damage-bonus: 0.04 }
+    effect-text: 距離ダメージ増加
+    buffs:
+      distance-damage-bonus: 0.04
+    group: E-greek
+    description: 距離ダメージ+4%
   E-beta-1:
-    name: "疾・貫空"
+    name: 疾・貫空
     level: 90
     role: greek
-    parent: D-beta-1
+    parent: E
     icon: YELLOW_DYE
     cost: 1
-    effect-text: "会心率・矢速度増加"
-    buffs: { crit-chance: 0.02, arrow-velocity: 0.02 }
+    effect-text: 会心率・矢速度増加
+    buffs:
+      crit-chance: 0.02
+      arrow-velocity: 0.02
+    group: E-greek
+    description: |-
+      会心率+2%
+      矢速度+2%
   E-gamma-1:
-    name: "貫・貫空"
+    name: 貫・貫空
     level: 90
     role: greek
-    parent: D-gamma-1
+    parent: E
     icon: LIGHT_BLUE_DYE
     cost: 1
-    effect-text: "矢貫通増加"
-    buffs: { arrow-piercing: 1 }
-
+    effect-text: 矢貫通増加
+    buffs:
+      arrow-piercing: 1
+    group: E-greek
+    description: 矢貫通+1体

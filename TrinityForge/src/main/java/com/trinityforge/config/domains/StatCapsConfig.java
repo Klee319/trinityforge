@@ -66,24 +66,12 @@ public final class StatCapsConfig implements LoadableConfig {
 
     public static final String PATH = "combat/stat-caps.yml";
     private static final String SECTION = "stat-caps";
-    private static final String GATHERING_EFFICIENCY_OVERRIDE_KEY = "gathering-efficiency-max-enchant-level";
 
     private volatile Map<String, Double> caps = Map.of();
-    private volatile Integer gatheringEfficiencyMaxEnchantLevel = null;
 
     /** Canonical-keyed upper-bound cap values. Never null. Absent key = no cap for that stat. */
     public Map<String, Double> caps() {
         return caps;
-    }
-
-    /**
-     * {@code stat-caps.yml} 側で {@code gathering-efficiency-max-enchant-level} が設定されていれば
-     * その値、未設定(空欄/コメントアウト)なら {@code null} — 呼び出し側は
-     * {@code stats/gathering-efficiency.yml} の {@code max-enchant-level}(旧設定)へフォールバック
-     * すること({@code stat-caps.yml} 側の値がある場合はそちらを優先する、後方互換ブリッジ)。
-     */
-    public Integer gatheringEfficiencyMaxEnchantLevel() {
-        return gatheringEfficiencyMaxEnchantLevel;
     }
 
     /**
@@ -150,15 +138,10 @@ public final class StatCapsConfig implements LoadableConfig {
         }
         this.caps = Map.copyOf(next);
 
-        // 最終効率(gathering-efficiency)の効率強化エンチャント上限: stats/gathering-efficiency.yml の
-        // max-enchant-level を、こちらの1キーからも設定できるようにする後方互換ブリッジ。
-        // 未設定(空欄/コメントアウト)なら null(呼び出し側が旧ファイルへフォールバックする)。
-        if (yaml.isDouble(GATHERING_EFFICIENCY_OVERRIDE_KEY) || yaml.isInt(GATHERING_EFFICIENCY_OVERRIDE_KEY)
-                || yaml.isLong(GATHERING_EFFICIENCY_OVERRIDE_KEY)) {
-            this.gatheringEfficiencyMaxEnchantLevel = yaml.getInt(GATHERING_EFFICIENCY_OVERRIDE_KEY);
-        } else {
-            this.gatheringEfficiencyMaxEnchantLevel = null;
-        }
+        // 2026-08-05 ユーザー決定で gathering-efficiency-max-enchant-level(ルート直下の後方互換
+        // ブリッジ)を削除した。効率強化エンチャントの上限は stats/gathering-efficiency.yml の
+        // max-enchant-level が唯一の設定箇所(設定が2箇所あって優先順位が要る状態そのものが不要だった)。
+        // このファイルに残っている同名キーは無視される(セクション外なので警告も出ない)。
 
         log.info("[" + PATH + "] loaded " + this.caps.size() + " stat cap(s) OK");
         return true;

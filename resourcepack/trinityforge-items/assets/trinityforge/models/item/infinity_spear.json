@@ -1,5 +1,5 @@
 {
-  "parent": "minecraft:item/handheld",
+  "parent": "minecraft:item/netherite_spear",
   "textures": {
     "layer0": "trinityforge:item/infinity_spear"
   }

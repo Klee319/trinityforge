@@ -45,15 +45,15 @@
       {
         "threshold": 109,
         "model": {
-          "model": "minecraft:item/netherite_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/infinity_dagger"
         }
       },
       {
         "threshold": 110,
         "model": {
-          "model": "minecraft:item/netherite_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/hero_dagger"
         }
       },
       {
@@ -87,15 +87,15 @@
       {
         "threshold": 115,
         "model": {
-          "model": "minecraft:item/netherite_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/infinity_rapier"
         }
       },
       {
         "threshold": 116,
         "model": {
-          "model": "minecraft:item/netherite_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/hero_rapier"
         }
       },
       {
@@ -108,15 +108,15 @@
       {
         "threshold": 133,
         "model": {
-          "model": "minecraft:item/netherite_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/infinity_warhammer"
         }
       },
       {
         "threshold": 134,
         "model": {
-          "model": "minecraft:item/netherite_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/hero_warhammer"
         }
       },
       {
@@ -136,8 +136,8 @@
       {
         "threshold": 137,
         "model": {
-          "model": "minecraft:item/netherite_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/hero_grate_sword"
         }
       },
       {
@@ -150,15 +150,15 @@
       {
         "threshold": 142,
         "model": {
-          "model": "minecraft:item/netherite_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/infinity_greataxe"
         }
       },
       {
         "threshold": 143,
         "model": {
-          "model": "minecraft:item/netherite_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/hero_greataxe"
         }
       },
       {
@@ -166,6 +166,209 @@
         "model": {
           "model": "minecraft:item/netherite_sword",
           "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5600,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5601,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5602,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5603,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5604,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5605,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5606,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5607,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5608,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5609,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5610,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5611,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5700,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5701,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5702,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5703,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5704,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5705,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5720,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5721,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5722,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5723,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5724,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5725,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5740,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 400007,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/netherite_wand"
+        }
+      },
+      {
+        "threshold": 400012,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/magic_wand"
+        }
+      },
+      {
+        "threshold": 400013,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/abyss_wand"
+        }
+      },
+      {
+        "threshold": 400014,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/boundary_wand"
         }
       }
     ]

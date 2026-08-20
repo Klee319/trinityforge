@@ -1,9 +1,11 @@
 package com.trinityforge.config;
 
 import com.trinityforge.config.domains.AchievementsConfig;
+import com.trinityforge.config.domains.AfkConfig;
 import com.trinityforge.config.domains.AttributeMappingConfig;
 import com.trinityforge.config.domains.CombatDamageConfig;
 import com.trinityforge.config.domains.CollectionConfig;
+import com.trinityforge.config.domains.NetworkConfig;
 import com.trinityforge.config.domains.SpecialRewardsConfig;
 import com.trinityforge.config.domains.CombatLevelConfig;
 import com.trinityforge.config.domains.CraftQualityConfig;
@@ -23,12 +25,15 @@ import com.trinityforge.config.domains.GatheringEfficiencyConfig;
 import com.trinityforge.config.domains.GlyphDamageBoostConfig;
 import com.trinityforge.config.domains.HateConfig;
 import com.trinityforge.config.domains.ItemCatalogConfig;
+import com.trinityforge.config.domains.EquipmentAssetsConfig;
 import com.trinityforge.config.domains.ExternalItemsConfig;
 import com.trinityforge.config.domains.MaterialListsConfig;
 import com.trinityforge.config.domains.ItemStatsConfig;
+import com.trinityforge.config.domains.LevelBroadcastConfig;
 import com.trinityforge.config.domains.LoreConfig;
 import com.trinityforge.config.domains.MobImportConfig;
 import com.trinityforge.config.domains.MobLevelTableConfig;
+import com.trinityforge.config.domains.MobAbilitiesConfig;
 import com.trinityforge.config.domains.MobOverridesConfig;
 import com.trinityforge.config.domains.MobProfileConfig;
 import com.trinityforge.config.domains.MiningGimmickConfig;
@@ -84,6 +89,7 @@ public final class ConfigManager {
     // itemCatalog より先に register して、同一パスのレシピ登録が読み込み済みリストを見られるようにする。
     private final MaterialListsConfig materialLists = new MaterialListsConfig();
     private final ExternalItemsConfig externalItems = new ExternalItemsConfig();
+    private final EquipmentAssetsConfig equipmentAssets = new EquipmentAssetsConfig();
     private final ItemCatalogConfig itemCatalog = new ItemCatalogConfig();
     private final MobImportConfig mobImport = new MobImportConfig();
     private final MobProfileConfig mobProfiles = new MobProfileConfig();
@@ -96,6 +102,8 @@ public final class ConfigManager {
     // ダンジョン(ワールド)×モブid単位の強さ/ドロップオーバーライド(combat/mob-overrides.yml,
     // 2026-07-26新設)。mob-profiles.ymlは直接編集せず、この層をその上に重ねる。
     private final MobOverridesConfig mobOverrides = new MobOverridesConfig();
+    /** 敵の特殊攻撃テンプレート(2026-07-31)。mob-overrides の abilities: が参照する。 */
+    private final MobAbilitiesConfig mobAbilities = new MobAbilitiesConfig();
     private final DungeonThemeConfig dungeonThemes = new DungeonThemeConfig();
     private final DungeonGateConfig dungeonGates = new DungeonGateConfig();
     private final HateConfig hate = new HateConfig();
@@ -106,6 +114,13 @@ public final class ConfigManager {
     private final DedicatedEffectsConfig dedicatedEffects = new DedicatedEffectsConfig();
     private final SkillTreeConfig skillTrees = new SkillTreeConfig();
     private final GachaConfig gacha = new GachaConfig();
+    // AFK(離席)判定と、その間の報酬停止/自動キック(afk.yml, 2026-07-27)。
+    private final AfkConfig afk = new AfkConfig();
+
+    // サーバをまたぐチャットと管理者TP(network.yml, 2026-08-15)。
+    // 3台でジャンクション共有される config なので、サーバ固有の値は持たせない
+    // (自分がどのサーバかはプロキシに GetServer で聞く)。
+    private final NetworkConfig network = new NetworkConfig();
     // 採掘ギミックflag系consumer(vein-mining/haste-active-mining) + mining drop-table + fortune連続処理
     // (旧 gathering.yml mining.* 統合、2026-07-23 stat-gate-overhaul §D)のチューニング。
     private final MiningGimmickConfig miningGimmick = new MiningGimmickConfig();
@@ -149,6 +164,9 @@ public final class ConfigManager {
     // 害悪グリフ強化(ars_magic.yml B-3): glyph_damage_multiplier_bonus statの適用対象グリフID一覧
     // (harmに決め打ちしない汎用設計、2026-07-25)。
     private final GlyphDamageBoostConfig glyphDamageBoost = new GlyphDamageBoostConfig();
+    // 節目レベルアップの全体アナウンス(progression/level-broadcast.yml, 2026-08-16)。
+    // 本人向けのレベルアップ通知(skillExp の level-up.*)とは別経路・別ファイル。
+    private final LevelBroadcastConfig levelBroadcast = new LevelBroadcastConfig();
 
     public ConfigManager(Plugin plugin) {
         this.plugin = plugin;
@@ -174,6 +192,9 @@ public final class ConfigManager {
         // ConfigDomain 登録は廃止（権威は combat/mob-types.yml の defaults:）。
         register(lore);
         register(externalItems);
+        // 防具の装備時レイヤー割り当て（items/equipment-assets.yml）。
+        // catalog より先に読む必要は無いが、ItemFactory が catalog id で引くので同じ「アイテム識別」帯に置く。
+        register(equipmentAssets);
         register(materialLists);
         register(itemCatalog);
         register(mobImport);
@@ -181,6 +202,7 @@ public final class ConfigManager {
         register(mobTypes);
         register(mobLevelTable);
         register(mobOverrides);
+        register(mobAbilities);
         register(dungeonThemes);
         register(dungeonGates);
         register(hate.domain());
@@ -194,6 +216,9 @@ public final class ConfigManager {
         // Gacha ticket prize tables (gacha.yml): config-driven, so tickets/pools/prizes are all
         // editable without a code change or restart (/trinityforge reload picks up edits live).
         register(gacha);
+        // AFK対策(afk.yml): 判定タイマーの再スケジュールは TrinityForge#reload 側が行う。
+        register(afk);
+        register(network);
         register(miningGimmick::load);
         register(woodcuttingGimmick::load);
         register(diggingGimmick::load);
@@ -212,6 +237,7 @@ public final class ConfigManager {
         register(alchemyQuality.domain());
         register(smithingGimmick::load);
         register(glyphDamageBoost::load);
+        register(levelBroadcast);
         // TODO(M2+): register magic/, pets/ configs here.
     }
 
@@ -256,6 +282,10 @@ public final class ConfigManager {
 
     public ItemStatsConfig itemStats() {
         return itemStats;
+    }
+
+    public EquipmentAssetsConfig equipmentAssets() {
+        return equipmentAssets;
     }
 
     public CraftQualityConfig craftQuality() {
@@ -310,6 +340,11 @@ public final class ConfigManager {
         return mobOverrides;
     }
 
+    /** 敵の特殊攻撃テンプレート({@code combat/mob-abilities.yml})。 */
+    public MobAbilitiesConfig mobAbilities() {
+        return mobAbilities;
+    }
+
     public DungeonThemeConfig dungeonThemes() {
         return dungeonThemes;
     }
@@ -332,6 +367,14 @@ public final class ConfigManager {
 
     public GachaConfig gacha() {
         return gacha;
+    }
+
+    public AfkConfig afk() {
+        return afk;
+    }
+
+    public NetworkConfig network() {
+        return network;
     }
 
     public MiningGimmickConfig miningGimmick() {
@@ -412,6 +455,11 @@ public final class ConfigManager {
 
     public AchievementsConfig achievements() {
         return achievements;
+    }
+
+    /** 節目レベルアップの全体アナウンス({@code progression/level-broadcast.yml})。 */
+    public LevelBroadcastConfig levelBroadcast() {
+        return levelBroadcast;
     }
 
     /**

@@ -129,16 +129,17 @@ class PlayerCombatAggregateTest {
     /** CT短縮系キー(*-cooldown-reduction)へ上限を設定しても totalOf には一切効かないこと。 */
     @Test
     void cooldownReductionKeysAreNeverClampedEvenIfCapConfigured() {
+        // 2026-07-31: bow_cooldown_reduction は廃止したので、per-ActiveSkill キーで同じ性質を固定する。
         StatCapsConfig statCaps = StatCapsConfig.withCaps(Map.of(
                 "cooldown_reduction", 1.0,
-                "bow_cooldown_reduction", 1.0));
+                "haste_active_mining_cooldown_reduction", 1.0));
         PlayerCombatAggregate aggregate = new PlayerCombatAggregate(
-                Map.of("cooldown_reduction", 999.0, "bow_cooldown_reduction", 999.0),
+                Map.of("cooldown_reduction", 999.0, "haste_active_mining_cooldown_reduction", 999.0),
                 Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), statCaps);
 
         assertEquals(999.0, aggregate.totalOf("cooldown_reduction"), 1e-9,
                 "cooldown-reduction family must never be clamped by stat-caps (CooldownManager owns this)");
-        assertEquals(999.0, aggregate.totalOf("bow_cooldown_reduction"), 1e-9);
+        assertEquals(999.0, aggregate.totalOf("haste_active_mining_cooldown_reduction"), 1e-9);
     }
 
     // ------------------------------------------------------------------------------------------

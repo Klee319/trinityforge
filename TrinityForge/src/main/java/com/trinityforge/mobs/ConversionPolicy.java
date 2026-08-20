@@ -101,8 +101,22 @@ public record ConversionPolicy(LevelSource levelSource,
      * @param perLevel      linear per-level slope (before growth)
      * @param growth        geometric factor applied per {@code growthInterval} levels (1.0 = linear)
      * @param growthInterval level span for one {@code growth} multiplication (must be &gt; 0)
+     * @param highLevelFrom level at/above which {@code highLevelPerLevel} starts adding on top of the
+     *                      base curve (2026-08-03, 45+難易度修正). {@code Double.POSITIVE_INFINITY}
+     *                      (the default via every back-compat constructor) never triggers — full
+     *                      back-compat for every existing config/call site.
+     * @param highLevelPerLevel additive slope applied for the levels at/above {@code highLevelFrom}:
+     *                      {@code + highLevelPerLevel * (level - highLevelFrom)}. Deliberately ADDITIVE
+     *                      (not a second geometric growth) so it works even when the base curve is
+     *                      itself zero at the breakpoint (e.g. {@code combat/mob-import.yml}'s
+     *                      {@code flat-defense}/{@code defense-rate}, which are 0 at every level today
+     *                      — a multiplicative "grow harder past 45" term would stay 0×anything=0 there).
+     *                      At exactly {@code level == highLevelFrom} this contributes 0 (continuity with
+     *                      the pre-breakpoint curve); the extra term only becomes visible strictly above
+     *                      the threshold.
      */
-    public record Ramp(double base, double perLevel, double growth, double growthInterval) {
+    public record Ramp(double base, double perLevel, double growth, double growthInterval,
+                       double highLevelFrom, double highLevelPerLevel) {
 
         public Ramp {
             if (!(growthInterval > 0.0) || !Double.isFinite(growthInterval)) {
@@ -111,20 +125,32 @@ public record ConversionPolicy(LevelSource levelSource,
             if (!Double.isFinite(growth) || growth < 0.0) {
                 growth = 1.0;
             }
+            if (Double.isNaN(highLevelFrom)) {
+                highLevelFrom = Double.POSITIVE_INFINITY;
+            }
+            if (!Double.isFinite(highLevelPerLevel)) {
+                highLevelPerLevel = 0.0;
+            }
         }
 
-        /** Back-compat: a purely linear ramp ({@code growth = 1.0}). */
+        /** Back-compat: a purely linear ramp ({@code growth = 1.0}), no high-level breakpoint. */
         public Ramp(double base, double perLevel) {
-            this(base, perLevel, 1.0, 1.0);
+            this(base, perLevel, 1.0, 1.0, Double.POSITIVE_INFINITY, 0.0);
+        }
+
+        /** Back-compat: a growth-capable ramp with no high-level breakpoint. */
+        public Ramp(double base, double perLevel, double growth, double growthInterval) {
+            this(base, perLevel, growth, growthInterval, Double.POSITIVE_INFINITY, 0.0);
         }
 
         public double at(int level) {
             int lvl = Math.max(0, level);
             double linear = base + perLevel * lvl;
-            if (growth == 1.0) {
-                return linear;
+            double value = growth == 1.0 ? linear : linear * Math.pow(growth, lvl / growthInterval);
+            if (highLevelPerLevel != 0.0 && lvl >= highLevelFrom) {
+                value += highLevelPerLevel * (lvl - highLevelFrom);
             }
-            return linear * Math.pow(growth, lvl / growthInterval);
+            return value;
         }
     }
 
@@ -150,19 +176,24 @@ public record ConversionPolicy(LevelSource levelSource,
     }
 
     /**
-     * The eight attacker-side ramps for the mob's stamped {@link AttackStats} (same field order as
-     * {@code combat/mob-types.yml attack:}). All-zero ramps synthesize an unconfigured attack
+     * The attacker-side ramps for the mob's stamped {@link AttackStats} (same field order as
+     * {@code combat/mob-types.yml attack:}, plus {@code magicRatio} — 2026-08-03: the synthesis ramp
+     * used to have no notion of magic-ratio at all, so every EliteMobs mob resolved through this
+     * policy (i.e. {@code unknown-mobs.synthesize: true} and {@code level: dynamic} dungeon mobs — the
+     * vast majority of dungeon content) was structurally 100% physical regardless of what
+     * {@code combat/mob-import.yml} said, unlike {@code combat/mob-types.yml} field mobs where ~40%
+     * of tagged entries carry a nonzero magic-ratio). All-zero ramps synthesize an unconfigured attack
      * ({@link AttackStats#plain}(0)) so the mob keeps its vanilla/EliteMobs damage untouched.
      */
     public record AttackRamp(Ramp attackPower, Ramp flatBonusDamage, Ramp percentBonusDamage,
                              Ramp critChance, Ramp critDamage, Ramp penetration,
-                             Ramp damageModifier, Ramp fixedDamage) {
+                             Ramp damageModifier, Ramp fixedDamage, Ramp magicRatio) {
 
         public static final AttackRamp ZERO;
 
         static {
             Ramp zero = new Ramp(0.0, 0.0);
-            ZERO = new AttackRamp(zero, zero, zero, zero, zero, zero, new Ramp(1.0, 0.0), zero);
+            ZERO = new AttackRamp(zero, zero, zero, zero, zero, zero, new Ramp(1.0, 0.0), zero, zero);
         }
 
         public AttackRamp {
@@ -174,6 +205,19 @@ public record ConversionPolicy(LevelSource levelSource,
             Objects.requireNonNull(penetration, "penetration");
             Objects.requireNonNull(damageModifier, "damageModifier");
             Objects.requireNonNull(fixedDamage, "fixedDamage");
+            Objects.requireNonNull(magicRatio, "magicRatio");
+        }
+
+        /**
+         * Back-compat 8-ramp constructor (pre-2026-08-03 shape): {@code magicRatio} defaults to a zero
+         * ramp (0.0 at every level = 完全物理、従来どおり), matching {@link AttackStats}'s own 8-arg
+         * back-compat constructor.
+         */
+        public AttackRamp(Ramp attackPower, Ramp flatBonusDamage, Ramp percentBonusDamage,
+                          Ramp critChance, Ramp critDamage, Ramp penetration,
+                          Ramp damageModifier, Ramp fixedDamage) {
+            this(attackPower, flatBonusDamage, percentBonusDamage, critChance, critDamage, penetration,
+                    damageModifier, fixedDamage, new Ramp(0.0, 0.0));
         }
 
         /**
@@ -188,7 +232,8 @@ public record ConversionPolicy(LevelSource levelSource,
                     critDamage.at(level),
                     penetration.at(level),
                     damageModifier.at(level),
-                    fixedDamage.at(level));
+                    fixedDamage.at(level),
+                    magicRatio.at(level));
         }
     }
 

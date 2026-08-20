@@ -66,7 +66,7 @@ public final class SqliteProgressionRepository implements ProgressionRepository 
      * @throws SQLException if the connection or schema setup fails
      */
     public SqliteProgressionRepository(String jdbcUrl) throws SQLException {
-        Connection c = DriverManager.getConnection(jdbcUrl);
+        Connection c = DriverManager.getConnection(jdbcUrl, immediateTransactionProperties());
         try {
             configure(c);
             createSchema(c);
@@ -317,8 +317,18 @@ public final class SqliteProgressionRepository implements ProgressionRepository 
 
     @Override
     public synchronized boolean prestige(UUID playerId, String skillId, String ordinaryPerkPrefix,
-                            String prestigePerkId, SkillProgress resetProgress, long refundPoints) {
+                             String prestigePerkId, SkillProgress resetProgress, long refundPoints) {
+        return prestige(playerId, skillId, ordinaryPerkPrefix, prestigePerkId,
+                resetProgress, refundPoints, Set.of());
+    }
+
+    @Override
+    public synchronized boolean prestige(UUID playerId, String skillId, String ordinaryPerkPrefix,
+                             String prestigePerkId, SkillProgress resetProgress, long refundPoints,
+                             Set<String> retainedOrdinaryPerkIds) {
         String pid = playerId.toString();
+        Set<String> retained = retainedOrdinaryPerkIds == null
+                ? Set.of() : Set.copyOf(retainedOrdinaryPerkIds);
         try {
             conn.setAutoCommit(false);
             try {
@@ -339,12 +349,22 @@ public final class SqliteProgressionRepository implements ProgressionRepository 
                 stmtUpsertSkill.setInt(7, resetProgress.maxAllowedLevel());
                 stmtUpsertSkill.setLong(8, System.currentTimeMillis());
                 stmtUpsertSkill.executeUpdate();
+                String retainedPlaceholders = retained.isEmpty() ? ""
+                        : " AND perk_id NOT IN ("
+                                + String.join(",", java.util.Collections.nCopies(
+                                        retained.size(), "?"))
+                                + ")";
                 try (PreparedStatement delete = conn.prepareStatement(
                         "DELETE FROM player_perk_states WHERE player_id = ?"
-                                + " AND perk_id LIKE ? AND perk_id NOT LIKE ?")) {
+                                + " AND perk_id LIKE ? AND perk_id NOT LIKE ?"
+                                + retainedPlaceholders)) {
                     delete.setString(1, pid);
                     delete.setString(2, ordinaryPerkPrefix + "%");
                     delete.setString(3, ordinaryPerkPrefix + "ng%");
+                    int parameter = 4;
+                    for (String retainedPerkId : retained) {
+                        delete.setString(parameter++, retainedPerkId);
+                    }
                     delete.executeUpdate();
                 }
                 try (PreparedStatement refund = conn.prepareStatement(
@@ -495,6 +515,32 @@ public final class SqliteProgressionRepository implements ProgressionRepository 
     }
 
     // ---- Internal helpers -----------------------------------------------------------------------
+
+    /**
+     * Forces every explicit transaction to open with {@code BEGIN IMMEDIATE} instead of the JDBC
+     * driver's default {@code BEGIN DEFERRED}.
+     *
+     * <p><b>Why this matters:</b> every transactional method here is a check-then-act
+     * ({@link #unlockPerk} reads the balance, then deducts it). Under {@code BEGIN DEFERRED} the
+     * transaction starts as a reader and only tries to take the write lock at the first UPDATE. If
+     * another <em>connection</em> committed in between, SQLite fails that upgrade with
+     * {@code SQLITE_BUSY_SNAPSHOT} — and <b>the busy handler is never invoked for that error</b>,
+     * because waiting cannot fix an already-stale snapshot. {@code PRAGMA busy_timeout} therefore
+     * does not protect these methods; they just fail. {@code BEGIN IMMEDIATE} takes the write lock
+     * up front, so contention becomes an ordinary lock wait that {@code busy_timeout} absorbs.
+     *
+     * <p>With a single connection this changes nothing (all methods are {@code synchronized} and
+     * production funnels calls through one DB thread). It becomes load-bearing as soon as a second
+     * connection touches the same file — which is exactly what the resource-server split does when
+     * {@code plugins/TrinityForge/} is shared between two servers by a directory junction.
+     *
+     * @see com.trinityforge.ops.SharedSqliteConcurrencyTest ops/reports/shared-sqlite-concurrency.md
+     */
+    private static Properties immediateTransactionProperties() {
+        org.sqlite.SQLiteConfig config = new org.sqlite.SQLiteConfig();
+        config.setTransactionMode(org.sqlite.SQLiteConfig.TransactionMode.IMMEDIATE);
+        return config.toProperties();
+    }
 
     private static void configure(Connection c) throws SQLException {
         try (Statement s = c.createStatement()) {

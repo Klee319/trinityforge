@@ -43,17 +43,35 @@ class AttributeApplierMissingDefaultsTest {
                 AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.MAINHAND);
     }
 
+    /**
+     * 2026-08-15 防具値の廃止: {@link Attribute#ARMOR} の材質既定は
+     * <b>TFが何を書いたかに関わらず</b>復元しない(HUDの防具バーは常に空)。
+     * 復元すると革7/ネザライト11といった材質既定がバニラ防具ミラー経由で復活し、
+     * item-stats の防御率と二重に軽減する。
+     */
     @Test
-    void suppressesVanillaArmorWhenTfAuthorsArmorDefenseRate() {
+    void neverRestoresVanillaArmorMaterialDefaultRegardlessOfTfManagedState() {
         Multimap<Attribute, AttributeModifier> defaults = ArrayListMultimap.create();
         defaults.put(Attribute.ARMOR, modifier("base_armor", 8.0));
         Multimap<Attribute, AttributeModifier> existing = ArrayListMultimap.create();
-        Set<Attribute> tfManaged = Set.of(Attribute.ARMOR);
 
-        List<Map.Entry<Attribute, AttributeModifier>> result =
-                AttributeApplier.missingDefaults(defaults, existing, tfManaged);
+        assertTrue(AttributeApplier.missingDefaults(defaults, existing, Set.of(Attribute.ARMOR)).isEmpty(),
+                "TFがARMORへ書いた場合は当然復元しない");
+        assertTrue(AttributeApplier.missingDefaults(defaults, existing, Set.<Attribute>of()).isEmpty(),
+                "TFが何も書かなくてもARMORの材質既定は復元しない(防具バーを空にする)");
+    }
 
-        assertTrue(result.isEmpty(), "authored armor-defense-rate replaces material armor defaults");
+    /** 靭性(ARMOR_TOUGHNESS)は従来どおり「TFが書いたときだけ」材質既定を抑制する。 */
+    @Test
+    void restoresArmorToughnessMaterialDefaultWhenTfDidNotAuthorIt() {
+        Multimap<Attribute, AttributeModifier> defaults = ArrayListMultimap.create();
+        defaults.put(Attribute.ARMOR_TOUGHNESS, modifier("base_toughness", 2.0));
+        Multimap<Attribute, AttributeModifier> existing = ArrayListMultimap.create();
+
+        assertTrue(AttributeApplier.missingDefaults(defaults, existing, Set.of(Attribute.ARMOR_TOUGHNESS))
+                .isEmpty(), "TFが靭性を書いたら材質既定は戻さない(置換ステ)");
+        assertEquals(1, AttributeApplier.missingDefaults(defaults, existing, Set.<Attribute>of()).size(),
+                "TFが靭性を書いていなければ材質既定は戻す");
     }
 
     @Test

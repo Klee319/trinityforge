@@ -18,6 +18,25 @@ public final class PlayerProgression {
     /** Points every player starts with, before any POWER-level earnings. Single source of truth. */
     public static final long STARTING_SKILL_POINTS = 3L;
 
+    /**
+     * Total skill points a player has earned at the given POWER level.
+     *
+     * <p>Single source of truth for the formula. It is consumed on level-up grants, by the admin
+     * recalculation command, and by the login-time reconciler; if any one of them used a different
+     * formula, points would appear to change on relog.
+     *
+     * @param powerLevel     the player's POWER level; negative values are clamped to 0
+     * @param levelsPerPoint how many POWER levels are needed per point
+     *                       ({@code stats/skill-exp.yml: power.levels-per-skill-point});
+     *                       values below 1 are clamped to 1, since 0 would divide by zero and a
+     *                       negative would make points shrink as the player levels up
+     */
+    public static long earnedPoints(long powerLevel, int levelsPerPoint) {
+        long level = Math.max(0L, powerLevel);
+        int per = Math.max(1, levelsPerPoint);
+        return STARTING_SKILL_POINTS + (level / per);
+    }
+
     private final UUID playerId;
     private final Map<String, SkillProgress> skills;
     private final long availablePoints;

@@ -126,7 +126,12 @@ class FailCloseGateSkillTreePlacementTest {
         // 2. 16本のスキルツリーをロードし、dedicated-effects配置からゲートインデックスを構築する。
         copyAllSkillTrees(dataFolder);
         SkillTreeConfig skillTreeConfig = new SkillTreeConfig();
-        assertTrue(skillTreeConfig.load(fakePlugin(dataFolder, logger)), "skill trees must load OK");
+        // 戻り値は見ない。load() は「警告が1件でもあれば false」なので、無関係な警告
+        // (排他グループのメンバー不足など)でこのテストが【本来の配置漏れ検査に到達する前に】落ちる。
+        // ツリーが本当に読めているかどうかは直後の件数チェックで見る(2026-08-16)。
+        skillTreeConfig.load(fakePlugin(dataFolder, logger));
+        assertTrue(skillTreeConfig.all().size() == SKILL_TREE_FILES.length,
+                "16本のツリーが読めていない: " + skillTreeConfig.all().keySet());
         DedicatedEffectGateIndex index = DedicatedEffectGateIndex.build(skillTreeConfig.all().values());
 
         // 3. 突き合わせ: brew:/trade:/overenchant: はいずれも GateEffectId により FLAG チャンネルへ

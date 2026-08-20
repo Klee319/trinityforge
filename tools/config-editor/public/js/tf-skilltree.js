@@ -44,12 +44,16 @@
     // 未対応キーは消さずそのまま残す方針なので黙って壊れることはない。
     arsmagic_unlockedtier_add: "ars-tier-bonus",
     arsmagic_glyphslots_add: "glyph-slot-bonus",
-    lightarmor_movementspeedperpiece_add: "light-armor-move-speed-per-piece",
-    heavyarmor_movementspeedperpiece_add: "heavy-armor-move-speed-per-piece",
-    lightarmor_setamount_add: "light-armor-set-bonus-multiplier",
-    heavyarmor_setamount_add: "heavy-armor-set-bonus-multiplier",
-    lightarmor_setdodgechance_add: "light-armor-set-dodge-chance",
-    heavyarmor_setknockbackresistance_add: "heavy-armor-set-knockback-resistance"
+    // 2026-07-31: lightarmor_/heavyarmor_movementspeedperpiece_add の移行先
+    // (light-/heavy-armor-move-speed-per-piece) を語彙ごと廃止した。存在しないステキーへ横流しすると
+    // 開いて保存した瞬間に channel NONE で無言ドロップされるため、ここからは外して native に残す
+    // (「未対応キーは消さず残す」既定方針どおり)。移動速度は set-buffs の move-speed で書き直す。
+    // 2026-07-27(armor-set-buffs全面移行): 旧 setamount(セット効果の増幅率)は armor-set-bonus
+    // 1本へ統一されたのでそのまま横流しできる。旧 setdodgechance/setknockbackresistance は
+    // 装備部位数条件の set-buffs スキーマへ移行しないと意味を保てない(平坦な buffs には対応先が無い)ため、
+    // ここでは移行せず native に残す(「未対応キーは消さず残す」既定方針どおり)。
+    lightarmor_setamount_add: "armor-set-bonus",
+    heavyarmor_setamount_add: "armor-set-bonus"
   };
   function migrateLegacyNative(obj) {
     if (!obj || !obj.native || typeof obj.native !== "object" || Array.isArray(obj.native)) return;
@@ -158,11 +162,10 @@
     const supportsMultipliers = buffsKey === "buffs" || buffsKey === "mainhand-buffs";
     const multiplierKey = buffsKey === "mainhand-buffs" ? "mainhand-multipliers" : "multipliers";
     const box = h("div", {});
-    box.appendChild(h("div", {
-      class: "sub-title",
-      text: title || "バフ (buffs / multipliers)",
-      title: description || "加算モードは総合ステータスへ加算。乗算モードは同一レイヤ内を足し合わせ、レイヤ間を乗算して総合値へ適用します。"
-    }));
+    box.appendChild(window.subTitleEl(
+      title || "バフ (buffs / multipliers)",
+      description || "加算モードは総合ステータスへ加算。乗算モードは同一レイヤ内を足し合わせ、レイヤ間を乗算して総合値へ適用します。"
+    ));
     // カテゴリ絞り込み(要望2026-07-26: ステが増えてきたので追加候補をカテゴリで絞れるように)。
     // カテゴリのID→日本語ラベルは tf-lore.js の LORE_CATEGORIES をそのまま再利用する(重複定義しない)。
     // カテゴリ一覧自体は window.STAT_META に実際に出現する category 値からハードコードせず動的生成する。
@@ -383,6 +386,92 @@
     return box;
   }
 
+  // set-buffs(装備部位数条件バフ)の描画。light_armor / heavy_armor ツリーのノード/プレステージ専用。
+  // 段は3部位/4部位の2枠固定(1/2/5以上は不正)。乗算モード用の別キーは持たない(このスキーマに乗算モード枠は無い)。
+  function setBuffsSection(obj) {
+    const box = h("div", {});
+    box.appendChild(window.subTitleEl("セット条件バフ (set-buffs)",
+      "所属ツリーの防具を指定部位数以上装備している間だけ加算。成立している最大の段だけが採用される"
+        + "(3と4の両方は加算されない)。"));
+
+    function tierMap(tier, create) {
+      if (!obj["set-buffs"] || typeof obj["set-buffs"] !== "object") {
+        if (!create) return null;
+        obj["set-buffs"] = {};
+      }
+      if (!obj["set-buffs"][tier] || typeof obj["set-buffs"][tier] !== "object") {
+        if (!create) return null;
+        obj["set-buffs"][tier] = {};
+      }
+      return obj["set-buffs"][tier];
+    }
+    function cleanupTier(tier) {
+      const m = tierMap(tier, false);
+      if (m && Object.keys(m).length === 0) delete obj["set-buffs"][tier];
+      if (obj["set-buffs"] && Object.keys(obj["set-buffs"]).length === 0) delete obj["set-buffs"];
+    }
+    function firstUnusedSetBuffKey(map) {
+      for (const k of buffStatList()) if (!Object.prototype.hasOwnProperty.call(map, k)) return k;
+      return "dodge-chance";
+    }
+
+    for (const tier of [3, 4]) {
+      const tierBox = h("div", { class: "set-buffs-tier" });
+      tierBox.appendChild(h("div", { class: "mini-label", text: `${tier}部位以上` }));
+      const rows = h("div", { class: "stat-rows" });
+      tierBox.appendChild(rows);
+
+      function render() {
+        rows.innerHTML = "";
+        const m = tierMap(tier, false);
+        const keys = m ? Object.keys(m) : [];
+        if (keys.length === 0) {
+          rows.appendChild(emptyGuide(`${tier}部位段は未設定です。`, "「+ バフ追加」で追加できます。"));
+        }
+        for (const key of keys) {
+          const keySel = window.statSelect(key, (nv) => {
+            if (!nv || nv === key) return false;
+            const mm = tierMap(tier, true);
+            if (Object.prototype.hasOwnProperty.call(mm, nv)) {
+              alert("この段には同じステータスを重複して登録できません。");
+              return false;
+            }
+            renameKey(mm, key, nv);
+            render();
+            return true;
+          });
+          const mm = tierMap(tier, true);
+          const valCtl = window.statValueControl
+            ? window.statValueControl(key, mm[key], (v) => { mm[key] = v == null ? 0 : v; })
+            : window.numberInput(mm[key], (v) => { mm[key] = v == null ? 0 : v; });
+          rows.appendChild(h("div", { class: "stat-row" }, [
+            keySel, valCtl,
+            window.statUnitSlot ? window.statUnitSlot(key) : null,
+            h("button", {
+              class: "btn-small danger", type: "button", text: "×",
+              onclick: () => { delete mm[key]; cleanupTier(tier); render(); }
+            })
+          ]));
+        }
+      }
+
+      render();
+      tierBox.appendChild(h("div", { class: "skilltree-add-row" }, [
+        h("button", {
+          class: "btn-small", type: "button", text: "+ バフ追加",
+          onclick: () => {
+            const mm = tierMap(tier, true);
+            const nk = firstUnusedSetBuffKey(mm);
+            mm[nk] = 0;
+            render();
+          }
+        })
+      ]));
+      box.appendChild(tierBox);
+    }
+    return box;
+  }
+
   // TF native rewards — string key → number (or string) map。
   // 候補は labels.js の NATIVE_PERK_META を正とする (製材ボーナス等の伐採キー含む)。
   function nativePresetKeys() {
@@ -512,9 +601,36 @@
     return box;
   }
 
+  /**
+   * 説明文(description)の書き戻し規則。**空にするときは旧 effect-text も消す。**
+   *
+   * TF 側 (SkillTreeConfig#description) は `description` が無い/空白のときだけ旧
+   * `effect-text` へフォールバックする。つまり description を消しただけでは説明は消えず、
+   * 空文字を書いても (nullableString が空文字を null 扱いするため) 同じくフォールバックする。
+   *
+   * さらに悪いことに、**description を持たず effect-text だけを持つノード**(archery /
+   * ars_magic / light_armor など、出荷 yml の大半)では `delete obj.description` が
+   * no-op になる。working に差分が一切出ないので isEditorDirty() が false のままになり、
+   * 画面を移動しても未保存警告が出ず、保存ボタンは「自分の変更はありません」と言って
+   * サーバの内容を読み直す ── 全行削除が黙って捨てられていた (2026-08-05 修正)。
+   *
+   * @param {object} obj    ノード or プレステージのマップ
+   * @param {string} joined 全行を \n で結合した説明文 ("" = 説明なし)
+   */
+  function applyDescription(obj, joined) {
+    if (joined === "") {
+      delete obj.description;
+      delete obj["effect-text"];
+      return;
+    }
+    obj.description = joined;
+  }
+  // 単体テスト用に公開 (DOM ハーネス無しで書き戻し規則そのものを検証する)。
+  window.applySkillNodeDescription = applyDescription;
+
   // 要件⑤: 自由記述の説明(description)。obj.description を正とし、無ければ
   // obj["effect-text"](旧キー)を初期表示だけに使う。編集すると必ず obj.description に書く
-  // (旧 effect-text キーには一切触れない。既存データがあれば温存されたまま残る)。
+  // (空にしたときだけ旧 effect-text も消す。理由は applyDescription)。
   function descriptionSection(obj) {
     const initial = typeof obj.description === "string" ? obj.description
         : (typeof obj["effect-text"] === "string" ? obj["effect-text"] : "");
@@ -524,9 +640,7 @@
     const lines = initial === "" ? [] : initial.split("\n");
     const usedLegacyFallback = typeof obj.description !== "string" && typeof obj["effect-text"] === "string";
     function sync() {
-      const joined = lines.join("\n");
-      if (joined === "") delete obj.description;
-      else obj.description = joined;
+      applyDescription(obj, lines.join("\n"));
     }
     const rowsHost = h("div", { class: "lore-rows-host" });
     function rerenderRows() {
@@ -719,9 +833,17 @@
         onCommit: (v) => { if (!v || v === target) return false; onIdChange(`brew:${v}`); return true; }
       })];
     }
+    // 2026-07-29: 職業は WEAPONSMITH 等の英字 enum が保存値なので、表示だけ labels.js の
+    // 和名へ差し替える (村人取引タブのセレクトと同じ辞書)。
     function renderTradeRow(target, onIdChange) {
+      const opts = plainOptions(vocab.trades, target).map((o) => {
+        // plainOptions は語彙外の現在値に「(語彙外)」を付ける。その注記は消さない。
+        if (o.primary !== o.value) return o;
+        const ja = window.LABELS ? window.LABELS.professionLabel(o.value) : o.value;
+        return { value: o.value, primary: ja, secondary: o.value };
+      });
       return [window.listSelect({
-        value: target, options: plainOptions(vocab.trades, target), placeholder: "職業を選択…",
+        value: target, options: opts, placeholder: "職業を選択…",
         onCommit: (v) => { if (!v || v === target) return false; onIdChange(`trade:${v}`); return true; }
       })];
     }
@@ -729,46 +851,172 @@
     // まとめて dedicated-effects へ追加する。既存IDはスキップ。kind = "recipe" | "ritual"。
     // 注記: recipe: ゲートは items/catalog.yml のワークベンチレシピ(カタログ出力ID)のみが対象。
     //       バニラレシピはこのゲート機構の対象外(語彙 vocab.recipes に含まれない)。
-    function bulkAddByWildcard(kind, pattern) {
+    /**
+     * ワイルドカード一括追加モーダル (2026-07-27 UI改善)。
+     *
+     * <p>旧UIは「行内の細い入力欄 + 一括追加ボタン」で、押すまで何件どれが入るのか分からず、
+     * 結果は alert で事後報告されるだけだった。入力しながら一致結果を出し、
+     * 追加するものを個別に外せる形へ変えた(追加済みは選べないよう固定表示)。
+     */
+    function openWildcardModal(kind) {
       const kindLabel = kind === "ritual" ? "儀式エフェクト" : "クラフトレシピ";
-      const source = kind === "ritual" ? vocab.rituals : vocab.recipes;
+      const source = (kind === "ritual" ? vocab.rituals : vocab.recipes) || [];
       if (!Array.isArray(source) || source.length === 0) {
         alert(`${kindLabel}が定義されていません。`);
         return;
       }
-      let re;
-      try { re = globToRegex(pattern); }
-      catch (_) { alert("ワイルドカードのパターンを入力してください(例: *  または  great_* )。"); return; }
-      const matches = source.map(String).filter((id) => re.test(id));
-      if (matches.length === 0) { alert(`「${String(pattern).trim()}」に一致する${kindLabel}がありません。`); return; }
       if (!Array.isArray(node["dedicated-effects"])) node["dedicated-effects"] = [];
       const existing = new Set(node["dedicated-effects"].map((p) => String(p && p.id)));
-      let added = 0, skipped = 0;
-      for (const id of matches) {
-        const gateId = `${kind}:${id}`;
-        if (existing.has(gateId)) { skipped++; continue; }
-        node["dedicated-effects"].push({ id: gateId });
-        existing.add(gateId);
-        added++;
+      const ids = source.map(String);
+      /** チェックを外したID(既定は全選択なので、外したものだけ覚える)。 */
+      const deselected = new Set();
+
+      // 2026-08-18 (W-52): レシピ/儀式のどちらも vocab 自身が持つラベル辞書(recipeLabels/
+      // ritualLabels、gate-vocabulary.js が catalog.yml と ArsPaper 各ソースから合成)を
+      // 直接引く。以前はレシピ側だけ window.CUSTOM_ITEM_LABELS(カタログ画面を一度開いていないと
+      // 空)に依存しており、他タブを経由していないと常に生ID表示だった。
+      function matchLabel(id) {
+        const labels = (kind === "recipe" ? vocab.recipeLabels : vocab.ritualLabels) || {};
+        return labels[id] || id;
       }
-      render();
-      alert(`一括追加(${kindLabel}): ${added}件追加`
-        + (skipped ? ` / ${skipped}件は既存のためスキップ` : "")
-        + `  (一致 ${matches.length}件)`);
+
+      const overlay = h("div", { class: "modal-overlay" });
+      const close = () => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+      const summary = h("div", { class: "gate-bulk-summary" });
+      const list = h("div", { class: "gate-bulk-list" });
+      const addBtn = h("button", { class: "btn primary", type: "button", text: "追加" });
+
+      let pattern = "*";
+      const patInput = window.textInput("*", (v) => { pattern = v; renderMatches(); },
+        "* / great_* / *_sword");
+      patInput.classList.add("gate-bulk-pattern");
+
+      function matchedIds() {
+        let re;
+        try { re = globToRegex(pattern); } catch (_) { return null; }
+        return ids.filter((id) => re.test(id));
+      }
+
+      function selectedIds() {
+        const matches = matchedIds() || [];
+        return matches.filter((id) => !existing.has(`${kind}:${id}`) && !deselected.has(id));
+      }
+
+      function renderMatches() {
+        list.textContent = "";
+        const matches = matchedIds();
+        if (matches === null) {
+          summary.textContent = "パターンを入力してください（* = 任意の文字列, ? = 1文字）。";
+          addBtn.disabled = true;
+          return;
+        }
+        const already = matches.filter((id) => existing.has(`${kind}:${id}`));
+        const selectable = matches.length - already.length;
+        summary.textContent = `一致 ${matches.length}件 / 追加できる ${selectable}件`
+          + (already.length ? ` / 追加済み ${already.length}件` : "");
+        if (matches.length === 0) {
+          list.appendChild(h("div", { class: "empty-hint", text: "一致するIDがありません。" }));
+          addBtn.disabled = true;
+          return;
+        }
+        for (const id of matches) {
+          const isExisting = existing.has(`${kind}:${id}`);
+          const row = h("label", { class: "gate-bulk-row" + (isExisting ? " is-existing" : "") });
+          const box = h("input", { type: "checkbox" });
+          box.checked = !isExisting && !deselected.has(id);
+          box.disabled = isExisting;
+          box.addEventListener("change", () => {
+            if (box.checked) deselected.delete(id); else deselected.add(id);
+            updateAddButton();
+          });
+          row.appendChild(box);
+          const label = matchLabel(id);
+          row.appendChild(h("span", { class: "gate-bulk-id", text: label }));
+          if (label !== id) {
+            row.appendChild(h("span", { class: "entry-sum-id", text: id }));
+          }
+          if (isExisting) {
+            row.appendChild(h("span", { class: "gate-bulk-tag", text: "追加済み" }));
+          }
+          list.appendChild(row);
+        }
+        updateAddButton();
+      }
+
+      function updateAddButton() {
+        const count = selectedIds().length;
+        addBtn.disabled = count === 0;
+        addBtn.textContent = count > 0 ? `${count}件を追加` : "追加";
+      }
+
+      addBtn.addEventListener("click", () => {
+        const picked = selectedIds();
+        for (const id of picked) {
+          const gateId = `${kind}:${id}`;
+          node["dedicated-effects"].push({ id: gateId });
+          existing.add(gateId);
+        }
+        close();
+        render();
+      });
+
+      const box = h("div", { class: "modal-box modal-box-wide" }, [
+        h("div", { class: "modal-title", text: `一括追加: ${kindLabel}` }),
+        h("div", { class: "modal-text", text:
+          "パターンに一致するIDを解放効果へまとめて追加します。* = 任意の文字列 / ? = 1文字。"
+          + (kind === "ritual" ? "" : " 候補はTFカタログとArsPaperのレシピです。"
+            + "バニラレシピもゲート自体は可能ですが候補には出ないので、小文字のレシピID"
+            + "（例: diamond_sword）を行内で直接入力してください。") }),
+        h("div", { class: "gate-bulk-controls" }, [
+          patInput,
+          h("button", { class: "btn-small", type: "button", text: "すべて選択",
+            onclick: () => { deselected.clear(); renderMatches(); } }),
+          h("button", { class: "btn-small", type: "button", text: "すべて解除",
+            onclick: () => { for (const id of matchedIds() || []) deselected.add(id); renderMatches(); } })
+        ]),
+        summary,
+        list,
+        h("div", { class: "modal-actions" }, [
+          addBtn,
+          h("button", { class: "btn-small", type: "button", text: "キャンセル", onclick: close })
+        ])
+      ]);
+      overlay.appendChild(box);
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+      document.body.appendChild(overlay);
+      renderMatches();
+      patInput.focus();
     }
 
-    // レシピゲート行内に出す「ワイルドカード一括追加」コントロール(パターン入力 + ボタン)。
+    // レシピゲート行内に出す「ワイルドカード一括追加」の起動ボタン。
     function wildcardControls(kind) {
-      let pattern = "";
-      const patInput = window.textInput("", (v) => { pattern = v; }, "一括: *  /  great_*");
-      patInput.classList.add("gate-bulk-pattern");
-      const btn = h("button", {
-        class: "btn-small", type: "button", text: "一括追加",
+      return [h("button", {
+        class: "btn-small", type: "button", text: "一括追加…",
         title: "パターンに一致する" + (kind === "ritual" ? "儀式エフェクト" : "クラフトレシピ")
-          + "をまとめて解放効果に追加します。* = 任意, ? = 1文字。バニラレシピは対象外です。",
-        onclick: () => bulkAddByWildcard(kind, pattern)
+          + "をまとめて解放効果に追加します（追加前に一致結果を確認できます）。",
+        onclick: () => openWildcardModal(kind)
+      })];
+    }
+
+    // 2026-08-16: recipe:/ritual: のチャンネル取り違えは実行時に例外もログも出ず、
+    // ゲートが無言で常時解放になる。語彙は両方持っているのでここで警告を出す。
+    function channelWarningBadge(prefix, target) {
+      const mismatch = window.GATE_EFFECTS.gateChannelMismatch(prefix, target, vocab);
+      if (!mismatch) return null;
+      return h("span", {
+        class: "warn-badge", style: "color:#c0392b;font-weight:bold;",
+        title: mismatch.message,
+        text: mismatch.correct === "ritual" ? "⚠ 儀式側が正しい" : "⚠ レシピ側が正しい"
       });
-      return [patInput, btn];
+    }
+
+    // 儀式エフェクトの候補ラベル。TFカタログ由来(tf_catalog_*)は機械名なので表示名を主表示にする。
+    function ritualOptions(currentTarget) {
+      const labels = (vocab && vocab.ritualLabels) || {};
+      return plainOptions(vocab.rituals, currentTarget).map((o) => {
+        if (o.primary !== o.value || !labels[o.value]) return o;
+        return { value: o.value, primary: labels[o.value], secondary: o.value };
+      });
     }
 
     function renderRecipeGateRow(prefix, target, onIdChange) {
@@ -789,22 +1037,32 @@
       });
       if (isRitual) {
         return [mode, window.listSelect({
-          value: target, options: plainOptions(vocab.rituals, target), placeholder: "儀式エフェクトを選択…",
+          value: target, options: ritualOptions(target), placeholder: "儀式エフェクトを選択…",
           onCommit: (v) => { if (!v || v === target) return false; onIdChange(`ritual:${v}`); return true; }
-        }), ...wildcardControls("ritual")];
+        }), ...wildcardControls("ritual"), channelWarningBadge("ritual", target)].filter(Boolean);
       }
       // レシピ素材欄と同一の Material / custom:<itemId> 入力を使う。
       // 実行時の recipe: ゲートはカタログIDを受けるため、保存時だけ custom: を除いて正規化する。
       const shown = String(target || "").startsWith("custom:") ? target : `custom:${target || ""}`;
       if (typeof window.setCustomItemCandidates === "function") {
         // 別タブを一度も開いていない場合でも、レシピゲートの候補は必ずサジェストする。
-        window.setCustomItemCandidates(vocab.recipes, { replace: false });
+        // 2026-08-18 (W-52): 素の ID 配列だけ渡すとラベルが登録されず `カスタム: <id>`
+        // 表示に落ちていたため、vocab.recipeLabels を添えて {id, label} で登録する。
+        const recipeLabels = vocab.recipeLabels || {};
+        window.setCustomItemCandidates(
+          vocab.recipes.map((id) => ({ id, label: recipeLabels[id] || "" })),
+          { replace: false }
+        );
       }
       return [mode, window.materialInput(shown, "material-list", (v) => {
         const raw = String(v == null ? "" : v).trim();
-        const catalogId = raw.replace(/^custom:/i, "").trim();
+        // バニラ Material を選ぶと DIAMOND_SWORD 形式で入るが、実行時のゲートキーは
+        // レシピキーの path = 小文字。大文字のままだと無言で効かないゲートになる。
+        const catalogId = window.GATE_EFFECTS.normalizeRecipeGateTarget(
+          raw.replace(/^custom:/i, "").trim());
         if (catalogId && catalogId !== target) onIdChange(`recipe:${catalogId}`);
-      }, { allowCustom: true }), ...wildcardControls("recipe")];
+      }, { allowCustom: true }), ...wildcardControls("recipe"),
+      channelWarningBadge("recipe", target)].filter(Boolean);
     }
     function renderFeatureRow(placement, target, onIdChange) {
       const kids = [window.listSelect({
@@ -837,8 +1095,12 @@
             onChange: (v) => {
               const n = v === "" ? null : Number(v);
               const edit = GATE.resolveFeatureValueEdit(feat.param, n);
-              if (edit.remove) { delete placement.value; return; }
-              placement.value = edit.value;
+              if (edit.remove) delete placement.value;
+              else placement.value = edit.value;
+              // tier は重複判定のキーの一部なので、変えたら「⚠ 重複」の再計算が要る
+              // (ID セレクトの onIdChange と同じ理由)。数値直接入力側は1打鍵ごとに
+              // 発火してフォーカスを奪うため再描画しない。
+              render();
             }
           }));
         } else {
@@ -860,9 +1122,16 @@
         onCommit: (v) => { if (!v || v === target) return false; onIdChange(`overenchant:${v}`); return true; }
       })];
     }
+    // 2026-07-29: 特殊報酬IDは機械名なので、gate-vocabulary が返すラベル
+    // (「称号: 見習い」形式)を主表示にする。ラベルが無いIDは従来どおりIDのまま。
     function renderRewardRow(target, onIdChange) {
+      const labels = (vocab && vocab.specialRewardLabels) || {};
+      const opts = plainOptions(vocab.specialRewards, target).map((o) => {
+        if (o.primary !== o.value || !labels[o.value]) return o;
+        return { value: o.value, primary: labels[o.value], secondary: o.value };
+      });
       return [window.listSelect({
-        value: target, options: plainOptions(vocab.specialRewards, target), placeholder: "特殊報酬を選択…",
+        value: target, options: opts, placeholder: "特殊報酬を選択…",
         onCommit: (v) => { if (!v || v === target) return false; onIdChange(`reward:${v}`); return true; }
       })];
     }
@@ -906,6 +1175,16 @@
             onIdChange(`drop:${parsed.profession}:${v}`);
             return true;
           }
+        }));
+      }
+      // 2026-08-16: 「+ 追加」直後の既定は drop:<職業>: で対象が空。Java 側はこれを
+      // 空文字ターゲットのゲートとして受理してしまい、何もゲートしないまま保存できる。
+      const missing = parsed.mode === "item" ? !parsed.itemId : !parsed.categoryId;
+      if (missing) {
+        kids.push(h("span", {
+          class: "warn-badge", style: "color:#c0392b;font-weight:bold;",
+          title: "対象が未選択です。このまま保存すると、何もゲートしない空の解放効果になります。",
+          text: "⚠ 対象未選択"
         }));
       }
       return kids;
@@ -974,10 +1253,17 @@
               placement.id = nv;
               render();
             }));
-            if (GATE.isUniqueGateEffectType(parsed.type) && duplicateIds.has(parsed.raw)) {
+            // 重複判定のキーは id だけではない: feature は tier(引数)まで含む
+            // (2026-08-14: tier 違いの正しい配置が全部「⚠ 重複」になっていた)。
+            // 集合側と同じ gateEffectDuplicateKey で引くこと。
+            const dupKey = GATE.gateEffectDuplicateKey(placement);
+            if (dupKey != null && duplicateIds.has(dupKey)) {
+              // 2026-08-16: 判定が他ツリーも含むようになったので、どこと衝突しているかを出す。
+              const where = typeof duplicateIds.get === "function" ? duplicateIds.get(dupKey) : null;
               rowChildren.push(h("span", {
                 class: "warn-badge", style: "color:#c0392b;font-weight:bold;",
-                title: "この解放効果は1箇所限定ですが、同じ設定内の複数ノードに置かれています。",
+                title: "この解放効果は1箇所限定ですが、同じ設定・同じ段階で複数ノードに置かれています。"
+                  + (Array.isArray(where) && where.length ? "\n配置: " + where.join(" / ") : ""),
                 text: "⚠ 重複"
               }));
             }
@@ -1034,11 +1320,49 @@
         overenchants: Array.isArray(json.overenchants) ? json.overenchants : [],
         drops: Array.isArray(json.drops) ? json.drops : [],
         specialRewards: Array.isArray(json.specialRewards) ? json.specialRewards : [],
+        // 2026-08-16: ラベル2種をここで捨てていたため、特殊報酬セレクトは 2026-07-29 に
+        // 用意した日本語ラベルを一度も表示できていなかった(常に機械名のまま)。
+        specialRewardLabels: json && typeof json.specialRewardLabels === "object" && json.specialRewardLabels
+          ? json.specialRewardLabels : {},
+        ritualLabels: json && typeof json.ritualLabels === "object" && json.ritualLabels
+          ? json.ritualLabels : {},
+        // 2026-08-18 (W-52): recipe: ゲートのセレクトも生ID(またはカスタム表示)だったので、
+        // 儀式側と同じ形でラベル辞書を受け取る。
+        recipeLabels: json && typeof json.recipeLabels === "object" && json.recipeLabels
+          ? json.recipeLabels : {},
         recipes: Array.isArray(json.recipes) ? json.recipes : [],
         rituals: Array.isArray(json.rituals) ? json.rituals : []
       };
     } catch (_) {
-      return { glyphs: [], brews: [], trades: [], features: [], overenchants: [], drops: [], specialRewards: [], recipes: [], rituals: [] };
+      return {
+        glyphs: [], brews: [], trades: [], features: [], overenchants: [], drops: [],
+        specialRewards: [], specialRewardLabels: {}, ritualLabels: {}, recipeLabels: {},
+        recipes: [], rituals: []
+      };
+    }
+  }
+
+  // 他ツリーの解放効果配置(2026-08-16)。一回性の解放効果はツリーをまたいでも1箇所限定なので、
+  // 開いているツリーだけを見ていると重複を取りこぼす(Java 側は全ツリー横断で警告する)。
+  // 取得失敗時は空配列 = 従来どおりファイル内だけの判定にフォールバックする。
+  async function fetchOtherTreePlacements(currentSkill) {
+    try {
+      const r = await fetch("/api/gate-placements");
+      if (!r.ok) throw new Error("gate-placements failed");
+      const json = await r.json();
+      const trees = (json && json.trees) || {};
+      const skill = String(currentSkill || "").toLowerCase();
+      const out = [];
+      for (const treeId of Object.keys(trees)) {
+        const tree = trees[treeId] || {};
+        if (String(tree.skill || "").toLowerCase() === skill) continue; // 開いている本人は除く
+        for (const placement of tree.placements || []) {
+          out.push({ id: placement.id, value: placement.value, where: `${tree.label || treeId}/${placement.node}` });
+        }
+      }
+      return out;
+    } catch (_) {
+      return [];
     }
   }
 
@@ -1061,10 +1385,16 @@
 
   window.buildSkillTreeForm = async function buildSkillTreeForm(data) {
     const MAINHAND_BUFF_SKILLS = new Set(["light_weapons", "heavy_weapons", "archery", "ars_magic", "mining", "woodcutting", "digging", "fishing"]);
-    const [vocabulary, featureTiers] = await Promise.all([fetchGateVocabulary(), fetchTierVocabulary()]);
-    vocabulary.featureTiers = featureTiers;
+    // set-buffs(装備部位数条件バフ)は light_armor / heavy_armor ツリーのみ有効。他ツリーに書かれていたら
+    // Java側(SkillTreeConfig)が警告して無視するので、editorも同じ2ツリーだけに描画を出す。
+    const SET_BUFF_SKILLS = new Set(["light_armor", "heavy_armor"]);
     const working = data && typeof data === "object" ? data : {};
+    const [vocabulary, featureTiers, otherTreePlacements] = await Promise.all([
+      fetchGateVocabulary(), fetchTierVocabulary(), fetchOtherTreePlacements(working.skill)
+    ]);
+    vocabulary.featureTiers = featureTiers;
     const supportsMainhandBuffs = MAINHAND_BUFF_SKILLS.has(String(working.skill || "").toLowerCase());
+    const supportsSetBuffs = SET_BUFF_SKILLS.has(String(working.skill || "").toLowerCase());
     migrateLegacyNative(working.prestige);
     if (working.nodes && typeof working.nodes === "object") {
       Object.values(working.nodes).forEach(migrateLegacyNative);
@@ -1110,6 +1440,7 @@
       pBody.appendChild(buffsSection(P, "buffs"));
       if (supportsMainhandBuffs) pBody.appendChild(buffsSection(P, "mainhand-buffs", "メインハンド条件バフ (mainhand-buffs)",
         "このツリーに対応する武器/ツールをメインハンドに持つ間だけ加算されます。プレステージでは、習得済み段階ごとに加算されます。"));
+      if (supportsSetBuffs) pBody.appendChild(setBuffsSection(P));
       root.appendChild(card([h("span", { class: "entry-key-label", text: "プレステージ (prestige)" })], [pBody]));
     }
 
@@ -1129,6 +1460,23 @@
       if (nodeIds.length === 0) {
         nodesContainer.appendChild(emptyGuide("ノードがありません。", "下の「+ ノード追加」ボタンで新しいノードを作成できます。"));
       }
+
+      // 2026-07-29: 親ノード/代替親/排他グループが「生ノードIDのセレクト」「カンマ区切りの
+      // 自由入力」「素の自由入力」で、日本語のノード名では選べずタイポも素通りしていた。
+      // ノード名を主表示・IDを副表示にしたセレクトへ統一する。
+      const ROOT_VALUE = "(root)";
+      const nodeLabelOf = (nid) => {
+        const n = nodes && nodes[nid];
+        const name = n && typeof n === "object" && typeof n.name === "string" ? n.name.trim() : "";
+        return name || nid;
+      };
+      const nodeOptionsExcept = (selfId) => nodeIds
+        .filter((nid) => nid !== selfId)
+        .map((nid) => ({ value: nid, primary: nodeLabelOf(nid), secondary: nid }));
+      // 既に使われている排他グループ名。名前は運用側が決める任意文字列なので和訳はしない。
+      const usedGroupNames = [...new Set(nodeIds
+        .map((nid) => nodes[nid] && nodes[nid].group)
+        .filter((g) => typeof g === "string" && g.trim() !== ""))];
 
       for (const id of nodeIds) {
         const node = nodes[id] && typeof nodes[id] === "object" ? nodes[id] : (nodes[id] = {});
@@ -1194,21 +1542,92 @@
         grid.appendChild(field("role", window.selectLabeledInput(node.role, ["main", "intermediate", "branch", "greek"], "skill-role", (v) => { node.role = v; }),
           { label: "役割", desc: "main=主軸(縦幹)/intermediate=中間/branch=左右分岐/greek=排他分岐。レイアウトと配置に影響。" }));
 
-        const parentOptions = ["(root)"].concat(nodeIds.filter((nid) => nid !== id));
-        const parentVal = node.parent == null ? "(root)" : String(node.parent);
-        grid.appendChild(field("parent", window.selectInput(parentVal, parentOptions, (v) => { node.parent = v === "(root)" ? null : v; }),
-          { label: "親ノード", desc: "接続元ノード。(root)で起点。ツリーの枝を定義する。" }));
+        const siblingOptions = nodeOptionsExcept(id);
+        const parentVal = node.parent == null ? ROOT_VALUE : String(node.parent);
+        const parentOptions = [{ value: ROOT_VALUE, primary: "起点 (親なし)", secondary: "root" }]
+          .concat(siblingOptions);
+        // 消えたノードを指したまま保存されている場合も、値を落とさず候補へ補う。
+        if (parentVal !== ROOT_VALUE && !siblingOptions.some((o) => o.value === parentVal)) {
+          parentOptions.push({ value: parentVal, primary: parentVal, secondary: "存在しないノード" });
+        }
+        grid.appendChild(field("parent", window.listSelect({
+          value: parentVal,
+          options: parentOptions,
+          onChange: (v) => { node.parent = v === ROOT_VALUE ? null : v; }
+        }), { label: "親ノード", desc: "接続元ノード。「起点 (親なし)」でツリーの起点になる。ツリーの枝を定義する。" }));
 
-        const anyParents = Array.isArray(node["parents-any"]) ? node["parents-any"].join(", ") : "";
-        grid.appendChild(field("parents-any", window.textInput(anyParents, (v) => {
-          const values = String(v).split(",").map((value) => value.trim())
-            .filter((value, index, all) => value && value !== id && all.indexOf(value) === index);
+        const anyParentsBox = h("div", { class: "stat-rows" });
+        const anyParentsOf = () => (Array.isArray(node["parents-any"]) ? node["parents-any"] : []);
+        function setAnyParents(next) {
+          const values = next.filter((v, i, all) => v && v !== id && all.indexOf(v) === i);
           if (values.length === 0) delete node["parents-any"];
           else node["parents-any"] = values;
-        }), { label: "代替親ノード", desc: "カンマ区切り。親ノードまたはこの一覧のどれか1つを解放していれば合流ノードを取得可能。" }));
+        }
+        function renderAnyParents() {
+          anyParentsBox.innerHTML = "";
+          const list = anyParentsOf();
+          if (!list.length) {
+            anyParentsBox.appendChild(h("div", { class: "empty-hint", text: "代替親はありません。" }));
+          }
+          list.forEach((pid, idx) => {
+            const opts = siblingOptions.slice();
+            if (!opts.some((o) => o.value === pid)) {
+              opts.unshift({ value: pid, primary: pid, secondary: "存在しないノード" });
+            }
+            anyParentsBox.appendChild(h("div", { class: "stat-row" }, [
+              window.listSelect({
+                value: pid,
+                options: opts,
+                onChange: (v) => {
+                  if (!v) return;
+                  const next = anyParentsOf().slice();
+                  next[idx] = v;
+                  setAnyParents(next);
+                  renderAnyParents();
+                }
+              }),
+              h("button", {
+                class: "btn-small danger", type: "button", text: "×",
+                onclick: () => {
+                  const next = anyParentsOf().slice();
+                  next.splice(idx, 1);
+                  setAnyParents(next);
+                  renderAnyParents();
+                }
+              })
+            ]));
+          });
+          const pool = siblingOptions.filter((o) => !anyParentsOf().includes(o.value));
+          if (pool.length) {
+            anyParentsBox.appendChild(h("div", { class: "stat-row" }, [
+              window.listSelect({
+                value: "", options: pool, placeholder: "＋ 代替親を追加…",
+                onChange: (v) => {
+                  if (!v) return;
+                  setAnyParents(anyParentsOf().concat(v));
+                  renderAnyParents();
+                }
+              })
+            ]));
+          }
+        }
+        renderAnyParents();
+        grid.appendChild(field("parents-any", anyParentsBox,
+          { label: "代替親ノード", desc: "親ノードまたはこの一覧のどれか1つを解放していれば合流ノードを取得可能。" }));
 
-        grid.appendChild(field("group", window.textInput(node.group, (v) => { if (v === "") delete node.group; else node.group = v; }),
-          { label: "排他グループ", desc: "同じ親かつ同じグループ名の兄弟だけが相互排他。親が異なる同名グループは同じ選択ルートの続きとして取得可能。" }));
+        const groupOptions = [{ value: "", primary: "(排他なし)" }]
+          .concat(usedGroupNames.map((g) => ({ value: g, primary: g })));
+        if (node.group && !usedGroupNames.includes(node.group)) {
+          groupOptions.push({ value: String(node.group), primary: String(node.group) });
+        }
+        groupOptions.push({ value: "__custom__", primary: "＋ 新しいグループ名…" });
+        grid.appendChild(field("group", window.listSelect({
+          value: node.group == null ? "" : String(node.group),
+          options: groupOptions,
+          allowCustom: true,
+          customPlaceholder: "グループ名 (半角英数)",
+          onChange: (v) => { if (!v) delete node.group; else node.group = v; }
+        }), { label: "排他グループ", desc: "同じ親かつ同じグループ名の兄弟だけが相互排他。親が異なる同名グループは同じ選択ルートの続きとして取得可能。" }));
 
         const nodeIconHint = window.materialHintEl(node.icon);
         const nodeIconInput = window.materialInput(node.icon, "material-list", (v) => { node.icon = v; nodeIconHint.update(v); });
@@ -1222,7 +1641,10 @@
         bodyChildren.push(buffsSection(node, "buffs"));
         if (supportsMainhandBuffs) bodyChildren.push(buffsSection(node, "mainhand-buffs", "メインハンド条件バフ (mainhand-buffs)",
           "このツリーに対応する武器/ツールをメインハンドに持つ間だけ加算されます。"));
-        bodyChildren.push(unlockEffectsSection(node, () => window.GATE_EFFECTS.computeDuplicateGateEffectIds(nodes), vocabulary));
+        if (supportsSetBuffs) bodyChildren.push(setBuffsSection(node));
+        bodyChildren.push(unlockEffectsSection(node,
+          () => window.GATE_EFFECTS.computeDuplicateGateEffectLocations(nodes, otherTreePlacements),
+          vocabulary));
 
         // 表示順の上下入替 (working.nodes のキー順を入替。parent参照はid基準なので不変)。
         const upBtn = h("button", { class: "btn-small", type: "button", text: "↑", title: "表示順を上へ", onclick: () => { moveKey(nodes, id, -1); renderNodes(); } });

@@ -53,17 +53,31 @@ unknown-mobs:
 theme:
   default: ""
 
+# 2026-08-03(45+難易度修正): physical/magical の flat-defense に「Lv45以降だけレベル1につき
+# +150 ずつ乗る加算専用の第2区間」(ConversionPolicy.Ramp、RampParser参照)を置いていた。
+#
+# 2026-08-20(W-176 ダンジョンが強すぎる): その第2区間を撤去し 0 に戻した。
+# 【なぜ撤去したか】flat-defense はクリット前に減算される純粋な固定値(ComponentDamageCalculator
+# step2)なので、プレイヤーの1発の威力が変わらないまま守備力だけ +150/Lv で伸びると、
+# 「同じ装備のままレベルだけ上げると実効DPSが下がる」という逆転が起きる。装備の更新は
+# Lv45/60/80/100 の飛び石(その間はまるごと同じ装備)なので、帯の中でレベルを上げるほど弱くなる。
+# 実測: 難易度1の踏破ボスの撃破秒数が Lv45 で 12 秒、Lv55 で 189 秒(15.2倍のぶれ)。
+# この第2区間を 0 にすると同じぶれが 6.8 倍まで縮み、下の max-health 側の撤去と合わせて 2.9 倍になる。
+# 【元の狙いはどこへ行ったか】「厳選(攻撃力の伸び)が効く」レバーとして置いたものだったが、
+# 2026-08-12 の火力/防御再較正(item-stats と mob-types の同時較正)で守備力の勾配は
+# F(L)=0.5*A(L) として引き直し済みで、この第2区間はその上に二重で乗っていた。
+# フィールドモブ(combat/mob-types.yml)は 0.0025/Lv しか持たないので、ここも同水準へ揃える。
 physical:
   defense-rate:     { base: 0.0,  per-level: 0.0 }
   resistance:       { base: 0.12, per-level: 0.0 }
   damage-reduction: { base: 0.0,  per-level: 0.0 }
-  flat-defense:     { base: 0.0,  per-level: 0.0 }
+  flat-defense:     { base: 0.0,  per-level: 0.0, high-level-from: 45, high-level-per-level: 0.0 }
 
 magical:
   defense-rate:     { base: 0.0,  per-level: 0.0 }
   resistance:       { base: 0.12, per-level: 0.0 }
   damage-reduction: { base: 0.0,  per-level: 0.0 }
-  flat-defense:     { base: 0.0,  per-level: 0.0 }
+  flat-defense:     { base: 0.0,  per-level: 0.0, high-level-from: 45, high-level-per-level: 0.0 }
 
 armor-strength:     { base: 0.0, per-level: 0.0 }
 
@@ -71,10 +85,46 @@ variance:
   hp:     0.15
   attack: 0.15
 
-max-health:         { base: 150.0, per-level: 0.0, growth: 1.072, growth-interval: 1.0 }
+# 2026-08-03(45+難易度修正): high-level-from/high-level-per-level(Lv45から加算専用の第2区間)で
+# Lv45以降のHPを積み増していた(Lv60で約3.8倍)。
+#
+# 2026-08-20(W-176 ダンジョンが強すぎる): その第2区間を撤去し 0 に戻した(attack 側と同じ扱い)。
+# 【このランプを実際に食うのは誰か】EliteMobs フォークの HP 委譲は CustomBossEntity だけを通す
+# (EliteEntity#setMaxHealth → TrinityForgeIntegration#resolveProfileMaxHealth の
+# instanceof CustomBossEntity ゲート)。つまりこの max-health は【踏破ボス/中ボス専用】で、
+# ダンジョンの雑魚は EliteMobs 自前の LevelScaling.calculateMobHealth のままここには乗らない。
+# 【なぜ撤去したか】ボスの実HPは「このランプ × mob-overrides の max-health-multiplier ×
+# EM の healthMultiplier」の3段の積で、後段の倍率は最大 2500 倍に達する。加算専用の第2区間は
+# その内側にあるので +1800/Lv がそのまま最大 450万HP/Lv に化け、指数(growth 1.072)で組んだ
+# 難易度ラダーの形を中レベル帯だけ壊していた。実測で難易度6のスパーキーが Lv55 で 623 秒。
+# 撤去すると純粋な指数に戻り、装備更新の階段(Lv45/60/80/100 で実効DPSが約2.4〜4.5倍)と
+# growth 1.072(15レベルで約2.8倍・20レベルで約4.0倍)が噛み合って撃破秒数のぶれが
+# 15.2倍 → 2.9倍(難易度1のボスで11〜31秒)に収まる。試算は tmp/boss-ttk-audit.js。
+# 【なぜ「倍率の後に足す」ではなく撤去か】ボスでは後段の倍率が支配的なので、加算を倍率の外に
+# 出した場合の値(例: 暗黒大聖堂 Lv55 で 224k)と撤去した場合(206k)の差は 1 割未満。
+# 数値が同じなら TF と EM フォークの2本の jar を跨ぐ API 追加を持ち込まないほうがよい。
+max-health:         { base: 150.0, per-level: 0.0, growth: 1.072, growth-interval: 1.0,
+                      high-level-from: 45, high-level-per-level: 0.0 }
 
 attack:
-  attack-power:         { base: 7.0, per-level: 0.0, growth: 1.03, growth-interval: 1.0 }
+  # 2026-08-03(#63「被弾もうちょっと痛くていい」): Lv45以降の加算専用の第2区間を追加。
+  # Lv45未満は growth 1.03 のまま完全無干渉(第2区間は level==45 でちょうど0を足す)。
+  #   Lv45: 26.5(据え置き) / Lv60: 41.2 → 45.0(+9%) / Lv80: 74.5 → 83.2(+12%)
+  # 【なぜ +9% で「体感2〜3割痛い」になるか】被ダメージは守備力(flat-defense)を先に引いてから
+  # 率を掛けるので、攻撃力の増分は"守備力を引いた残り"に対しては何倍にも効く。Lv60 のネザライト
+  # 一式(phys-flat-defense 約49)に対し攻撃力66→72 だと、物理成分の残りは 10.6 → 16.0 と約1.5倍。
+  # つまりここは小さく回すレバーで、大きく回すと即詰みになる。実測して足りなければ
+  # high-level-per-level を 0.05 刻みで上げること(0.25 → 0.30 で Lv60 の残りがさらに約1.2倍)。
+  # attack-power 以外(fixed-damage 等)を上げるのは禁じ手 —— 守備力で減らせない=対策不能になる。
+  # 2026-08-12(火力/防御の再較正): フィールド側(combat/mob-types.yml)を
+  # 「growth 1.033 + Lv45以降 +0.25/Lv」から「growth 1.0148 のみ」へ寝かせたので、
+  # ここも同じ勾配へ揃える。揃えないと Lv100 でダンジョンモブだけ攻撃力 148 対 35 と
+  # 約4.3倍になり、プレイヤー最大HP 100 に対して事実上の即死になる。
+  #   base 10.2 = フィールドの基準モブ(ゾンビ 8.0)の約1.27倍。
+  #   この 1.27 倍という関係は旧カーブ(ダンジョン7.0 / フィールド5.5)の比をそのまま引き継いだもの。
+  #   high-level-per-level は 0 にした(指数側がその役目を担うため。第2区間との二重計上を避ける)。
+  attack-power:         { base: 10.2, per-level: 0.0, growth: 1.0148, growth-interval: 1.0,
+                          high-level-from: 45, high-level-per-level: 0.0 }
   flat-bonus-damage:    { base: 0.0, per-level: 0.0 }
   percent-bonus-damage: { base: 0.0, per-level: 0.0 }
   crit-chance:          { base: 0.0, per-level: 0.0 }
@@ -82,3 +132,14 @@ attack:
   penetration:          { base: 0.0, per-level: 0.0 }
   damage-modifier:      { base: 1.0, per-level: 0.0 }
   fixed-damage:         { base: 0.0, per-level: 0.0 }
+  # 2026-08-03(U18): このランプには元々 magic-ratio が無く、unknown-mobs.synthesize / level: dynamic
+  # で解決される全ダンジョンモブ(mob-profiles.ymlはprofiles: {}で空 = 事実上これが全て)が
+  # 常に完全物理(magic-ratio=0.0)になっていた。combat/mob-types.yml のフィールドモブは
+  # 41種中17種(約4割)が magic-ratio>0 で「物理耐性だけ積めば全部軽減できる」を避けているのに、
+  # ダンジョン側だけこの設計が抜けており、「耐性の対策なしで勝てる」の一因になっていた。
+  # per-levelは意図的に0(magic-ratioはレベルで伸びる量ではなく攻撃の型の分類、MobStatScaling参照)。
+  # 2026-08-03(#62): ここは「コンセプト未割り当てのダンジョン」用のフォールバックになった。
+  # 既存28ダンジョンには combat/mob-overrides.yml のスコープ直下 stats: で物理推奨/魔法推奨/物魔両方の
+  # コンセプトを割り当て済みで、そちらが勝つ。この値は物魔両方(0.25)と同値にしてあるので、
+  # 新しく落としたダンジョンは「中庸」として始まり、後からコンセプトを割り当てられる。
+  magic-ratio:          { base: 0.25, per-level: 0.0 }

@@ -44,7 +44,27 @@ class HasteActiveSkillTest {
         HasteActiveSkill skill = new HasteActiveSkill(new MiningGimmickConfig());
         assertEquals("haste-active-mining", skill.id());
         assertEquals("haste-active-mining", skill.gateEffectId());
-        assertEquals(Set.of("MINING", "DIGGING"), skill.targetSkills());
+        // 2026-08-18 (W-59): digging.yml には元々 feature:haste-active-mining の配置が一度も無く、
+        // "DIGGING" 対応は実質シャベルから発動不能な死んだ宣言だった。専用の DiggingHasteActiveSkill
+        // (targetSkills=DIGGING、独立gate/config)へ切り出したため、こちらは MINING 単独へ戻す。
+        assertEquals(Set.of("MINING"), skill.targetSkills());
+    }
+
+    @Test
+    void keepsIndependentCooldownBucketsAndEndsOnToolSwitch() {
+        // 2026-08-18 第2波(ユーザー確定要件「共有ではなく持ち替えで効果が強制終了する」):
+        // 初版の cooldownGroup 共有は撤回した。共有CTでは「ツルハシで発動 → シャベルへ持ち替え」で
+        // 効果だけを横流しできてしまい、シャベル側のノードを解放していないのに掘削が速くなる。
+        HasteActiveSkill mining = new HasteActiveSkill(new MiningGimmickConfig());
+        DiggingHasteActiveSkill digging = new DiggingHasteActiveSkill(new com.trinityforge.config.domains.DiggingGimmickConfig());
+        assertTrue(!mining.cooldownGroup().equals(digging.cooldownGroup()),
+                "CTバケツを共有に戻してはいけない(持ち替え強制終了が本線)");
+        assertEquals(mining.id(), mining.cooldownGroup(), "CTバケツは id 単位");
+        assertEquals(digging.id(), digging.cooldownGroup(), "CTバケツは id 単位");
+        // 効果はツール束縛。false に戻ると持ち替えても効果が残る(=ずるが復活する)。
+        assertTrue(mining.toolBound());
+        assertTrue(digging.toolBound());
+        assertTrue(!mining.id().equals(digging.id()));
     }
 
     @Test

@@ -163,10 +163,9 @@ class MiningFortuneListenerPlacedBlockTest {
     }
 
     private static int GatheringPolicyMax() {
-        // expectedExtraRate(100.0, 0, 0.01) * 0.30 = 30.0 -> expectedExtra() bounds it to MAX_EXTRA (256),
-        // but expected=30 with uniform01 draw always yields floor(30)=30 or 31 extra (never near 256), so
-        // just assert "some bonus happened" via the deterministic floor component: expected=30.0 exactly
-        // divides with no fractional part, so extra is always exactly 30 regardless of the RNG draw.
-        return 30;
+        // expectedExtraRate(100.0, 0, 0.003) = 100.0 (2026-07-28 に × 0.30 を撤去したので係数は無い)。
+        // MAX_EXTRA(256) には届かず、100.0 は小数部を持たないため RNG の引きに関わらず追加ドロップは
+        // 常にちょうど 100 個になる = 「ボーナスが出た」ことを決定的に検証できる。
+        return 100;
     }
 }

@@ -1,0 +1,311 @@
+<#
+.SYNOPSIS
+    資源サーバのワールドを週次でリセットする。手動実行も同じスクリプトを使う。
+
+.DESCRIPTION
+    手順:
+      0. データパックの正本 (ResourceDatapacks.Source) を検査する。
+         ワールドを消したあとで不在に気づくと、その週は丸ごとバニラ地形で走ることになる
+      1. 予告をブロードキャスト (既定 10 / 5 / 1 分前)
+      2. maintenance.flag を置いて server-loop.cmd の再起動を保留させ、RCON stop。
+         FallbackRouter が在席者をメインへ自動退避し、
+         HuskSync が切替時にインベントリを保存するので、持ち物はこの時点で確定する
+      3. プロセスが落ちきるまで待つ (タイムアウトしたら中断。強制終了はしない)
+      4. 削除 (ops-config.psd1 の ResourceResetTargets)。
+         ジャンクションは Remove-DirectorySafely が必ず弾く
+     4b. データパックを正本から world\datapacks へ入れ直す (world ごと消えているため)
+      5. sync-configs.ps1 で整合チェック。問題があれば maintenance.flag を残したまま中断する
+         (壊れた状態で起動させない。解消したら flag を消せば server-loop が起動する)
+      6. maintenance.flag を外し、server-loop.cmd が起動し直すのを待つ
+      7. Chunky のプリジェネレーションを開始し、メインへ完了を通知する
+
+.PARAMETER DryRun
+    停止も削除も行わず、削除対象の絶対パスとサイズを含めた実行計画だけを出力する。
+    サーバを立てずに手順の正しさを確認できる。
+
+.PARAMETER SkipPregen
+    リセット後の Chunky プリジェネレーションを行わない。
+
+.EXAMPLE
+    .\reset-resource.ps1 -DryRun
+
+.EXAMPLE
+    .\reset-resource.ps1 -WarnMinutes @(5,1)
+#>
+[CmdletBinding()]
+param(
+    [string] $ConfigPath,
+    [int[]]  $WarnMinutes = @(10, 5, 1),
+    [int]    $StopTimeoutSeconds = 180,
+    [int]    $StartTimeoutSeconds = 300,
+    [int]    $PregenRadius = 2500,
+    [switch] $SkipPregen,
+    [switch] $DryRun
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+. (Join-Path $PSScriptRoot "lib\Rcon.ps1")
+. (Join-Path $PSScriptRoot "lib\Common.ps1")
+
+# DryRun では RCON を叩かないので、パスワード未設定でも空撃ちは通す。
+# ここで落とすと【削除対象一覧が表示されないまま終わる】= 空撃ちの本題が失われる。
+$config   = Get-OpsConfig -Path $ConfigPath -RequireRconPasswords:(-not $DryRun)
+$resource = $config.Servers.Resource
+$main     = $config.Servers.Main
+$targets  = $config.ResourceResetTargets
+
+if ($DryRun) {
+    Write-OpsLog "=== DRY RUN: 停止も削除も起動も行いません ===" -Level DRYRUN
+    Write-MissingRconPasswordWarning -Config $config
+}
+
+Write-OpsLog "資源サーバのリセットを開始します: $($resource.Root)"
+
+# ---- 0. 安全確認 -------------------------------------------------------------------------------
+# 削除対象を組み立てる前に、危険なパスが混ざっていないかを見る。設定ファイルの編集ミスで
+# plugins\TrinityForge がリストに載ったら、その瞬間に全プレイヤーの進行データが飛ぶ。
+
+$forbidden = @("plugins\TrinityForge", "plugins", "")
+$allTargets = @($targets.Directories) + @($targets.Files)
+foreach ($relative in $allTargets) {
+    $normalized = $relative.Trim().TrimEnd('\', '/')
+    if ($forbidden -contains $normalized) {
+        throw "中断: 削除対象に $relative が含まれています。" +
+              "plugins\TrinityForge はメインと共有しているジャンクションです。" +
+              "ops-config.psd1 の ResourceResetTargets を修正してください。"
+    }
+    if ([IO.Path]::IsPathRooted($normalized)) {
+        throw "中断: 削除対象は資源サーバルートからの相対パスで書いてください: $relative"
+    }
+    if ($normalized -match '\.\.') {
+        throw "中断: 削除対象に .. が含まれています: $relative"
+    }
+}
+
+Write-OpsLog "削除対象の安全確認 OK ($($allTargets.Count) 件)"
+
+# データパックの正本を【停止前に】検査する。world を消したあとで「正本が空だった」と分かっても
+# その週は丸ごとバニラ地形で走ることになり、しかもエラーは一切出ない。
+$datapackPlan = Get-ResourceDatapackPlan -Config $config -ResourceServer $resource
+if ($datapackPlan) {
+    Write-OpsLog "データパックの正本を確認: $($datapackPlan.Packs.Count) 件 ($($datapackPlan.Source))"
+} else {
+    Write-OpsLog "ResourceDatapacks の設定が無いのでデータパックは扱いません。"
+}
+
+# ---- 1-3. 予告して停止 -------------------------------------------------------------------------
+
+# ⚠ server-loop.cmd は Paper が落ちてから RESTART_DELAY(10秒)で起動し直す。数GBのワールド削除は
+#   10秒では終わらないので、そのままだと【削除の途中で Paper が起動する】。半分消えたワールドで
+#   立ち上がるうえ、データパックの再配置は Paper が読み終わったあとになり、その週は無効になる。
+#   maintenance.flag を置いてループを保留させ、削除と再配置が済んでから外す。
+#   stop.flag と違い、ループから抜けさせない(消せばそのまま起動し直す)。
+$maintenanceFlag = Join-Path $resource.Root "maintenance.flag"
+
+function Set-MaintenanceHold {
+    if ($DryRun) {
+        Write-OpsLog "maintenance.flag を置いて server-loop の再起動を保留する: $maintenanceFlag" -Level DRYRUN
+        return
+    }
+    New-Item -ItemType File -Path $maintenanceFlag -Force | Out-Null
+    Write-OpsLog "server-loop の再起動を保留しました: $maintenanceFlag"
+}
+
+function Clear-MaintenanceHold {
+    if ($DryRun) {
+        Write-OpsLog "maintenance.flag を外して server-loop に起動させる" -Level DRYRUN
+        return
+    }
+    if (Test-Path -LiteralPath $maintenanceFlag) {
+        Remove-Item -LiteralPath $maintenanceFlag -Force
+        Write-OpsLog "server-loop の保留を解除しました。"
+    }
+}
+
+$wasRunning = $false
+if ($DryRun) {
+    Write-OpsLog "RCON の到達確認をスキップ" -Level DRYRUN
+    $wasRunning = $true
+} else {
+    $wasRunning = Test-RconReachable -HostName $resource.RconHost -Port $resource.RconPort `
+        -Password $resource.RconPassword
+}
+
+if ($wasRunning) {
+    if ($WarnMinutes.Count -gt 0) {
+        Send-ShutdownWarnings -Server $resource -Reason "資源ワールドのリセット" `
+            -WarnMinutes $WarnMinutes -DryRun:$DryRun
+    }
+
+    # 停止直前にもう一押し。HuskSync の保存はサーバ切替/退出のタイミングで走る。
+    if (-not $DryRun) {
+        $session = New-RconSession -HostName $resource.RconHost -Port $resource.RconPort `
+            -Password $resource.RconPassword -Label $resource.Name
+        try {
+            Invoke-RconCommand -Session $session `
+                -Command "say §c[重要] §fこれから資源ワールドをリセットします。メインサーバへ移動します。" | Out-Null
+        } finally {
+            Close-RconSession -Session $session
+        }
+    }
+
+    Set-MaintenanceHold
+    $stopped = Stop-ServerViaRcon -Server $resource -TimeoutSeconds $StopTimeoutSeconds -DryRun:$DryRun
+    if (-not $stopped) {
+        Clear-MaintenanceHold
+        Write-OpsLog "停止できなかったのでリセットを中断します。ファイルは一切触っていません。" -Level ERROR
+        exit 1
+    }
+} else {
+    Write-OpsLog "資源サーバは停止しています。そのまま削除に進みます。"
+    Set-MaintenanceHold
+}
+
+# 削除〜再配置の間に例外が出ても、保留だけは必ず外す。外し忘れると server-loop が
+# 永久に待ち続け、【資源サーバが上がらないまま朝を迎える】。
+# StrictMode 下では未初期化の参照が落ちるので、先に置く。
+$abortWithHold = $false
+try {
+
+    # ---- 4. 削除 -------------------------------------------------------------------------------
+
+    Write-Host ""
+    Write-OpsLog "--- 削除 ---"
+
+    foreach ($relative in $targets.Directories) {
+        $path = Join-Path $resource.Root $relative
+        Remove-DirectorySafely -Path $path -DryRun:$DryRun
+    }
+    foreach ($relative in $targets.Files) {
+        $path = Join-Path $resource.Root $relative
+        Remove-FileSafely -Path $path -DryRun:$DryRun
+    }
+
+    # ---- 4b. データパックの再配置 ---------------------------------------------------------------
+    # world を消したので datapacks も消えている。Paper が起動する前に入れ直す。
+    # ⚠ ここを飛ばすと、資源ワールドは【バニラ地形で生成され】、案1の構造物も
+    #   ArsPaper の追加戦利品プール(nova_structures:* など)も一切当たらなくなる。無警告。
+
+    if ($datapackPlan) {
+        Write-Host ""
+        Write-OpsLog "--- データパックの再配置 ---"
+        Install-ResourceDatapacks -Plan $datapackPlan -DryRun:$DryRun
+    }
+
+    # ---- 5. 整合チェック -----------------------------------------------------------------------
+
+    Write-Host ""
+    Write-OpsLog "--- 起動前の整合チェック ---"
+
+    $syncScript = Join-Path $PSScriptRoot "sync-configs.ps1"
+    $syncArgs = @("-File", $syncScript)
+    if ($ConfigPath) { $syncArgs += @("-ConfigPath", $ConfigPath) }
+    if ($DryRun)     { $syncArgs += "-DryRun" }
+
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass @syncArgs
+    $syncExit = $LASTEXITCODE
+
+    if ($syncExit -ne 0) {
+        if ($DryRun) {
+            # ドライランでは残りの手順も見せたいので続行する。実行時はここで止まる。
+            Write-OpsLog ("整合チェックが失敗しました (exit=$syncExit)。" +
+                "実行時はここで中断し、資源サーバを起動しません。ドライランなので手順の表示を続けます。") -Level WARN
+        } else {
+            $abortWithHold = $true
+        }
+    }
+
+} catch {
+    # 想定外の例外。保留を外して server-loop に起動させる(ワールドは再生成されるので実害は小さい)。
+    Clear-MaintenanceHold
+    throw
+}
+
+if ($abortWithHold) {
+    # 保留は【外さない】。壊れた config のまま起動させないのが目的。
+    Write-OpsLog ("整合チェックに失敗しました (exit=$syncExit)。資源サーバは起動しません。" +
+        "上の指摘を解消してから $maintenanceFlag を削除してください " +
+        "(server-loop.cmd が待っているので、消せば自動で起動します)。") -Level ERROR
+    exit 1
+}
+
+Clear-MaintenanceHold
+
+# ---- 6. 起動待ち -------------------------------------------------------------------------------
+
+Write-Host ""
+if ($DryRun) {
+    Write-OpsLog "server-loop.cmd による自動起動を最大 $StartTimeoutSeconds 秒待つ" -Level DRYRUN
+} else {
+    Write-OpsLog "server-loop.cmd の自動起動を待ちます (最大 $StartTimeoutSeconds 秒)"
+    $deadline = (Get-Date).AddSeconds($StartTimeoutSeconds)
+    $up = $false
+    while ((Get-Date) -lt $deadline) {
+        Start-Sleep -Seconds 5
+        if (Test-RconReachable -HostName $resource.RconHost -Port $resource.RconPort `
+                -Password $resource.RconPassword) {
+            $up = $true
+            break
+        }
+    }
+    if (-not $up) {
+        Write-OpsLog ("$StartTimeoutSeconds 秒待っても資源サーバが起動しませんでした。" +
+            "server-loop.cmd が動いているか確認してください。") -Level ERROR
+        exit 1
+    }
+    Write-OpsLog "資源サーバが起動しました。"
+}
+
+# ---- 7. プリジェネレーションと通知 -------------------------------------------------------------
+
+Write-Host ""
+if ($SkipPregen) {
+    Write-OpsLog "プリジェネレーションはスキップします (-SkipPregen)"
+} else {
+    $pregenCommands = @(
+        "chunky world world"
+        "chunky center 0 0"
+        "chunky radius $PregenRadius"
+        "chunky start"
+    )
+    if ($DryRun) {
+        foreach ($command in $pregenCommands) {
+            Write-OpsLog "RCON へ送信する (resource): $command" -Level DRYRUN
+        }
+    } else {
+        $session = New-RconSession -HostName $resource.RconHost -Port $resource.RconPort `
+            -Password $resource.RconPassword -Label $resource.Name
+        try {
+            foreach ($command in $pregenCommands) {
+                $result = Invoke-RconCommand -Session $session -Command $command
+                Write-OpsLog "chunky: $command -> $result"
+            }
+        } finally {
+            Close-RconSession -Session $session
+        }
+    }
+}
+
+$notice = "say §a[お知らせ] §f資源ワールドをリセットしました。/server resource で新しいワールドへ行けます。"
+if ($DryRun) {
+    Write-OpsLog "RCON へ送信する (main): $notice" -Level DRYRUN
+} else {
+    try {
+        $session = New-RconSession -HostName $main.RconHost -Port $main.RconPort `
+            -Password $main.RconPassword -Label $main.Name
+        try {
+            Invoke-RconCommand -Session $session -Command $notice | Out-Null
+        } finally {
+            Close-RconSession -Session $session
+        }
+    } catch {
+        # メインが落ちていてもリセット自体は成功している。警告に留める。
+        Write-OpsLog "メインサーバへの通知に失敗しました: $($_.Exception.Message)" -Level WARN
+    }
+}
+
+Write-Host ""
+Write-OpsLog "資源サーバのリセットが完了しました。"
+exit 0

@@ -1,5 +1,5 @@
 # TrinityForge - 釣りツリー B-alpha/B-beta 系flag/percent dedicated-effect consumer
-# (skilltree/dedicated-effects.yml)のチューニング + 釣り「宝/ゴミ比率＋釣り運シフト」ドロップテーブル機構
+# (各 skilltree/*.yml ノードの dedicated-effects: フィールド)のチューニング + 釣り「宝/ゴミ比率＋釣り運シフト」ドロップテーブル機構
 # (2026-07-23 stat-gate-overhaul §2.3/§4)。
 # 対象effectId: junk-to-scrap / fish-sell-toggle(#5修正により恒久no-op)
 # 数値・Material一覧は全て暫定(要調整)。
@@ -21,35 +21,22 @@ junk-materials:
   - INK_SAC
   - ROTTEN_FLESH
   - TRIPWIRE_HOOK
-
 treasure-materials:
   - NAME_TAG
   - SADDLE
   - NAUTILUS_SHELL
   - ENCHANTED_BOOK
   - BOW
-
 fish-sell:
   prices:
-    COD: 2.0
-    SALMON: 3.0
-    TROPICAL_FISH: 6.0
-    PUFFERFISH: 4.0
+    COD: 200
+    SALMON: 300
+    TROPICAL_FISH: 600
+    PUFFERFISH: 400
   max-sells-per-minute: 10
-
-xp-bottle-store:
-  store-amount: 100
-  return-rate: 1.0
-  # tier別設定(任意、2026-07-26): 未記載なら上のグローバル既定値がそのまま全員に使われる(完全後方互換)。
-  # tierはスキルツリーのノード value から決まる(feature:xp-bottle-store-unlock は SCALE、
-  # value省略時はtier1が自動補完されるため既存の単一解放ノードは無改変で従来どおり動作する)。
-  # tiers:
-  #   1: { store-amount: 100, return-rate: 0.8 }
-  #   2: { store-amount: 200, return-rate: 1.0 }
-
 fishing:
-  luck-per-level: 0.005
-  bonus-per-level: 0.02
+  luck-per-level: 0
+  bonus-per-level: 0
   ocean-biomes:
     - ocean
     - deep_ocean
@@ -61,42 +48,117 @@ fishing:
     - frozen_ocean
     - deep_frozen_ocean
   group-ratio:
-    treasure-percent: 5.0
-    junk-percent: 10.0
+    treasure-percent: 5
+    junk-percent: 10
   groups:
     treasure:
       categories:
-        gacha:
-          display-name: "釣りガチャ券"
+        ore:
+          display-name: 鉱石
           entries:
-            - item: tf_gacha_ticket_4
-              weight: 3
+            - item: COPPER_INGOT
+              weight: 12
               amount: 1
-            - item: tf_gacha_ticket_5
+            - item: GOLD_INGOT
+              weight: 10
+              amount: 1
+            - item: IRON_INGOT
+              weight: 12
+              amount: 1
+            - item: REDSTONE
+              weight: 12
+              amount: 1
+            - item: LAPIS_LAZULI
+              weight: 10
+              amount: 1
+            - item: AMETHYST_SHARD
+              weight: 10
+              amount: 1
+            - item: EMERALD
+              weight: 7
+              amount: 1
+            - item: DIAMOND
+              weight: 4
+              amount: 1
+            - item: NETHERITE_SCRAP
               weight: 1
+              amount: 1
+            - item: COAL
+              weight: 15
               amount: 1
         treasure_vanilla:
-          display-name: "バニラ宝(移植)"
+          display-name: バニラ宝
           entries:
             - item: NAME_TAG
-              weight: 1
+              weight: 10
               amount: 1
             - item: SADDLE
-              weight: 1
+              weight: 10
               amount: 1
             - item: NAUTILUS_SHELL
-              weight: 1
-              amount: 1
-            - item: ENCHANTED_BOOK
-              weight: 1
+              weight: 10
               amount: 1
             - item: BOW
+              weight: 10
+              amount: 1
+            - item: HEART_OF_THE_SEA
               weight: 1
+              amount: 1
+            - item: EXPERIENCE_BOTTLE
+              weight: 5
+              amount: 1
+            - item: COPPER_PICKAXE
+              weight: 10
+              amount: 1
+            - item: GOLDEN_PICKAXE
+              weight: 8
+              amount: 1
+            - item: IRON_PICKAXE
+              weight: 6
+              amount: 1
+            - item: DIAMOND_PICKAXE
+              weight: 3
+              amount: 1
+            - item: NETHERITE_PICKAXE
+              weight: 1
+              amount: 1
+            - item: GOLDEN_HOE
+              weight: 8
+              amount: 1
+            - item: IRON_HOE
+              weight: 6
+              amount: 1
+            - item: DIAMOND_HOE
+              weight: 3
+              amount: 1
+            - item: NETHERITE_HOE
+              weight: 1
+              amount: 1
+            - item: GOLDEN_AXE
+              weight: 8
+              amount: 1
+            - item: IRON_AXE
+              weight: 6
+              amount: 1
+            - item: COPPER_AXE
+              weight: 10
+              amount: 1
+            - item: DIAMOND_AXE
+              weight: 3
+              amount: 1
+            - item: NETHERITE_AXE
+              weight: 1
+              amount: 1
+            - item: COPPER_HOE
+              weight: 10
+              amount: 1
+            - item: ENCHANTED_BOOK
+              weight: 10
               amount: 1
     junk:
       categories:
         junk_vanilla:
-          display-name: "バニラゴミ(移植)"
+          display-name: バニラゴミ
           entries:
             - item: LEATHER_BOOTS
               weight: 1
@@ -105,9 +167,6 @@ fishing:
               weight: 1
               amount: 1
             - item: BONE
-              weight: 1
-              amount: 1
-            - item: POTION
               weight: 1
               amount: 1
             - item: STRING
@@ -128,10 +187,28 @@ fishing:
             - item: TRIPWIRE_HOOK
               weight: 1
               amount: 1
-        ocean_thread:
-          display-name: "海洋の空スレッド"
           scrap-exempt: true
+  unlock-groups:
+    treasure:
+      categories:
+        tier1:
+          display-name: tier1
           entries:
-            - item: thread_empty
-              weight: 1
+            - item: custom:gacha_ticket_fishing
+              weight: 10
               amount: 1
+        tier2:
+          display-name: tier2
+          entries:
+            - item: custom:gacha_ticket_fishing
+              weight: 20
+              amount: 1
+    junk:
+      categories:
+        tier1:
+          display-name: tier1
+          entries:
+            - item: custom:tf_scrap
+              weight: 1000
+              amount: 1
+          scrap-exempt: true

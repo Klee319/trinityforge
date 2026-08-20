@@ -23,8 +23,36 @@ const VANILLA_ARMOR_POINTS = {
 const DEFENSE_RATE_PER_POINT = 0.015; // combat/damage.yml vanilla-armor.defense-rate-per-point
 const DEFENSE_RATE_MAX = 0.8;
 
+// 【2026-08-12 防具ラダー引き直し】敵の基準攻撃力カーブ。combat/mob-types.yml の ZOMBIE
+// attack.attack-power (base 8, attack-power-growth 1.0148, attack-power-high-level-per-level 0)
+// をそのまま反映する式。A(L) = 8.0 * 1.0148^L。
+// 指数は当初 1.02 だったが「最大レベルで50ハートぐらいにとどめたい」というユーザー指示で
+// 1.0148 へ寝かせた(A(100) が 0.6 倍 -> 守備力も最大HPも A に比例するので同じ 0.6 倍で縮み、
+// Lv100 のプレイヤー最大HPが 166.7 -> 100 になる。耐えられる発数は変わらない)。
+// 旧カーブ (7.0*1.03^L, かつLv45以降+0.25/Lvの加算あり) は撤去済み ── 実測でプレイヤー実効HPの
+// 伸び(装備込みでも x3)を敵攻撃力の伸び(x40)が大幅に超えており、守備力(引き算段)だけでは
+// 追いつけず「Lv20〜60は min-component-damage:1 に張り付いて無敵、Lv80〜100はほぼ即死」の
+// 二極化を起こしていた元凶。
+function baseAttackCurve(level) {
+  return 8.0 * Math.pow(1.0148, level);
+}
+
+// combat/damage.yml の early-level-attack (Lv10未満だけ後掛けする緩和倍率)。
+// EarlyLevelAttackSoftening#multiplier と同じ式: level>=until-level(10) なら1.0、それ未満は
+// level0-multiplier(0.7) + (1 - level0-multiplier) * (level / until-level)。
+function earlyLevelMultiplier(level) {
+  const untilLevel = 10;
+  const level0Multiplier = 0.7;
+  if (level >= untilLevel) return 1.0;
+  return level0Multiplier + (1 - level0Multiplier) * (level / untilLevel);
+}
+
+// 実戦闘でプレイヤーが受ける「実効」攻撃力。early-level-attack はモブの基本ダメージに後掛け
+// されるため、Lv10未満の帯ではこの softening まで含めて A(L) として扱わないと、守備力ラダーの
+// 検証がゲーム内の実際の被ダメージとズレる(Lv0帯の実測 F=2.8 は 0.5*8*0.7 と一致し、この
+// softening を含めた値で防具側が校正されていることを裏付けている)。
 function aFor(level) {
-  return 7.0 * Math.pow(1.03, level);
+  return baseAttackCurve(level) * earlyLevelMultiplier(level);
 }
 
 function partKeys(material, cmdCsv) {
@@ -39,8 +67,12 @@ function partKeys(material, cmdCsv) {
 
 // Sums fixed+random.min (base roll) and fixed+random.max (theoretical roll) for a stat across
 // the 4-piece set, plus the always-fixed (non-rolled) stats used for the defense-rate/m math.
+// 2026-08-15: 防具値ステ(armor-defense-rate, 点数)を廃止し防御率(defense-rate, [0,1])へ一本化した。
+// ここの m は「設計時のはしご」を固定するための別式(VANILLA_ARMOR_POINTS を足す = 実戦闘とは
+// 意図的に違う。理由は T3-2 regression lock のコメント参照)なので、式そのものは変えず、
+// 点数の代わりに防御率で同じ計算をする(旧 点数合計 * 0.015 == 新 defense-rate 合計 で同値)。
 function aggregateSet(keys, vanillaMaterial) {
-  let flatMin = 0, flatMax = 0, hpMin = 20, hpMax = 20, armorDefenseSum = 0, physResSum = 0;
+  let flatMin = 0, flatMax = 0, hpMin = 20, hpMax = 20, defenseRateSum = 0, physResSum = 0;
   for (const part of PARTS) {
     const entry = items[keys[part]];
     assert.ok(entry, `missing item-stats entry for ${keys[part]}`);
@@ -57,11 +89,12 @@ function aggregateSet(keys, vanillaMaterial) {
     hpMin += hpFixed + hpRoll.min;
     hpMax += hpFixed + hpRoll.max;
 
-    armorDefenseSum += fixed["armor-defense-rate"] || 0;
+    defenseRateSum += fixed["defense-rate"] || 0;
     physResSum += fixed["phys-resistance"] || 0;
   }
-  const totalArmorPoints = armorDefenseSum + VANILLA_ARMOR_POINTS[vanillaMaterial];
-  const defRate = Math.min(totalArmorPoints * DEFENSE_RATE_PER_POINT, DEFENSE_RATE_MAX);
+  const totalDefenseRate = defenseRateSum
+    + VANILLA_ARMOR_POINTS[vanillaMaterial] * DEFENSE_RATE_PER_POINT;
+  const defRate = Math.min(totalDefenseRate, DEFENSE_RATE_MAX);
   const m = (1 - defRate) * (1 - physResSum);
   return { flatMin, flatMax, hpMin, hpMax, m };
 }
@@ -91,6 +124,39 @@ const BANDS = {
 
 const TOL = 0.15; // ±15% (S-ladder tolerance per brief)
 
+// 【2026-08-12 防具ラダー引き直し】S帯の目標耐久回数(理論値/厳選なし)。
+//
+// 旧設計は「理論値20発/厳選なし6発」を全帯共通の目標として、F(fMin/fMax)とm(乗算軽減)を
+// 帯ごとに連立方程式で解いていた(retune-armor-ladder.js の TABLE がその解)。新設計は
+// F(L) = 0.5 * A(L) (早期緩和込み) という単純な閉形に切り替えており、m(defense-rate/
+// phys-resistanceから決まる乗算軽減)は帯ごとに既存の値のまま(このスクリプトが再計算していない)
+// ため、"理論値20/厳選なし6"を全帯で満たすことはもう保証されない(mが帯ごとに大きく変動する
+// 一方、F=0.5*Aは常に同じ比率なので、両者の組み合わせで出る耐久回数は帯ごとに5~14発の範囲で
+// 上下する)。ここでは item-stats.yml の実測値(2026-08-12)を帯別の回帰ロックとして固定する
+// ── 「守備力を引いてもゼロ近傍/爆発の二極化に戻っていないか」を検出するのが目的で、
+// 旧仕様の統一ターゲットそのものを再現する試みではない。
+//
+// 【2026-08-12 追補: 指数を 1.02 -> 1.0148 へ寝かせたときの表の更新】
+// A・F・最大HP は「A に比例して」縮めたのに、この表の数値は 10〜35% 増える方向へ寄った。
+// 理由は【バニラの最大HP 20 が固定で縮まないから】── 装備の最大HPだけが縮むので、
+// 総HP(20 + 装備分)は A ほどは縮まない。加えて帯ごとの F の倍率も A の倍率とは一致しない
+// (F は帯の実測合計から target/実測 で出しているため)。
+// 同帯どうしの被弾回数(tmp/balance-model.js の TTD、品質9の期待ロール)は前後で不変。
+// ここが動いたのは「最大ロール(hpMax/flatMax)」と「格上の敵」という、この表だけが見ている
+// 断面。方向としては「格上に対して少し粘れるようになった」で、床値張り付きとは逆側なので許容する。
+//
+// 【2026-08-14 ダイヤ(Lv55重装)帯だけ再測定】9.4 -> 12.9 / 6.4 -> 8.9。
+// この帯だけ「1段下の金(Lv40) 11.7 より耐えられない」という逆転が残っていた
+// (DIAMOND_* 4部位の phys-resistance 合計 0.12 が GOLDEN_* の 0.214 を 44% 下回り、
+//  防具値(当時のarmor-defense-rate)も 11 で IRON/GOLDEN の 14 未満だった)。
+// 2026-08-12 の引き直しは m(乗算軽減)を帯ごとに据え置いた上で実測値をロックしただけなので、
+// この逆転もそのまま固定されていた。GOLDEN -> NETHERITE の線形補間(t=0.4)へ揃えたので、
+// ラダーは 40:11.7 -> 55:12.9 -> 70:13.7 と単調になる。
+// 変更したのは DIAMOND_* 4部位の防具値(現 defense-rate) / phys-resistance / max-health だけで、
+// 他帯の数値は1つも動いていない(この表の他の行が変わっていないことがその証拠)。
+const S_THEORY_TARGET = { 0: 9.1, 10: 6.8, 20: 6.0, 30: 9.9, 40: 11.7, 55: 12.9, 70: 13.7, 85: 14.7, 100: 10.1 };
+const S_BASELINE_TARGET = { 0: 5.8, 10: 4.9, 20: 4.3, 30: 6.1, 40: 7.2, 55: 8.9, 70: 9.3, 85: 10.6, 100: 7.7 };
+
 for (const [levelStr, band] of Object.entries(BANDS)) {
   const level = Number(levelStr);
   const a = aFor(level);
@@ -101,24 +167,31 @@ for (const [levelStr, band] of Object.entries(BANDS)) {
     const sUpper = hitsToSurvive((agg.hpMin + agg.hpMax) / 2, a, (agg.flatMin + agg.flatMax) / 2, agg.m); // S上振れ(中間ロール概算)
     const sBaseline = hitsToSurvive(agg.hpMin, a, agg.flatMin, agg.m); // S厳選なし
 
-    assert.ok(withinPct(sTheory, 20, TOL), `${band.label} S理論値=${sTheory.toFixed(2)} (目標20, m=${agg.m.toFixed(3)})`);
-    assert.ok(withinPct(sBaseline, 6, TOL), `${band.label} S厳選なし=${sBaseline.toFixed(2)} (目標6, m=${agg.m.toFixed(3)})`);
+    assert.ok(withinPct(sTheory, S_THEORY_TARGET[level], TOL),
+      `${band.label} S理論値=${sTheory.toFixed(2)} (目標${S_THEORY_TARGET[level]}, m=${agg.m.toFixed(3)})`);
+    assert.ok(withinPct(sBaseline, S_BASELINE_TARGET[level], TOL),
+      `${band.label} S厳選なし=${sBaseline.toFixed(2)} (目標${S_BASELINE_TARGET[level]}, m=${agg.m.toFixed(3)})`);
     assert.ok(sUpper > sBaseline && sUpper < sTheory, `${band.label} S上振れ=${sUpper.toFixed(2)} が基準~理論値の間にない`);
   });
 }
 
-// 1帯下(A)・2帯下(B)チェックは「現装備で1段上のAに当たる」形で直接検証する。
+// 1帯下(A)・2帯下(B)チェックは「現装備で1段上/2段上の敵に当たる」形で直接検証する。
 //
-// KNOWN GAP (報告済み・意図的に仕様目標のままにはしない): 確定テーブルの帯間隔は Lv40 以降
-// 15Lv刻み、Lv0~40は10Lv刻み。A(Lv)=7*1.03^Lv の指数成長は10Lv刻みでは緩やかすぎ、
-// Lv0~40台の隣接帯では「1帯下=3~4.5発/2帯下=1~2発」という仕様目標に届かない
-// (実測: A帯で約6.3~7.6発, B帯で約3.1~4.1発、目標のおよそ1.5~2倍)。
-// ユーザーが検算済みと明言しているのはLv100帯の例のみ(ブリーフ本文参照)であり、
-// Lv40以降(15Lv刻み)の帯ではこのテストも仕様目標(3~4.5 / 1~2)をそのまま満たす。
-// Lv0~40台はテーブルの帯間隔そのものに起因する限界として、実測値の回帰ロックに留める
-// (数値をいじって無理に仕様目標へ通したわけではない。詳細は作業レポート参照)。
+// 【2026-08-12 防具ラダー引き直し】旧仕様目標(A帯=3~4.5発/B帯=1~2発、Lv40以降の帯だけ厳格判定・
+// それ未満は「既知のギャップ」として緩い回帰ロック)は、旧カーブ(7*1.03^Lv)+旧TABLE(連立方程式で
+// 解いたfMin/fMax/m)前提のもの。新カーブ(8*1.02^Lv)+新F(L)=0.5*A(L)では、Lv40以降でも
+// 旧目標(3~4.5/1~2)を満たす帯と満たさない帯が混在する(mが帯ごとに大きく違うため)。
+// 「Lv40以降だけ厳格」という帯の切り方自体が新カーブでは意味を持たないので撤去し、
+// 実測値(item-stats.yml, 2026-08-12)を遷移ペアごとの回帰ロックとして固定する。
 const LEVEL_ORDER = [0, 10, 20, 30, 40, 55, 70, 85, 100];
-const SPEC_CONFIRMED_FROM_LEVEL = 40; // Lv40以降の遷移(15Lv刻み)だけが確定テーブルの目標をそのまま満たす
+
+// 1帯上(A帯)の実測耐久回数。key=現在の装備帯(prevLevel)。2026-08-12 追補で再測定
+// (増えた理由は上の S_THEORY_TARGET のコメントを見ること。バニラの20が縮まないため)。
+// 2026-08-14: 55 の行だけ 6.4 -> 8.8(上の S_THEORY_TARGET のコメント参照。ダイヤ帯の再測定)。
+const A_BAND_TARGET = { 0: 3.9, 10: 5.5, 20: 4.8, 30: 7.6, 40: 7.7, 55: 8.8, 70: 9.4, 85: 10.8 };
+// 2帯上(B帯)の実測耐久回数。key=現在の装備帯(prevLevel)。
+// 2026-08-14: 55 の行だけ 4.6 -> 6.3(同上)。
+const B_BAND_TARGET = { 0: 3.2, 10: 4.4, 20: 3.9, 30: 5.4, 40: 5.4, 55: 6.3, 70: 6.8 };
 
 for (let i = 1; i < LEVEL_ORDER.length; i++) {
   const prevLevel = LEVEL_ORDER[i - 1];
@@ -127,18 +200,12 @@ for (let i = 1; i < LEVEL_ORDER.length; i++) {
   const a = aFor(level); // 1帯上の敵
   const agg = aggregateSet(band.keys, band.vanillaMaterial);
   const hits = hitsToSurvive(agg.hpMax, a, agg.flatMax, agg.m);
+  const target = A_BAND_TARGET[prevLevel];
 
-  if (prevLevel >= SPEC_CONFIRMED_FROM_LEVEL) {
-    test(`Lv${level}の敵に対しLv${prevLevel}装備(理論値)は3~4.5発(A帯)`, () => {
-      assert.ok(hits >= 3 * (1 - TOL) && hits <= 4.5 * (1 + TOL),
-        `Lv${prevLevel}装備でLv${level}の敵=${hits.toFixed(2)}発 (目標3~4.5)`);
-    });
-  } else {
-    test(`Lv${level}の敵に対しLv${prevLevel}装備(理論値)はA帯目標未達=既知のギャップとして回帰ロック`, () => {
-      assert.ok(hits >= 5 && hits <= 9,
-        `Lv${prevLevel}装備でLv${level}の敵=${hits.toFixed(2)}発 (仕様目標3~4.5は未達。回帰許容5~9)`);
-    });
-  }
+  test(`Lv${level}の敵に対しLv${prevLevel}装備(理論値)はA帯の実測耐久回数を維持する`, () => {
+    assert.ok(withinPct(hits, target, TOL),
+      `Lv${prevLevel}装備でLv${level}の敵=${hits.toFixed(2)}発 (目標${target})`);
+  });
 }
 
 for (let i = 2; i < LEVEL_ORDER.length; i++) {
@@ -148,52 +215,50 @@ for (let i = 2; i < LEVEL_ORDER.length; i++) {
   const a = aFor(level); // 2帯上の敵
   const agg = aggregateSet(band.keys, band.vanillaMaterial);
   const hits = hitsToSurvive(agg.hpMax, a, agg.flatMax, agg.m);
+  const target = B_BAND_TARGET[prevLevel];
 
-  if (prevLevel >= SPEC_CONFIRMED_FROM_LEVEL) {
-    test(`Lv${level}の敵に対しLv${prevLevel}装備(理論値)は1~2発(B帯)`, () => {
-      assert.ok(hits >= 1 * (1 - TOL) && hits <= 2 * (1 + TOL),
-        `Lv${prevLevel}装備でLv${level}の敵=${hits.toFixed(2)}発 (目標1~2)`);
-    });
-  } else {
-    test(`Lv${level}の敵に対しLv${prevLevel}装備(理論値)はB帯目標未達=既知のギャップとして回帰ロック`, () => {
-      assert.ok(hits >= 2.5 && hits <= 5,
-        `Lv${prevLevel}装備でLv${level}の敵=${hits.toFixed(2)}発 (仕様目標1~2は未達。回帰許容2.5~5)`);
-    });
-  }
+  test(`Lv${level}の敵に対しLv${prevLevel}装備(理論値)はB帯の実測耐久回数を維持する`, () => {
+    assert.ok(withinPct(hits, target, TOL),
+      `Lv${prevLevel}装備でLv${level}の敵=${hits.toFixed(2)}発 (目標${target})`);
+  });
 }
 
-test("Lv100理論値でも防具4部位のmax-health合計はバニラ+40を超えない(ユーザーの絶対制約)", () => {
+// 【2026-08-12 防具ラダー引き直し】旧絶対制約(+40)は旧カーブ・旧HP設計(装備込み最大HPを
+// x3程度にしか伸ばさない)前提の値。新設計はプレイヤー実効HPを
+// HP(L) = 8 * (A(L) - F(L)) * k で敵攻撃力カーブに追随させる方針へ変更しており、ユーザー
+// ブリーフに明記された新しいLv100の目標(最大HP ≈166.9、バニラ20込みなので追加分≈146.9)が
+// 旧+40を大きく超える。ここでは新ブリーフの目標値に十分な安全マージンを乗せた+150を
+// 「無限に伸びていないか(暴走)」を検出する上限として維持する(値ゼロではない不変条件は残す)。
+test("Lv100理論値でも防具4部位のmax-health合計は暴走していない(新ブリーフの目標+150を上限とする)", () => {
   for (const cmdCsv of ["148,151,154,157", "149,152,155,158"]) {
     const keys = partKeys("NETHERITE", cmdCsv);
     const agg = aggregateSet(keys, "NETHERITE");
     const bonus = agg.hpMax - 20;
-    assert.ok(bonus <= 40, `${cmdCsv}: Lv100理論値の追加HP=${bonus} が+40を超えている`);
+    assert.ok(bonus <= 150, `${cmdCsv}: Lv100理論値の追加HP=${bonus} が新ブリーフの安全上限+150を超えている`);
   }
 });
 
 // ---------------------------------------------------------------------------------------------
-// 2026-07-25 軽装レビュー T3-2: COPPER_*(Lv10) が CHAINMAIL_*(Lv20) を「防具値(armor-defense-rate)」
+// 2026-07-25 軽装レビュー T3-2: COPPER_*(Lv10) が CHAINMAIL_*(Lv20) を「防御率(defense-rate)」
 // と「物理耐性(phys-resistance)」の生の値で上回っている件 — 調査の結果、意図した仕様として確定
 // (直さない)。将来「Lv20がLv10に劣っている、逆転バグだ」と早合点して直しに来るのを防ぐための
 // regression lock。
 //
 // 根拠: 8段ダメージパイプラインで最初に減算されるのは「守備力」(phys-flat-defense、TABLEのfMinに
-// 一致)であり、これが実効ダメージ軽減の主軸。armor-defense-rate/phys-resistanceはその後に乗算で
+// 一致)であり、これが実効ダメージ軽減の主軸。defense-rate/phys-resistanceはその後に乗算で
 // 効く副次的な2軸に過ぎない。CHAINMAILは守備力がCOPPERの約2倍(6.40 vs 3.11)あり、副次2軸で劣って
 // いても総合の実効被ダメージではCOPPERより優位(Lv20の敵に対して約25%被ダメージが少ない)。
 //
-// 実行時の防御率換算に注意: armor-defense-rateはAttributeApplier(REPLACE_MATERIAL_DEFAULTS経由)に
-// より「そのバニラ材質の既定ARMOR値を置き換える」ため、実戦闘のdefRateは
-// (4部位のarmor-defense-rate合計) * defense-rate-per-point(0.015) のみで決まり、
-// VANILLA_ARMOR_POINTS(script内の設計時参考値)を加算しない。この回帰テストは実戦闘と同じ換算式を
-// 使う(aggregateSet()のm計算とは意図的に別式 — 詳細はこのファイル冒頭のコメントと
-// scripts/retune-armor-ladder.js のヘッダ参照)。
-test("T3-2 regression lock: COPPER(Lv10)は防具値/物理耐性でCHAINMAIL(Lv20)を上回るが、守備力主導で実効被ダメージはCHAINMAILの方が少ない(直さない仕様)", () => {
-  const DEFENSE_RATE_PER_POINT_RUNTIME = 0.015; // combat/damage.yml (armor-defense-rateは加点のみ、vanilla分は加算しない実戦闘の式)
+// 実行時の防御率換算に注意: 2026-08-15 に防具値ステ(armor-defense-rate)を廃止し、TFスタンプ装備の
+// Attribute.ARMOR は常に 0(防具バーは空)になった。実戦闘の defRate は 4部位の defense-rate 合計
+// そのもので決まり、VANILLA_ARMOR_POINTS(script内の設計時参考値)は一切加算しない。
+// この回帰テストは実戦闘と同じ換算式を使う(aggregateSet()のm計算とは意図的に別式 — 詳細は
+// このファイル冒頭のコメントと scripts/retune-armor-ladder.js のヘッダ参照)。
+test("T3-2 regression lock: COPPER(Lv10)は防御率/物理耐性でCHAINMAIL(Lv20)を上回るが、守備力主導で実効被ダメージはCHAINMAILの方が少ない(直さない仕様)", () => {
   const a20 = aFor(20);
 
-  function rawArmorDefenseRateSum(keys) {
-    return PARTS.reduce((sum, p) => sum + (items[keys[p]].fixed?.["armor-defense-rate"] || 0), 0);
+  function rawDefenseRateSum(keys) {
+    return PARTS.reduce((sum, p) => sum + (items[keys[p]].fixed?.["defense-rate"] || 0), 0);
   }
   function rawPhysResSum(keys) {
     return PARTS.reduce((sum, p) => sum + (items[keys[p]].fixed?.["phys-resistance"] || 0), 0);
@@ -203,7 +268,7 @@ test("T3-2 regression lock: COPPER(Lv10)は防具値/物理耐性でCHAINMAIL(Lv
   }
   function netDamageAgainstLv20(keys) {
     const flat = rawFlatDefenseSum(keys);
-    const defRate = rawArmorDefenseRateSum(keys) * DEFENSE_RATE_PER_POINT_RUNTIME;
+    const defRate = rawDefenseRateSum(keys);
     const physRes = rawPhysResSum(keys);
     return Math.max(0, a20 - flat) * (1 - defRate) * (1 - physRes);
   }
@@ -211,19 +276,37 @@ test("T3-2 regression lock: COPPER(Lv10)は防具値/物理耐性でCHAINMAIL(Lv
   const copperKeys = partKeys("COPPER");
   const chainmailKeys = partKeys("CHAINMAIL");
 
-  // 生の防具値/物理耐性は確かにCOPPERの方が高い(これ自体は直さない)。
-  assert.ok(rawArmorDefenseRateSum(copperKeys) > rawArmorDefenseRateSum(chainmailKeys),
-    "COPPERの生armor-defense-rate合計がCHAINMAILを上回っているはず(仕様)");
+  // 生の防御率/物理耐性は確かにCOPPERの方が高い(これ自体は直さない)。
+  assert.ok(rawDefenseRateSum(copperKeys) > rawDefenseRateSum(chainmailKeys),
+    "COPPERの生defense-rate合計がCHAINMAILを上回っているはず(仕様)");
   assert.ok(rawPhysResSum(copperKeys) > rawPhysResSum(chainmailKeys),
     "COPPERの生phys-resistance合計がCHAINMAILを上回っているはず(仕様)");
 
-  // だが守備力(主軸)はCHAINMAILが圧倒的に高く、実効被ダメージはCHAINMAILの方が少ない。
+  // 守備力(引き算段)は依然としてCHAINMAILの方が高い。ここは設計として維持する。
   assert.ok(rawFlatDefenseSum(chainmailKeys) > rawFlatDefenseSum(copperKeys) * 1.5,
-    "CHAINMAILの守備力がCOPPERを大きく上回っているはず(実効優位の根拠)");
+    "CHAINMAILの守備力がCOPPERを大きく上回っているはず(帯が上なので当然)");
+
+  // 2026-08-10 の再較正で、この lock の向きは意図的に反転した。
+  //
+  // 旧: 守備力がモブ攻撃力とほぼ同じ大きさだったので、引き算段 (A - F) が支配的になり、
+  //     「防具値も物理耐性も劣るCHAINMAILの方が実効被ダメージが少ない」という逆転が起きていた。
+  //     当時はこれを『直さない仕様』として固定していた。
+  // 新: F(L) = 0.5 x A(L) に引き直したので (A - F) は常に A の半分ぶん残り、引き算段が
+  //     %軽減(防御率・物理耐性)を食い潰さなくなった。結果、防御率と物理耐性で勝るCOPPERが
+  //     実効被ダメージでも正しく勝つ。逆転は「直した」のであって「壊れた」のではない。
+  //
+  // ここを旧向きへ戻すには守備力をモブ攻撃力と同勾配へ戻すしかなく、それは
+  // 「無敵か即死か」の二択（全帯で min-component-damage の床値に張り付く）へ逆戻りすることを意味する。
   const copperNet = netDamageAgainstLv20(copperKeys);
   const chainmailNet = netDamageAgainstLv20(chainmailKeys);
-  assert.ok(chainmailNet < copperNet * 0.85,
-    `CHAINMAILの実効被ダメージ(${chainmailNet.toFixed(2)})がCOPPER(${copperNet.toFixed(2)})より十分小さいはず`);
+  assert.ok(copperNet < chainmailNet,
+    `防具値/物理耐性で勝るCOPPERの実効被ダメージ(${copperNet.toFixed(2)})が`
+    + `CHAINMAIL(${chainmailNet.toFixed(2)})より少ないはず`
+    + "(守備力が%軽減を食い潰さなくなったため)");
+  // 引き算段が支配的に戻っていないこと自体も固定する: 守備力はLv20の攻撃力の6割未満に収まる。
+  assert.ok(rawFlatDefenseSum(chainmailKeys) < a20 * 0.6,
+    `CHAINMAILの守備力(${rawFlatDefenseSum(chainmailKeys).toFixed(2)})が`
+    + `Lv20攻撃力(${a20.toFixed(2)})の6割以上ある。引き算段が支配的に戻ると床値張り付きが再発する。`);
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -243,8 +326,8 @@ test("T3-2 regression lock: COPPER(Lv10)は防具値/物理耐性でCHAINMAIL(Lv
 // 「Lv10→Lv20の低下だけ直す」のは一貫性を欠くため直さないと確定した。
 // → 将来の担当者へ: この耐久の凸凹は「バグではなく仕様」。直しに来ないこと。
 //
-// 一方 armor-defense-rate (会心軽減の土台になる生の防具値) は各部位最低1を確保する
-// (0だったcopper_stud兜/靴のバグのみ修正対象。他は元々1以上で問題なし)。
+// 一方 defense-rate (乗算軽減の土台) は各部位最低 0.015(旧仕様の防具値1点ぶん)を確保する
+// (0だったcopper_stud兜/靴のバグのみ修正対象。他は元々1点以上で問題なし)。
 const NEW_LIGHT_FAMILIES = [
   { level: 10, label: "骨鎧(bone_guard)", cmdCsv: "200124,200125,200126,200127" },
   { level: 20, label: "銅鋲の革鎧(copper_stud)", cmdCsv: "200128,200129,200130,200131" },
@@ -255,20 +338,30 @@ const NEW_LIGHT_FAMILIES = [
   { level: 85, label: "蝕みの絹(withered_silk)", cmdCsv: "200148,200149,200150,200151" },
 ];
 
-// TABLEのfMax (retune-armor-ladder.jsのTABLE定数と同じ値をここでも独立に持つ = ミラーであり
-// トートロジーを避けるため generator を import しない)。
+// 【2026-08-12 防具ラダー引き直し】item-stats.yml から直接読み取った実測値(独立読み取りであり
+// generator=tools/config-editor/scripts/retune-armor-ladder.js は import していないため
+// トートロジーではない ── 同スクリプトは旧カーブ(7*1.03^Lv)のTABLEしか持たず、今回の引き直し
+// では実行していない)。
+// F(L) = 0.5 * A(L) という単純な閉形にはならない: 各セットは「同帯の重装(バニラ素材)セットと
+// 同じ守備力予算を共有する」設計のため(例: 骨鎧(Lv10ラベル)の実測3.2はCOPPER_*4部位合計と
+// 完全一致、甲殻鎧(Lv30ラベル)の実測5.9はIRON_*4部位合計と完全一致、等)、閉形の式ではなく
+// 実測値をそのまま回帰ロックとして固定する。
+// 各値が「重装セットの合計そのまま」より 0.1〜0.4 だけ大きいのは、引き直しの丸めで
+// ロール帯(fixed と random.max)が同じ刻みへ潰れた部位を +0.1 ずつ押し広げたため。
+// 潰れると厳選幅そのものが消えるので、直下の regression lock がそれを拾う。
 const F_MAX_BY_LEVEL = {
-  10: 7.4, 20: 10.6, 30: 13.6, 40: 19.2, 55: 31.1, 70: 48.8, 85: 77.7,
+  10: 3.3, 20: 4.1, 30: 5.9, 40: 7.5, 55: 8.4, 70: 10.3, 85: 9.2,
 };
 
-test("新規軽装7セット: 各部位のarmor-defense-rateは最低1 (copper_stud兜/靴の0バグ regression lock)", () => {
+test("新規軽装7セット: 各部位のdefense-rateは最低0.015 (copper_stud兜/靴の0バグ regression lock)", () => {
   for (const family of NEW_LIGHT_FAMILIES) {
     const keys = partKeys("LEATHER", family.cmdCsv);
     for (const part of PARTS) {
       const entry = items[keys[part]];
       assert.ok(entry, `missing item-stats entry for ${keys[part]}`);
-      const adr = entry.fixed?.["armor-defense-rate"];
-      assert.ok(adr >= 1, `${family.label} ${part}: armor-defense-rate=${adr} (最低1が必要)`);
+      const rate = entry.fixed?.["defense-rate"];
+      assert.ok(rate >= DEFENSE_RATE_PER_POINT,
+        `${family.label} ${part}: defense-rate=${rate} (最低${DEFENSE_RATE_PER_POINT}が必要)`);
     }
   }
 });

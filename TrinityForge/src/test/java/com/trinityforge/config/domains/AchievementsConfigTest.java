@@ -2,12 +2,20 @@ package com.trinityforge.config.domains;
 
 import org.bukkit.Statistic;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Proxy;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Headless parse checks for achievements.yml (2026-07-23-stat-gate-overhaul §6.2/§6.7). */
@@ -64,6 +72,52 @@ class AchievementsConfigTest {
     }
 
     @Test
+    void parsesCounterAchievement() throws Exception {
+        AchievementsConfig.ParseResult result = parse("""
+                achievements:
+                  source-tycoon:
+                    display-name: "ソースの支配者"
+                    trigger:
+                      type: counter
+                      counter: SOURCE_SPENT
+                      threshold: 100000000
+                """);
+        assertEquals(0, result.skipped());
+        AchievementsConfig.Achievement achievement = result.achievements().get(0);
+        assertEquals(AchievementsConfig.TriggerType.COUNTER, achievement.trigger().type());
+        // カウンタIDは小文字へ正規化する(PDCキーの一部になるので大小揺れを持ち込ませない)。
+        assertEquals("source_spent", achievement.trigger().counter());
+        assertEquals(100_000_000L, achievement.trigger().threshold());
+    }
+
+    @Test
+    void counterWithoutIdIsSkipped() throws Exception {
+        // カウンタID未指定を通すと「誰も達成できないアチーブメント」が静かにできる。
+        AchievementsConfig.ParseResult result = parse("""
+                achievements:
+                  broken:
+                    trigger:
+                      type: counter
+                      threshold: 100
+                """);
+        assertEquals(1, result.skipped());
+        assertTrue(result.achievements().isEmpty());
+    }
+
+    @Test
+    void counterWithoutThresholdIsSkipped() throws Exception {
+        AchievementsConfig.ParseResult result = parse("""
+                achievements:
+                  broken:
+                    trigger:
+                      type: counter
+                      counter: source_spent
+                """);
+        assertEquals(1, result.skipped());
+        assertTrue(result.achievements().isEmpty());
+    }
+
+    @Test
     void missingTriggerIsSkipped() throws Exception {
         AchievementsConfig.ParseResult result = parse("""
                 achievements:
@@ -88,9 +142,9 @@ class AchievementsConfigTest {
     }
 
     @Test
-    @org.junit.jupiter.api.DisplayName("2026-07-23 verifier指摘⑨: qualifier(Material/EntityType)必須のStatistic "
-            + "(MINE_BLOCK等) はロード時に警告+スキップ(毎分ポーリングの警告スパムを未然に防ぐ)")
-    void qualifierRequiringStatisticIsSkippedAtLoadTime() throws Exception {
+    @org.junit.jupiter.api.DisplayName("qualifier必須のStatistic(MINE_BLOCK等)は statistic-qualifier が "
+            + "無いままだとロード時に警告+スキップ(毎分ポーリングの警告スパムを未然に防ぐ)")
+    void qualifierRequiringStatisticIsSkippedWhenQualifierMissing() throws Exception {
         AchievementsConfig.ParseResult result = parse("""
                 achievements:
                   digger:
@@ -101,6 +155,79 @@ class AchievementsConfigTest {
                 """);
         assertEquals(1, result.skipped());
         assertTrue(result.achievements().isEmpty());
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("2026-07-30: BLOCK型の統計は statistic-qualifier に Material を書けば読める")
+    void blockStatisticWithQualifierIsAccepted() throws Exception {
+        AchievementsConfig.ParseResult result = parse("""
+                achievements:
+                  digger:
+                    trigger:
+                      type: statistic
+                      statistic: MINE_BLOCK
+                      statistic-qualifier: DIAMOND_ORE
+                      threshold: 64
+                """);
+        assertEquals(0, result.skipped());
+        AchievementsConfig.Trigger trigger = result.achievements().get(0).trigger();
+        assertEquals(Statistic.MINE_BLOCK, trigger.statistic());
+        assertEquals(org.bukkit.Material.DIAMOND_ORE, trigger.statisticQualifier().material());
+        assertEquals("DIAMOND_ORE", trigger.statisticQualifier().label());
+        assertEquals(64, trigger.threshold());
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("2026-07-30: ENTITY型の統計は EntityType を受け付ける")
+    void entityStatisticWithQualifierIsAccepted() throws Exception {
+        AchievementsConfig.ParseResult result = parse("""
+                achievements:
+                  dragon:
+                    trigger:
+                      type: statistic
+                      statistic: KILL_ENTITY
+                      statistic-qualifier: ender_dragon
+                      threshold: 1
+                """);
+        assertEquals(0, result.skipped());
+        AchievementsConfig.Trigger trigger = result.achievements().get(0).trigger();
+        assertEquals(org.bukkit.entity.EntityType.ENDER_DRAGON, trigger.statisticQualifier().entityType());
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("2026-07-30: BLOCK型にブロックでないMaterialを書いたら実行時に投げる前に "
+            + "ロードでスキップする")
+    void blockStatisticRejectsNonBlockMaterial() throws Exception {
+        AchievementsConfig.ParseResult result = parse("""
+                achievements:
+                  broken:
+                    trigger:
+                      type: statistic
+                      statistic: MINE_BLOCK
+                      statistic-qualifier: DIAMOND_SWORD
+                      threshold: 1
+                """);
+        assertEquals(1, result.skipped());
+        assertTrue(result.achievements().isEmpty());
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("2026-07-30: UNTYPED統計に statistic-qualifier を書いても無視されるだけで "
+            + "スキップにはならない(後方互換)")
+    void untypedStatisticIgnoresQualifier() throws Exception {
+        AchievementsConfig.ParseResult result = parse("""
+                achievements:
+                  jumper:
+                    trigger:
+                      type: statistic
+                      statistic: JUMP
+                      statistic-qualifier: STONE
+                      threshold: 10
+                """);
+        assertEquals(0, result.skipped());
+        AchievementsConfig.Trigger trigger = result.achievements().get(0).trigger();
+        assertEquals(AchievementsConfig.StatisticQualifier.NONE, trigger.statisticQualifier());
+        assertEquals("", trigger.statisticQualifier().label());
     }
 
     @Test
@@ -316,5 +443,97 @@ class AchievementsConfigTest {
         var buffs = result.achievements().get(0).rewards().permanentBuffs();
         assertEquals(0.20, buffs.get("penetration"));
         assertEquals(0.15, buffs.get("crit_chance"), "既にフラクションの値は変化しない");
+    }
+
+    // --- vanilla-advancements (VanillaAdvancementBlockListener 向け設定, 2026-07-28) ----------------
+
+    @Test
+    void vanillaAdvancementGateDefaultsWhenSectionAbsent() {
+        AchievementsConfig.VanillaAdvancementGate gate = AchievementsConfig.parseVanillaAdvancementGate(null);
+        assertTrue(gate.disabled());
+        assertTrue(gate.keepRecipeAdvancements());
+        assertTrue(gate.keep().isEmpty());
+    }
+
+    @Test
+    void vanillaAdvancementGateHonorsExplicitValues() throws Exception {
+        YamlConfiguration cfg = new YamlConfiguration();
+        cfg.loadFromString("""
+                vanilla-advancements:
+                  disabled: false
+                  keep-recipe-advancements: false
+                  keep: ["minecraft:story/"]
+                """);
+        AchievementsConfig.VanillaAdvancementGate gate = AchievementsConfig.parseVanillaAdvancementGate(
+                cfg.getConfigurationSection("vanilla-advancements"));
+        assertFalse(gate.disabled());
+        assertFalse(gate.keepRecipeAdvancements());
+        assertEquals(List.of("minecraft:story/"), gate.keep());
+    }
+
+    @Test
+    void vanillaAdvancementGateNullKeepListNormalizesToEmpty() {
+        AchievementsConfig.VanillaAdvancementGate gate =
+                new AchievementsConfig.VanillaAdvancementGate(true, true, null);
+        assertTrue(gate.keep().isEmpty());
+    }
+
+    private static AchievementsConfig loadFromString(File dir, String yaml) throws IOException {
+        File file = new File(dir, AchievementsConfig.PATH);
+        Files.createDirectories(file.getParentFile().toPath());
+        Files.writeString(file.toPath(), yaml);
+        AchievementsConfig config = new AchievementsConfig();
+        config.load(fakePlugin(dir));
+        return config;
+    }
+
+    private static Plugin fakePlugin(File dataFolder) {
+        InvocationHandler handler = (proxy, method, args) -> switch (method.getName()) {
+            case "getDataFolder" -> dataFolder;
+            case "getLogger" -> LOG;
+            case "saveResource" -> null;
+            case "toString" -> "FakePlugin";
+            case "hashCode" -> System.identityHashCode(proxy);
+            case "equals" -> proxy == args[0];
+            default -> throw new UnsupportedOperationException(method.getName());
+        };
+        return (Plugin) Proxy.newProxyInstance(
+                Plugin.class.getClassLoader(), new Class<?>[] {Plugin.class}, handler);
+    }
+
+    @Test
+    void loadAppliesVanillaAdvancementGateFromFile(@TempDir File dir) throws IOException {
+        AchievementsConfig config = loadFromString(dir, """
+                vanilla-advancements:
+                  disabled: false
+                  keep-recipe-advancements: true
+                  keep: []
+                achievements: {}
+                """);
+        assertFalse(config.vanillaAdvancements().disabled());
+    }
+
+    @Test
+    void loadDefaultsVanillaAdvancementGateWhenSectionMissing(@TempDir File dir) throws IOException {
+        AchievementsConfig config = loadFromString(dir, "achievements: {}\n");
+        assertTrue(config.vanillaAdvancements().disabled(), "既定はtrue(disabled)");
+        assertTrue(config.vanillaAdvancements().keepRecipeAdvancements());
+    }
+
+    // load() 自体は type=advancement × disabled=true でも issue扱いにはしない(警告のみ、既存の
+    // skipped件数には影響しない)ことを回帰させる。
+    @Test
+    void loadDoesNotFailWhenAdvancementTypeCoexistsWithDisabledGate(@TempDir File dir) throws IOException {
+        AchievementsConfig config = loadFromString(dir, """
+                vanilla-advancements:
+                  disabled: true
+                achievements:
+                  diamond:
+                    trigger:
+                      type: advancement
+                      advancement: "minecraft:story/mine_diamond"
+                """);
+        assertEquals(1, config.achievements().size());
+        assertEquals(1, config.advancementAchievements().size());
     }
 }

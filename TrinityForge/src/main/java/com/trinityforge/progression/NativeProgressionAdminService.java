@@ -33,6 +33,12 @@ public final class NativeProgressionAdminService {
     private final NativeSkillCatalog catalog;
     private final Supplier<Collection<SkillTree>> trees;
     private final PlayerLockRegistry locks;
+    /**
+     * 何POWERレベルごとにスキルポイント1点を与えるか
+     * （{@code stats/skill-exp.yml: power.levels-per-skill-point}）。既定は {@code () -> 1}。
+     * reload を反映するため Supplier 経由で毎回引く。
+     */
+    private final java.util.function.IntSupplier levelsPerSkillPoint;
 
     public NativeProgressionAdminService(
             ProgressionRepository repository,
@@ -51,10 +57,25 @@ public final class NativeProgressionAdminService {
             NativeSkillCatalog catalog,
             Supplier<Collection<SkillTree>> trees,
             PlayerLockRegistry locks) {
+        this(repository, catalog, trees, locks, () -> 1);
+    }
+
+    /**
+     * スキルポイント付与間隔つきの構築子（2026-08-04）。{@code levelsPerSkillPoint} を
+     * {@link NativeProgressionService} と<b>同じ供給元</b>から渡すこと。片方だけ設定を見ると、
+     * 管理コマンドの再計算がレベルアップ時の付与と食い違う。
+     */
+    public NativeProgressionAdminService(
+            ProgressionRepository repository,
+            NativeSkillCatalog catalog,
+            Supplier<Collection<SkillTree>> trees,
+            PlayerLockRegistry locks,
+            java.util.function.IntSupplier levelsPerSkillPoint) {
         this.repository = Objects.requireNonNull(repository, "repository");
         this.catalog = Objects.requireNonNull(catalog, "catalog");
         this.trees = Objects.requireNonNull(trees, "trees");
         this.locks = Objects.requireNonNull(locks, "locks");
+        this.levelsPerSkillPoint = Objects.requireNonNull(levelsPerSkillPoint, "levelsPerSkillPoint");
     }
 
     public EditResult edit(
@@ -166,7 +187,8 @@ public final class NativeProgressionAdminService {
         }
 
         long spentAfter = Math.max(0L, player.spentPoints() - refund);
-        long earnedPoints = STARTING_SKILL_POINTS + resultingPowerLevel;
+        long earnedPoints =
+                PlayerProgression.earnedPoints(resultingPowerLevel, levelsPerSkillPoint.getAsInt());
         if (spentAfter > earnedPoints) {
             return EditResult.rejected(EditStatus.POINT_LEDGER_CONFLICT, skillId);
         }

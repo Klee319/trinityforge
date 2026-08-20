@@ -50,6 +50,18 @@ public final class SymmetricCombatService {
         this.playerDefenseResolver = Objects.requireNonNull(playerDefenseResolver, "playerDefenseResolver");
     }
 
+    /**
+     * 序盤(低レベル帯)モブの火力緩和倍率。式と無効化条件は
+     * {@link EarlyLevelAttackSoftening#multiplier(boolean, int, double, int)} を参照。
+     */
+    double earlyLevelAttackMultiplier(int mobLevel) {
+        return EarlyLevelAttackSoftening.multiplier(
+                damageConfig.earlyLevelAttackEnabled(),
+                damageConfig.earlyLevelAttackUntilLevel(),
+                damageConfig.earlyLevelAttackLevel0Multiplier(),
+                mobLevel);
+    }
+
     /** The attacker's gear-independent combat level (ADDON_INTEGRATION_SPEC 1.5). */
     public int combatLevelOf(UUID attackerId) {
         return combatLevelConfig.model().compute(skillLevelSource.levelsOf(attackerId));
@@ -102,16 +114,42 @@ public final class SymmetricCombatService {
      */
     public CombatHitResult physicalFinalDamageFromMobResult(LivingEntity mobAttacker, Player victim,
                                                             double vanillaBaseDamage, AttackStats attack) {
+        return physicalFinalDamageFromMobResult(mobAttacker, victim, vanillaBaseDamage, attack, false);
+    }
+
+    /**
+     * Same as {@link #physicalFinalDamageFromMobResult(LivingEntity, Player, double, AttackStats)} but
+     * lets the caller flag a projectile hit.
+     *
+     * <p><b>2026-07-30</b>: {@code CombatListener#resolveMobAttacker} now also owns a mob's
+     * <em>projectile</em> damage (skeleton arrows etc. previously bypassed the TF pipeline entirely),
+     * so the victim's Projectile Protection must be re-derived for those hits — TF zeroes the vanilla
+     * {@code MAGIC} modifier unconditionally, and a re-derivation that is not asked for silently
+     * deletes the enchantment's mitigation.
+     */
+    public CombatHitResult physicalFinalDamageFromMobResult(LivingEntity mobAttacker, Player victim,
+                                                            double vanillaBaseDamage, AttackStats attack,
+                                                            boolean projectileHit) {
         Objects.requireNonNull(mobAttacker, "mobAttacker");
         Objects.requireNonNull(victim, "victim");
         int mobLevel = MobData.of(mobAttacker).level();
         double base = resolver().physicalDefaultDamage(vanillaBaseDamage, mobLevel);
         double itemAttackPower = attack.defaultDamage();
-        double baseDamage = itemAttackPower != 0 ? itemAttackPower : base;
-        // Mob melee never reaches CombatListener's projectile branch (resolveMobAttacker only matches
-        // MELEE_CAUSES), so Projectile Protection never applies here — only general Protection.
-        return componentResult(DamageType.PHYSICAL, victim, attack.withDefaultDamage(baseDamage),
-                damageConfig.minComponentDamage(), vanillaProtectionDefense(victim, false));
+        double baseDamage = (itemAttackPower != 0 ? itemAttackPower : base) * earlyLevelAttackMultiplier(mobLevel);
+        // 2026-08-02: attack.magicRatio() が0より大きいモブの通常攻撃は、物理/魔法の2コンポーネントへ
+        // 分割して1回の回避ロールで通す(hybrid攻撃、実装1)。既定0.0は従来どおり完全物理1コンポーネント
+        // のまま(挙動不変・後方互換)。
+        double ratio = attack.magicRatio();
+        if (ratio <= 0.0) {
+            return componentResult(DamageType.PHYSICAL, victim, attack.withDefaultDamage(baseDamage),
+                    damageConfig.minComponentDamage(), vanillaProtectionDefense(victim, projectileHit));
+        }
+        if (ratio >= 1.0) {
+            return componentResult(DamageType.MAGICAL, victim, attack.withDefaultDamage(baseDamage),
+                    damageConfig.magicalMinComponentDamage());
+        }
+        return hybridComponentResult(victim, attack.withDefaultDamage(baseDamage * (1.0 - ratio)),
+                attack.withDefaultDamage(baseDamage * ratio), vanillaProtectionDefense(victim, projectileHit));
     }
 
     /**
@@ -142,7 +180,7 @@ public final class SymmetricCombatService {
         int mobLevel = MobData.of(mobAttacker).level();
         double base = resolver().magicalDefaultDamage(abilityBaseDamage, mobLevel);
         double itemAttackPower = attack.defaultDamage();
-        double baseDamage = itemAttackPower != 0 ? itemAttackPower : base;
+        double baseDamage = (itemAttackPower != 0 ? itemAttackPower : base) * earlyLevelAttackMultiplier(mobLevel);
         return componentResult(DamageType.MAGICAL, victim, attack.withDefaultDamage(baseDamage),
                 damageConfig.magicalMinComponentDamage());
     }
@@ -161,8 +199,19 @@ public final class SymmetricCombatService {
      * @param attack the attacker's stats template (its {@code defaultDamage} is replaced by {@code flatBase})
      */
     public double physicalFinalDamageFlat(PersistentDataHolder victim, double flatBase, AttackStats attack) {
-        return componentResult(DamageType.PHYSICAL, victim, attack.withDefaultDamage(flatBase),
-                damageConfig.minComponentDamage()).damage();
+        // 2026-08-02: attack.magicRatio() が0より大きい場合は物理/魔法の2コンポーネントへ分割する
+        // (実装1、fork TrinityForgeCombatListener の「EliteMobs自身が計算済みの基礎ダメージ」経路が
+        // これを使う)。既定0.0は従来どおり完全物理のまま(挙動不変)。
+        double ratio = attack.magicRatio();
+        if (ratio <= 0.0) {
+            return componentResult(DamageType.PHYSICAL, victim, attack.withDefaultDamage(flatBase),
+                    damageConfig.minComponentDamage()).damage();
+        }
+        if (ratio >= 1.0) {
+            return magicalFinalDamageFlat(victim, flatBase, attack);
+        }
+        return hybridComponentResult(victim, attack.withDefaultDamage(flatBase * (1.0 - ratio)),
+                attack.withDefaultDamage(flatBase * ratio), DefenseStats.NONE).damage();
     }
 
     /**
@@ -272,6 +321,45 @@ public final class SymmetricCombatService {
                 List.of(new ComponentInput(type, attack, stats)), defender.dodgeChance());
     }
 
+    /**
+     * Splits one mob attack into a PHYSICAL and a MAGICAL component (2026-08-02, 実装1: モブの通常攻撃を
+     * 部分的または完全に魔法として解決する) and runs both through {@link SymmetricDamagePipeline} in a
+     * SINGLE {@code computeResult} call so the whole-attack dodge roll happens exactly once (回避=攻撃
+     * 全体を無効化, Q3 — the class javadoc of {@link SymmetricDamagePipeline#compute} already flagged
+     * "when hybrid lands, unify the two components into one pipeline.compute call" as the requirement;
+     * this is that unification). Each component gets its own defender resolution
+     * ({@link #resolveDefender}) so the victim's physical vs magical defense/resistance apply to the
+     * matching half of the split damage — a victim with only physical armor still takes the magical
+     * half in full, and vice versa (this is the whole point of the feature: 魔法モブは物理防具で
+     * 受けられない).
+     *
+     * @param physicalAttack the physical half, already carrying its share of the base damage via
+     *                       {@link AttackStats#withDefaultDamage}
+     * @param magicalAttack  the magical half, same contract
+     * @param extraPhysicalDefense additional physical-only defender addend (vanilla Protection/Projectile
+     *                             Protection re-derivation, see {@link #vanillaProtectionDefense}); pass
+     *                             {@link DefenseStats#NONE} for the flat (already-finalized) entry points
+     *                             that never applied it to begin with
+     */
+    private CombatHitResult hybridComponentResult(PersistentDataHolder victim, AttackStats physicalAttack,
+                                                  AttackStats magicalAttack, DefenseStats extraPhysicalDefense) {
+        DefenderProfile physicalDefender = resolveDefender(DamageType.PHYSICAL, victim);
+        DefenderProfile magicalDefender = resolveDefender(DamageType.MAGICAL, victim);
+        DefenseStats physicalStats = clampedDefense(physicalDefender.stats().combine(extraPhysicalDefense));
+        DefenseStats magicalStats = clampedDefense(magicalDefender.stats());
+        DodgeResolver cappedDodge = DodgeResolver.capped(DodgeResolver.RANDOM, damageConfig.maxDodgeChance());
+        SymmetricDamagePipeline pipeline =
+                new SymmetricDamagePipeline(CritResolver.RANDOM, cappedDodge, damageConfig.minComponentDamage());
+        List<ComponentInput> components = List.of(
+                new ComponentInput(DamageType.PHYSICAL, physicalAttack, physicalStats,
+                        damageConfig.minComponentDamage()),
+                new ComponentInput(DamageType.MAGICAL, magicalAttack, magicalStats,
+                        damageConfig.magicalMinComponentDamage()));
+        // 回避率は型非依存(MobData#dodgeChance javadoc参照)なので、どちらのdefenderProfileから読んでも
+        // 同じ値になる — physicalDefenderのものを使う。
+        return pipeline.computeResult(components, physicalDefender.dodgeChance());
+    }
+
     private DefenseStats clampedDefense(DefenseStats stats) {
         return stats.clampedTo(damageConfig.defenseClamp())
                 .cappedMitigation(damageConfig.maxMitigationRate())
@@ -323,7 +411,14 @@ public final class SymmetricCombatService {
         }
         if (victim instanceof Player player) {
             DefenderProfile itemSide = playerDefenseResolver.resolve(player, type);
-            DefenseStats combined = vanillaArmorDefense(player).combine(itemSide.stats());
+            // PlayerArmorChangeEvent cannot be cancelled and the gate removes rejected armor one
+            // tick later. During that window, suppress the vanilla armor/toughness mirror as well as
+            // the already-filtered TF item stats. Suppressing the whole vanilla armor addend is
+            // intentionally conservative for this transient invalid loadout: it cannot grant a
+            // partial benefit from the denied piece.
+            DefenseStats vanilla = playerDefenseResolver.hasDeniedArmor(player)
+                    ? DefenseStats.NONE : vanillaArmorDefense(player);
+            DefenseStats combined = vanilla.combine(itemSide.stats());
             return new DefenderProfile(combined, itemSide.dodgeChance());
         }
         if (victim instanceof LivingEntity living) {
@@ -363,6 +458,11 @@ public final class SymmetricCombatService {
      */
     private DefenseStats vanillaProtectionDefense(PersistentDataHolder victim, boolean projectileHit) {
         if (!(victim instanceof LivingEntity living)) {
+            return DefenseStats.NONE;
+        }
+        if (living instanceof Player player && playerDefenseResolver.hasDeniedArmor(player)) {
+            // Same deferred-removal window as resolveBaseDefender: a rejected enchanted piece must
+            // not contribute Protection/Projectile Protection for one hit.
             return DefenseStats.NONE;
         }
         return DefenseEnchantmentBridge.toDefense(living, projectileHit, damageConfig.enchantProtectionScale());

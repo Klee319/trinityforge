@@ -36,6 +36,18 @@ import java.util.Objects;
  *                            enchant shimmer with no enchant listed in its tooltip (same
  *                            hidden-enchant + {@code HIDE_ENCHANTS} technique as the reference
  *                            {@code ConfigurableArmor} fork implementation). Defaults to {@code false}.
+ * @param externalSource      「このIDの<b>実体</b>を持っているのは別プラグインだ」という宣言
+ *                            ({@code items/catalog.yml} の {@code external-source:})。{@code null} =
+ *                            TF カタログが実体を持つ(従来どおり)。現在の唯一の有効値は
+ *                            {@link #EXTERNAL_SOURCE_ARSPAPER}。{@link CrossPluginItemResolver#create}
+ *                            は<b>この宣言があるIDに限り</b>先に外部プラグイン側の実体を作りに行く。
+ *                            <p>なぜ要るか: スレッドの装着可否はフォーク側 {@code ThreadGui#isEffectThread}
+ *                            が Ars の PDC 2種({@code arspaper:custom_item_id} と
+ *                            {@code arspaper:thread_item_type})で判定するが、<b>TF 本体は後者を
+ *                            1箇所も書かない</b>。TF カタログ側で解決した「見た目だけ同じ」スレッドは
+ *                            防具に挿さらないまま配られる。カタログ側にも同IDのエントリが要るのは
+ *                            CMD 台帳・レシピ・図鑑・エディタ表示がカタログを真源にしているためで、
+ *                            エントリごと消すことはできない ── そこで<b>実体の持ち主だけ</b>を宣言する。
  */
 public record ItemTemplate(String id,
                            Material material,
@@ -47,7 +59,20 @@ public record ItemTemplate(String id,
                            List<String> lore,
                            List<RecipeSpec> recipes,
                            String color,
-                           boolean enchantGlow) {
+                           boolean enchantGlow,
+                           String externalSource,
+                           boolean draft) {
+
+    /** {@code external-source: arspaper} — 実体は ArsPaper フォークの ItemRegistry が持つ。 */
+    public static final String EXTERNAL_SOURCE_ARSPAPER = "arspaper";
+
+    /**
+     * TF が実際に「先に問い合わせる」経路を持っている外部ソース名(小文字)。ここに無い名前を
+     * yml へ書いても解決先が存在せず<b>無言で何も起きない</b>ので、{@code ItemCatalogConfig} は
+     * 警告を出して宣言ごと無視する(fail-soft: アイテム本体は従来どおりロードされる)。
+     */
+    public static final java.util.Set<String> KNOWN_EXTERNAL_SOURCES =
+            java.util.Set.of(EXTERNAL_SOURCE_ARSPAPER);
 
     public ItemTemplate {
         Objects.requireNonNull(id, "id");
@@ -58,6 +83,47 @@ public record ItemTemplate(String id,
         }
         lore = lore == null ? List.of() : List.copyOf(lore);
         recipes = recipes == null ? List.of() : List.copyOf(recipes);
+        externalSource = (externalSource == null || externalSource.isBlank())
+                ? null : externalSource.trim().toLowerCase(java.util.Locale.ROOT);
+        // 敵対的レビュー指摘5(2026-08-02): trim/lowercase だけで KNOWN_EXTERNAL_SOURCES の検証を
+        // していなかったため、withExternalSource("garbage") でも hasExternalSource()==true になれた。
+        // ItemCatalogConfig.parseExternalSource は fail-soft(未知値は警告してnullへ落とす)だが、
+        // それは yml パース経路だけの話であり、この record 自体は誰が呼んでも不変条件を守るべき。
+        if (externalSource != null && !KNOWN_EXTERNAL_SOURCES.contains(externalSource)) {
+            throw new IllegalArgumentException("unknown external-source: '" + externalSource
+                    + "' (known: " + KNOWN_EXTERNAL_SOURCES + ")");
+        }
+    }
+
+    /**
+     * 従来の 11 引数(正準)形。{@code external-source} 未宣言 = TF カタログが実体を持つ、として委譲する。
+     * 既存の全呼び出し側(テスト含む)をそのままコンパイルさせるために残してある。
+     */
+    public ItemTemplate(String id, Material material, String displayName, Integer customModelData,
+                        BindType bindType, int useLevelRequirement, String useSkill, List<String> lore,
+                        List<RecipeSpec> recipes, String color, boolean enchantGlow) {
+        this(id, material, displayName, customModelData, bindType, useLevelRequirement, useSkill, lore,
+                recipes, color, enchantGlow, null, false);
+    }
+
+    /** {@code draft} 導入前の 12 引数形。{@code draft: false}(＝出荷済み)として委譲する。 */
+    public ItemTemplate(String id, Material material, String displayName, Integer customModelData,
+                        BindType bindType, int useLevelRequirement, String useSkill, List<String> lore,
+                        List<RecipeSpec> recipes, String color, boolean enchantGlow,
+                        String externalSource) {
+        this(id, material, displayName, customModelData, bindType, useLevelRequirement, useSkill, lore,
+                recipes, color, enchantGlow, externalSource, false);
+    }
+
+    /** 実体を別プラグインが持つと宣言されているか({@code external-source:} が有効値で書かれている)。 */
+    public boolean hasExternalSource() {
+        return externalSource != null;
+    }
+
+    /** この template に {@code external-source} だけを付け替えた複製。 */
+    public ItemTemplate withExternalSource(String source) {
+        return new ItemTemplate(id, material, displayName, customModelData, bindType, useLevelRequirement,
+                useSkill, lore, recipes, color, enchantGlow, source, draft);
     }
 
     /** Convenience constructor for callers with a single (possibly null) recipe. */

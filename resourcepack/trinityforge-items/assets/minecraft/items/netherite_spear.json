@@ -29,19 +29,180 @@
       {
         "threshold": 118,
         "model": {
-          "type": "minecraft:model",
-          "model": "trinityforge:item/infinity_spear"
+          "cases": [
+            {
+              "model": {
+                "model": "trinityforge:item/infinity_spear",
+                "type": "minecraft:model"
+              },
+              "when": [
+                "gui",
+                "ground",
+                "fixed",
+                "on_shelf"
+              ]
+            }
+          ],
+          "fallback": {
+            "model": "trinityforge:item/infinity_spear__in_hand",
+            "type": "minecraft:model"
+          },
+          "property": "minecraft:display_context",
+          "type": "minecraft:select"
         }
       },
       {
         "threshold": 119,
         "model": {
-          "type": "minecraft:model",
-          "model": "trinityforge:item/hero_spear"
+          "cases": [
+            {
+              "model": {
+                "model": "trinityforge:item/hero_spear",
+                "type": "minecraft:model"
+              },
+              "when": [
+                "gui",
+                "ground",
+                "fixed",
+                "on_shelf"
+              ]
+            }
+          ],
+          "fallback": {
+            "model": "trinityforge:item/hero_spear__in_hand",
+            "type": "minecraft:model"
+          },
+          "property": "minecraft:display_context",
+          "type": "minecraft:select"
         }
       },
       {
         "threshold": 120,
+        "model": {
+          "cases": [
+            {
+              "model": {
+                "model": "minecraft:item/netherite_spear",
+                "type": "minecraft:model"
+              },
+              "when": [
+                "gui",
+                "ground",
+                "fixed",
+                "on_shelf"
+              ]
+            }
+          ],
+          "fallback": {
+            "model": "minecraft:item/netherite_spear_in_hand",
+            "type": "minecraft:model"
+          },
+          "property": "minecraft:display_context",
+          "type": "minecraft:select"
+        }
+      },
+      {
+        "threshold": 5602,
+        "model": {
+          "cases": [
+            {
+              "model": {
+                "model": "minecraft:item/netherite_spear",
+                "type": "minecraft:model"
+              },
+              "when": [
+                "gui",
+                "ground",
+                "fixed",
+                "on_shelf"
+              ]
+            }
+          ],
+          "fallback": {
+            "model": "minecraft:item/netherite_spear_in_hand",
+            "type": "minecraft:model"
+          },
+          "property": "minecraft:display_context",
+          "type": "minecraft:select"
+        }
+      },
+      {
+        "threshold": 5608,
+        "model": {
+          "cases": [
+            {
+              "model": {
+                "model": "minecraft:item/netherite_spear",
+                "type": "minecraft:model"
+              },
+              "when": [
+                "gui",
+                "ground",
+                "fixed",
+                "on_shelf"
+              ]
+            }
+          ],
+          "fallback": {
+            "model": "minecraft:item/netherite_spear_in_hand",
+            "type": "minecraft:model"
+          },
+          "property": "minecraft:display_context",
+          "type": "minecraft:select"
+        }
+      },
+      {
+        "threshold": 5700,
+        "model": {
+          "cases": [
+            {
+              "model": {
+                "model": "minecraft:item/netherite_spear",
+                "type": "minecraft:model"
+              },
+              "when": [
+                "gui",
+                "ground",
+                "fixed",
+                "on_shelf"
+              ]
+            }
+          ],
+          "fallback": {
+            "model": "minecraft:item/netherite_spear_in_hand",
+            "type": "minecraft:model"
+          },
+          "property": "minecraft:display_context",
+          "type": "minecraft:select"
+        }
+      },
+      {
+        "threshold": 5720,
+        "model": {
+          "cases": [
+            {
+              "model": {
+                "model": "minecraft:item/netherite_spear",
+                "type": "minecraft:model"
+              },
+              "when": [
+                "gui",
+                "ground",
+                "fixed",
+                "on_shelf"
+              ]
+            }
+          ],
+          "fallback": {
+            "model": "minecraft:item/netherite_spear_in_hand",
+            "type": "minecraft:model"
+          },
+          "property": "minecraft:display_context",
+          "type": "minecraft:select"
+        }
+      },
+      {
+        "threshold": 5740,
         "model": {
           "cases": [
             {

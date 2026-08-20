@@ -122,6 +122,14 @@ public final class ExecutorProgressionRepository implements ProgressionRepositor
     }
 
     @Override
+    public boolean prestige(UUID playerId, String skillId, String ordinaryPerkPrefix,
+                            String prestigePerkId, SkillProgress resetProgress, long refundPoints,
+                            Set<String> retainedOrdinaryPerkIds) {
+        return call(() -> delegate.prestige(playerId, skillId, ordinaryPerkPrefix,
+                prestigePerkId, resetProgress, refundPoints, retainedOrdinaryPerkIds));
+    }
+
+    @Override
     public LoadResult<Set<String>> loadPerkIds(UUID playerId) {
         return call(() -> delegate.loadPerkIds(playerId));
     }

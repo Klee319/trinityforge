@@ -1,5 +1,5 @@
 {
-  "parent": "minecraft:item/handheld",
+  "parent": "minecraft:item/netherite_hoe",
   "textures": {
     "layer0": "trinityforge:item/infinity_scythe"
   }

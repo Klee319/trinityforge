@@ -1,0 +1,89 @@
+# =================================================================================================
+#  Jecon 2.2.1 の config.yml — 3 バックエンド共通の正本
+#
+#  ⚠ 正本はこのファイル。配布は ops/scripts/install-economy-plugins.ps1 が行い、
+#    Main_Server / Resource_Server / Dev_Server の plugins\Jecon\config.yml へ
+#    【3 台とも同じ内容】を書く。サーバ側で直接編集しても次の配布で上書きされる。
+#
+#  ⚠ 3 台で共有しているのは「MariaDB の jecon データベース」であって、このファイルではない。
+#    plugins\Jecon はサーバごとの実体ディレクトリ（ジャンクション共有なのは plugins\TrinityForge だけ）。
+#    ファイルは 3 つあり、たまたま中身が同じ、という関係。
+#
+#  ⚠ パスワードはこの正本に書かない。このリポジトリは public（Klee319/trinityforge）。
+#    下の password はプレースホルダで、配布時に環境変数 TF_JECON_DB_PASSWORD
+#    （未設定なら対話入力）へ置換される。置換されないまま配られることは無い
+#    （置換後にプレースホルダが残っていたらスクリプトが中断する）。
+# =================================================================================================
+
+# 新版チェック（起動時に外部へ問い合わせる）。
+versionCheck: true
+
+# 口座の初期残高と、初参加時に口座を作るか。
+defaultBalance: 5000.0
+createAccountOnJoin: true
+
+# ⚠⚠ 3 台で 1 つの DB を共有するので必ず false。
+#   true にすると Jecon は残高をメモリに溜めてから遅延書き込みする。単体サーバなら書き込み削減に
+#   なるが、Jecon 同梱 config の英文コメント自身が
+#   「複数サーバで DB を共有する場合（BungeeCord 等）、プレイヤーの残高が一時的に不正確になる」
+#   と名指しで警告している。最終的には整合するが、その「一時的」の間に買い物ができてしまう。
+#   例: main で稼いだ直後に resource へ移ると、移動先が古い残高を読んで書き戻し、稼ぎが消える。
+#   残高は取り返しがつかない（プレイヤーの申告でしか気づけない）ので即時整合を優先する。
+lazyWrite: false
+
+format:
+  singularMajor: "G"
+  pluralMajor: "G"
+  singularMinor: "cent"
+  pluralMinor: "cents"
+  # 表示書式。単位は G（ゴールド）。
+  format: "{major} G"
+  # omit/accurate/asis のうち asis は「テキスト形式向け」。参照サーバの値をそのまま踏襲する。
+  minorType: asis
+
+database:
+  # sqlite だと【サーバごとに別の財布】になる。3 台共有の前提を壊すので変えないこと。
+  type: mysql
+  # 下の mysql を使っている間は読まれない。取り違えたときの戻り先として残してある。
+  sqlite:
+    file: "jecon.db"
+  mysql:
+    # localhost と書くと Windows の JDBC が IPv6（::1）で引くことがあり、
+    # 127.0.0.1 で GRANT したユーザーだと Access denied になる（RUNBOOK 手順 2-1 と同じ理由）。
+    host: "127.0.0.1:3306"
+    name: "jecon"
+    username: "jecon"
+    # ⚠ 配布時に置換されるプレースホルダ。ここに実値を書かない。
+    password: "__SET_ME__"
+    # この初期化 SQL は全接続で実行される。変数が存在しないと毎回失敗して HikariCP が
+    # 1 本もコネクションを張れず、経済が丸ごと使えなくなる（ログには Unknown system variable）。
+    # 2026-08-16 実測: 導入済みの MariaDB 12.3 には query_cache_type が存在する（既定 OFF）ので
+    # このままで動く。サーバに接続せず確認する手順:
+    #   & "C:\Program Files\MariaDB 12.3\bin\mariadbd.exe" --verbose --help | Select-String query-cache-type
+    # 将来 query_cache が撤去された版へ上げて上の検査が空になったら init: "SELECT 1" へ差し替える。
+    init: "SET SESSION query_cache_type=0"
+    properties:
+      # 参照サーバ（ars_paper1.21.11）の既定をそのまま踏襲する。
+      # DB 側の文字コードは luckperms / husksync と同じ utf8mb4 / utf8mb4_unicode_ci
+      # （データディレクトリの db.opt で実測）。接続側は既定のままで揃う。
+      "useSSL": "false"
+      "maintainTimeStats": "false"
+      "elideSetAutoCommits": "true"
+      "useLocalSessionState": "true"
+      "alwaysSendSetIsolation": "false"
+      "cacheServerConfiguration": "true"
+      "cachePrepStmts": "true"
+      "prepStmtCacheSize": "250"
+      "prepStmtCacheSqlLimit": "2048"
+  connectionPool:
+    # -1 はプラグイン既定。maximumPoolSize だけ明示するのは、3 台 × 既定値ぶんの接続を
+    # 常時掴むと LuckPerms / HuskSync と合わせて MariaDB の max_connections を圧迫するため。
+    # 経済の読み書きは頻度が低いので 5 で足りる。
+    maximumPoolSize: 5
+    minimumIdle: -1
+    maxLifetime: -1
+    connectionTimeout: -1
+    idleTimeout: -1
+
+# Don't touch
+version: 4

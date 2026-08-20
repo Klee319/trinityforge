@@ -13,248 +13,245 @@
 # ============================================================================
 
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/alchemy.md
+
 skill: ALCHEMY
-display-name: "錬金"
+display-name: 錬金
 icon: BREWING_STAND
-starting-coords: "2,10"
+starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  max-times: 5
   at-level: 100
-  name: "大錬金術師の栄光"
-  effect-text: "全ての品質 永続+3・ランダムステータスの上振れ率 永続+15%"
+  name: 大錬金術師の栄光
+  effect-text: 全ての品質 永続+3・ランダムステータスの上振れ率 永続+15%
   buffs:
-    potion_quality_bonus: 3
-    craft_upswing_bonus: 0.15
-
+    potion-quality-bonus: 2
+    brew-speed-bonus: 0.1
+    ingredient-save-chance: 0.1
+  description: |-
+    醸造品質+2
+    醸造効率+10%
+    素材効率+10%
 nodes:
   A:
-    name: "醸造の見習い"
+    name: 醸造の見習い
     level: 10
     role: main
-    parent: null
+    parent:
     icon: GLASS_BOTTLE
     cost: 1
-    effect-text: "品質+1・醸造速度UP"
+    effect-text: 品質+1・醸造速度UP
     effects:
-      - "品質+1"
-      - "醸造速度UP"
+      - 品質+1
+      - 醸造速度UP
     buffs:
-      potion_quality_bonus: 1
-      brew_speed_bonus: 0.05
+      potion-quality-bonus: 1
+      brew-speed-bonus: 0.1
+    description: |-
+      醸造品質+1
+      醸造効率+10%
   B:
-    name: "調合の職人"
+    name: 調合の職人
     level: 30
     role: main
     parent: A
     icon: POTION
     cost: 1
-    effect-text: "品質+1・素材消費しない確率UP"
+    effect-text: 品質+1・素材消費しない確率UP
     effects:
-      - "品質+1"
-      - "素材を消費しない確率UP"
+      - 品質+1
+      - 素材を消費しない確率UP
     buffs:
-      potion_quality_bonus: 1
+      potion-quality-bonus: 1
+    dedicated-effects:
+      - id: glyph:exchange
+    description: |-
+      醸造品質+1
+      交換グリフ解放
   C:
-    name: "コーティング術士"
+    name: コーティング術士
     level: 50
     role: main
     parent: B
     icon: SPLASH_POTION
     cost: 1
-    effect-text: "武器コーティング解放・醸造速度UP・司祭解放"
+    effect-text: 武器コーティング解放・醸造速度UP・司祭解放
     buffs:
-      brew_speed_bonus: 0.05
+      brew-speed-bonus: 0.1
+      coating-charges-bonus: 5
     effects:
-      - "武器コーティングを解放"
-      - "醸造速度UP"
-      - "司祭を解放"
+      - 武器コーティングを解放
+      - 醸造速度UP
+      - 司祭を解放
     dedicated-effects:
-      - id: "feature:weapon-coating-unlock"
-      - id: "trade:CLERIC"
-      # 2026-07-26 coating-charges の C→A 降格に伴い、totalOfではなくメインハンド武器単体を
-      # DerivedItemStats.resolve で読む WeaponCoatingListener の生きた経路(coating-stack-increase)へ移設。
-      # 値(3)は変更なし。
-      - id: "feature:coating-stack-increase"
-        value: 3
+      - id: feature:weapon-coating-unlock
+    description: |-
+      醸造効率+10%
+      武器コーティング解放
+      &8デフォルト5回
   D:
-    name: "統合の錬金術師"
+    name: 統合の錬金術師
     level: 70
     role: main
     parent: C
     icon: LINGERING_POTION
     cost: 1
-    effect-text: "品質+1・複数ポーションの統合を可能に・素材を消費しない確率UP(醸造台+アルケミカル)"
+    effect-text: 品質+1・複数ポーションの統合を可能に・素材を消費しない確率UP(醸造台+アルケミカル)
     effects:
-      - "品質+1"
-      - "複数ポーションの統合を可能に"
-      - "素材を消費しない確率UP(醸造台+アルケミカル)"
+      - 品質+1
+      - 複数ポーションの統合を可能に
+      - 素材を消費しない確率UP(醸造台+アルケミカル)
     buffs:
-      ingredient_save_chance: 0.15   # 醸造台+アルケミカル素材投入の両方に適用(2026-07-26)。既定値(要調整)
-      potion_quality_bonus: 1
+      potion-quality-bonus: 1
     dedicated-effects:
-      - id: "feature:potion-merge"
+      - id: feature:potion-merge
+        value: 1
+    description: |-
+      醸造品質+1
+      ポーション統合解放 Lv1
   E:
-    name: "変換の大錬金術師"
+    name: 変換の大錬金術師
     level: 90
     role: main
     parent: D
     icon: DRAGON_BREATH
     cost: 1
-    effect-text: "交換・色変換のグリフ解放・武器コーティングのスタック数増加・品質+3"
+    effect-text: 交換・色変換のグリフ解放・武器コーティングのスタック数増加・品質+3
     buffs:
-      potion_quality_bonus: 3
+      potion-quality-bonus: 1
+      coating-charges-bonus: 5
     effects:
-      - "交換・色変換のグリフを解放"
-      - "武器コーティングのスタック数増加"
-      - "品質+3"
+      - 交換・色変換のグリフを解放
+      - 武器コーティングのスタック数増加
+      - 品質+3
+      - 極致の調合を解放
     dedicated-effects:
-      - id: "glyph:exchange"
-      # 2026-07-26 coating-charges の C→A 降格に伴い移設(値10は変更なし)。C ノードと同じ
-      # feature:coating-stack-increase へ加算する(valueSum で累積)。
-      - id: "feature:coating-stack-increase"
-        value: 10
-
-  C-1-upper:
-    name: "俊敏・跳躍の調合"
+      - id: feature:potion-merge
+        value: 2
+    description: |-
+      醸造品質+1
+      コート上限+5
+      ポーション統合 Lv2解放
+  B-1:
+    name: 疾風の調合
     level: 40
     role: branch
-    parent: C        # 線不明
+    parent: B
     icon: SUGAR
     cost: 1
-    effect-text: "俊敏・跳躍魔法開放・醸造速度UP"
+    effect-text: 俊敏・跳躍魔法開放・醸造速度UP
     effects:
-      - "俊敏・跳躍魔法を解放"
-      - "醸造速度UP"
-    buffs:
-      brew_speed_bonus: 0.05
+      - 俊敏・跳躍魔法を解放
+      - 醸造速度UP
     dedicated-effects:
-      - id: "brew:swiftness-jump"
-  C-2-upper:
-    name: "体力増強の調合"
+      - id: brew:swiftness-jump
+      - id: glyph:leap
+    description: |-
+      俊敏・跳躍の上位ポーション解放
+      跳躍グリフ解放
+  B-2:
+    name: 屈強の調合
     level: 60
     role: branch
-    parent: C-1-upper   # 直列連結。線不明
+    parent: B-1
     icon: GOLDEN_CARROT
     cost: 1
-    effect-text: "体力増強と採掘速度上昇のポーションが利用可能に・泡"
+    effect-text: 体力増強と採掘速度上昇のポーションが利用可能に・泡
     effects:
-      - "体力増強と採掘速度上昇のポーションが利用可能に"
-      - "泡"
+      - 体力増強と採掘速度上昇のポーションが利用可能に
+      - 泡
     dedicated-effects:
-      - id: "brew:healthboost-haste"
-  E-1-1:
-    name: "回復・体力増強の調合"
+      - id: brew:healthboost-haste
+      - id: glyph:bubble
+    description: |-
+      体力増強と採掘速度上昇のポーション解放
+      泡のグリフ解放
+  B-3:
+    name: 頑強の調合
     level: 80
     role: branch
-    parent: E        # 上段E系派生。線不明
+    parent: E
     icon: GLISTERING_MELON_SLICE
     cost: 1
-    effect-text: "回復・体力増強魔法開放・バフの品質UP"
     effects:
-      - "回復・体力増強魔法を解放"
-      - "バフの品質UP"
+      - 回復・体力増強魔法を解放
+      - 体力増強II / 採掘速度上昇II / 幸運II のポーションが利用可能に
+      - バフの品質UP
     dedicated-effects:
-      - id: "glyph:heal"
-      - id: "glyph:journey"
-
-  C-1-lower:
-    name: "注入の術"
-    level: 40
-    role: branch
-    parent: C        # 線不明
-    icon: FERMENTED_SPIDER_EYE
-    cost: 1
-    effect-text: "注入のグリフ開放・デバフの品質UP"
-    effects:
-      - "注入のグリフを解放"
-      - "デバフの品質UP"
-    dedicated-effects:
-      - id: "glyph:infuse"
-  C-2-lower:
-    name: "衰弱の術"
+      - id: glyph:heal
+      - id: brew:healthboost-haste-2
+      - id: glyph:shield
+    description: |-
+      上位の体力増強と採掘速度上昇のポーション解放
+      回復グリフ解放
+      盾グリフ解放
+  C-1:
+    name: 弱化の導
     level: 60
     role: branch
-    parent: C-1-lower   # 直列連結。線不明
-    icon: WITHER_ROSE
+    parent: C
+    icon: FERMENTED_SPIDER_EYE
     cost: 1
-    effect-text: "衰弱のグリフ開放・醸造速度UP"
+    effect-text: 注入のグリフ開放・デバフの品質UP
     effects:
-      - "衰弱のグリフを解放"
-      - "醸造速度UP"
-    buffs:
-      brew_speed_bonus: 0.05
+      - 注入のグリフを解放
+      - デバフの品質UP
     dedicated-effects:
-      - id: "glyph:wither"
-  E-2-1:
-    name: "呪詛の術"
+      # 2026-08-16修正: ここは注入(infuse)。glyph:snare は ars_magic B-1-2 の持ち物で、
+      # 一回性の解放効果を2ツリーに置くと Java 側が起動時に重複警告を出す。
+      - id: glyph:infuse
+      - id: glyph:wither
+    description: |-
+      注入グリフ解放
+      衰弱グリフ解放
+  C-2:
+    name: 呪術の導
     level: 80
     role: branch
-    parent: E        # 下段E系派生。線不明
-    icon: DRAGON_BREATH
+    parent: C-1
+    icon: WITHER_ROSE
     cost: 1
-    effect-text: "呪詛開放"
+    effect-text: 衰弱のグリフ開放・醸造速度UP
     effects:
-      - "呪詛を解放"
+      - 衰弱のグリフを解放
+      - 醸造速度UP
     dedicated-effects:
-      - id: "glyph:hex"
-
-  B-alpha-1:
-    name: "節約の調合I"
-    level: 30
-    role: greek
+      - id: glyph:hex
+      - id: brew:hunter-hex
+    description: |-
+      呪詛グリフ解放
+      デバフのポーションを追加で解放
+  B-1-1:
+    name: プロの調合I
+    level: 40
+    role: branch
     parent: B
-    group: B-greek
     icon: HONEY_BOTTLE
     cost: 1
-    effect-text: "素材を消費しない確率UP"
     effects:
-      - "素材を消費しない確率UP"
-  B-alpha-2:
-    name: "節約の調合II"
-    level: 50           # 画像に明示Lvなし。-2は+20と推定
-    role: greek
-    parent: B-alpha-1
-    group: B-greek
+      - 素材を消費しない確率UP
+    buffs:
+      ingredient-save-chance: 0.1
+    description: |-
+      素材効率+10%
+      幸運のポーションを解放
+    dedicated-effects:
+      - id: brew:luck
+  B-1-2:
+    name: エリートの調合II
+    level: 60
+    role: branch
+    parent: B-1-1
     icon: HONEY_BOTTLE
     cost: 1
-    effect-text: "品質+2・醸造速度アップ"
+    effect-text: 品質+2・醸造速度アップ
     effects:
-      - "品質+2"
-      - "醸造速度アップ"
+      - 品質+2
+      - 醸造速度アップ
+    description: |-
+      素材効率+20%
+      上位の再生と即時回復のポーション解放
     buffs:
-      potion_quality_bonus: 2
-      brew_speed_bonus: 0.05
-  B-beta-1:
-    name: "残留の調合I"
-    level: 30
-    role: greek
-    parent: B
-    group: B-greek
-    icon: LINGERING_POTION
-    cost: 1
-    effect-text: "残留時間UP・スプラッシュ強度UP"
-    effects:
-      - "残留時間UP"
-      - "スプラッシュ強度UP"
-    buffs:
-      potion_quality_bonus: 1
-  B-beta-2:
-    name: "残留の調合II"
-    level: 50           # 画像に明示Lvなし。-2は+20と推定
-    role: greek
-    parent: B-beta-1
-    group: B-greek
-    icon: LINGERING_POTION
-    cost: 1
-    effect-text: "品質+2・武器コーティングのスタック数増加"
-    buffs:
-      potion_quality_bonus: 2
-    effects:
-      - "品質+2"
-      - "武器コーティングのスタック数増加"
+      brew-speed-bonus: 0.2
     dedicated-effects:
-      # 2026-07-26 coating-charges の C→A 降格に伴い移設(値5は変更なし)。
-      - id: "feature:coating-stack-increase"
-        value: 5
-
+      - id: brew:healing

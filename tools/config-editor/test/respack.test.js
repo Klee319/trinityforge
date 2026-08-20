@@ -595,3 +595,119 @@ test("previewInfo: 未配線(台帳行なし/モデル欠落)は hasTexture:fals
   const cmd = reg.allocations.find((a) => a.id === "alloc_only").cmd;
   assert.equal(Respack.previewInfo(dir, regPath, "IRON_INGOT", cmd).hasTexture, false);
 });
+
+// ---------------------------------------------------------------------------
+// バニラの描画構造の保持 (2026-08-03)
+//
+// 退行の内容: CMDエントリを常に素の minecraft:model 1個へ潰していたため、CMD付きの
+// カスタム武器だけがトライデントの専用レンダラ・弓の引き絞り・槍の手持ちモデルを失い、
+// 3人称で板ポリ(アイテム持ち)になっていた。fallback(CMDなし)側は正しかったので、
+// バニラ品を見ても気づけない種類の壊れ方だった。
+// ---------------------------------------------------------------------------
+
+// entries から指定 cmd のモデルノードを取り出す。
+function entryModelOf(def, cmd) {
+  const hit = def.model.entries.find((e) => e.threshold === cmd);
+  assert.ok(hit, `cmd ${cmd} のentryが無い`);
+  return hit.model;
+}
+
+test("構造保持: TRIDENT のカスタムCMDは手持ち/投擲の minecraft:special レンダラを残す", () => {
+  const dir = tmpDir();
+  const regPath = registryPathOf(dir);
+  Respack.writeTexture({ material: "TRIDENT", cmd: 7, id: "iron_trident", pngBuffer: MIN_PNG }, dir, regPath);
+  const def = JSON.parse(fs.readFileSync(
+    path.join(dir, "trinityforge-items", "assets", "minecraft", "items", "trident.json"), "utf8"));
+  const model = entryModelOf(def, 7);
+
+  // GUI/地面/額縁 は独自テクスチャ、手持ち/投擲はバニラの専用レンダラ。
+  assert.equal(model.type, "minecraft:select");
+  assert.equal(model.property, "minecraft:display_context");
+  assert.equal(model.cases[0].model.model, "trinityforge:item/iron_trident");
+  assert.equal(model.fallback.on_false.type, "minecraft:special");
+  assert.equal(model.fallback.on_false.model.type, "minecraft:trident");
+  assert.equal(model.fallback.on_true.base, "minecraft:item/trident_throwing");
+});
+
+test("構造保持: BOW のカスタムCMDは引き絞り3段階の切替を残し、全段が独自モデルを指す", () => {
+  const dir = tmpDir();
+  const regPath = registryPathOf(dir);
+  Respack.writeTexture({ material: "BOW", cmd: 8, id: "iron_bow", pngBuffer: MIN_PNG }, dir, regPath);
+  const def = JSON.parse(fs.readFileSync(
+    path.join(dir, "trinityforge-items", "assets", "minecraft", "items", "bow.json"), "utf8"));
+  const model = entryModelOf(def, 8);
+
+  assert.equal(model.type, "minecraft:condition");
+  assert.equal(model.property, "minecraft:using_item");
+  assert.equal(model.on_false.model, "trinityforge:item/iron_bow");
+  assert.equal(model.on_true.property, "minecraft:use_duration");
+  // 引き絞り中にバニラの弓へ化けないこと(ここが素の minecraft:model だと化けていた)。
+  assert.equal(model.on_true.fallback.model, "trinityforge:item/iron_bow__pulling_0");
+  assert.equal(model.on_true.entries[0].model.model, "trinityforge:item/iron_bow__pulling_1");
+  assert.equal(model.on_true.entries[1].model.model, "trinityforge:item/iron_bow__pulling_2");
+
+  // 引き絞り用モデルはバニラの同段を parent にし、テクスチャだけ独自に差し替える。
+  const pulling = JSON.parse(fs.readFileSync(
+    path.join(dir, "trinityforge-items", "assets", "trinityforge", "models", "item", "iron_bow__pulling_1.json"),
+    "utf8"));
+  assert.equal(pulling.parent, "minecraft:item/bow_pulling_1");
+  assert.equal(pulling.textures.layer0, "trinityforge:item/iron_bow");
+});
+
+test("構造保持: *_SPEAR のカスタムCMDは手持ち専用モデルを残し、槍の構えを継承する", () => {
+  const dir = tmpDir();
+  const regPath = registryPathOf(dir);
+  Respack.writeTexture({ material: "NETHERITE_SPEAR", cmd: 9, id: "hero_spear", pngBuffer: MIN_PNG }, dir, regPath);
+  const def = JSON.parse(fs.readFileSync(
+    path.join(dir, "trinityforge-items", "assets", "minecraft", "items", "netherite_spear.json"), "utf8"));
+  const model = entryModelOf(def, 9);
+
+  assert.equal(model.property, "minecraft:display_context");
+  assert.equal(model.cases[0].model.model, "trinityforge:item/hero_spear");
+  assert.equal(model.fallback.model, "trinityforge:item/hero_spear__in_hand");
+
+  const inHand = JSON.parse(fs.readFileSync(
+    path.join(dir, "trinityforge-items", "assets", "trinityforge", "models", "item", "hero_spear__in_hand.json"),
+    "utf8"));
+  assert.equal(inHand.parent, "minecraft:item/netherite_spear_in_hand");
+});
+
+test("自動生成モデルの parent は handheld/generated の2択でなくマテリアル自身のモデルになる", () => {
+  const dir = tmpDir();
+  const regPath = registryPathOf(dir);
+  const modelDir = path.join(dir, "trinityforge-items", "assets", "trinityforge", "models", "item");
+  // 呼び出し側が旧語彙の parent:"handheld" を渡しても、描画は常にマテリアル由来に倒す。
+  Respack.writeTexture({ material: "MACE", cmd: 1, id: "iron_mace", pngBuffer: MIN_PNG, parent: "handheld" }, dir, regPath);
+  Respack.writeTexture({ material: "BOW", cmd: 2, id: "iron_bow", pngBuffer: MIN_PNG, parent: "handheld" }, dir, regPath);
+  Respack.writeTexture({ material: "IRON_SWORD", cmd: 3, id: "s", pngBuffer: MIN_PNG }, dir, regPath);
+
+  // メイスは handheld_mace、弓は bow 固有の display を継承する(どちらも剣の構えとは別物)。
+  assert.equal(JSON.parse(fs.readFileSync(path.join(modelDir, "iron_mace.json"), "utf8")).parent,
+    "minecraft:item/mace");
+  assert.equal(JSON.parse(fs.readFileSync(path.join(modelDir, "iron_bow.json"), "utf8")).parent,
+    "minecraft:item/bow");
+  assert.equal(JSON.parse(fs.readFileSync(path.join(modelDir, "s.json"), "utf8")).parent,
+    "minecraft:item/iron_sword");
+});
+
+test("構造保持の対象外: 防具の鍛冶型(trim_material)は分岐を畳んで1モデルのままにする", () => {
+  const dir = tmpDir();
+  const regPath = registryPathOf(dir);
+  Respack.writeTexture({ material: "NETHERITE_HELMET", cmd: 4, id: "infinity_helmet", pngBuffer: MIN_PNG }, dir, regPath);
+  const def = JSON.parse(fs.readFileSync(
+    path.join(dir, "trinityforge-items", "assets", "minecraft", "items", "netherite_helmet.json"), "utf8"));
+  const model = entryModelOf(def, 4);
+
+  // テクスチャは1枚しか無く、鍛冶型16種ぶんのリーフを作っても全部同じ絵になるだけなので畳む。
+  assert.equal(model.type, "minecraft:model");
+  assert.equal(model.model, "trinityforge:item/infinity_helmet");
+  // fallback(CMDなし=バニラの防具)側の鍛冶型分岐は従来どおり無傷であること。
+  assert.deepEqual(def.model.fallback, DEFS.NETHERITE_HELMET.model);
+});
+
+test("構造保持の対象外: 自作の立体モデル(customModel)は全コンテキストでそれを出す", () => {
+  const dir = tmpDir();
+  const regPath = registryPathOf(dir);
+  const entry = Respack.entryModelFor("TRIDENT", { assetName: "bb_trident", customModel: true });
+  assert.deepEqual(entry, { type: "minecraft:model", model: "trinityforge:item/bb_trident" });
+});

@@ -28,7 +28,7 @@ class GachaRateUpTest {
         GachaEntry rare = new GachaEntry("rare", 10, 1, false);
         GachaPool pool = poolOf(common, rare);
 
-        GachaPool boosted = GachaRateUp.applyRateUp(pool, 50.0); // +50% -> 10 * 1.5 = 15
+        GachaPool boosted = GachaRateUp.applyRateUp(pool, 0.5); // +50% (fraction 0.5) -> 10 * 1.5 = 15
 
         assertEquals(90, boosted.entries().get(0).weight());
         assertEquals(15, boosted.entries().get(1).weight());
@@ -42,7 +42,7 @@ class GachaRateUpTest {
         GachaEntry common = new GachaEntry("common", 90, 1, false);
         GachaPool pool = poolOf(rareA, rareB, common);
 
-        GachaPool boosted = GachaRateUp.applyRateUp(pool, 100.0); // +100% -> 5 * 2 = 10
+        GachaPool boosted = GachaRateUp.applyRateUp(pool, 1.0); // +100% (fraction 1.0) -> 5 * 2 = 10
 
         assertEquals(10, boosted.entries().get(0).weight());
         assertEquals(10, boosted.entries().get(1).weight());
@@ -63,7 +63,7 @@ class GachaRateUpTest {
     @Test
     void emptyPoolReturnedUnchanged() {
         GachaPool empty = poolOf();
-        assertSame(empty, GachaRateUp.applyRateUp(empty, 50.0));
+        assertSame(empty, GachaRateUp.applyRateUp(empty, 0.5));
     }
 
     @Test
@@ -72,7 +72,7 @@ class GachaRateUpTest {
         GachaEntry rare = new GachaEntry("rare", 10, 1, false);
         GachaPool pool = new GachaPool("test-pool", List.of(common, rare), 30);
 
-        GachaPool boosted = GachaRateUp.applyRateUp(pool, 50.0);
+        GachaPool boosted = GachaRateUp.applyRateUp(pool, 0.5);
 
         assertEquals(30, boosted.pityThreshold(),
                 "pity ceiling is a config-defined property and must survive the rate-up boost copy");

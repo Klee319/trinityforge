@@ -67,9 +67,15 @@ public final class CollectionConfig implements LoadableConfig {
         }
     }
 
+    /** {@code gui.locked-icon} の既定値。未発見エントリの「錠前」アイコン。 */
+    public static final String DEFAULT_LOCKED_ICON = "BARRIER";
+
     private volatile boolean enabled = true;
     private volatile boolean catalogItems = true;
     private volatile boolean mobKills = true;
+    private volatile String lockedIcon = DEFAULT_LOCKED_ICON;
+    private volatile Map<String, String> itemDisplayNames = Map.of();
+    private volatile Map<String, String> mobDisplayNames = Map.of();
     private volatile List<RewardTier> tiers = List.of();
     private volatile List<Category> itemCategories = List.of();
     private volatile List<Category> mobCategories = List.of();
@@ -103,6 +109,35 @@ public final class CollectionConfig implements LoadableConfig {
         return mobCategories;
     }
 
+    /**
+     * 未発見エントリに使う「錠前」アイコンの Material 名 ({@code gui.locked-icon})。
+     * 名前の妥当性はここでは検証しない — 解決は表示側 (GUI) が行い、解決できなければ
+     * {@link #DEFAULT_LOCKED_ICON} へ落とす (config のtypo で図鑑が開けなくなるのを避ける)。
+     */
+    public String lockedIcon() {
+        return lockedIcon;
+    }
+
+    /**
+     * {@code display-names.items.<catalogId>} — 図鑑での表示名の明示上書き(任意、既定は空)。
+     * 空のときはアイテム自身の display-name(カタログ/ArsPaper)が使われるので、通常は書かなくてよい。
+     */
+    public Map<String, String> itemDisplayNames() {
+        return itemDisplayNames;
+    }
+
+    /**
+     * {@code display-names.mobs.<ENTITY_TYPE>} — 図鑑でのモブ表示名の明示上書き(任意、既定は空)。
+     *
+     * <p>未指定のモブは翻訳可能コンポーネント({@code entity.minecraft.*})で表示され、
+     * <b>各クライアントの言語で正しく出る</b>。ただしサーバー側は日本語名を知らないため、
+     * 名前検索/名前ソートは英語のEntityType名基準になる。日本語で検索したいモブだけ
+     * ここへ書けば、検索・並べ替えもその名前で効くようになる。
+     */
+    public Map<String, String> mobDisplayNames() {
+        return mobDisplayNames;
+    }
+
     public String resourcePath() {
         return PATH;
     }
@@ -127,10 +162,15 @@ public final class CollectionConfig implements LoadableConfig {
         this.enabled = yaml.getBoolean("enabled", true);
         this.catalogItems = yaml.getBoolean("sources.catalog-items", true);
         this.mobKills = yaml.getBoolean("sources.mob-kills", true);
+        String rawLockedIcon = yaml.getString("gui.locked-icon", DEFAULT_LOCKED_ICON);
+        this.lockedIcon = rawLockedIcon == null || rawLockedIcon.isBlank()
+                ? DEFAULT_LOCKED_ICON : rawLockedIcon.trim();
         ParseResult result = parseTiers(yaml.getConfigurationSection("reward-tiers"), log);
         this.tiers = result.tiers();
         this.itemCategories = parseCategories(yaml.getConfigurationSection("categories.items"), log, "items");
         this.mobCategories = parseCategories(yaml.getConfigurationSection("categories.mobs"), log, "mobs");
+        this.itemDisplayNames = parseDisplayNames(yaml.getConfigurationSection("display-names.items"));
+        this.mobDisplayNames = parseDisplayNames(yaml.getConfigurationSection("display-names.mobs"));
 
         if (result.skipped() > 0) {
             log.warning("[" + PATH + "] loaded " + result.tiers().size() + " reward tier(s), "
@@ -226,6 +266,24 @@ public final class CollectionConfig implements LoadableConfig {
         }
         parsed.sort(Comparator.comparingInt(Category::order));
         return List.copyOf(parsed);
+    }
+
+    /**
+     * Pure parse of a {@code display-names.items}/{@code display-names.mobs} section — 値が空文字/
+     * 非文字列のキーは黙って捨てる(表示名の上書きは任意機能なので、書き損じでロード全体を落とさない)。
+     */
+    static Map<String, String> parseDisplayNames(ConfigurationSection root) {
+        if (root == null) {
+            return Map.of();
+        }
+        Map<String, String> parsed = new java.util.LinkedHashMap<>();
+        for (String key : root.getKeys(false)) {
+            String value = root.getString(key);
+            if (value != null && !value.isBlank()) {
+                parsed.put(key.trim(), value.trim());
+            }
+        }
+        return Map.copyOf(parsed);
     }
 
     record ParseResult(List<RewardTier> tiers, int skipped) {

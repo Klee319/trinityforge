@@ -145,7 +145,19 @@ public final class MobData {
                 readDouble(PdcKeys.MOB_ATTACK_CRIT_DAMAGE),
                 readDouble(PdcKeys.MOB_ATTACK_PENETRATION),
                 readDouble(PdcKeys.MOB_ATTACK_DAMAGE_MODIFIER, 1.0),
-                readDouble(PdcKeys.MOB_ATTACK_FIXED_DAMAGE));
+                readDouble(PdcKeys.MOB_ATTACK_FIXED_DAMAGE),
+                attackMagicRatio());
+    }
+
+    /**
+     * このモブの通常攻撃を魔法として解決する割合 [0,1]({@link PdcKeys#MOB_ATTACK_MAGIC_RATIO}、
+     * 2026-08-02 新設)。{@link #hasAttackProfile()} とは独立に読める — EliteMobs ダンジョンモブの
+     * 大多数は {@code MOB_ATTACK_POWER} を持たない(＝独自のダメージ式のまま)が、魔法比率だけは
+     * 別途設定できるようにするため（fork {@code TrinityForgeCombatListener} の flat 委譲経路が使う）。
+     * absent = 0.0(完全物理、従来どおり)。
+     */
+    public double attackMagicRatio() {
+        return Math.max(0.0, Math.min(1.0, readDouble(PdcKeys.MOB_ATTACK_MAGIC_RATIO)));
     }
 
     /**
@@ -186,6 +198,19 @@ public final class MobData {
         holder.getPersistentDataContainer().set(PdcKeys.MOB_TYPE_STAMPED, PersistentDataType.BYTE, (byte) 1);
     }
 
+    /**
+     * Overwrites ONLY {@link PdcKeys#MOB_LEVEL}, leaving every other stamped key (defense, attack,
+     * profile markers) untouched. Used when a caller wants to adjust an already-profiled mob's level
+     * in place — e.g. {@code MobTypeSpawnListener} adding {@code dimensions.<ENV>.base-level} on top
+     * of a level an EliteMobs-owned mob already decided for itself — without re-deriving or clobbering
+     * that owner's own defense/attack/HP values (unlike {@link #stamp}, which always rewrites all 9
+     * defense keys from scratch and would silently wipe them).
+     */
+    public static void adjustLevel(PersistentDataHolder holder, int level) {
+        Objects.requireNonNull(holder, "holder");
+        holder.getPersistentDataContainer().set(PdcKeys.MOB_LEVEL, PersistentDataType.INTEGER, level);
+    }
+
     /** Stamps scaled attack stats for mob→player symmetric pipeline routing. */
     public static void stampAttack(PersistentDataHolder holder, AttackStats attack) {
         Objects.requireNonNull(holder, "holder");
@@ -199,6 +224,7 @@ public final class MobData {
         container.set(PdcKeys.MOB_ATTACK_PENETRATION, PersistentDataType.DOUBLE, attack.penetration());
         container.set(PdcKeys.MOB_ATTACK_DAMAGE_MODIFIER, PersistentDataType.DOUBLE, attack.damageModifier());
         container.set(PdcKeys.MOB_ATTACK_FIXED_DAMAGE, PersistentDataType.DOUBLE, attack.fixedDamage());
+        container.set(PdcKeys.MOB_ATTACK_MAGIC_RATIO, PersistentDataType.DOUBLE, attack.magicRatio());
     }
 
     /**

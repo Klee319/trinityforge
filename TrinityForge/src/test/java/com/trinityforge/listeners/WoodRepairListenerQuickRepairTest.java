@@ -67,6 +67,22 @@ class WoodRepairListenerQuickRepairTest {
         return stack;
     }
 
+    /**
+     * ArsPaper 実体の刻印だけを持つスタック({@code arspaper:custom_item_id})。
+     * {@code BaseCustomItem#createItemStack} が実際に刻むのはこれ<b>だけ</b>で、
+     * TF の {@code trinityforge:catalog_id} は付かない。出荷 {@code wood-repair.materials} が指す
+     * 圧縮木材({@code oak_wood_1x})は Ars 側の実体なので、修繕素材は必ずこの形で現れる。
+     */
+    private ItemStack arsMaterialStack(String arsItemId, int amount) {
+        ItemStack stack = new ItemStack(Material.STICK, amount);
+        ItemMeta meta = stack.getItemMeta();
+        meta.getPersistentDataContainer().set(
+                new org.bukkit.NamespacedKey("arspaper", "custom_item_id"),
+                org.bukkit.persistence.PersistentDataType.STRING, arsItemId);
+        stack.setItemMeta(meta);
+        return stack;
+    }
+
     private ItemStack damagedSword(int damage) {
         ItemStack stack = new ItemStack(Material.DIAMOND_SWORD);
         ItemMeta meta = stack.getItemMeta();
@@ -134,6 +150,46 @@ class WoodRepairListenerQuickRepairTest {
 
         verify(event, never()).setCancelled(true);
         verify(event, never()).setCurrentItem(any());
+    }
+
+    /**
+     * 2026-08-01 の本命回帰: <b>Ars 刻印しか持たない素材でクイック修繕が成立する</b>こと。
+     *
+     * <p>修正前は {@code CatalogIdentity#catalogIdOf}(TF の {@code trinityforge:catalog_id} だけ)で
+     * 素材を識別していたため、Ars materials.yml 由来の圧縮木材は必ず「IDを持たない普通の棒」と見なされ、
+     * 出荷 yml の素材IDをどう直しても木材修繕は一度も発動しなかった。
+     * このテストを {@code CrossPluginItemResolver#idOf} 導入前のコードへ当てると
+     * {@code setCancelled} が呼ばれず落ちる。
+     */
+    @Test
+    void arsStampedMaterialIsRecognizedForQuickRepair() {
+        when(features.woodRepairMaterial("oak_wood_1x"))
+                .thenReturn(new CraftingFeaturesConfig.WoodRepairMaterial(200, true));
+        ItemStack cursor = arsMaterialStack("oak_wood_1x", 5);
+        ItemStack target = damagedSword(300);
+        InventoryClickEvent event = clickEvent(cursor, target, ClickType.LEFT);
+
+        listener.onInventoryClick(event);
+
+        verify(event, times(1)).setCancelled(true);
+        org.mockito.ArgumentCaptor<ItemStack> repairedCaptor = org.mockito.ArgumentCaptor.forClass(ItemStack.class);
+        verify(event).setCurrentItem(repairedCaptor.capture());
+        assertEquals(100, ((Damageable) repairedCaptor.getValue().getItemMeta()).getDamage(),
+                "Ars刻印のみの素材でも 300 - min(300,200) = 100 まで修繕されること");
+        assertEquals(4, player.getItemOnCursor().getAmount(), "Ars刻印素材も1個消費される");
+    }
+
+    /** TF 刻印(catalog_id)側の経路は Ars 対応後も壊れていないこと(両方読む合流点であることの固定)。 */
+    @Test
+    void tfCatalogStampedMaterialStillWorksAfterArsSupport() {
+        when(features.woodRepairMaterial("tf_side_material"))
+                .thenReturn(new CraftingFeaturesConfig.WoodRepairMaterial(200, true));
+        InventoryClickEvent event =
+                clickEvent(materialStack("tf_side_material", 2), damagedSword(120), ClickType.LEFT);
+
+        listener.onInventoryClick(event);
+
+        verify(event, times(1)).setCancelled(true);
     }
 
     @Test

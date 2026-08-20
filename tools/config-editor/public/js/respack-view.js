@@ -153,7 +153,11 @@
       ]));
     }
     table.appendChild(tbody);
-    return table;
+    /* R (2026-08-04): 8列あるので狭い画面では必ず親幅を超える。親(.main)は overflow-x:hidden
+       なので、ここで自前のスクロール枠に入れないと右側の列(操作ボタン等)が切り落とされて
+       到達できなくなる。table 自身に overflow を当てても効かない(display:block にすると
+       width:100% が効かなくなる)ため、ラッパで包む。 */
+    return h("div", { class: "table-scroll" }, [table]);
   }
 
   function buildReservedSection(status) {

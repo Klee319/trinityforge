@@ -74,6 +74,14 @@
       key
     });
   }
+  function boolField(obj, key, opts) {
+    const o = opts || {};
+    return field(key, window.checkboxInput(!!obj[key], (v) => { obj[key] = v; }), {
+      label: o.label || key,
+      desc: o.desc || "",
+      key
+    });
+  }
 
   // E-1 (2026-07-25): fishing.ocean-biomes は以前 textInput の自由入力のみだったため、タイポで
   // 無効なバイオームキーを設定できてしまっていた。tf-phase3-forms.js の form-cooldowns (T1) や
@@ -483,22 +491,12 @@
     const fortune = ensureObj(working, "fortune");
     ensureArr(vein, "ore-blocks");
     ensureArr(fortune, "fortune-blocks");
-    const suspiciousRespawn = ensureObj(working, "suspicious-block-respawn");
-    const lootTables = ensureObj(suspiciousRespawn, "loot-tables");
 
     const root = h("div", { class: "dedicated-form" });
-    root.appendChild(banner("採掘ツリー専用効果の数値。vein-mining / haste / 幸運連携 / 追加ドロップ(drop-tables)。"
-      + " 旧ガチャ券1〜3のUIは廃止(ドロップテーブルへ統合)。"));
+    root.appendChild(banner("採掘ツリー専用効果の数値。vein-mining / haste / 幸運連携 / 追加ドロップ(drop-tables)。"));
 
-    root.appendChild(card(
-      [h("span", { class: "entry-key-label", text: "怪しいブロックの再生成 (suspicious-block-respawn)" })],
-      [
-        h("div", { class: "form-hint", text:
-          "怪しい砂/怪しい砂利を採掘後、時間経過で再生成する際に使うバニラ考古学ルートテーブル名。"
-          + "左=ブロック種別キー(任意の識別子)、右=バニラ LootTable の名前。" }),
-        stringMapEditor(lootTables, { addLabel: "+ ブロック追加", valuePlaceholder: "例: DESERT_PYRAMID_ARCHAEOLOGY" })
-      ]
-    ));
+    // 2026-07-28: 「怪しいブロックの再生成」は考古学(ブラシ=DIGGING)の設定なので掘削ギミックタブへ移設。
+    // 保存先ファイルは stats/mining-gimmick.yml のままで、掘削タブがコンパニオンとして編集する。
 
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "一括採掘 (vein-mining)" })],
@@ -583,9 +581,7 @@
     delete fell["large-max-extra-logs"];
 
     const root = h("div", { class: "dedicated-form" });
-    root.appendChild(banner("伐採ツリー専用効果。一括伐採上限と追加ドロップ(drop-tables)。"
-      + " 旧リンゴ類(apple/golden-apple/crystal-apple)個別UIは廃止(ドロップテーブルへ統合)。"
-      + " 旧small/large 2本立てのUIは廃止(max-extra-logs 1本 + tier表へ統合済み)。"));
+    root.appendChild(banner("伐採ツリー専用効果。一括伐採上限と追加ドロップ(drop-tables)。"));
 
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "一括伐採 (tree-fell)" })],
@@ -626,37 +622,151 @@
   // ============================================================
   // digging-gimmick.yml (2026-07-23 新設)
   // ============================================================
-  window.buildDiggingGimmickForm = function buildDiggingGimmickForm(data) {
+  // 怪しい砂/砂利の再生成に使うバニラ考古学ルートテーブル(BrushableBlock が受け付けるもの)。
+  // Java 側は org.bukkit.loot.LootTables の定数名として解決し、未知の名前は警告して既定値へ落とす。
+  const ARCHAEOLOGY_LOOT_TABLES = [
+    { value: "DESERT_PYRAMID_ARCHAEOLOGY", primary: "砂漠のピラミッド" },
+    { value: "DESERT_WELL_ARCHAEOLOGY", primary: "砂漠の井戸" },
+    { value: "TRAIL_RUINS_ARCHAEOLOGY_COMMON", primary: "遺跡歩道(通常)" },
+    { value: "TRAIL_RUINS_ARCHAEOLOGY_RARE", primary: "遺跡歩道(レア)" },
+    { value: "OCEAN_RUIN_COLD_ARCHAEOLOGY", primary: "海底遺跡(寒冷)" },
+    { value: "OCEAN_RUIN_WARM_ARCHAEOLOGY", primary: "海底遺跡(温暖)" }
+  ];
+
+  // 2026-07-28: 以前は自由キー×自由文字列のマップエディタで、行の見出しも値も生ID
+  // (suspicious-sand / DESERT_PYRAMID_ARCHAEOLOGY)のままだった。キーは Java 側が
+  // suspicious-sand / suspicious-gravel の2つしか読まないので、固定2行 + 選択式にする。
+  function suspiciousRespawnRows(lootTables) {
+    const ROWS = [
+      { key: "suspicious-sand", label: "怪しい砂", fallback: "DESERT_PYRAMID_ARCHAEOLOGY" },
+      { key: "suspicious-gravel", label: "怪しい砂利", fallback: "TRAIL_RUINS_ARCHAEOLOGY_COMMON" }
+    ];
+    const box = h("div", { class: "stat-rows" });
+    for (const row of ROWS) {
+      const options = ARCHAEOLOGY_LOOT_TABLES.map((o) => ({ value: o.value, primary: o.primary, secondary: o.value }));
+      const current = lootTables[row.key] == null ? "" : String(lootTables[row.key]);
+      if (current && !options.some((o) => o.value === current)) {
+        options.unshift({ value: current, primary: current, secondary: "" });
+      }
+      box.appendChild(h("div", { class: "form-field" }, [
+        h("span", { class: "form-label", text: row.label }),
+        window.listSelect({
+          value: current,
+          options,
+          placeholder: `未設定 (既定: ${row.fallback})`,
+          allowCustom: true,
+          customPlaceholder: "LootTables 定数名を直接入力",
+          onChange: (v) => {
+            if (!v) delete lootTables[row.key];
+            else lootTables[row.key] = String(v).trim().toUpperCase();
+          }
+        })
+      ]));
+    }
+    return box;
+  }
+
+  window.buildDiggingGimmickForm = function buildDiggingGimmickForm(data, opts) {
     const working = data && typeof data === "object" ? data : {};
     const durabilityExp = ensureObj(working, "durability-exp");
+    // 2026-07-28: 「怪しいブロックの再生成」は考古学(ブラシ=DIGGING)の設定なので採掘タブから
+    // ここへ移設した。保存先ファイルは stats/mining-gimmick.yml のままなので、コンパニオンとして
+    // 読み込み getExtraSaves で一緒に保存する(farming-gimmick の食事ギミックと同じ方式)。
+    const miningGimmickData = opts && opts.miningGimmickData && typeof opts.miningGimmickData === "object"
+      ? opts.miningGimmickData : undefined;
+    const hasMiningGimmick = miningGimmickData !== undefined;
 
     const root = h("div", { class: "dedicated-form" });
     root.appendChild(banner("掘削(シャベル適正ブロック破壊)ギミック。追加ドロップ(drop-tables) + 耐久消費EXP換算。"));
+    if (hasMiningGimmick) {
+      const suspiciousRespawn = ensureObj(miningGimmickData, "suspicious-block-respawn");
+      const lootTables = ensureObj(suspiciousRespawn, "loot-tables");
+      root.appendChild(card(
+        [h("span", { class: "entry-key-label", text: "怪しいブロックの再生成" })],
+        [
+          h("div", { class: "form-hint", text:
+            "怪しい砂/怪しい砂利を壊したあと再生成させたとき、ブラシで掘り出せる中身をどの"
+            + "バニラ考古学ルートテーブルから抽選するか。再生成そのものの発生率はステータス"
+            + "「怪しいブロック再生成率」で決まります。" }),
+          suspiciousRespawnRows(lootTables),
+          h("div", { class: "field-hint", text: "保存先: stats/mining-gimmick.yml の suspicious-block-respawn" })
+        ]
+      ));
+    }
+    // 2026-08-19 (W-146): 採掘ギミックには「採掘加速」カードがあるのに、掘削側には
+    // 1枚も無かった(= haste-active-digging の amplifier / duration / CT / tier表を editor から
+    // 一切いじれない)。数値は mining 側と意図的にミラーしない独立の値なので、
+    // 保存先も stats/digging-gimmick.yml 本体のまま(コンパニオン扱いにはしない)。
+    const hasteDigging = ensureObj(working, "haste-active-digging");
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "掘削加速 (haste-active-digging)" })],
+      [
+        h("div", { class: "form-hint", text:
+          "シャベル専用のアクティブスキル。CTのバケツは採掘加速と共有するので、ツールを持ち替えて"
+          + "連発しても合計アップタイムは増えません(採掘側のCTが残っていればこちらも撃てません)。" }),
+        grid([
+          numField(hasteDigging, "amplifier", {
+            label: "Haste段階(グローバル既定値)", int: true,
+            desc: "0=I, 1=II。下のtier表に該当tier行がある場合はそちらが優先され、この値は使われない。"
+          }),
+          numField(hasteDigging, "duration-ticks", {
+            label: "持続tick(グローバル既定値)", int: true,
+            desc: "20=1秒。下のtier表に該当tier行がある場合はそちらが優先され、この値は使われない。"
+          }),
+          numField(hasteDigging, "cooldown-ticks", {
+            label: "CT(tick)", int: true,
+            desc: "tierに関わらず常にこの値(CT短縮は haste-active-digging-cooldown-reduction stat専用。tier表には含めない)。"
+          })
+        ]),
+        sub("tier別設定 (tiers) — 該当tier行があればグローバル既定値より優先される (CTは含まない)"),
+        tierTableEditor(hasteDigging, [
+          { key: "amplifier", label: "Haste段階", int: true },
+          { key: "duration-ticks", label: "持続(tick)", int: true }
+        ])
+      ]
+    ));
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "追加ドロップ (drop-tables)" })],
       [dropTableEditor(working, ["drop-tables"], { triggerChance: true })]
     ));
+    // 2026-07-28(数値のギミックyml集約): 旧「%そのものをtierとして流用する」単一tiers表は廃止。
+    // feature別(vanilla-exp/job-exp)に独立したtiers表 + cap-percent へ置き換えた。tierは
+    // digging-durability-vanilla-exp/digging-durability-job-exp(いずれもSCALE)のノードvalueで決まる。
+    const vanillaExp = ensureObj(durabilityExp, "vanilla-exp");
+    const jobExp = ensureObj(durabilityExp, "job-exp");
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "耐久消費EXP換算 (durability-exp)" })],
       [
         grid([
           numField(durabilityExp, "durability-per-percent", {
             label: "1%ボーナスに必要な累積耐久消費量(グローバル既定値)", int: true,
-            desc: "例: 100なら、シャベルの耐久を100消費するごとに+1%(上限までクランプ)。上限%自体はスキルツリー側で決まる。"
-              + "下のtier表に該当tier行がある場合はそちらが優先され、この値は使われない。"
+            desc: "例: 100なら、シャベルの耐久を100消費するごとに+1%(上限cap-percentまでクランプ)。"
+              + "下の各tier行が durability-per-percent を個別に持つ場合はそちらが優先される。"
           })
         ]),
-        sub("tier別設定 (tiers) — 該当tier行があればグローバル既定値より優先される"),
-        h("div", { class: "form-hint", text:
-          "tierは digging-durability-vanilla-exp(バニラEXP、上限%そのもの)/digging-durability-job-exp"
-          + "(職業EXP、上限%そのもの)それぞれのスキルツリーノードvalueをそのまま流用する"
-          + "(例: 上限50%のノード保持者はtier=50の行を参照)。" }),
-        tierTableEditor(durabilityExp, [
-          { key: "durability-per-percent", label: "1%あたり必要耐久消費量", int: true }
-        ])
+        sub("バニラEXP上限% (vanilla-exp.tiers) — digging-durability-vanilla-exp のtierで引く"),
+        tierTableEditor(vanillaExp, [
+          { key: "cap-percent", label: "上限%", int: true },
+          { key: "durability-per-percent", label: "1%あたり必要耐久消費量(任意、省略でグローバル既定値)", int: true }
+        ], {
+          emptyTitle: "tier未設定(上限0%=無効)",
+          emptyHint: "「+ tier追加」でtier1から順に上限%を設定してください(未設定のtierは無効扱い)。"
+        }),
+        sub("職業EXP上限% (job-exp.tiers) — digging-durability-job-exp のtierで引く"),
+        tierTableEditor(jobExp, [
+          { key: "cap-percent", label: "上限%", int: true },
+          { key: "durability-per-percent", label: "1%あたり必要耐久消費量(任意、省略でグローバル既定値)", int: true }
+        ], {
+          emptyTitle: "tier未設定(上限0%=無効)",
+          emptyHint: "「+ tier追加」でtier1から順に上限%を設定してください(未設定のtierは無効扱い)。"
+        })
       ]
     ));
-    return { element: root, getData: () => working };
+    return {
+      element: root,
+      getData: () => working,
+      getExtraSaves: () => hasMiningGimmick ? [{ id: "mining-gimmick", data: miningGimmickData }] : []
+    };
   };
 
   // ============================================================
@@ -699,10 +809,10 @@
         numField(bee, "calm-radius", { label: "ハチ鎮静半径" })
       ])]
     ));
-
     if (foodSubform) {
-      root.appendChild(banner("以下の「食事ギミック」は stats/food-gimmick.yml という別ファイルです"
-        + "(ここへ表示統合していますが、ファイル自体は分離したままです)。保存時は両方まとめて保存されます。"));
+      // 2026-08-09: 「別ファイルだが一緒に保存する」旨の長い説明文は邪魔だという指摘を受けて撤去し、
+      // 区切りの見出し1行だけ残す(見出しごと消すと農業の設定の続きに見えてしまう)。
+      root.appendChild(sub("食事ギミック (stats/food-gimmick.yml)"));
       root.appendChild(foodSubform.element);
     }
 
@@ -725,9 +835,14 @@
     const sat = ensureObj(working, "satiety-buff");
     const customFoods = ensureObj(working, "custom-foods");
     ensureArr(immun, "cancelled-debuff-effects");
+    // 2026-08-09新設: custom-foodsに満腹度設定の無いカスタムID付き食料(圧縮食料の81倍/729倍等)を
+    // 食べられなくするギミック。判定基準は「custom-foodsへの登録の有無」そのもの。
+    const ban = ensureObj(working, "unregistered-custom-food-ban");
+    ensureArr(ban, "excluded-materials");
 
     const root = h("div", { class: "dedicated-form" });
-    root.appendChild(banner("食事ギミック。ゴミ食の定義・免疫・逆転・満腹バフ・カスタム食料。"));
+    // 2026-08-09: 見出し代わりの説明バナーは、農業ギミックタブへ統合表示したときに
+    // 「別ファイル」バナーと2行続いて邪魔になるため撤去した(区切りは呼び出し側の見出しが担う)。
 
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "ゴミ食 Material" })],
@@ -753,6 +868,19 @@
       [
         h("div", { class: "mini-label", text: "カタログアイテムに満腹度/隠し満腹度を割り当てる (custom-foods)。" }),
         customFoodsEditor(customFoods, catalogCandidates)
+      ]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "未登録カスタム食料の禁止" })],
+      [
+        h("div", {
+          class: "mini-label",
+          text: "カタログ/materials定義のカスタムIDを持つが上の「カスタム食料」に未登録の食料は、素材として扱い食べられなくなる。除外Materialに載っている土台のアイテムは常に食べられる。"
+        }),
+        boolField(ban, "enabled", { label: "有効" }),
+        h("div", { class: "mini-label", text: "除外Material(このMaterialを土台にした品は未登録でも食べられる)" }),
+        stringListEditor(ban["excluded-materials"], { material: true, addLabel: "+ 除外Material追加" }),
+        textField(ban, "message", { label: "禁止時メッセージ" })
       ]
     ));
     return { element: root, getData: () => working };
@@ -912,6 +1040,68 @@
     return wrap;
   }
 
+  /**
+   * fishing.unlock-groups.<groupId> (機能解放追加用テーブル、任意キー) の遅延生成エディタ。
+   * groups.<id> と完全に同一の Category スキーマだが、カテゴリごとに機能解放が必要な点だけが違う。
+   * fishGroupEditor(groups.fish 専用)と同じ「設定するまで書き込まない」方式を treasure/junk/fish の
+   * 3グループ全てに適用する ── ensureObj で丸ごと実体化すると、フォームを開いただけで
+   * fishing.unlock-groups: {} が yml へ書き戻ってしまう(config-editor.md の lazy-touch 注意事項と同根)。
+   * 解放は運用者がスキルツリー側の dedicated-effects に drop:fishing:<groupId>:<catId> を置くことで行う
+   * (lib/gate-vocabulary.js の extractDropCategories が groups と同じ形式でこの categoryId を語彙へ出す)。
+   * @param {object} fishing fishing直下のworking
+   * @param {string} groupId "treasure" | "junk" | "fish"
+   * @param {string} groupLabelJa カード内の説明用ラベル(例:"宝")
+   * @param {object} [dropOpts] dropTableEditor へそのまま渡すopts
+   */
+  function unlockGroupEditor(fishing, groupId, groupLabelJa, dropOpts) {
+    const wrap = h("div", {});
+    function hasGroup() {
+      return !!(fishing["unlock-groups"] && typeof fishing["unlock-groups"] === "object"
+        && Object.prototype.hasOwnProperty.call(fishing["unlock-groups"], groupId));
+    }
+    function renderEnabled() {
+      wrap.innerHTML = "";
+      wrap.appendChild(h("div", {
+        class: "mini-label",
+        text: "解放済みのカテゴリだけがデフォルトテーブルと同じ抽選プールへ合流します。"
+          + "解放するとその分だけ既存アイテムの排出率は下がります。"
+      }));
+      wrap.appendChild(h("div", {
+        class: "mini-label",
+        text: `解放はカテゴリ単位です。スキルツリー側のノードに drop:fishing:${groupId}:<カテゴリID> を書いてください。`
+      }));
+      wrap.appendChild(dropTableEditor(fishing, ["unlock-groups", groupId], dropOpts));
+      wrap.appendChild(h("div", { class: "form-actions" }, [
+        h("button", {
+          class: "btn-small danger", type: "button", text: `設定を解除する(${groupLabelJa}の追加テーブルなし)`,
+          onclick: () => {
+            if (fishing["unlock-groups"] && typeof fishing["unlock-groups"] === "object") {
+              delete fishing["unlock-groups"][groupId];
+              if (Object.keys(fishing["unlock-groups"]).length === 0) delete fishing["unlock-groups"];
+            }
+            renderDisabled();
+          }
+        })
+      ]));
+    }
+    function renderDisabled() {
+      wrap.innerHTML = "";
+      wrap.appendChild(emptyGuide(
+        "未設定(追加テーブルなし)",
+        `「設定する」を押すまでは fishing.unlock-groups.${groupId} は保存されません。`
+      ));
+      wrap.appendChild(h("button", {
+        class: "btn-small", type: "button", text: `+ ${groupLabelJa}の追加テーブルを設定する`,
+        onclick: () => {
+          ensureObj(fishing, "unlock-groups")[groupId] = { categories: {} };
+          renderEnabled();
+        }
+      }));
+    }
+    if (hasGroup()) renderEnabled(); else renderDisabled();
+    return wrap;
+  }
+
   window.buildFishingGimmickForm = function buildFishingGimmickForm(data) {
     const working = data && typeof data === "object" ? data : {};
     const fishing = ensureObj(working, "fishing");
@@ -919,13 +1109,11 @@
     ensureArr(working, "junk-materials");
     ensureArr(working, "treasure-materials");
     ensureArr(fishing, "ocean-biomes");
-    const xp = ensureObj(working, "xp-bottle-store");
     const fishSell = ensureObj(working, "fish-sell");
     ensureObj(fishSell, "prices");
 
     const root = h("div", { class: "dedicated-form" });
-    root.appendChild(banner("釣りギミック。宝/ゴミの重み付きドロップテーブル + 釣り運連携比率。"
-      + " 旧ガチャ券4・5のUIは廃止(ドロップテーブルへ統合)。"));
+    root.appendChild(banner("釣りギミック。宝/ゴミの重み付きドロップテーブル + 釣り運連携比率。"));
 
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "釣りスキル連携 (fishing)" })],
@@ -980,6 +1168,18 @@
       [h("span", { class: "entry-key-label", text: "魚グループ (groups.fish、既定は未設定=バニラ釣果維持)" })],
       [fishGroupEditor(fishing)]
     ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "宝グループ 追加解放テーブル (unlock-groups.treasure、既定は未設定)" })],
+      [unlockGroupEditor(fishing, "treasure", "宝", { triggerChance: false })]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "ゴミグループ 追加解放テーブル (unlock-groups.junk、既定は未設定)" })],
+      [unlockGroupEditor(fishing, "junk", "ゴミ", { triggerChance: false, scrapExempt: true })]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "魚グループ 追加解放テーブル (unlock-groups.fish、既定は未設定)" })],
+      [unlockGroupEditor(fishing, "fish", "魚", { triggerChance: false })]
+    ));
     root.appendChild(window.collapsibleCard(
       [h("span", { class: "entry-key-label", text: "バニラ釣果フォールバック分類 (junk/treasure-materials)" })],
       [
@@ -990,26 +1190,6 @@
         stringListEditor(working["treasure-materials"], { material: true, addLabel: "+ 追加" })
       ],
       { expanded: false }
-    ));
-    root.appendChild(card(
-      [h("span", { class: "entry-key-label", text: "経験値瓶格納 (xp-bottle-store)" })],
-      [
-        grid([
-          numField(xp, "store-amount", {
-            label: "経験値瓶 格納量(グローバル既定値)", int: true,
-            desc: "下のtier表に該当tier行がある場合はそちらが優先され、この値は使われない。"
-          }),
-          numField(xp, "return-rate", {
-            label: "還元率(0-1、グローバル既定値)",
-            desc: "取り出し時に返る割合(0.0〜1.0)。下のtier表に該当tier行がある場合はそちらが優先される。"
-          })
-        ]),
-        sub("tier別設定 (tiers) — 該当tier行があればグローバル既定値より優先される"),
-        tierTableEditor(xp, [
-          { key: "store-amount", label: "格納量", int: true },
-          { key: "return-rate", label: "還元率(0-1)" }
-        ])
-      ]
     ));
     return { element: root, getData: () => working };
   };
@@ -1023,15 +1203,12 @@
     "FLETCHER", "LEATHERWORKER", "MASON", "NITWIT", "NONE"
   ];
   // 内部キー(英語)は維持。表示のみ日本語化する。
-  const VILLAGER_PROFESSION_LABELS = {
-    WEAPONSMITH: "武器鍛冶", ARMORER: "防具鍛冶", TOOLSMITH: "道具鍛冶",
-    CLERIC: "聖職者", LIBRARIAN: "司書", FARMER: "農民", FISHERMAN: "漁師",
-    SHEPHERD: "羊飼い", BUTCHER: "肉屋", CARTOGRAPHER: "地図職人",
-    FLETCHER: "矢師", LEATHERWORKER: "革細工師", MASON: "石工",
-    NITWIT: "能無し", NONE: "職業なし"
-  };
+  // 2026-07-29: 辞書は labels.js へ一本化した (スキルツリーの trade: ゲートからも同じ名前で
+  // 引けるようにするため)。ここでは参照するだけで、自前の辞書は持たない。
   function professionLabel(id) {
-    return VILLAGER_PROFESSION_LABELS[id] || id;
+    return window.LABELS && typeof window.LABELS.professionLabel === "function"
+      ? window.LABELS.professionLabel(id)
+      : (id || "");
   }
 
   window.buildVillagerTradesForm = function buildVillagerTradesForm(data) {
@@ -1172,6 +1349,9 @@
     ["CONDUIT_POWER", "コンジットパワー"], ["DOLPHINS_GRACE", "イルカの好意"],
     ["BAD_OMEN", "不吉な予感"], ["HERO_OF_THE_VILLAGE", "村の英雄"]
   ];
+  // mob-abilities-form.js の POTION_EFFECT_IDS(候補一覧のみ・JA無し)と同じ集合を指す。
+  // 新しい辞書を増やさず、ここで作った日本語対応表を window 経由で共有する。
+  window.POTION_EFFECT_LABELS_JA = Object.fromEntries(POTION_EFFECT_OPTIONS);
   function potionEffectSelect(value, onChange) {
     const cur = value == null ? "" : String(value);
     const known = POTION_EFFECT_OPTIONS.some(([id]) => id === cur);
@@ -1302,7 +1482,38 @@
               onclick: () => { delete host[id]; render(); }
             })
           ];
-          const body = [textField(role, "label", { label: "表示名" })];
+          // label / icon / description は表示専用項目(ロール選択GUIと /tf role のチャット
+          // 表示に使う)。効果には一切影響しない。icon が空/不正なら既定アイコンへ倒れる。
+          // 2026-07-29: 入力UIをアイテムカタログへ揃えた。
+          //   表示名 = リッチテキスト欄(MiniMessage) / 説明 = 複数行 lore / アイコン = Materialセレクト
+          //   (以前は3つとも素のテキスト欄で、アイコンはタイポ(FIDHING_LOD)がそのまま保存できた)
+          if (!Array.isArray(role.description)) {
+            role.description = role.description == null || String(role.description) === ""
+              ? []
+              : [String(role.description)];
+          }
+          const body = [
+            field("label", window.richTextInput(role.label == null ? "" : String(role.label),
+              "minimessage", (v) => { role.label = v; }), {
+              label: "表示名",
+              desc: "GUIとチャットに出す職業名。MiniMessage記法で色を付けられます。"
+            }),
+            field("icon", window.materialInput(role.icon || "", "role-icon-list", (v) => {
+              if (v) role.icon = v; else delete role.icon;
+            }, { allowCustom: false }), {
+              label: "GUIアイコン",
+              desc: "ロール選択GUI(/tf status のロールアイコンから開く)で使うMaterial。"
+                + "空なら既定アイコン(戦闘職=鉄の剣 / 補助職=本)。"
+            }),
+            h("div", { class: "form-field" }, [
+              window.fieldLabelEl("description", {
+                label: "説明Lore (description)",
+                desc: "GUIと /tf role のチャット表示に添える説明。行ごとにMiniMessage記法が使えます。",
+                hideKey: true
+              }),
+              window.renderLoreRows(role.description, "minimessage", () => {}, () => render())
+            ])
+          ];
           if (kind === "combat") {
             ensureObj(role, "attack-buffs");
             ensureObj(role, "defense-buffs");
@@ -1358,11 +1569,91 @@
     ));
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "ロール変更 (role-change)" })],
-      [field("allow-command", window.checkboxInput(!!change["allow-command"], (v) => {
-        change["allow-command"] = v;
-      }), { label: "/tf role set を許可", key: "allow-command", desc: "非戦闘時のみ" })]
+      [
+        // 2026-08-05 (W-28): /tf role set 廃止にあわせて allow-command から改名。
+        // false の意味も「一切変更不可」から「初回の無料就職以外はアイテム消費でのみ変更可」へ変えた。
+        // 旧キーしか無い yml はサーバ側が allow-command を読むので、ここでは新キーだけを出す。
+        field("allow-change", window.checkboxInput(
+          change["allow-change"] === undefined
+            ? (change["allow-command"] === undefined ? true : !!change["allow-command"])
+            : !!change["allow-change"],
+          (v) => {
+            change["allow-change"] = v;
+            // 旧キーが残っていると「どちらが効くのか」が読めなくなるので、保存時に畳む。
+            delete change["allow-command"];
+          }), {
+          label: "職業変更を許可するか", key: "allow-change",
+          desc: "ON = 下の「変更の待ち時間(分)」による通常のクールダウン制。"
+            + "OFF = 初回の無料就職(下の「初回は待ち時間を刻まない」がONのとき)以外は、"
+            + "「転職の証」(role_reselect_ticket)を手に持って右クリックしたときだけ変更できる。"
+            + "OFF のときは解除(/tf role clear)も塞がる — 枠を空にできると初回の無料就職を"
+            + "無限に再利用できてしまうため。"
+            + "戦闘中の可否は下の「交戦中ガードの半径」で決まる(既定では戦闘中でも変更できる)。"
+        }),
+        // 2026-07-31: 待ち時間が無いと、採掘するときだけ鉱夫・釣るときだけ漁師へ切り替えれば
+        // 全系統に最大倍率が乗り、補助職の選択そのものが意味を失う。
+        field("cooldown-minutes", window.numberInput(change["cooldown-minutes"], (v) => {
+          if (v == null || v === "") delete change["cooldown-minutes"];
+          else change["cooldown-minutes"] = Math.max(0, Number(v));
+        }, { int: false }), {
+          label: "変更の待ち時間(分)", key: "cooldown-minutes",
+          desc: "0 で待ち時間なし。戦闘職と補助職は別々に数える。"
+            + "0 にすると「採掘するときだけ鉱夫・釣るときだけ漁師」で全系統に最大倍率が乗るため、"
+            + "補助職の選択そのものが意味を失う。上限は7日。"
+            + "解除(/tf role clear)でも刻む(刻まないと解除→即再選択が迂回路になる)。"
+        }),
+        field("first-choice-free", window.checkboxInput(
+          change["first-choice-free"] === undefined ? true : !!change["first-choice-free"], (v) => {
+            change["first-choice-free"] = v;
+          }), {
+          label: "初回は待ち時間を刻まない", key: "first-choice-free",
+          desc: "空の枠を初めて埋めるときは刻まない。"
+            + "「1つ選んで説明を読み、選び直す」までは無料になるので、始めたばかりの人が詰まらない。"
+        }),
+        // 2026-07-31: 以前は 16 のハードコード＋Bukkit の Monster 判定だったため、ネザーの
+        // ゾンビピグリンや壁越しの洞窟モブで常時変更不可・逆にエンドラ戦では素通りしていた。
+        field("nearby-enemy-radius", window.numberInput(change["nearby-enemy-radius"], (v) => {
+          if (v == null || v === "") delete change["nearby-enemy-radius"];
+          else change["nearby-enemy-radius"] = Math.max(0, Number(v));
+        }, { int: false }), {
+          label: "交戦中ガードの半径(ブロック)", key: "nearby-enemy-radius",
+          desc: "0 でガードを無効(既定)。上限は64。"
+            + "0 より大きくすると、その半径内に「自分を狙っている敵」が居る間だけ変更できなくなる。"
+            + "GUIを開く操作と /tf role clear はこのガードを通さない(説明を読むだけ・外すだけなので)。"
+            + "待ち時間とは別の機構で、乗せ替え悪用の抑止は待ち時間側が担う。"
+            + "待ち時間と両方を 0 にすると、被弾直前に tank・与ダメ直前に mage へ無制限に往復できる。"
+        })
+      ]
     ));
 
-    return { element: root, getData: () => working };
+    // 画面を開いただけで description: [] が生えるのを防ぐ(編集で配列化しているため)。
+    function pruneEmptyDescriptions(host) {
+      for (const role of Object.values(host || {})) {
+        if (!role || typeof role !== "object") continue;
+        if (Array.isArray(role.description)) {
+          // **配列は差し替えず in-place で刈る。** 説明文の行エディタ(renderLoreRows)は
+          // 描画時に role.description を掴んでから list[idx] = v で書き込むため、
+          // ここで新しい配列へ差し替えると掴んでいた方が孤児になり、以後その行の編集が
+          // working に届かない。getData は画面を開いた直後(app.js syncBaseFromEditor)と
+          // beforeunload のたびに呼ばれるので、「開いてから最初の1回の編集だけが
+          // 未保存警告も出さずに消える」形で出る (2026-08-05 修正。レベルテーブルの
+          // pruneEmptyNoSkillExpMobs と同じ壊れ方)。
+          const lines = role.description;
+          for (let i = lines.length - 1; i >= 0; i--) {
+            if (String(lines[i] == null ? "" : lines[i]) === "") lines.splice(i, 1);
+          }
+          if (!lines.length) delete role.description;
+        }
+      }
+    }
+
+    return {
+      element: root,
+      getData: () => {
+        pruneEmptyDescriptions(combat);
+        pruneEmptyDescriptions(support);
+        return working;
+      }
+    };
   };
 })();

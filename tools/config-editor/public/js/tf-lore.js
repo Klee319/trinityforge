@@ -36,13 +36,31 @@
     ]);
   }
 
+  // 職業EXP増加: 全スキル一律(skill-exp-bonus) + スキル別15キー(2026-08-05 に3→15へ拡張)。
+  // POWER は EXP がプレイヤー行動から直接付与されないので存在しない(stats/lore.yml のコメント参照)。
+  const SKILL_EXP_BONUS_KEYS = [
+    "skill-exp-bonus",
+    "woodcutting-exp-bonus", "farming-exp-bonus", "digging-exp-bonus",
+    "mining-exp-bonus", "fishing-exp-bonus", "alchemy-exp-bonus", "enchanting-exp-bonus",
+    "smithing-exp-bonus", "ars-smithing-exp-bonus", "ars-magic-exp-bonus", "archery-exp-bonus",
+    "light-weapons-exp-bonus", "heavy-weapons-exp-bonus",
+    "light-armor-exp-bonus", "heavy-armor-exp-bonus"
+  ];
+
   function inferLoreCategory(stat) {
     const s = String(stat || "").toLowerCase();
     // 2026-07-23 7分類再編 (attack/defense/craft/gathering/utility/ars/other、旧 support は utility へ改名)。
     // entry.category が優先されるため、これは新規statや category 未設定時のフォールバックに過ぎない。
     // CT(item-cooldown) と 効率強化増幅(tool-enchant-*) は「その他」。
     if (s.includes("item-cooldown") || s.startsWith("tool-enchant")) return "other";
-    if (s.startsWith("craft-") || ["lapis-cost-reduction", "material-refund-chance", "ingredient-save-chance", "ritual-quality-bonus", "workbench-quality-bonus"].includes(s)) return "craft";
+    // 職業EXP増加(スキル別)は attack/defense の部分一致より先に判定する。
+    // ここを下(utility の配列)に置くと light-armor-exp-bonus / heavy-armor-exp-bonus が
+    // "armor" の部分一致で防御へ落ちる(Java 側 StatCategoryInference も同じ理由で
+    // 部分一致より前に置いている)。
+    if (SKILL_EXP_BONUS_KEYS.includes(s)) return "utility";
+    if (s.startsWith("craft-") || s.startsWith("workbench-") || s.startsWith("ritual-")
+      // 2026-08-14: lapis-cost-reduction を廃止(ArsPaper の消費リスナーごと削除)。
+      || ["material-refund-chance", "ingredient-save-chance"].includes(s)) return "craft";
     if (["mining-fortune", "fishing-luck", "fishing-bonus", "suspicious-respawn-chance", "hive-harvest-fortune"].includes(s)) return "gathering";
     if (["mana", "spell", "glyph", "thread", "slot", "arcane", "source-cost-reduction"].some((k) => s.includes(k))) return "ars";
     if ([
@@ -51,9 +69,13 @@
     ].some((k) => s.includes(k))) return "attack";
     if (["defense", "resistance", "armor", "max-health", "knockback", "dodge", "reduction", "health-regen"].some((k) => s.includes(k))) return "defense";
     if ([
-      "move-speed", "hunger-save-chance", "mob-drop-bonus", "skill-exp-bonus", "loot-luck", "mob-drop-quality", "gacha-rate-bonus", "food-save-chance",
+      "move-speed", "hunger-save-chance", "mob-drop-bonus", "loot-luck", "mob-drop-quality", "gacha-rate-bonus", "food-save-chance",
       // 2026-07-24 新規: バニラEXP/追加ドロップ/満腹度/繁殖・成長
       "kill-vanilla-exp-bonus", "break-vanilla-exp-bonus", "vanilla-exp-bonus", "breeding-vanilla-exp-bonus",
+      // 2026-08-15: 破壊時バニラEXPの採取スキル別キー。共通キーと同じ utility に置く
+      // (ここに無いと mining- を含む名前が上の gathering/attack の部分一致より後で other へ落ちる)。
+      "mining-break-vanilla-exp-bonus", "woodcutting-break-vanilla-exp-bonus",
+      "digging-break-vanilla-exp-bonus", "farming-break-vanilla-exp-bonus",
       "woodcutting-extra-drop-chance", "harvest-extra-drop-chance", "food-restore-bonus", "hidden-saturation-bonus",
       "breeding-extra-child-chance", "bred-animal-growth-bonus", "planted-crop-growth-bonus"
     ].includes(s)) return "utility";
@@ -191,10 +213,14 @@
       const label = (window.LABELS && window.LABELS.statLabel) ? window.LABELS.statLabel(key) : key;
       const statDesc = (window.LABELS && typeof window.LABELS.statDescription === "function")
         ? window.LABELS.statDescription(key) : "このステータスの実装上の説明は未登録です。";
-      const keyLabel = h("span", { class: "lore-stat-key", title: key }, [
+      // 2026-07-31: 親 span の title 属性を撤去した。HTML の title は子孫にも効くため、
+      // helpIcon の独自ポップオーバーとブラウザ標準ツールチップが同時に出ていた
+      // (説明文の MiniMessage プレースホルダがそのまま見える症状)。キー名は helpIcon の
+      // keyLabel(ツールチップ先頭行)と隣の mini-label で見せる。
+      const keyLabel = h("span", { class: "lore-stat-key" }, [
         h("span", { class: "drag-handle", text: "⠿", title: "ドラッグで表示順を入れ替え" }),
         h("span", { text: label && label !== key ? label : key }),
-        window.helpIcon(statDesc),
+        window.helpIcon(statDesc, { keyLabel: "キー: " + key }),
         label && label !== key ? h("span", { class: "mini-label", text: " " + key }) : null
       ]);
 
@@ -275,6 +301,8 @@
         ])
       ]);
       row.dataset.statKey = key;
+      // 入力欄の上で始まったドラッグは行の並べ替えにしない(理由は guardRowDragFromInputs)。
+      window.guardRowDragFromInputs(row);
 
       row.addEventListener("dragstart", (ev) => {
         dragKey = key;
@@ -350,10 +378,9 @@
           window.checkboxInput(B["show-owner"] !== false, (v) => { B["show-owner"] = v; }),
           h("span", { text: "所有者行を表示 (show-owner)" })
         ]),
-        h("div", { class: "sub-title", text: "所有者行テンプレート (owner-line)", title: ownerDesc }, [
-          window.helpIcon(ownerDesc)
-        ]),
-        window.richTextInput(B["owner-line"] || "", "minimessage", (v) => { B["owner-line"] = v; })
+        window.subTitleEl("所有者行テンプレート (owner-line)", ownerDesc),
+        window.richTextInput(B["owner-line"] || "", "minimessage", (v) => { B["owner-line"] = v; },
+          { placeholders: ["owner"] })
       ]));
 
       const reqDesc = window.LABELS && typeof window.LABELS.fieldDesc === "function"
@@ -363,10 +390,10 @@
           window.checkboxInput(B["show-use-requirement"] !== false, (v) => { B["show-use-requirement"] = v; }),
           h("span", { text: "使用制限行を表示 (show-use-requirement)" })
         ]),
-        h("div", { class: "sub-title", text: "使用制限行テンプレート (use-requirement-line)", title: reqDesc }, [
-          window.helpIcon(reqDesc)
-        ]),
-        window.richTextInput(B["use-requirement-line"] || "", "minimessage", (v) => { B["use-requirement-line"] = v; })
+        window.subTitleEl("使用制限行テンプレート (use-requirement-line)", reqDesc),
+        window.richTextInput(B["use-requirement-line"] || "", "minimessage",
+          (v) => { B["use-requirement-line"] = v; },
+          { placeholders: ["level", "skill"] })
       ]));
 
       return card([h("span", { class: "entry-key-label", text: "所有者・使用制限行 (bind)" })], [body]);
@@ -382,10 +409,10 @@
         + "<icon>=アイコン文字列 / <name>=ステ表示名 / <value>=符号・単位・色つきの値。"
         + "例: <gray><icon><name>：<value></gray>";
       body.appendChild(h("div", { class: "lore-layout-section" }, [
-        h("div", { class: "sub-title", text: "ステータス表示テンプレート (line-template)", title: templateDesc }, [
-          window.helpIcon(templateDesc)
-        ]),
-        window.richTextInput(L["line-template"] || "", "minimessage", (v) => { L["line-template"] = v; })
+        window.subTitleEl("ステータス表示テンプレート (line-template)", templateDesc),
+        // 差し込みタグを宣言しないと、出荷値のように <icon> を含む値で GUI モードが常に無効になる。
+        window.richTextInput(L["line-template"] || "", "minimessage", (v) => { L["line-template"] = v; },
+          { placeholders: ["icon", "name", "value"] })
       ]));
 
       // スコア表示テンプレート (品質スコア行)。line-template と同じ GUI/簡易編集 UIUX。
@@ -395,11 +422,10 @@
         + "<tier>=ティア色付きの【ティア名】 / <tier-name>=色なしのティア名 / <score>=品質スコア値。"
         + "例: " + scoreTemplateDefault;
       body.appendChild(h("div", { class: "lore-layout-section" }, [
-        h("div", { class: "sub-title", text: "スコア表示テンプレート (score-line-template)", title: scoreTemplateDesc }, [
-          window.helpIcon(scoreTemplateDesc)
-        ]),
+        window.subTitleEl("スコア表示テンプレート (score-line-template)", scoreTemplateDesc),
         window.richTextInput(L["score-line-template"] || scoreTemplateDefault, "minimessage",
-          (v) => { L["score-line-template"] = v; })
+          (v) => { L["score-line-template"] = v; },
+          { placeholders: ["tier", "tier-name", "score"] })
       ]));
 
       // 色ルール (colors.fixed / colors.roll)。旧 positive-color/negative-color は互換のため
@@ -474,7 +500,7 @@
       renderAdv(hasAdv);
 
       return h("div", { class: "sub-section" }, [
-        h("div", { class: "sub-title", text: title, title: desc }),
+        window.subTitleEl(title, desc),
         boxBody,
         advBox
       ]);
@@ -553,6 +579,8 @@
               }
             })
           ]);
+          // 入力欄の上で始まったドラッグは行の並べ替えにしない(理由は guardRowDragFromInputs)。
+          window.guardRowDragFromInputs(row);
           row.addEventListener("dragstart", (ev) => {
             dragIdx = idx;
             row.classList.add("dragging");

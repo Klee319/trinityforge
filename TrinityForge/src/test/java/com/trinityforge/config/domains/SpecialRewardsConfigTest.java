@@ -129,7 +129,7 @@ class SpecialRewardsConfigTest {
         assertFalse(new SpecialRewardsConfig().isKnown("anything"));
     }
 
-    // --- display.head-offset-y (B1: 称号頭上表示のオフセットconfig化) -------------------------------------
+    // --- display.nametag-clearance (2026-08-03: 称号は頭上の別行。ネームタグ上端からの余白で持つ) ---
 
     private static Plugin fakePlugin(File dataFolder) {
         InvocationHandler handler = (proxy, method, args) -> switch (method.getName()) {
@@ -156,38 +156,97 @@ class SpecialRewardsConfigTest {
     }
 
     @Test
-    void headOffsetYDefaultsWhenAbsent(@TempDir File tempDir) throws IOException {
+    void nametagClearanceDefaultsWhenAbsent(@TempDir File tempDir) throws IOException {
         SpecialRewardsConfig config = loaded(tempDir, "titles: {}\nparticles: {}\nparticle-seeds: {}\n");
-        assertEquals(0.75, config.titleHeadOffsetY(), 1e-9);
+        assertEquals(0.4, config.titleNametagClearance(), 1e-9);
     }
 
     @Test
-    void headOffsetYHonorsExplicitValue(@TempDir File tempDir) throws IOException {
+    void nametagClearanceHonorsExplicitValue(@TempDir File tempDir) throws IOException {
         SpecialRewardsConfig config = loaded(tempDir, """
                 display:
-                  head-offset-y: 1.2
+                  nametag-clearance: 1.25
                 titles: {}
                 particles: {}
                 particle-seeds: {}
                 """);
-        assertEquals(1.2, config.titleHeadOffsetY(), 1e-9);
+        assertEquals(1.25, config.titleNametagClearance(), 1e-9);
     }
 
     @Test
-    void headOffsetYNonFiniteFallsBackToDefault(@TempDir File tempDir) throws IOException {
-        // YAML has no native NaN/Infinity literal reachable via getDouble in a way that survives parsing
-        // as a String key, so this exercises the defensive Double.isFinite guard by loading a value that
-        // Bukkit's YamlConfiguration#getDouble coerces from a non-numeric string default(0.0)-safe path.
+    void nametagClearanceHonorsExplicitZero(@TempDir File tempDir) throws IOException {
+        // 0("ネームタグの真上に接する")は正式な設定として許容する。
         SpecialRewardsConfig config = loaded(tempDir, """
                 display:
-                  head-offset-y: "not-a-number"
+                  nametag-clearance: 0
                 titles: {}
                 particles: {}
                 particle-seeds: {}
                 """);
-        // YamlConfiguration#getDouble on an unparsable value falls back to the getDouble(path, default)
-        // default we pass (0.75), so this also lands on the same default — asserting it never throws and
-        // never yields a non-finite value is the real regression guard here.
-        assertTrue(Double.isFinite(config.titleHeadOffsetY()));
+        assertEquals(0.0, config.titleNametagClearance(), 1e-9);
+    }
+
+    @Test
+    void negativeNametagClearanceFallsBackToTheDefault(@TempDir File tempDir) throws IOException {
+        // 負の余白は称号をネームタグへ重ねて名前を隠す(＝報告されたバグそのもの)ので、
+        // 設定ミスで再現できないように既定へ戻す。
+        SpecialRewardsConfig config = loaded(tempDir, """
+                display:
+                  nametag-clearance: -2.0
+                titles: {}
+                particles: {}
+                particle-seeds: {}
+                """);
+        assertEquals(0.4, config.titleNametagClearance(), 1e-9);
+    }
+
+    // --- prune-orphaned-grants / lastLoadOk (SpecialRewardPruner の安全弁, 2026-07-28) ---------------
+
+    @Test
+    void pruneOrphanedGrantsDefaultsToTrueWhenAbsent(@TempDir File tempDir) throws IOException {
+        SpecialRewardsConfig config = loaded(tempDir, "titles: {}\nparticles: {}\nparticle-seeds: {}\n");
+        assertTrue(config.pruneOrphanedGrants());
+    }
+
+    @Test
+    void pruneOrphanedGrantsHonorsExplicitFalse(@TempDir File tempDir) throws IOException {
+        SpecialRewardsConfig config = loaded(tempDir, """
+                prune-orphaned-grants: false
+                titles: {}
+                particles: {}
+                particle-seeds: {}
+                """);
+        assertFalse(config.pruneOrphanedGrants());
+    }
+
+    @Test
+    void lastLoadOkIsTrueAfterCleanLoad(@TempDir File tempDir) throws IOException {
+        SpecialRewardsConfig config = loaded(tempDir, "titles: {}\nparticles: {}\nparticle-seeds: {}\n");
+        assertTrue(config.lastLoadOk());
+    }
+
+    @Test
+    void lastLoadOkIsFalseAfterMalformedEntrySkip(@TempDir File tempDir) throws IOException {
+        // A malformed entry (title without display) makes load() return false via result.skipped() > 0,
+        // even though titles/particles/particleSeeds are still (partially) reassigned.
+        SpecialRewardsConfig config = loaded(tempDir, """
+                titles:
+                  broken: {}
+                particles: {}
+                particle-seeds: {}
+                """);
+        assertFalse(config.lastLoadOk());
+    }
+
+    @Test
+    void lastLoadOkIsFalseAfterYamlSyntaxError(@TempDir File tempDir) throws IOException {
+        File file = new File(tempDir, SpecialRewardsConfig.PATH);
+        Files.createDirectories(file.getParentFile().toPath());
+        Files.writeString(file.toPath(), "titles: [this is not valid yaml for a map");
+        SpecialRewardsConfig config = new SpecialRewardsConfig();
+        config.load(fakePlugin(tempDir));
+        assertFalse(config.lastLoadOk());
+        // and the safety-net default stays true even though load() itself failed.
+        assertTrue(config.pruneOrphanedGrants());
     }
 }

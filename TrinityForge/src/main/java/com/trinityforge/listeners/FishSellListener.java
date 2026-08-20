@@ -69,6 +69,27 @@ public final class FishSellListener implements Listener {
         this.economyBridge = Objects.requireNonNull(economyBridge, "economyBridge");
     }
 
+    /** 自動換金を止める述語 (2026-07-27、AFK対策)。未配線(null)なら抑止なし。 */
+    private volatile java.util.function.Predicate<Player> sellGate;
+
+    /** 自動換金の抑止述語を設定する(2026-07-27、AFK対策)。null で無効化。 */
+    public void setSellGate(java.util.function.Predicate<Player> gate) {
+        this.sellGate = gate;
+    }
+
+    /** 述語の例外で釣り処理を落とさない(失敗したら従来どおり換金する)。 */
+    private boolean isGated(Player player) {
+        java.util.function.Predicate<Player> gate = this.sellGate;
+        if (gate == null || player == null) {
+            return false;
+        }
+        try {
+            return gate.test(player);
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onFish(PlayerFishEvent event) {
         if (event.getState() != PlayerFishEvent.State.CAUGHT_FISH || !(event.getCaught() instanceof Item caught)) {
@@ -76,6 +97,11 @@ public final class FishSellListener implements Listener {
         }
         Player player = event.getPlayer();
         if (player == null || !dedicatedEffects.isActive(player, FEATURE_FISH_SELL_TOGGLE)) {
+            return;
+        }
+        if (isGated(player)) {
+            // 2026-07-27 AFK対策: 放置中は自動換金しない。魚はアイテムとしてそのまま残る
+            // (換金だけを止める＝釣り自体は成立させる)。
             return;
         }
         if (!economyBridge.available()) {

@@ -11,6 +11,10 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
+
 /**
  * Tracks player-placed block positions per chunk via the chunk's {@link PersistentDataContainer},
  * so the mark survives a server restart. Used to prevent placed blocks from awarding gathering
@@ -38,6 +42,11 @@ import org.bukkit.plugin.Plugin;
  * を招く。上限に達したら<b>最古のものから捨てる</b>（FIFO）。捨てられたマークは「自然生成扱い」に
  * 戻るが、そのために同一チャンクへ {@value #MAX_MARKS_PER_CHUNK} 個もブロックを設置する必要があり、
  * 消費するブロック数のほうが得られる経験値より遥かに多いので、置き直しファームの旨味は生じない。
+ *
+ * <p><b>2026-07-31 G1 round2 指摘3（アロケーション側の穴）:</b> 上限だけでは
+ * <em>比較回数</em>しか抑えられていなかった。PDC の {@code LONG_ARRAY} は copy-on-read なので
+ * {@link #isPlaced} 1回ごとに配列の複製が1本できる（上限いっぱいなら64KB）。走査のように
+ * 何百回も呼ぶ経路では {@link #newScanLookup()} を使い、<b>チャンクごとに1回だけ読む</b>こと。
  */
 public final class PlacedBlockTracker implements Listener {
 
@@ -47,7 +56,17 @@ public final class PlacedBlockTracker implements Listener {
      */
     static final int MAX_MARKS_PER_CHUNK = 8192;
 
+    /** マークが無いチャンクで返す共有の空配列。<b>呼び出し側が書き換えないこと。</b> */
+    private static final long[] EMPTY_MARKS = new long[0];
+
     private final NamespacedKey placedBlocksKey;
+
+    /**
+     * PDC の {@code long[]} を実際に読んだ回数。{@link #chunkReadCount()} で観測する診断カウンタで、
+     * 「走査1回のPDC読みが走査ブロック数に比例しない」ことをテストで縛るために使う
+     * (2026-07-31 G1 round2 指摘3)。非同期から読まれ得るので {@link AtomicLong}。
+     */
+    private final AtomicLong chunkReads = new AtomicLong();
 
     public PlacedBlockTracker(Plugin plugin) {
         this.placedBlocksKey = new NamespacedKey(plugin, "placed_blocks");
@@ -60,12 +79,80 @@ public final class PlacedBlockTracker implements Listener {
 
     public void markPlaced(Block block) {
         long packed = pack(block);
-        PersistentDataContainer pdc = block.getChunk().getPersistentDataContainer();
-        long[] existing = pdc.getOrDefault(placedBlocksKey, PersistentDataType.LONG_ARRAY, new long[0]);
+        Chunk chunk = block.getChunk();
+        long[] existing = marksIn(chunk);
         for (long value : existing) {
             if (value == packed) return;
         }
-        pdc.set(placedBlocksKey, PersistentDataType.LONG_ARRAY, appendCapped(existing, packed));
+        chunk.getPersistentDataContainer()
+                .set(placedBlocksKey, PersistentDataType.LONG_ARRAY, appendCapped(existing, packed));
+    }
+
+    /**
+     * チャンクPDCの生の {@code long[]} を1回読む。<b>PDC の {@code LONG_ARRAY} は copy-on-read</b>
+     * なので、この呼び出し1回ごとに配列の複製が1本できる(8192件なら64KB)。したがって
+     * <em>呼ぶ回数がそのままアロケーション量</em>になる — 走査中は
+     * {@link ScanLookup} でチャンクごとに1回だけ読むこと(2026-07-31 G1 round2 指摘3)。
+     *
+     * <p>返る配列は呼び出し側が書き換えてはいけない(欠損時は共有の空配列が返る)。
+     */
+    long[] marksIn(Chunk chunk) {
+        chunkReads.incrementAndGet();
+        return chunk.getPersistentDataContainer()
+                .getOrDefault(placedBlocksKey, PersistentDataType.LONG_ARRAY, EMPTY_MARKS);
+    }
+
+    /**
+     * PDC の {@code long[]} を実際に読んだ累計回数(診断/テスト用)。一括伐採1回でこの値が
+     * 「走査したブロック数」ではなく「触ったチャンク数」だけ増えることが不変条件。
+     */
+    public long chunkReadCount() {
+        return chunkReads.get();
+    }
+
+    /**
+     * 走査1回のスコープで使う<b>読み取り専用ビュー</b>(2026-07-31 G1 round2 指摘3)。
+     *
+     * <p><b>なぜ必要か</b>: {@link #isPlaced(Block)} は呼ぶたびにチャンクPDCの {@code long[]} を
+     * 丸ごと複製する(copy-on-read)。一括伐採の走査述語はマテリアルが一致した位置ごとに
+     * — 最大 {@code scan-limit} 本 — これを呼ぶので、8192件のマークがあるチャンク(64KB)では
+     * <b>斧を1回振るだけで 512 × 64KB ≒ 32MB</b> の短命オブジェクトがメインスレッドに乗っていた。
+     * ここでチャンクごとに1回だけ読んでローカルに持てば、アロケーション量は
+     * 「走査したブロック数」ではなく「触ったチャンク数」に比例する。
+     *
+     * <p>キャッシュは走査が終わったら捨てる(このオブジェクトを保持しないこと) —
+     * 走査中に新しく設置されるブロックは無いが、跨いで持つと古い判定を返す。
+     */
+    public ScanLookup newScanLookup() {
+        return new ScanLookup(this);
+    }
+
+    /** {@link #newScanLookup()} が返す、チャンク単位でキャッシュする {@code isPlaced} 判定器。 */
+    public static final class ScanLookup {
+
+        private final PlacedBlockTracker tracker;
+        /** チャンク座標(x,z を1つの long へ詰めたもの) -&gt; そのチャンクのマーク配列。 */
+        private final Map<Long, long[]> byChunk = new HashMap<>();
+
+        private ScanLookup(PlacedBlockTracker tracker) {
+            this.tracker = tracker;
+        }
+
+        /** {@link PlacedBlockTracker#isPlaced(Block)} と同じ判定。同じチャンクは1回しか読まない。 */
+        public boolean isPlaced(Block block) {
+            Chunk chunk = block.getChunk();
+            long chunkKey = (((long) chunk.getX()) << 32) | (chunk.getZ() & 0xFFFFFFFFL);
+            long[] marks = byChunk.get(chunkKey);
+            if (marks == null) {
+                marks = tracker.marksIn(chunk);
+                byChunk.put(chunkKey, marks);
+            }
+            long packed = pack(block);
+            for (long value : marks) {
+                if (value == packed) return true;
+            }
+            return false;
+        }
     }
 
     /**
@@ -87,11 +174,13 @@ public final class PlacedBlockTracker implements Listener {
         return updated;
     }
 
+    /**
+     * 単発の判定。<b>ループの中から呼ばないこと</b> — 1回ごとにチャンクPDCの {@code long[]} を複製する
+     * ので、走査のように何百回も呼ぶ経路では {@link #newScanLookup()} を使う(2026-07-31 G1 round2 指摘3)。
+     */
     public boolean isPlaced(Block block) {
         long packed = pack(block);
-        long[] existing = block.getChunk().getPersistentDataContainer()
-                .getOrDefault(placedBlocksKey, PersistentDataType.LONG_ARRAY, new long[0]);
-        for (long value : existing) {
+        for (long value : marksIn(block.getChunk())) {
             if (value == packed) return true;
         }
         return false;
@@ -107,7 +196,7 @@ public final class PlacedBlockTracker implements Listener {
         long packed = pack(block);
         Chunk chunk = block.getChunk();
         PersistentDataContainer pdc = chunk.getPersistentDataContainer();
-        long[] existing = pdc.getOrDefault(placedBlocksKey, PersistentDataType.LONG_ARRAY, new long[0]);
+        long[] existing = marksIn(chunk);
         int index = -1;
         for (int i = 0; i < existing.length; i++) {
             if (existing[i] == packed) {

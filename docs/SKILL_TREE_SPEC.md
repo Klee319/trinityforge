@@ -114,9 +114,9 @@
 | C-1-1 / C-1-2 | 魔法耐性増加 | magic-resistance↑ |
 | D-1-1 / D-1-2 | 回避率増加 | dodge↑【要確認 Q3】 |
 | ★-α-1 | 守備力増加 | flat-defense↑ |
-| ★-β-1 | 防御率増加 | armor-defense-rate↑ |
+| ★-β-1 | 防御率増加 | defense-rate↑ |
 | ★-γ-1 | 被ダメージ軽減増加 | damage-reduction↑ |
-| プレステージ I | **守備力・防御率・被ダメージ軽減 の永続増加**（Q5=スライドのテンプレ流用ミスと確定し読替済み） | flat-defense/armor-defense-rate/damage-reduction↑ |
+| プレステージ I | **守備力・防御率・被ダメージ軽減 の永続増加**（Q5=スライドのテンプレ流用ミスと確定し読替済み） | flat-defense/defense-rate/damage-reduction↑ |
 
 ### 2.5 重装備（防御・C1/LD-8・スライド16）
 | ノード | 効果 | TFステ / 機構 |
@@ -129,9 +129,9 @@
 | C-1-1 / C-1-2 | 魔法耐性増加 | magic-resistance↑ |
 | D-1-1 / D-1-2 | ノックバック耐性増加 | knockback-resistance↑ |
 | ★-α-1 | 守備力増加 | flat-defense↑ |
-| ★-β-1 | 防御率増加 | armor-defense-rate↑ |
+| ★-β-1 | 防御率増加 | defense-rate↑ |
 | ★-γ-1 | 被ダメージ軽減増加 | damage-reduction↑ |
-| プレステージ I | **守備力・防御率・被ダメージ軽減 の永続増加**（Q5確定・読替済。重装らしくKB耐性追加も可） | flat-defense/armor-defense-rate/damage-reduction↑ |
+| プレステージ I | **守備力・防御率・被ダメージ軽減 の永続増加**（Q5確定・読替済。重装らしくKB耐性追加も可） | flat-defense/defense-rate/damage-reduction↑ |
 
 ### 2.6 Ars魔法（魔法柱・スライド10）
 排他路線なし＝**単一スカラー進行**（LD-7①-bの「魔法柱は柱内λ無し」と整合）。ステはマナ/Tier/グリフ配置。**威力は持たない**（C2: 魔法ダメージはcombat-level curveをbypass）。
@@ -191,7 +191,7 @@
 
 スキルツリーが**実装前提で出した**新ステにより、`STAT_DICTIONARY_RECONCILIATION.md` の Q5/Q6候補が「切り捨て候補」から「実装必須」へ格上げ：
 
-- **防御ステの供給源が確定**（LD-8/C1）: 守備力(flat-defense)・防御率(armor-defense-rate)・被ダメージ軽減(damage-reduction)・魔法/物理耐性(resistance)・回避率(dodge) が防具ツリーperkとして実在。
+- **防御ステの供給源が確定**（LD-8/C1）: 守備力(flat-defense)・防御率(defense-rate。2026-08-15 に防具値 armor-defense-rate を廃止して統合)・被ダメージ軽減(damage-reduction)・魔法/物理耐性(resistance)・回避率(dodge) が防具ツリーperkとして実在。
 - **固定ダメージ(fixedDamage)のroll源が判明**: 重量武器C/γ。従来「穴」だったフィールドに設計上の供給元がついた。
 - **8step式にスロットが無い新機構**（要決着＝Q3）: 出血/スタン/受け流し/回避/アドレナリン/憤怒/攻撃距離・範囲/ホーミング。多くは**ValhallaMMOネイティブ機構**の踏襲と推測。
 
@@ -254,8 +254,14 @@
 
 > ⚠留保: ValhallaMMO公式APIドキュメントwikiは未整備で、上記はソース読解に基づく。β更新でAPI安定性は変わり得る。実装時は対象版ソースで再確認。
 
-### 6.4 ブリッジPL実装計画（2026-07-14・ソース/jar確保済）
-- **依存配線済**: `external/ValhallaMMO`（source, 参照用）＋ `source/ValhallaMMO_1.9.3.jar`（`TrinityForge/build.gradle.kts` に `compileOnly` 追加、ビルド緑で解決確認）／`external/ArsPaper`（fork対象source）。
+### 6.4 ブリッジPL実装計画（2026-07-14・**失効**）
+
+> ⚠**この節は失効している。** 2026-07-22 に ValhallaMMO 依存を撤廃し、進行系は TF 本体の native 実装
+> （`skilltree/` + `progression/`）へ全面移行した。ここに書かれた `Skill`/`Profile` 実装も
+> Valhalla データフォルダへの config 配置も**もう存在しない**。`external/ValhallaMMO` と
+> `source/*.jar` も 2026-08-04 の整理で破棄した。残しているのは perk 転写元としての設計意図のみ。
+
+- **（旧）依存配線**: `external/ValhallaMMO`（source, 参照用）＋ `source/ValhallaMMO_1.9.3.jar` を `compileOnly` に追加していた。どちらも現在は存在しない。
 - **テンプレ確定**（`PowerSkill.java` 準拠）: `Skill` の必須override = `loadConfiguration()`/`isLevelableSkill()`/`getProfileType()`/`getSkillTreeMenuOrderPriority()`＋`Skill(String)`。`Profile` の必須override = `getTableName()`/`getSkillType()`/`getBlankProfile(UUID)`＋`Profile(UUID)`。EXP付与 = `addEXP(player, amt, false, reason)`。
 - **要実装コンポーネント**: ①`ArsMagicSkill`＋`ArsMagicProfile`（＋`ArsSmithingSkill`/Profile）②`SkillRegistry.registerSkill()`/`ProfileRegistry.registerProfileType()` の登録（ValhallaMMOロード後の正しいタイミング）③skills/ars_magic(_progression).yml をValhallaデータフォルダへ配置（スキルツリー§2.6/§3をperk転写）④ArsPaperのキャストイベント購読→`skill.addEXP(...)`（魔法柱EXP源）。
 - **⚠実機検証必須**: 登録タイミング（Valhalla hard depend・LD-10）、config配置先（Valhallaデータフォルダ）、ArsPaperイベント名は**動作サーバでの検証が必要**。Java クラス自体はjarに対しコンパイル可能。

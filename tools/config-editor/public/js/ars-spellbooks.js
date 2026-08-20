@@ -22,8 +22,12 @@
   }
   // FIELD_LABELS 辞書に無いキー(cooldown 等)向け: labels.js は編集しない方針のため、
   // ラベル文字列とヒントをその場で指定できる簡易版フィールド行。
+  // 説明はブラウザ標準の title ではなく「?」の独自ツールチップへ回す (2026-08-01)。
   function fieldRowCustom(labelText, desc, control) {
-    const labelEl = h("span", { class: "form-label", text: labelText, title: desc || labelText });
+    const children = [h("span", { class: "form-label-ja", text: labelText })];
+    const help = window.helpIcon(desc);
+    if (help) children.push(help);
+    const labelEl = h("span", { class: "form-label with-ja" }, children);
     return h("div", { class: "form-field" }, [labelEl, control]);
   }
   function emptyGuide(title, hint) {
@@ -52,15 +56,21 @@
 
   // item-stats フォーム同様、STAT_LIST(lore.yml由来) と FALLBACK_STATS の和集合をステ候補にする
   // (forms.js の statList() と同一ロジック。forms.js 非公開のためここに複製)。
+  // 2026-08-13: 除外(HIDDEN_STATS)の適用が抜けていたため、廃止済みの flat-defense や
+  // gathering-efficiency へ統合済みの tool-enchant-efficiency がこの画面のセレクトにだけ
+  // 出続けていた。「forms.js と同一ロジック」と書いてある以上、除外も揃える。
   function statListLocal() {
     const primary = (window.STAT_LIST && window.STAT_LIST.length) ? window.STAT_LIST : [];
     const fallback = window.FALLBACK_STATS || [];
+    const hidden = new Set(window.HIDDEN_STATS || ["flat-defense"]);
     const seen = new Set();
     const out = [];
     for (const k of primary.concat(fallback)) {
-      if (!seen.has(k)) { seen.add(k); out.push(k); }
+      if (!k || hidden.has(k) || seen.has(k)) continue;
+      seen.add(k);
+      out.push(k);
     }
-    return out.length ? out : fallback;
+    return out.length ? out : fallback.filter((k) => !hidden.has(k));
   }
 
   // 簡易 lore 行エディタ (forms.js の renderLoreRows と同等・非公開のためここに複製)。
@@ -184,7 +194,8 @@
               "name-color": "#FFFFFF",
               "max-slots": 1,
               "max-glyph-tier": 1,
-              "custom-model-data": 0,
+              // custom-model-data は既定値を書かない。0 を入れるとCMD一括採番/テクスチャ登録の
+              // 「未設定」判定から外れる(2026-08-08 報告)。採番か手入力で初めて生やす。
               "upgrade-from": prevId,
               "cooldown": 0
             });
@@ -232,7 +243,9 @@
       const upgradeSel = h("select", { class: "field-input" });
       upgradeSel.appendChild(h("option", { value: "", text: "(なし/最下位ティア)" }));
       for (const id of upgradeCandidates) {
-        const o = h("option", { value: id, text: id });
+        const otherBook = books.find((bk) => bk && bk.id === id);
+        const plainName = (otherBook && window.stripDisplayNamePlain(otherBook["display-name"])) || id;
+        const o = h("option", { value: id, text: `${plainName} (${id})` });
         if (id === curUpgrade) o.selected = true;
         upgradeSel.appendChild(o);
       }
@@ -343,10 +356,10 @@
         })
       ];
 
-      const matHint = window.materialHintEl(entry.material);
+      // 2026-08-02: materialHintEl は削除 (materialInput 自身が 2026-07-29 の listSelect 移行で
+      // 既に日本語表示名(primary)を出しているため、隣に並べると同じ名前が2回出て行が潰れる)。
       const matInput = window.materialInput(entry.material, "material-list", (v) => {
         entry.material = v;
-        matHint.update(v);
         if (typeof window.isLeatherArmorMaterial === "function" && !window.isLeatherArmorMaterial(v)) {
           delete entry.color;
         }
@@ -382,7 +395,7 @@
       });
 
       const inputChildren = [
-        fieldRow("material", h("span", { class: "input-with-hint" }, [matInput, matHint])),
+        fieldRow("material", h("span", { class: "input-with-hint" }, [matInput])),
         fieldRow("display-name", window.richTextInput(entry["display-name"], "minimessage", (v) => { setOrDelete(entry, "display-name", v); refreshPreview(); })),
         fieldRow("name-color", nameColorCtl),
         fieldRow("custom-model-data", (() => {
@@ -542,26 +555,20 @@
       return h("div", {}, [
         h("div", { class: "empty-hint", text: "マナ消費軽減(実数)/(%) もここで設定します(ステ一覧から選択)。整数ステのため品質別上昇値に小数を入れると累積し、整数化した分だけ実効値が上がります(切り捨て=閾値方式)。" }),
         h("div", { class: "sub-section" }, [
-          h("div", {
-            class: "sub-title", text: "固定ステ (stats.fixed)",
-            title: "常に適用される固定ステータス。int系ステ(thread-slots/マナ消費軽減等)は本体側で小数点以下を切り捨ててintとして扱われます。"
-          }),
+          window.subTitleEl("固定ステ (stats.fixed)",
+            "常に適用される固定ステータス。int系ステ(thread-slots/マナ消費軽減等)は本体側で小数点以下を切り捨ててintとして扱われます。"),
           Object.keys(fixedGroup).length ? null : h("div", { class: "empty-hint", text: "まだ固定ステがありません。「+ 固定ステ追加」で追加します。" }),
           fixedRows
         ]),
         h("div", { class: "sub-section" }, [
-          h("div", {
-            class: "sub-title", text: "品質別上昇値 (stats.per-quality)",
-            title: "品質が1上がるごとにこのステへ加算される増分(fixedの上に加算)。int系ステは小数点以下を切り捨ててintとして扱われます。"
-          }),
+          window.subTitleEl("品質別上昇値 (stats.per-quality)",
+            "品質が1上がるごとにこのステへ加算される増分(fixedの上に加算)。int系ステは小数点以下を切り捨ててintとして扱われます。"),
           Object.keys(pqGroup).length ? null : h("div", { class: "empty-hint", text: "まだ品質別上昇値がありません。「+ 品質別上昇値追加」で追加します。" }),
           pqRows
         ]),
         h("div", { class: "sub-section" }, [
-          h("div", {
-            class: "sub-title", text: "ランダムロールステ (stats.random)",
-            title: "レンジ{min,max}をrollSeedに応じて個体ごとに解決するランダムステ。int系ステは小数点以下を切り捨ててintとして扱われます。"
-          }),
+          window.subTitleEl("ランダムロールステ (stats.random)",
+            "レンジ{min,max}をrollSeedに応じて個体ごとに解決するランダムステ。int系ステは小数点以下を切り捨ててintとして扱われます。"),
           Object.keys(randGroup).length ? null : h("div", { class: "empty-hint", text: "まだランダムロールステがありません。「+ ランダムロールステ追加」で追加します。" }),
           randRows
         ])

@@ -12,373 +12,390 @@
 # ============================================================================
 
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/power.md
+
 skill: POWER
-display-name: "総合"
+display-name: 総合
 icon: ARMOR_STAND
-starting-coords: "2,10"
-
+starting-coords: 2,10
 prestige:
-  enabled: true
-  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  enabled: false
   at-level: 100
-  name: "不屈の魂"
-  effect-text: "最大体力・自然回復・幸運が永続で増加"
-  buffs:
-    max-health: 3
-    health-regen-bonus: 0.1
-    loot-luck: 0.3
-
+  name: 不屈の魂
 nodes:
   A:
-    name: "活力の芽生え"
+    name: 活力の芽生え
     level: 10
     role: main
-    parent: null
+    parent:
     icon: GLISTERING_MELON_SLICE
     cost: 1
-    effect-text: "最大体力 +2"
+    effect-text: 最大体力 +2
     buffs:
-      max_health: 2
+      max-health: 2
+    description: 体力増強+2
   B:
-    name: "活力の充実"
+    name: 活力の充実
     level: 30
     role: main
     parent: A
     icon: GOLDEN_APPLE
     cost: 1
-    effect-text: "最大体力 +3"
+    effect-text: 最大体力 +3
     buffs:
-      max_health: 3
+      max-health: 3
+    description: 体力増強+3
   C:
-    name: "活力の極み"
+    name: 活力の極み
     level: 50
     role: main
     parent: B
     icon: ENCHANTED_GOLDEN_APPLE
     cost: 1
-    effect-text: "最大体力 +5"
+    effect-text: 最大体力 +5
     buffs:
-      max_health: 5
+      max-health: 5
+    description: 体力増強+5
   D:
-    name: "再生の息吹"
+    name: 再生の息吹
     level: 70
     role: main
     parent: C
     icon: GHAST_TEAR
     cost: 1
-    effect-text: "体力自然回復 +0.2"
     buffs:
-      health_regen_bonus: 0.2
+      health-regen-bonus: 0.1
+    description: 自然回復量+10%
   E:
-    name: "不屈の体躯"
+    name: 不屈の体躯
     level: 90
     role: main
     parent: D
     icon: DRAGON_EGG
     cost: 1
-    effect-text: "体力自然回復 +0.3・全スキルEXP +5%"
     buffs:
-      health_regen_bonus: 0.3
-      skill_exp_bonus: 0.05
-
+      health-regen-bonus: 0.2
+      skill-exp-bonus: 0.1
+    description: |-
+      職業EXP+10%
+      自然回復量+20%
   A-1:
-    name: "足元強化 I"
-    level: 15
+    name: 足元強化 I
+    level: 20
     role: branch
     parent: A
     icon: LEATHER_BOOTS
     cost: 1
-    effect-text: "ノックバック耐性 +0.05"
+    effect-text: ノックバック耐性 +0.05
     buffs:
-      knockback_resistance: 0.05
+      knockback-resistance: 0.1
+    description: ノックバック耐性+10%
   A-2:
-    name: "足元強化 II"
-    level: 35
+    name: 足元強化 II
+    level: 40
     role: branch
     parent: A-1
     icon: IRON_BOOTS
     cost: 1
-    effect-text: "ノックバック耐性 +0.075"
+    effect-text: ノックバック耐性 +0.075
     buffs:
-      knockback_resistance: 0.075
+      knockback-resistance: 0.15
+    description: ノックバック耐性+15%
   A-3:
-    name: "足元強化 III"
-    level: 55
+    name: 足元強化 III
+    level: 60
     role: branch
     parent: A-2
     icon: NETHERITE_BOOTS
     cost: 1
-    effect-text: "ノックバック耐性 +0.125"
+    effect-text: ノックバック耐性 +0.125
     buffs:
-      knockback_resistance: 0.125
-
+      knockback-resistance: 0.2
+    description: ノックバック耐性+20%
   A-4:
-    name: "天恵 I"
+    name: 天恵 I
     level: 20
     role: branch
     parent: A
     icon: SUNFLOWER
     cost: 1
-    effect-text: "幸運 +0.2"
     buffs:
-      loot_luck: 0.2
+      loot-luck: 1
+    description: 開運+1
   A-5:
-    name: "天恵 II"
+    name: 天恵 II
     level: 40
     role: branch
     parent: A-4
     icon: RABBIT_FOOT
     cost: 1
-    effect-text: "幸運 +0.3"
+    effect-text: 幸運 +0.3
     buffs:
-      loot_luck: 0.3
+      loot-luck: 2
+    description: 開運+2
   A-6:
-    name: "天恵 III"
+    name: 天恵 III
     level: 60
     role: branch
     parent: A-5
     icon: NETHER_STAR
     cost: 1
-    effect-text: "幸運 +0.5"
     buffs:
-      loot_luck: 0.5
-
+      loot-luck: 3
+    description: 開運+3
   B-1:
-    name: "持久 I"
-    level: 35
+    name: 持久 I
+    level: 40
     role: branch
     parent: B
     icon: BREAD
     cost: 1
-    effect-text: "空腹消費軽減 +5%"
+    effect-text: 空腹消費軽減 +5%
     buffs:
-      hunger_save_chance: 0.05
+      hunger-save-chance: 0.05
+    description: 満腹効率+5%
   B-2:
-    name: "持久 II"
-    level: 55
+    name: 持久 II
+    level: 60
     role: branch
     parent: B-1
     icon: COOKED_BEEF
     cost: 1
-    effect-text: "空腹消費軽減 +7.5%"
+    effect-text: 空腹消費軽減 +7.5%
     buffs:
-      hunger_save_chance: 0.075
+      hunger-save-chance: 0.1
+    description: 満腹効率+10%
   B-3:
-    name: "持久 III"
-    level: 75
+    name: 持久 III
+    level: 80
     role: branch
     parent: B-2
     icon: GOLDEN_CARROT
     cost: 1
-    effect-text: "空腹消費軽減 +12.5%"
     buffs:
-      hunger_save_chance: 0.125
-
-  C-1:
-    name: "回収 I"
-    level: 55
+      hunger-save-chance: 0.15
+    description: 満腹効率+15%
+  B-4:
+    name: 回収 I
+    level: 40
     role: branch
-    parent: C
+    parent: B
     icon: IRON_INGOT
     cost: 1
-    effect-text: "モブドロップ +20%"
+    effect-text: モブドロップ +20%
     buffs:
-      mob_drop_bonus: 0.2
-  C-2:
-    name: "回収 II"
-    level: 75
+      mob-drop-bonus: 0.2
+    description: ドロップ増加+10%
+  B-5:
+    name: 回収 II
+    level: 60
     role: branch
-    parent: C-1
+    parent: B-4
     icon: GOLD_INGOT
     cost: 1
-    effect-text: "モブドロップ +30%"
+    effect-text: モブドロップ +30%
     buffs:
-      mob_drop_bonus: 0.3
-  C-3:
-    name: "回収 III"
-    level: 90
+      mob-drop-bonus: 0.3
+    description: ドロップ増加+20%
+  B-6:
+    name: 回収 III
+    level: 80
     role: branch
-    parent: C-2
+    parent: B-5
     icon: DIAMOND
     cost: 1
-    effect-text: "モブドロップ +50%"
+    effect-text: モブドロップ +50%
     buffs:
-      mob_drop_bonus: 0.5
-
-  D-1:
-    name: "俊敏 I"
-    level: 75
-    role: branch
-    parent: D
-    icon: ENDER_PEARL
-    cost: 1
-    effect-text: "アビリティCD短縮 +10%"
-    buffs:
-      cooldown_reduction: 0.1
-  D-2:
-    name: "俊敏 II"
-    level: 85
-    role: branch
-    parent: D-1
-    icon: ENDER_EYE
-    cost: 1
-    effect-text: "アビリティCD短縮 +15%"
-    buffs:
-      cooldown_reduction: 0.15
-  D-3:
-    name: "俊敏 III"
-    level: 95
-    role: branch
-    parent: D-2
-    icon: CLOCK
-    cost: 1
-    effect-text: "アビリティCD短縮 +25%"
-    buffs:
-      cooldown_reduction: 0.25
-
-  # 2026-07-26 職業別草案(戦闘)準拠で新設: パワーは元々15ノードのギリシャ路線が存在しない
-  # 唯一の戦闘ツリーだったが、他5ツリーとの一貫性(3型に分かれた個性)を持たせるため、
-  # 既存branch群(A-1〜D-3)とは別にA〜E帯 各3ノード(計15)を新設する。
+      mob-drop-bonus: 0.3
+    description: ドロップ増加+30%
   A-alpha-1:
-    name: "猛・芽生え"
+    name: 猛・芽生え
     level: 10
     role: greek
     parent: A
     group: A-greek
     icon: RED_DYE
     cost: 1
-    effect-text: "最大体力増加"
-    buffs: { max-health: 2 }
+    buffs:
+      max-health: 2
+    description: 体力増強+2
   A-beta-1:
-    name: "癒・芽生え"
+    name: 癒・芽生え
     level: 10
     role: greek
     parent: A
     group: A-greek
     icon: GREEN_DYE
     cost: 1
-    effect-text: "体力自然回復増加"
-    buffs: { health-regen-bonus: 0.05 }
+    effect-text: 体力自然回復増加
+    buffs:
+      health-regen-bonus: 0.05
+    description: 体力自然回復増加+5%
   A-gamma-1:
-    name: "盾・芽生え"
+    name: 盾・芽生え
     level: 10
     role: greek
     parent: A
     group: A-greek
     icon: SHIELD
     cost: 1
-    effect-text: "反射率(割合)・反射率(実数)増加"
-    buffs: { reflect-percent: 0.02, reflect-flat: 0.3 }
-  # 2026-07-26 路線固定(lane-lock): B〜E のギリシャノードは parent を「同じ路線の1つ前」に向ける。
-  # 排他は『同じ親を持つ同group兄弟』にしか効かない仕様(NativePerkService / SkillTreeProgressionGenerator)
-  # なので、親が路線ごとに分かれる B〜E に group を書いても no-op になり、AllSkillTreesLoadTest が
-  # 警告で落ちる。路線の固定は parent 連鎖だけで担保し、group は A 段(同じ親A)にのみ置く。
+    buffs:
+      reflect-percent: 0.02
+    description: 反射率+2%
   B-alpha-1:
-    name: "猛・充実"
+    name: 猛・充実
     level: 30
     role: greek
+    # 2026-08-16: 猛レーンだけ parent が主軸(B/C/D/E)に付け替えられ、あわせて
+    # group: X-greek が足されていた。だが排他は「同じ親を持つ兄弟同士」でしか働かないので、
+    # この group は<兄弟ゼロ>で常に no-op になり、起動時に警告が出るだけだった。
+    # さらに実害として、A で癒/盾を選んだプレイヤーでも猛レーンへ横入りできていた
+    # (癒・盾は前段のレーン内ノードを親にしていて横入りできない = 非対称なバグ)。
+    # レーンは A-greek の三択を1回だけ縛る設計なので、親を前段の猛ノードへ戻し、
+    # 意味を持たない group は落とす。
     parent: A-alpha-1
     icon: RED_DYE
     cost: 1
-    effect-text: "最大体力増加"
-    buffs: { max-health: 2 }
+    effect-text: 最大体力増加
+    buffs:
+      max-health: 2
+    description: 最大体力増加+2
   B-beta-1:
-    name: "癒・充実"
+    name: 癒・充実
     level: 30
     role: greek
     parent: A-beta-1
     icon: GREEN_DYE
     cost: 1
-    effect-text: "体力自然回復増加"
-    buffs: { health-regen-bonus: 0.05 }
+    effect-text: 体力自然回復増加
+    buffs:
+      health-regen-bonus: 0.05
+    description: 体力自然回復増加+5%
   B-gamma-1:
-    name: "盾・充実"
+    name: 盾・充実
     level: 30
     role: greek
     parent: A-gamma-1
     icon: SHIELD
     cost: 1
-    effect-text: "反射率(割合)・反射率(実数)増加"
-    buffs: { reflect-percent: 0.02, reflect-flat: 0.3 }
+    effect-text: 被ダメージの一部を反射する(反射率が増加)
+    buffs:
+      reflect-percent: 0.025
+    description: 反射率+2.5%
   C-alpha-1:
-    name: "猛・極み"
+    name: 猛・極み
     level: 50
     role: greek
+    # 2026-08-16: 猛レーンだけ parent が主軸(B/C/D/E)に付け替えられ、あわせて
+    # group: X-greek が足されていた。だが排他は「同じ親を持つ兄弟同士」でしか働かないので、
+    # この group は<兄弟ゼロ>で常に no-op になり、起動時に警告が出るだけだった。
+    # さらに実害として、A で癒/盾を選んだプレイヤーでも猛レーンへ横入りできていた
+    # (癒・盾は前段のレーン内ノードを親にしていて横入りできない = 非対称なバグ)。
+    # レーンは A-greek の三択を1回だけ縛る設計なので、親を前段の猛ノードへ戻し、
+    # 意味を持たない group は落とす。
     parent: B-alpha-1
     icon: RED_DYE
     cost: 1
-    effect-text: "最大体力増加"
-    buffs: { max-health: 2 }
+    effect-text: 最大体力増加
+    buffs:
+      max-health: 2
+    description: 最大体力増加+2
   C-beta-1:
-    name: "癒・極み"
+    name: 癒・極み
     level: 50
     role: greek
     parent: B-beta-1
     icon: GREEN_DYE
     cost: 1
-    effect-text: "体力自然回復増加"
-    buffs: { health-regen-bonus: 0.05 }
+    effect-text: 体力自然回復増加
+    buffs:
+      health-regen-bonus: 0.05
+    description: 体力自然回復増加+5%
   C-gamma-1:
-    name: "盾・極み"
+    name: 盾・極み
     level: 50
     role: greek
     parent: B-gamma-1
     icon: SHIELD
     cost: 1
-    effect-text: "反射率(割合)・反射率(実数)増加"
-    buffs: { reflect-percent: 0.02, reflect-flat: 0.3 }
+    buffs:
+      reflect-percent: 0.03
+    description: 反射率+3%
   D-alpha-1:
-    name: "猛・息吹"
+    name: 猛・息吹
     level: 70
     role: greek
+    # 2026-08-16: 猛レーンだけ parent が主軸(B/C/D/E)に付け替えられ、あわせて
+    # group: X-greek が足されていた。だが排他は「同じ親を持つ兄弟同士」でしか働かないので、
+    # この group は<兄弟ゼロ>で常に no-op になり、起動時に警告が出るだけだった。
+    # さらに実害として、A で癒/盾を選んだプレイヤーでも猛レーンへ横入りできていた
+    # (癒・盾は前段のレーン内ノードを親にしていて横入りできない = 非対称なバグ)。
+    # レーンは A-greek の三択を1回だけ縛る設計なので、親を前段の猛ノードへ戻し、
+    # 意味を持たない group は落とす。
     parent: C-alpha-1
     icon: RED_DYE
     cost: 1
-    effect-text: "最大体力増加"
-    buffs: { max-health: 2 }
+    effect-text: 最大体力増加
+    buffs:
+      max-health: 2
+    description: 最大体力増加+2
   D-beta-1:
-    name: "癒・息吹"
+    name: 癒・息吹
     level: 70
     role: greek
     parent: C-beta-1
     icon: GREEN_DYE
     cost: 1
-    effect-text: "体力自然回復増加"
-    buffs: { health-regen-bonus: 0.05 }
+    effect-text: 体力自然回復増加
+    buffs:
+      health-regen-bonus: 0.05
+    description: 体力自然回復増加+5%
   D-gamma-1:
-    name: "盾・息吹"
+    name: 盾・息吹
     level: 70
     role: greek
     parent: C-gamma-1
     icon: SHIELD
     cost: 1
-    effect-text: "反射率(割合)・反射率(実数)増加"
-    buffs: { reflect-percent: 0.02, reflect-flat: 0.3 }
+    effect-text: 被ダメージの一部を反射する(反射率が増加)
+    buffs:
+      reflect-percent: 0.035
+    description: 反射率+3.5%
   E-alpha-1:
-    name: "猛・体躯"
+    name: 猛・体躯
     level: 90
     role: greek
+    # 2026-08-16: 猛レーンだけ parent が主軸(B/C/D/E)に付け替えられ、あわせて
+    # group: X-greek が足されていた。だが排他は「同じ親を持つ兄弟同士」でしか働かないので、
+    # この group は<兄弟ゼロ>で常に no-op になり、起動時に警告が出るだけだった。
+    # さらに実害として、A で癒/盾を選んだプレイヤーでも猛レーンへ横入りできていた
+    # (癒・盾は前段のレーン内ノードを親にしていて横入りできない = 非対称なバグ)。
+    # レーンは A-greek の三択を1回だけ縛る設計なので、親を前段の猛ノードへ戻し、
+    # 意味を持たない group は落とす。
     parent: D-alpha-1
     icon: RED_DYE
     cost: 1
-    effect-text: "最大体力増加"
-    buffs: { max-health: 2 }
+    effect-text: 最大体力増加
+    buffs:
+      max-health: 2
+    description: 最大体力増加+2
   E-beta-1:
-    name: "癒・体躯"
+    name: 癒・体躯
     level: 90
     role: greek
     parent: D-beta-1
     icon: GREEN_DYE
     cost: 1
-    effect-text: "体力自然回復増加"
-    buffs: { health-regen-bonus: 0.05 }
+    effect-text: 体力自然回復増加
+    buffs:
+      health-regen-bonus: 0.05
+    description: 体力自然回復増加+5%
   E-gamma-1:
-    name: "盾・体躯"
+    name: 盾・体躯
     level: 90
     role: greek
     parent: D-gamma-1
     icon: SHIELD
     cost: 1
-    effect-text: "反射率(割合)・反射率(実数)増加"
-    buffs: { reflect-percent: 0.02, reflect-flat: 0.3 }
-
+    buffs:
+      reflect-percent: 0.04
+    description: 反射率+4%

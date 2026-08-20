@@ -9,6 +9,8 @@ import com.trinityforge.active.ActiveSkillCooldownKeys;
 import com.trinityforge.active.ActiveSkillRegistry;
 import com.trinityforge.active.CooldownManager;
 import com.trinityforge.active.FeedbackLayer;
+import com.trinityforge.bedrock.BedrockRecipeExporter;
+import com.trinityforge.bedrock.BedrockRecipeTable;
 import com.trinityforge.combat.BleedService;
 import com.trinityforge.combat.PlayerDefenseResolver;
 import com.trinityforge.combat.PlayerStatAggregator;
@@ -36,6 +38,7 @@ import com.trinityforge.listeners.DotDamageListener;
 import com.trinityforge.listeners.OverEnchantListener;
 import com.trinityforge.listeners.PotionMergeListener;
 import com.trinityforge.listeners.RoleBuffListener;
+import com.trinityforge.listeners.ScrapConversionListener;
 import com.trinityforge.listeners.VillagerTradeListener;
 import com.trinityforge.listeners.WeaponCoatingListener;
 import com.trinityforge.listeners.WoodRepairListener;
@@ -48,6 +51,7 @@ import com.trinityforge.listeners.CraftQualityListener;
 import com.trinityforge.listeners.ItemDamageClampListener;
 import com.trinityforge.listeners.CatalogAnvilListener;
 import com.trinityforge.listeners.CatalogSmithingListener;
+import com.trinityforge.listeners.CatalogVanillaOperationGuardListener;
 import com.trinityforge.listeners.FarmingHarvestListener;
 import com.trinityforge.mobs.DungeonGateService;
 import com.trinityforge.listeners.DiggingGimmickListener;
@@ -65,10 +69,13 @@ import com.trinityforge.listeners.NativeSkillExperienceListener;
 import com.trinityforge.listeners.PlacedBlockTracker;
 import com.trinityforge.listeners.ProgressionPreloadListener;
 import com.trinityforge.listeners.TreeFellingListener;
+import com.trinityforge.listeners.KillRewardAdjuster;
+import com.trinityforge.listeners.LevelCutoffExpListener;
 import com.trinityforge.listeners.MobLevelTableListener;
 import com.trinityforge.listeners.MobOverrideDropListener;
 import com.trinityforge.listeners.MobOverrideExpListener;
 import com.trinityforge.listeners.MobTypeDropListener;
+import com.trinityforge.listeners.MobTransformListener;
 import com.trinityforge.listeners.MobTypeSpawnListener;
 import com.trinityforge.listeners.PerkMirrorListener;
 import com.trinityforge.listeners.OwnerBindListener;
@@ -76,6 +83,7 @@ import com.trinityforge.listeners.UseRequirementListener;
 import com.trinityforge.listeners.PickupQualityListener;
 import com.trinityforge.listeners.VeinMiningListener;
 import com.trinityforge.listeners.XpBottleListener;
+import com.trinityforge.mining.DiggingHasteActiveSkill;
 import com.trinityforge.mining.HasteActiveSkill;
 import com.trinityforge.mob.DamagePopupDisplay;
 import com.trinityforge.mob.FocusHpDisplay;
@@ -104,6 +112,7 @@ import com.trinityforge.skilltree.runtime.SkillPerkStatSource;
 import com.trinityforge.skilltree.runtime.NativeSkillPerkStatSource;
 import com.trinityforge.skilltree.runtime.NativePerkService;
 import com.trinityforge.skilltree.runtime.NativeSkillTreeMenu;
+import com.trinityforge.smithing.BedrockSmithingAssistListener;
 import com.trinityforge.stats.AttributeApplier;
 import com.trinityforge.stats.CatalogRitualBridge;
 import com.trinityforge.stats.CatalogRecipeRegistrar;
@@ -140,6 +149,8 @@ public final class TrinityForge extends JavaPlugin {
     private static volatile TrinityForge instance;
     private ConfigManager configManager;
     private DungeonWorldRegistry dungeonWorldRegistry;
+    /** 2026-07-30: 被弾/死亡の装備耐久ペナルティ。EliteMobsフォークが死亡側を直接呼ぶ。 */
+    private com.trinityforge.durability.EquipmentDurabilityService equipmentDurabilityService;
     private final com.trinityforge.progression.LocationExpDiminishing locationExpDiminishing =
             new com.trinityforge.progression.LocationExpDiminishing();
     private SymmetricCombatService combatService;
@@ -148,6 +159,23 @@ public final class TrinityForge extends JavaPlugin {
     private com.trinityforge.stats.CrossPluginItemResolver crossPluginItemResolver;
     private SkillLevelSource skillLevelSource;
     private NativeProgressionService progressionService;
+    /**
+     * 日次EXP逓減の状態保持器(2026-07-31)。プレイヤー×スキルごとに指数移動窓を持つ。
+     * 退出時に {@code forget} してメモリを有界に保ち、蓄積そのものは
+     * {@link com.trinityforge.progression.DailyExpWindowPersistence} が共有DBへ逃がす(2026-08-18)。
+     */
+    private final com.trinityforge.progression.DailyExpDiminishing dailyExpDiminishing =
+            new com.trinityforge.progression.DailyExpDiminishing();
+    /** 逓減の蓄積の永続化先(共有 player_progression.db)。 */
+    private com.trinityforge.progression.infrastructure.sqlite.DailyExpWindowStore dailyExpWindowStore;
+    /** メール(W-155)。受信箱は共有DBに置く —— 送信者がログアウト中でも届くという要件のため。 */
+    private com.trinityforge.mail.MailStore mailStore;
+    private com.trinityforge.mail.MailService mailService;
+    private com.trinityforge.mail.MailInboxGui mailInboxGui;
+    private com.trinityforge.mail.MailComposeGui mailComposeGui;
+    private com.trinityforge.command.MailCommand mailCommand;
+    private com.trinityforge.progression.DailyExpWindowPersistence dailyExpPersistence;
+    private org.bukkit.scheduler.BukkitTask dailyExpAutosaveTask;
     private NativeProgressionAdminService progressionAdminService;
     private NativeExperienceDispatcher experienceDispatcher;
     private ProgressionRepository progressionRepository;
@@ -159,13 +187,32 @@ public final class TrinityForge extends JavaPlugin {
     private PerkMirrorService perkMirrorService;
     private PerkAttributeApplier perkAttributeApplier;
     private com.trinityforge.gathering.GatheringEfficiencyEnchantApplier gatheringEfficiencyApplier;
+    /**
+     * 一括伐採/一括破壊/範囲収穫の連鎖分へ採取EXPを渡す口(2026-07-28)。
+     * {@code NativeSkillExperienceListener} の生成箇所と、それを使うギミックリスナーの登録箇所が
+     * 数百行離れているためフィールドで受け渡す。
+     */
+    private com.trinityforge.gathering.ChainBreakExpGrant chainBreakExpGrant;
     private HateService hateService;
     private DungeonGateService dungeonGateService;
     private BleedService bleedService;
     private FocusHpDisplay focusHpDisplay;
     private DamagePopupDisplay damagePopupDisplay;
+    /**
+     * packetevents リスナーの登録解除フック(任意依存)。packetevents 不在環境でもこのフィールドの
+     * 型解決が走らないよう、あえて packetevents の型ではなく {@link Runnable} で保持する。
+     */
+    private Runnable damageIndicatorUninstaller;
+    /** 称号のクライアント騎乗(任意依存 packetevents)の登録解除。未導入なら null のまま。 */
+    private Runnable titleMountUninstaller;
     private ItemFactory itemFactory;
+    /** {@link #loreComposer()} の実体。{@code inertStatKeys} 配線済みの1本を共有する。 */
+    private LoreComposer loreComposer;
     private CatalogRecipeRegistrar catalogRecipeRegistrar;
+    /** レシピ帳へのプラグインレシピ解禁 (2026-07-31 D7)。{@link #onEnable} 完了までは null。 */
+    private com.trinityforge.listeners.RecipeDiscoveryListener recipeDiscoveryListener;
+    /** brew-unlocks の醸造 customMixes 登録 (2026-07-31 D10)。{@link #onEnable} 完了までは null。 */
+    private com.trinityforge.stats.BrewPotionMixRegistrar brewPotionMixRegistrar;
     private com.trinityforge.stats.VanillaRecipeRemover vanillaRecipeRemover;
     private com.trinityforge.stats.VanillaItemRemover vanillaItemRemover;
     private com.trinityforge.listeners.VanillaItemRemovalListener vanillaItemRemovalListener;
@@ -174,22 +221,37 @@ public final class TrinityForge extends JavaPlugin {
     private StampCommand stampCommand;
     private ImportMobsCommand importMobsCommand;
     private DungeonCommand dungeonCommand;
+    private com.trinityforge.command.InstanceCommand instanceCommand;
     private StatsCommand statsCommand;
+    private com.trinityforge.stats.status.StatusGui statusGui;
     private RoleCommand roleCommand;
     private RoleBuffListener roleBuffListener;
     private CollectionCommand collectionCommand;
+    private com.trinityforge.command.RecipesCommand recipesCommand;
+    private com.trinityforge.command.GlyphsCommand glyphsCommand;
     private CollectionService collectionService;
     private com.trinityforge.progression.CollectionGui collectionGui;
     private com.trinityforge.progression.SpecialRewardService specialRewardService;
+    private com.trinityforge.listeners.SpecialRewardPruneListener specialRewardPruneListener;
     private com.trinityforge.progression.TitleDisplayService titleDisplayService;
     private com.trinityforge.progression.ParticleEffectService particleEffectService;
     private com.trinityforge.command.SettingsCommand settingsCommand;
+    private com.trinityforge.command.CatalogCommand catalogCommand;
+    private com.trinityforge.command.SpecialRewardCommand specialRewardCommand;
+    private com.trinityforge.afk.AfkService afkService;
+
+    // サーバ間チャット/管理者TP(network.yml, 2026-08-15)。プロキシの旧BungeeCordチャンネルを使う。
+    private com.trinityforge.network.ProxyChannel proxyChannel;
+    private com.trinityforge.network.CrossServerTeleport crossServerTeleport;
     private com.trinityforge.progression.AchievementService achievementService;
+    private com.trinityforge.progression.achievement.AchievementGui achievementGui;
     private ActiveSkillRegistry activeSkillRegistry;
     private CooldownManager activeCooldownManager;
     private FeedbackLayer activeFeedbackLayer;
     private ActiveCommand activeCommand;
     private org.bukkit.scheduler.BukkitTask achievementPollTask;
+    /** 敵の特殊攻撃(2026-07-31)。config が無効なら start() が何も開始しない。 */
+    private com.trinityforge.combat.MobAbilityTask mobAbilityTask;
     private UseRequirementService useRequirementService;
     private PlayerLootLuckSource lootLuckSource;
     private com.trinityforge.stats.PlayerMobDropBonusSource mobDropBonusSource;
@@ -197,7 +259,17 @@ public final class TrinityForge extends JavaPlugin {
     // are stale (SELECTION_SPEC 5); see TableGeneration.
     private TableGeneration tableGeneration;
     private ItemRefreshListener itemRefreshListener;
+
+    /**
+     * 自動植え直しの通知先。{@link FarmingHarvestListener} より先に生成されるので
+     * フィールドで持ち越す(2026-08-17: 自動で植えた作物に成長ボーナスが乗っていなかった対応)。
+     */
+    private com.trinityforge.listeners.PlantedCropGrowthListener plantedCropGrowthListener;
     private com.trinityforge.economy.EconomyBridge economyBridge;
+    // ランキング(PlaceholderAPI)向けの集計値。図鑑・グリフ解放数・討伐数は本人がログイン中の
+    // サーバからしか読めないので、共有 DB へ写してバックエンド間で同じ値を返せるようにする。
+    private com.trinityforge.ranking.RankingMirrorStore rankingMirrorStore;
+    private com.trinityforge.ranking.RankingStatsService rankingStatsService;
 
     @Override
     public void onEnable() {
@@ -224,6 +296,38 @@ public final class TrinityForge extends JavaPlugin {
                             new SqliteProgressionRepository(
                                     "jdbc:sqlite:" + database.getAbsolutePath())),
                     () -> configManager.combatLevel().cacheTtlMillis());
+            // ランキングミラーは進行データと同じファイルに同居させる。この DB は
+            // plugins/TrinityForge ごとジャンクションで全バックエンドに共有されているので、
+            // ここへ書けばメイン／資源のどちらから読んでも同じ値になる。
+            // 別コネクションになるが、複数コネクション同時アクセスの安全性は
+            // SharedSqliteConcurrencyTest で実測済み(transaction_mode=IMMEDIATE が前提)。
+            this.rankingMirrorStore = new com.trinityforge.ranking.RankingMirrorStore(
+                    "jdbc:sqlite:" + database.getAbsolutePath());
+            this.rankingStatsService = new com.trinityforge.ranking.RankingStatsService(
+                    this, rankingMirrorStore);
+            // 日次EXP逓減の蓄積も同じ共有DBへ(2026-08-18)。ここへ置くと
+            // メイン⇄資源のサーバ移動でも逓減が引き継がれる(別々に持つと往復で消せてしまう)。
+            this.dailyExpWindowStore =
+                    new com.trinityforge.progression.infrastructure.sqlite.DailyExpWindowStore(
+                            "jdbc:sqlite:" + database.getAbsolutePath());
+            // 2026-08-19 W-154(ユーザー指示「修正時に全員の既にかかっているロックを解除したい」)。
+            // stats/skill-exp.yml の daily-diminishing.reset-id を書き換えたときだけ、
+            // 起動時に1回だけ全員の蓄積を消す(適用済みの値をDBに残すので再起動では2度消えない)。
+            try {
+                int cleared = dailyExpWindowStore.applyResetIfRequested(
+                        configManager.skillExp().dailyDiminishingResetId());
+                if (cleared >= 0) {
+                    getLogger().info("[skill-exp] daily-diminishing.reset-id の変更を検出したため、"
+                            + "日次逓減の蓄積を全員ぶん解除しました(" + cleared + " 行)。");
+                }
+            } catch (java.sql.SQLException ex) {
+                // 解除できなくても逓減自体は従来どおり動く。起動は止めない。
+                getLogger().warning("[skill-exp] 日次逓減の一括解除に失敗しました: " + ex);
+            }
+            // メール(2026-08-19 / W-155)も同じ共有DBへ。受信箱をプレイヤーPDCに置くと
+            // 「送信者がログアウト中でも送れる」という要件が成立しない(PDCはオンラインにしか書けない)。
+            this.mailStore = new com.trinityforge.mail.MailStore(
+                    "jdbc:sqlite:" + database.getAbsolutePath());
             this.progressionCatalog = NativeSkillCatalog.loadDataFolder(
                     getDataFolder(), getClassLoader());
             this.skillLevelSource = new NativeSkillLevelSource(progressionRepository);
@@ -252,30 +356,80 @@ public final class TrinityForge extends JavaPlugin {
                     // タスク3(2026-07-26 EXP調整): レベル逓減カーブ。既定はgathering/combatとも
                     // level-diminishing.*=false なので SkillExpDiminishingCurve は常に1.0を返す
                     // (=現行挙動を1ミリも変えない)。
-                    new com.trinityforge.progression.SkillExpDiminishingCurve(configManager.skillExp()));
+                    new com.trinityforge.progression.SkillExpDiminishingCurve(configManager.skillExp()),
+                    // 2026-07-31 ユーザー確定「既存の24時間EXPによって取得量が軽減されていく設定」。
+                    // その機構は実在しなかった(あったのは spot-diminishing=同一地点だけ)ので新設。
+                    // 設定は Supplier で毎回引く: reload で skill-exp.yml を読み直しても反映される。
+                    this.dailyExpDiminishing,
+                    () -> configManager.skillExp().dailyDiminishing(),
+                    // スキル別EXP倍率(2026-08-02 柱5-3)。キーは <スキルID>_exp_bonus。
+                    // use-skill は装備要件であって分類マーカーではない(採取ツールにも付いている)ので、
+                    // 「伐採EXP+15%」の類はここのステでしか表現してはいけない。
+                    (id, skillId) -> {
+                        PlayerStatAggregator live = this.playerStatAggregator;
+                        if (live == null || skillId == null || skillId.isBlank()) {
+                            return 0.0;
+                        }
+                        Player online = getServer().getPlayer(id);
+                        return online == null ? 0.0
+                                : live.aggregate(online).totalOf(
+                                        com.trinityforge.stats.StatKeys.canonical(
+                                                skillId + "_exp_bonus"));
+                    },
+                    // 1SPを何POWERレベルごとに与えるか(2026-08-04 ユーザー要望)。
+                    // 下の AdminService / ProgressionCurveReconciler にも同じ供給元を渡すこと。
+                    // 片方だけ設定を見ると「レベルアップで増えた点が再ログインで消える」。
+                    () -> configManager.skillExp().powerLevelsPerSkillPoint());
             this.progressionAdminService = new NativeProgressionAdminService(
                     progressionRepository, progressionCatalog,
                     () -> configManager.skillTrees().all().values(),
-                    progressionLocks);
+                    progressionLocks,
+                    () -> configManager.skillExp().powerLevelsPerSkillPoint());
         } catch (SQLException ex) {
             getLogger().log(Level.SEVERE, "Native progression database could not be opened", ex);
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
+        // 外部プラグイン向けのスキルレベルアップ通知(2026-08-16)。EXP付与は非同期スレッドから
+        // 走るので、Dispatcher 側がメインスレッドへ寄せてから TrinitySkillLevelUpEvent を発火する。
+        this.progressionService.setLevelUpSink(
+                new com.trinityforge.progression.event.BukkitSkillLevelUpDispatcher(this));
         this.experienceDispatcher = new NativeExperienceDispatcher(this, progressionService);
+        // スキルID → 表示名(skilltree/*.yml の display_name)。本人向けフィードバックと
+        // 全体アナウンスの両方が使うので、同じ lambda を 2 箇所へ書き写さず 1 本を共有する
+        // (書き写すと片方だけ解決規則が古くなり、同じスキルが画面ごとに別名で出る)。
+        java.util.function.Function<String, String> skillDisplayName = skillId -> {
+            for (com.trinityforge.skilltree.SkillTree t : configManager.skillTrees().all().values()) {
+                if (t != null && skillId != null && skillId.equalsIgnoreCase(t.skill())) {
+                    return t.displayName();
+                }
+            }
+            return skillId;
+        };
+        // 日次逓減(直近24時間の稼ぎでEXP取得量が薄まる)の可視化(2026-08-18)。
+        // 機構は 2026-07-31 から動いていたが【プレイヤーへ知らせる経路が1つも無く】、
+        // 「なんとなくEXPが渋い」としか分からなかった。段が離散なのは「あと何EXPで落ちるか
+        // 数えられるように」という設計なので、その数字を出す側をここで配線する。
+        // 参照は必ず読み取り専用の dailyExpRateStatus 経由 —— consume を呼ぶと表示のたびに
+        // 蓄積が進み、見ただけでEXPが減る。
+        java.util.function.BiFunction<java.util.UUID, String,
+                com.trinityforge.progression.DailyExpDiminishing.Status> dailyExpRateLookup =
+                (playerId, skillId) -> progressionService.dailyExpRateStatus(playerId, skillId);
+        this.progressionService.setDailyExpRateSink(
+                new com.trinityforge.progression.event.BukkitDailyExpRateNotifier(
+                        this, skillDisplayName, dailyExpRateLookup));
         // EXP獲得ボスバー/アクションバー表示 + レベルアップ通知 (S5/S6)。スキル表示名はスキルツリー定義から解決。
         com.trinityforge.progression.SkillExpFeedbackService skillExpFeedbackService =
                 new com.trinityforge.progression.SkillExpFeedbackService(
-                this, configManager.skillExp(), progressionCatalog,
-                skillId -> {
-                    for (com.trinityforge.skilltree.SkillTree t : configManager.skillTrees().all().values()) {
-                        if (t != null && skillId != null && skillId.equalsIgnoreCase(t.skill())) {
-                            return t.displayName();
-                        }
-                    }
-                    return skillId;
-                });
+                this, configManager.skillExp(), progressionCatalog, skillDisplayName,
+                dailyExpRateLookup);
         this.experienceDispatcher.setFeedback(skillExpFeedbackService);
+        // 節目レベルアップの全体アナウンス(progression/level-broadcast.yml, 2026-08-16)。
+        // 旧 ValhallaMMO アドオン ValTopBoard の level-up-broadcast を TF 本体へ移したもの。
+        // TrinitySkillLevelUpEvent を購読するだけなので、上の Dispatcher 配線より後であればよい。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.progression.SkillLevelBroadcastListener(
+                        this, configManager.levelBroadcast(), skillDisplayName), this);
         // B3(2026-07-25 バグ報告): ログアウト時に当該プレイヤーのスキル別ボスバー/タイマーを確実に
         // 破棄するため PlayerQuitEvent を購読する(以前は Listener 未実装で未登録だった)。
         getServer().getPluginManager().registerEvents(skillExpFeedbackService, this);
@@ -285,10 +439,35 @@ public final class TrinityForge extends JavaPlugin {
         // NativeSkillExperienceListener の登録は aggregator/dedicatedEffects を要する
         // 破壊時バニラEXP(S9)配線のため aggregator 生成後(下方)へ移動した。gimmick系(Digging/VeinMining/
         // TreeFelling)より前に登録される点は変わらないので、placed-mark の消去順序は不変。
+        // 逓減の蓄積の永続化(2026-08-18)。これが無いと退出のたびに蓄積が消え、
+        // 「逓減が掛かったら入り直す」だけで等倍に戻せてしまう(＝機構が無いのと同じ)。
+        this.dailyExpPersistence = dailyExpWindowStore == null ? null
+                : new com.trinityforge.progression.DailyExpWindowPersistence(
+                        dailyExpDiminishing, dailyExpWindowStore,
+                        () -> configManager.skillExp().dailyDiminishing(),
+                        message -> getLogger().warning(message));
         getServer().getPluginManager().registerEvents(
-                new ProgressionPreloadListener(this, progressionRepository), this);
+                new ProgressionPreloadListener(this, progressionRepository, dailyExpDiminishing,
+                        dailyExpPersistence), this);
+        // 定期保存。退出時保存だけだと(1)クラッシュで丸ごと消える (2)Velocity の
+        // サーバ移動では【移動先の join が移動元の quit より先に起きる】ので移動先が
+        // 古い値を読む、の2つが残る。5分ごとに書いておけば取りこぼしがその幅に収まる。
+        if (dailyExpPersistence != null) {
+            long autosaveTicks = 20L * 60L * 5L;
+            this.dailyExpAutosaveTask = getServer().getScheduler().runTaskTimerAsynchronously(
+                    this, () -> dailyExpPersistence.saveAll(), autosaveTicks, autosaveTicks);
+        }
         this.nativePerkService = new NativePerkService(progressionService,
                 () -> configManager.skillTrees().all().values());
+        // スキルノードロック(2026-07-27): プレステージ時に維持する perk をプレイヤーPDCから供給する。
+        // オフラインプレイヤーは PDC を読めない=ロック無し扱いだが、プレステージは常に本人が
+        // GUI から実行するため実運用で問題にならない。
+        this.nativePerkService.setLockedPerkSupplier(playerId -> {
+            org.bukkit.entity.Player online = getServer().getPlayer(playerId);
+            return online == null
+                    ? java.util.Set.of()
+                    : java.util.Set.copyOf(com.trinityforge.pdc.PlayerData.of(online).lockedPerks());
+        });
         // Public ItemStack -> AttackStats derivation, reusing the same item-category config +
         // stats/item-stats.yml (the SOLE per-item stat source) + attack-stat-keys mapping the
         // CombatListener runs for a melee weapon. Exposed via weaponAttackStats() so the ArsPaper fork can
@@ -316,12 +495,22 @@ public final class TrinityForge extends JavaPlugin {
         // アドオンを合算する。二重実装を避けるため単一のインスタンスを両方へ注入する。
         // 2026-07-25: PerkAttributeApplier の attack-speed/attack-speed-bonus 計算にも必要なため、
         // perkAttributeApplier の構築より先にここで作る(旧順序=perkAttributeApplier→aggregatorを反転)。
+        // 装備使用ゲートの共有評価器は、防具の集計時にも要件未達部位を除外するためaggregatorより先に作る。
+        this.useRequirementService = new UseRequirementService(configManager.useRequirements(),
+                configManager.itemStats(), skillLevelSource);
         RoleBuffResolver roleBuffResolver = new RoleBuffResolver(configManager.roleBuffs());
         PlayerStatAggregator aggregator = new PlayerStatAggregator(
                 configManager.itemStats(),
                 configManager.combatDamage(), perkBuffResolver, roleBuffResolver, nativeAttributeBridge,
-                permanentBuffResolver, configManager.baseStats(), configManager.statCaps());
+                permanentBuffResolver, configManager.baseStats(), configManager.statCaps(),
+                useRequirementService);
         this.playerStatAggregator = aggregator;
+        // 修正2(armor-set-bonus 総合値化): nativeAttributeBridge は aggregator より前に生成する必要が
+        // あるため(perkAttributeApplier の attack-speed 計算がこのブリッジに依存する既存の生成順)、
+        // コンストラクタでは渡せずセッターで後から注入する。装備アイテム/役職バフ/永続バフ/base-stats由来の
+        // armor-set-bonus を増幅率へ反映させる(パーク分は既存どおり perkBuffs.general() から)。
+        nativeAttributeBridge.setNonPerkArmorSetBonusSupplier(
+                p -> aggregator.nonPerkStatTotal(p, "armor_set_bonus"));
         this.perkAttributeApplier = new PerkAttributeApplier(
                 this, perkBuffResolver, nativeAttributeBridge, permanentBuffResolver,
                 configManager.baseStats(), aggregator, configManager.combatDamage(),
@@ -332,14 +521,27 @@ public final class TrinityForge extends JavaPlugin {
         // 採集効率エンチャント連動方式(2026-07-25、mining-efficiency/mining-speed-bonus属性ベースの取り下げ
         // 再設計): メインハンドの農業/採掘/伐採/切削道具へ実行時に効率強化エンチャントとして反映する。
         this.gatheringEfficiencyApplier = new com.trinityforge.gathering.GatheringEfficiencyEnchantApplier(
-                this, aggregator, configManager.gatheringEfficiency(), configManager.statCaps());
+                this, aggregator, configManager.gatheringEfficiency());
         getServer().getPluginManager().registerEvents(gatheringEfficiencyApplier, this);
         // 破壊時バニラEXP(S9)を有効化するため aggregator/dedicatedEffects を渡す 7引数版で登録する。
         // ここは placedBlockTracker(上方) 生成後かつ gimmick系リスナー登録より前なので順序不変。
-        getServer().getPluginManager().registerEvents(
-                new NativeSkillExperienceListener(this, experienceDispatcher, progressionCatalog,
-                        placedBlockTracker, roleBuffResolver,
-                        configManager.dedicatedEffects(), aggregator), this);
+        // 2026-07-28: 一括伐採/一括破壊/範囲収穫の連鎖分EXPを付与させるため、ローカルに保持して
+        // 下の3リスナーへ ChainBreakExpGrant として渡す(それらは登録順の都合でここより後に作られる)。
+        NativeSkillExperienceListener nativeSkillExperienceListener = new NativeSkillExperienceListener(
+                this, experienceDispatcher, progressionCatalog,
+                placedBlockTracker, roleBuffResolver,
+                configManager.dedicatedEffects(), aggregator,
+                configManager.mobLevelTable(),
+                // 2026-08-18: 破壊時バニラEXPのベース量を config 化したので skillExp も渡す
+                // (渡さないと BreakVanillaExpLedger.DEFAULT_BASE_EXP 固定になり yml が効かない)。
+                configManager.skillExp());
+        this.chainBreakExpGrant = nativeSkillExperienceListener::grantChainBreak;
+        getServer().getPluginManager().registerEvents(nativeSkillExperienceListener, this);
+        com.trinityforge.listeners.ArsMagicExperienceListener arsMagicExperienceListener =
+                new com.trinityforge.listeners.ArsMagicExperienceListener(
+                        this, configManager.skillExp(), progressionCatalog, placedBlockTracker,
+                        configManager.mobLevelTable());
+        getServer().getPluginManager().registerEvents(arsMagicExperienceListener, this);
         // かまど/エンチャント/ポーションは実行者(=スキル取得者)限定ステ反映(2026-07-25)。
         // エンチャント運(良エンチャント出現率格上げ) + オーバーエンチャント解放者の出現率追加ボーナス。
         getServer().getPluginManager().registerEvents(
@@ -355,12 +557,18 @@ public final class TrinityForge extends JavaPlugin {
         // rememberBrewer/markAutomatedBrew で刻むPDCを BrewOwnership 経由で共有読み取りする。
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.PotionQualityListener(this, aggregator,
-                        configManager.alchemyQuality(), progressionCatalog), this);
+                        configManager.alchemyQuality(), progressionCatalog,
+                        configManager.quality()), this);
         // 材料節約率(ingredient_save_chance)をバニラ醸造台へ配線する(2026-07-26)。所有者解決は上と同じ
         // BrewOwnership経由・HIGH優先度。自動(ホッパー)醸造は複製防止のため完全にスキップする
         // (品質/速度と違いauto_mult減衰すら適用しない、詳細はBrewIngredientSaveListenerのjavadoc参照)。
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.BrewIngredientSaveListener(this, aggregator), this);
+        // 醸造の診断計装(2026-08-19 / W-112)。「進捗は完走するのに中身が変わらない」報告を推測なしで
+        // 切り分けるため、どの優先度でキャンセルされたかと入出力を実測する。正常な醸造では1行も出ない
+        // (詳細と読み方は BrewDiagnosticListener のクラスjavadoc)。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.BrewDiagnosticListener(this), this);
         // S9: 採取追加ドロップ/食事バフ/繁殖バフ/植えた作物の成長ボーナス consumer 群。
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.GatheringExtraDropListener(aggregator, placedBlockTracker), this);
@@ -370,8 +578,9 @@ public final class TrinityForge extends JavaPlugin {
                         configManager.dedicatedEffects(), configManager.foodGimmick()), this);
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.BreedingBonusListener(aggregator), this);
-        getServer().getPluginManager().registerEvents(
-                new com.trinityforge.listeners.PlantedCropGrowthListener(this, aggregator), this);
+        this.plantedCropGrowthListener =
+                new com.trinityforge.listeners.PlantedCropGrowthListener(this, aggregator);
+        getServer().getPluginManager().registerEvents(plantedCropGrowthListener, this);
         // 数値・解放フラグはすべて buffs 経由で集計する。
         getServer().getPluginManager().registerEvents(new NativeSurvivalPerkListener(aggregator), this);
         getServer().getPluginManager().registerEvents(
@@ -391,6 +600,13 @@ public final class TrinityForge extends JavaPlugin {
                     perkAttributeApplier.apply(player);
                     gatheringEfficiencyApplier.reconcileFull(player);
                     perkMirrorService.sync(player);
+                    // ノード取得/ツリーリセットの直後に recipe:<id> ゲートの解放状態が変わるので、
+                    // レシピ帳もその場で追随させる(次のログインまで待たせない)。
+                    // フィールド参照なのは、レシピ登録器がこの行より後で組まれるため
+                    // (ラムダは呼ばれた時点の値を読む)。
+                    if (recipeDiscoveryListener != null) {
+                        recipeDiscoveryListener.reconcile(player);
+                    }
                 });
         getServer().getPluginManager().registerEvents(nativeSkillTreeMenu, this);
         // Player-defender item side (LD-8 γ, LD-13): sums the TF-only defense (typed 耐性 + common
@@ -415,16 +631,43 @@ public final class TrinityForge extends JavaPlugin {
         // (DoTはBASEダメージ自体をbleedFinalDamageFlatで再計算するが、魔法は既に確定したBASEの
         // 後始末のみ)なので分離した(MagicResistanceFoldListenerのjavadoc参照)。
         getServer().getPluginManager().registerEvents(new MagicResistanceFoldListener(), this);
+        // 日光炎上ダメージを最大HP割合へ置換 (2026-07-28)。バニラの1.0固定ではTFのモブHP(Lv0で400)に
+        // 対して無意味で「朝になっても敵が炎上で死なない」ため。combat/damage.yml の sunlight-burn。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.SunlightBurnListener(configManager.combatDamage()), this);
+        // 装備耐久ペナルティ(2026-07-30): EliteMobsのインスタンスダンジョンは致死ダメージをキャンセルして
+        // 「ダウン」へ移すため PlayerDeathEvent が発火せず、死亡ペナルティもキャンセルされた一撃分の
+        // 防具耐久消費も両方失われていた。被弾側はここで、死亡側はフォークが
+        // applyDeathDurabilityPenalty() を呼ぶことで補う。設定は combat/damage.yml の durability。
+        this.equipmentDurabilityService = new com.trinityforge.durability.EquipmentDurabilityService(
+                configManager.combatDamage()::durabilityPenalty,
+                player -> dungeonWorldRegistry.isDungeonWorld(player.getWorld().getUID()));
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.EquipmentDurabilityListener(equipmentDurabilityService), this);
         // The listener bridges the attacker's mainhand weapon's stats/item-stats.yml overlay into
         // AttackStats via the configured attack-stat-keys mapping (COMBAT 3.1), and folds only the
         // ARMOR/RESISTANCE vanilla modifiers into the symmetric pipeline so shield blocking and
         // absorption keep working (COMBAT_SYSTEM_SPEC 5).
-        getServer().getPluginManager().registerEvents(
-                new CombatListener(this, combatService,
-                        configManager.itemStats(), configManager.combatDamage(),
-                        skillLevelSource, bleedService, perkBuffResolver, aggregator,
-                        configManager.useRequirements(), configManager.skillExp(),
-                        configManager.craftingFeatures(), roleBuffResolver), this);
+        // 討伐報酬に共通で掛かる調整(2026-08-09): レベル差の足きり(combat/damage.yml の level-cutoff、
+        // 旧 mob-overrides.yml)とドロップ増加ステ(mob_drop_bonus)。EXP側(戦闘スキルEXP/バニラオーブ)と
+        // TF追加ドロップ側の4リスナーが同じ判定を共有するため、ここで1つだけ作って配る。
+        // 2026-08-18 (W-80): 3つ目としてダンジョン限定の報酬上乗せ(dungeon-level-reward)が乗ったので、
+        // ダンジョンワールド判定(DungeonWorldRegistry)を渡す。この述語が false を返す限り上乗せは
+        // 一切効かない ＝ オーバーワールドのモブには構造的に届かない。
+        KillRewardAdjuster killRewardAdjuster =
+                new KillRewardAdjuster(configManager.combatDamage(), combatService, aggregator,
+                        world -> world != null && dungeonWorldRegistry.isDungeonWorld(world.getUID()));
+        CombatListener combatListener = new CombatListener(this, combatService,
+                configManager.itemStats(), configManager.combatDamage(),
+                skillLevelSource, bleedService, perkBuffResolver, aggregator,
+                configManager.useRequirements(), configManager.skillExp(),
+                configManager.craftingFeatures(), roleBuffResolver,
+                configManager.mobLevelTable(), progressionCatalog);
+        combatListener.setKillRewardAdjuster(killRewardAdjuster);
+        // 2026-08-19 W-148: 魔法の討伐EXPにも武器・弓術と同じ足きりを掛ける。ここを外すと
+        // 「同じモブを倒しても魔法だけ満額で入る」非対称が戻る(実サーバ報告の症状そのもの)。
+        arsMagicExperienceListener.setKillRewardAdjuster(killRewardAdjuster);
+        getServer().getPluginManager().registerEvents(combatListener, this);
 
         // Aggro/threat tracking (gap C5). The service owns a bounded, self-evicting HateTable and
         // a periodic sweep; the listener feeds threat and evicts on death/removal/quit/unload so
@@ -433,38 +676,98 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new HateListener(hateService, roleBuffResolver), this);
         hateService.start();
 
-        // Dungeon entry gate (D2, Q4): single SoT dungeon/gates.yml (world + content-package aliases).
-        this.dungeonGateService = new DungeonGateService(
-                configManager.dungeonGates(), combatService);
-        getServer().getPluginManager().registerEvents(
-                new DungeonGateListener(dungeonGateService), this);
-
         // Write-side item assembly shared by the give command, (M3) fork drop/craft flows, and the
         // refresh listener below (SELECTION_SPEC 5: a table edit must reach items already in play).
         this.tableGeneration = new TableGeneration();
+        // config で機構ごと殺されたばらつきステ(craft-quality.yml の scale=0)を lore から落とす。
+        // 未配線だと「設定で無効にしたのに説明文だけ生きている」表示と実装の食い違いになる。
+        // Supplier で渡すのは /trinityforge reload で config が差し替わるため。
+        LoreComposer loreComposer = new LoreComposer();
+        loreComposer.useInertStatKeys(configManager.craftQuality()::inertSpreadStatKeys);
+        this.loreComposer = loreComposer;
         ItemAssembler itemAssembler = new ItemAssembler(
                 configManager.itemStats(),
                 configManager.attributeMapping(),
                 new AttributeApplier(this),
                 configManager.lore(),
-                new LoreComposer(),
+                loreComposer,
                 configManager.qualityTiers(),
                 tableGeneration,
                 configManager.itemCatalog(),
                 configManager.skillTrees(),
                 configManager.craftingFeatures());
-        this.itemFactory = new ItemFactory(itemAssembler, configManager.itemStats(), configManager.craftingFeatures());
+        this.itemFactory = new ItemFactory(itemAssembler, configManager.itemStats(),
+                configManager.craftingFeatures(), configManager.equipmentAssets());
         // Single id->ItemStack resolution seam (TF catalog -> ArsPaper registry -> vanilla Material) used
         // by every drop-table listener (mining/woodcutting/digging/fishing, 2026-07-23 stat-gate-overhaul §4).
         this.crossPluginItemResolver =
                 new com.trinityforge.stats.CrossPluginItemResolver(configManager.itemCatalog(), itemFactory);
+
+        // Dungeon entry gate (D2, Q4): single SoT dungeon/gates.yml (world + content-package aliases).
+        // 2026-07-27 カスタムアイテム鍵対応でcrossPluginItemResolverに依存するようになったため、この
+        // 生成をcrossPluginItemResolver構築後(上)へ移動した(以前はhateService直後にあった)。
+        this.dungeonGateService = new DungeonGateService(
+                configManager.dungeonGates(), combatService, crossPluginItemResolver);
+        getServer().getPluginManager().registerEvents(
+                new DungeonGateListener(dungeonGateService), this);
+        // 2026-07-27 鍵アイテムGUI入場対応: 鍵アイテム右クリック→潜入確認GUI→確定で転送。
+        // GUIとリスナーはdungeonGateService構築後(上)へ置くこと(依存順序)。
+        com.trinityforge.mobs.DungeonEntryGui dungeonEntryGui = new com.trinityforge.mobs.DungeonEntryGui(
+                this, dungeonGateService, combatService);
+        getServer().getPluginManager().registerEvents(dungeonEntryGui, this);
+        // 2026-08-03: ここにあった腕振り経由の「虚空右クリック」フォールバック(VoidRightClickBridge)は
+        // 撤去した。当初の診断「vanilla の使用挙動が無いアイテムは虚空右クリックで
+        // PlayerInteractEvent 自体が発火しない」は誤りで、真因は購読側の ignoreCancelled = true
+        // だった(RIGHT_CLICK_AIR はブロックが null なので生成時点で常に isCancelled() == true)。
+        // 詳細は DungeonKeyItemListener#onInteract / GachaListener#onInteract の javadoc。
+        com.trinityforge.listeners.DungeonKeyItemListener dungeonKeyItemListener =
+                new com.trinityforge.listeners.DungeonKeyItemListener(
+                        configManager.dungeonGates(), dungeonGateService.keyMatcher(), dungeonEntryGui);
+        getServer().getPluginManager().registerEvents(dungeonKeyItemListener, this);
+        // /tf dungeon <id> のクイック入場(2026-07-27 admin)は、鍵GUI経由の通常入場とまったく同じ
+        // 転送ロジックを共有する(DungeonTeleporter)。違いは「成功後に鍵を消費するか」だけ。
+        com.trinityforge.mobs.DungeonTeleporter dungeonTeleporter =
+                new com.trinityforge.mobs.DungeonTeleporter(dungeonGateService);
+
         // Catalog-authored crafting recipes (items/catalog.yml `recipe:`/`recipes:`): registers the
         // Bukkit recipes each catalog entry declares. Re-run on every /trinityforge reload (below)
         // AND from ArsPaper's enable hook (refreshCatalogRecipes) so Ars-built results converge.
         this.catalogRecipeRegistrar = new CatalogRecipeRegistrar(this, configManager.itemCatalog(), itemFactory,
                 () -> configManager.craftingFeatures().addedRecipes());
         catalogRecipeRegistrar.registerAll();
+        exportBedrockRecipeTable();
+        // W-44: ArsPaper 定義の custom: 素材(例 material-lists.yml の dungeon_seals 28件)は TF が
+        // 先に enable する都合で上の初回登録では解決できない。フォーク側の enable フック頼みだと
+        // フォークが古い/呼び出しが落ちた瞬間に「毎起動レシピ登録失敗 = 永久にクラフト不可」になるので、
+        // TF 自身も ArsPaper の enable を検知して再登録する(冪等)。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.ArsPaperRecipeRefreshListener(
+                        this::refreshCatalogRecipes,
+                        catalogRecipeRegistrar::deferredArsCatalogIds,
+                        getLogger()::warning),
+                this);
         CatalogRitualBridge.registerAll(this, configManager.itemCatalog());
+        // D7: 登録しただけではレシピ帳に出ない(Bukkit.addRecipe は discover を配らない)。
+        // ログイン時・ノード解放時・reload 後に TF/Ars のレシピを解禁するリスナー。
+        this.recipeDiscoveryListener = new com.trinityforge.listeners.RecipeDiscoveryListener(
+                this, configManager.dedicatedEffects(), configManager.craftingFeatures(),
+                catalogRecipeRegistrar::allRegisteredKeys);
+        getServer().getPluginManager().registerEvents(recipeDiscoveryListener, this);
+        // D10 (K-13): brew-unlocks を Paper の醸造 customMixes へ登録する。これが無いと
+        // CMD 付きの討伐素材は上段スロットに置けず、THICK ベースは醸造自体が始まらない。
+        // 要求レベル(brew:<id> を置いているノードの最小レベル)は、同じ (base, ingredient) を
+        // 複数グループが宣言したときに「上位段を勝たせる」ために渡す(レビュー指摘#2)。
+        this.brewPotionMixRegistrar = new com.trinityforge.stats.BrewPotionMixRegistrar(
+                this, () -> configManager.craftingFeatures().brewUnlocks(),
+                () -> com.trinityforge.stats.BrewPotionMixRegistrar.requirementLevels(
+                        configManager.skillTrees().all().values()),
+                com.trinityforge.stats.BrewPotionMixRegistrar.serverSink());
+        brewPotionMixRegistrar.registerAll();
+        // /minecraft:reload は PotionBrewing を作り直すので customMixes が全消滅する。
+        // レシピ帳の解禁も同時に張り直す(レシピ側も再送されるため)。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.ServerResourcesReloadListener(this::reapplyAfterResourcesReload),
+                this);
         // crafting-features.yml removed-vanilla-recipes: バニラ/データパックレシピの無効化
         // (editor から編集可能。reload でリストから外れたレシピは復元される)。
         this.vanillaRecipeRemover = new com.trinityforge.stats.VanillaRecipeRemover(getLogger());
@@ -486,15 +789,49 @@ public final class TrinityForge extends JavaPlugin {
         this.bindCommand = new BindCommand(itemFactory);
         this.importMobsCommand = new ImportMobsCommand(this, configManager.mobImport(),
                 configManager.mobProfiles(), configManager.dungeonThemes());
-        this.dungeonCommand = new DungeonCommand(configManager.dungeonThemes());
+        this.dungeonCommand = new DungeonCommand(configManager.dungeonThemes(),
+                configManager.dungeonGates(), dungeonTeleporter);
+        this.instanceCommand = new com.trinityforge.command.InstanceCommand();
         // Read-only debug command: shows the running player's aggregate combat level, skill levels,
         // and derived weapon/armor stats (rollSeed + quality), exactly as the pipeline reads them.
         this.statsCommand = new StatsCommand(combatService,
                 aggregator,
                 configManager.lore(),
                 skillLevelSource);
-        this.roleBuffListener = new RoleBuffListener(configManager.roleBuffs());
-        this.roleCommand = new RoleCommand(configManager.roleBuffs(), roleBuffListener);
+        // plugin を渡すのは必須: リスポーン直後のバフ再付与を次tickへ逃がすため (2026-08-17)。
+        this.roleBuffListener = new RoleBuffListener(configManager.roleBuffs(), this);
+        // 2026-07-28: /tf role はロールとバフの内訳をチャットへ出す。付け替えは選択GUI
+        // (RoleSelectGui)だけが入口で、可否判定は RoleChangeService に集約してある。
+        com.trinityforge.progression.RoleChangeService roleChangeService =
+                new com.trinityforge.progression.RoleChangeService(configManager.roleBuffs(), roleBuffListener);
+        com.trinityforge.progression.RoleDescriptions roleDescriptions =
+                new com.trinityforge.progression.RoleDescriptions(configManager.lore());
+        com.trinityforge.progression.RoleSelectGui roleSelectGui =
+                new com.trinityforge.progression.RoleSelectGui(this, roleChangeService, roleDescriptions);
+        getServer().getPluginManager().registerEvents(roleSelectGui, this);
+        this.roleCommand = new RoleCommand(roleChangeService, roleDescriptions);
+        // /tf status: 同じ数値をGUIで見るための画面 (2026-07-29)。合算は combined()、整形は
+        // StatValueRenderer と、チャット版 (/tf stats) と同じ経路を通す。
+        // 2026-08-05 (W-28): ロールの確認・変更の入口もここへ統合したので roleSelectGui より後に作る。
+        // progressionService を渡すのは日次逓減の倍率(×70% 等)をスキル一覧に出すためだけ(2026-08-18)。
+        this.statusGui = new com.trinityforge.stats.status.StatusGui(this, combatService, aggregator,
+                configManager.lore(), skillLevelSource, nativePerkService, roleChangeService, roleSelectGui,
+                progressionService);
+        getServer().getPluginManager().registerEvents(statusGui, this);
+
+        // 特殊アイテム3種(2026-08-04新設): 職業付け替えの証 / 厳選やり直しの護符 / 品質昇華の結晶。
+        // 券は「効果が成立したときにだけ」消費する(GUIを閉じただけ・対象なし・最高品質到達では減らない)。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.items.RoleTicketItemListener(roleSelectGui), this);
+        com.trinityforge.items.EquipmentTicketGui equipmentTicketGui =
+                new com.trinityforge.items.EquipmentTicketGui(this);
+        getServer().getPluginManager().registerEvents(equipmentTicketGui, this);
+        java.util.List<com.trinityforge.items.EquipmentTicketEffect> equipmentTicketEffects = java.util.List.of(
+                new com.trinityforge.items.StatRerollTicketEffect(itemFactory),
+                new com.trinityforge.items.QualityUpgradeTicketEffect(itemFactory, configManager.quality()));
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.items.EquipmentTicketItemListener(equipmentTicketGui, equipmentTicketEffects),
+                this);
 
         // コレクション図鑑 (M7): カタログアイテム入手/プレイヤー討伐を図鑑へ記録し、
         // 登録数しきい値の報酬ティア(称号/コスメ/QoL、progression/collection.yml)を段階解放する。
@@ -502,10 +839,15 @@ public final class TrinityForge extends JavaPlugin {
                 crossPluginItemResolver, experienceDispatcher, perkAttributeApplier);
         getServer().getPluginManager().registerEvents(
                 new CollectionListener(configManager.collection(), collectionService,
-                        configManager.itemCatalog()), this);
+                        configManager.itemCatalog(), configManager.achievements(), this), this);
+        // itemCatalog は「種別順(use-skill)/使用可能レベル順」の並べ替えキーを引くために渡す
+        // (2026-07-27。未指定でも名前順・絞り込み・検索は動く)。
         this.collectionGui = new com.trinityforge.progression.CollectionGui(this, configManager.collection(),
-                collectionService, crossPluginItemResolver);
+                collectionService, crossPluginItemResolver, configManager.itemCatalog());
         this.collectionCommand = new CollectionCommand(configManager.collection(), collectionService, collectionGui);
+        this.recipesCommand = new com.trinityforge.command.RecipesCommand();
+        // 2026-07-28: グリフ解放素材の閲覧GUI(読み取り専用)。解放自体は従来どおり筆記台。
+        this.glyphsCommand = new com.trinityforge.command.GlyphsCommand();
         getServer().getPluginManager().registerEvents(collectionGui, this);
 
         // 特殊報酬(称号/パーティクル/パーティクルシード, 2026-07-23-stat-gate-overhaul §6.1):
@@ -514,7 +856,7 @@ public final class TrinityForge extends JavaPlugin {
                 configManager.specialRewards(), configManager.dedicatedEffects());
         this.titleDisplayService = new com.trinityforge.progression.TitleDisplayService(this,
                 player -> specialRewardService.equippedTitleDisplay(player).orElse(null),
-                () -> configManager.specialRewards().titleHeadOffsetY());
+                () -> configManager.specialRewards().titleNametagClearance());
         getServer().getPluginManager().registerEvents(titleDisplayService, this);
         this.particleEffectService = new com.trinityforge.progression.ParticleEffectService(
                 this, configManager.specialRewards());
@@ -524,16 +866,68 @@ public final class TrinityForge extends JavaPlugin {
         settingsGui.setOnTitleChanged(titleDisplayService::refresh);
         settingsGui.setOnParticleChanged(particleEffectService::invalidate);
         getServer().getPluginManager().registerEvents(settingsGui, this);
+        // メール(2026-08-19 / W-155)。受信箱・送信GUI・参加時の通知。
+        // 宛先の「送信時点で存在するプレイヤー」は進行DBの listPlayerIds() から取る
+        // (usercache はバックエンドごとに別物なので、共有DBを見ないと資源サーバ側の人が抜ける)。
+        if (mailStore != null) {
+            this.mailService = new com.trinityforge.mail.MailService(
+                    this, mailStore, () -> progressionRepository.listPlayerIds());
+            getServer().getPluginManager().registerEvents(mailService, this);
+            this.mailInboxGui = new com.trinityforge.mail.MailInboxGui(this, mailService);
+            getServer().getPluginManager().registerEvents(mailInboxGui, this);
+            this.mailComposeGui = new com.trinityforge.mail.MailComposeGui(this, mailService);
+            getServer().getPluginManager().registerEvents(mailComposeGui, this);
+            this.mailCommand = new com.trinityforge.command.MailCommand(
+                    mailInboxGui, mailComposeGui, TrinityForge::isTfAdmin);
+            settingsGui.setOnOpenMail(mailInboxGui::open);
+            mailService.purgeOldMailAsync();
+        }
         this.settingsCommand = new com.trinityforge.command.SettingsCommand(settingsGui);
+        // /tf catalog: カタログ閲覧・配布GUI(2026-08-05)。Java版はサーバからクリエイティブ
+        // タブへ項目を足せないので、同じ用途をサーバ側の画面で満たす。
+        com.trinityforge.items.CatalogBrowseGui catalogGui =
+                new com.trinityforge.items.CatalogBrowseGui(
+                        this, configManager.itemCatalog(), itemFactory);
+        getServer().getPluginManager().registerEvents(catalogGui, this);
+        this.catalogCommand = new com.trinityforge.command.CatalogCommand(catalogGui);
+        // 特殊報酬の運営付与/剥奪 (2026-07-27)。アチーブ/図鑑ティアと同じ「直接付与」枠を触る。
+        this.specialRewardCommand = new com.trinityforge.command.SpecialRewardCommand(
+                configManager.specialRewards(), specialRewardService, perkAttributeApplier);
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.ParticleSeedListener(configManager.specialRewards()), this);
+        // special-rewards.yml から削除された報酬IDをプレイヤーPDCの保持分からも掃除する(2026-07-28)。
+        // オフラインPDCは触れないため参加時が唯一の掃除機会 + /trinityforge reload 後のオンライン全員一括。
+        this.specialRewardPruneListener = new com.trinityforge.listeners.SpecialRewardPruneListener(
+                this, new com.trinityforge.progression.SpecialRewardPruner(configManager.specialRewards()));
+        getServer().getPluginManager().registerEvents(specialRewardPruneListener, this);
 
         // アチーブメント (2026-07-23-stat-gate-overhaul §6.2): バニラ実績連動 + 統計しきい値ポーリング。
         this.achievementService = new com.trinityforge.progression.AchievementService(
                 configManager.achievements(), getLogger(), crossPluginItemResolver, experienceDispatcher,
                 perkAttributeApplier, collectionService);
+        // 2026-08-16: type: skill-level(任意のスキルをLv◯まで上げる)が読むレベル源。
+        // AchievementService の構築時点では両方とも既に組み上がっているが、循環を避けるため
+        // コンストラクタ引数ではなく setter で渡す。
+        achievementService.setLevelSources(skillLevelSource, combatService::combatLevelOf);
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.AchievementListener(achievementService), this);
+        // 2026-08-16: type: gear-use(その武器でダメージを与えた / その防具を着て被弾した)の記録側。
+        // 武器/防具のティア到達をクラフト統計で書くと使用可能レベルを無視して解除できるため。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.GearUseListener(configManager.achievements()), this);
+        // /achievement の進捗GUI(2026-07-29)。スキルツリーGUIと同じコネクタ/移動ボタンを再利用する。
+        this.achievementGui = new com.trinityforge.progression.achievement.AchievementGui(
+                this, configManager.achievements(), crossPluginItemResolver, collectionService,
+                achievementService);
+        getServer().getPluginManager().registerEvents(achievementGui, this);
+        // バニラ進捗(advancement)解除のサーバ側抑止(achievements.yml vanilla-advancements, 2026-07-28)。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.VanillaAdvancementBlockListener(configManager.achievements()),
+                this);
+
+        // 2026-08-05 (W-28): 統合メニュー(/tf menu, MainMenuGui)は廃止した。各機能へは
+        // 専用コマンド(/tf status, /skills, /achievement, /tf collection, /tf settings)で入る。
+        // ロールの確認・変更だけは入口が3つあったので /tf status のロールアイコンへ畳んである。
 
         // Re-syncs an item's lore/attributes against the live tables on hotbar switch, armor change,
         // and join, so a reload's effect is not stuck at "only new items see it" (item 1).
@@ -542,6 +936,13 @@ public final class TrinityForge extends JavaPlugin {
 
         // Ownership use-gate: SOULBOUND/OWNER_BOUND with an owner deny use by non-owners (trade OK).
         getServer().getPluginManager().registerEvents(new OwnerBindListener(), this);
+        // Catalog identity must never fall through to consuming/transforming vanilla Material
+        // behaviour (placement, fuel/cooking, default workstations). Dedicated TF recipes remain
+        // whitelisted by their own declared recipe specs.
+        getServer().getPluginManager().registerEvents(
+                new CatalogVanillaOperationGuardListener(
+                        configManager.itemCatalog(), configManager.craftingFeatures(),
+                        configManager.dedicatedEffects()), this);
         // 鍛冶村人取引: perk-gated custom trades (economy/villager-trades.yml).
         getServer().getPluginManager().registerEvents(
                 new VillagerTradeListener(configManager.dedicatedEffects(), configManager.villagerTrades(),
@@ -553,36 +954,54 @@ public final class TrinityForge extends JavaPlugin {
                 new CatalogCraftGateListener(configManager.dedicatedEffects()), this);
         // PRG-02: recipe:<id> ゲートがTFカタログ品/実在バニラレシピ/既知のネザライトアップグレードの
         // いずれにも解決できない(綴り間違い等)場合は起動時に警告する(「静かに壊れるより騒がしく落ちる」方針)。
-        CatalogCraftGateListener.verifyRecipeGateIds(
-                configManager.dedicatedEffects(), configManager.itemCatalog(), getLogger());
+        //
+        // 【最初のtickまで遅延させる理由 (2026-07-28)】ArsPaper は TF に depend しているので TF より後に
+        // enable する。ここ(TFのonEnable内)で走らせると、ArsPaper が materials.yml/items.yml から登録する
+        // 作業台レシピ(tf_core_* / compressed_* / source_gem_block 等)がまだ Bukkit のレシピ一覧に無く、
+        // 実在するのに「解決できない」と誤警告していた。runTask は全プラグインの enable 完了後・最初の
+        // tick で走るため、その時点なら Bukkit.recipeIterator() に他プラグインのレシピも載っている。
+        getServer().getScheduler().runTask(this, () -> CatalogCraftGateListener.verifyRecipeGateIds(
+                configManager.dedicatedEffects(), configManager.itemCatalog(), getLogger()));
         getServer().getPluginManager().registerEvents(
                 new WeaponCoatingListener(configManager.dedicatedEffects(),
                         configManager.craftingFeatures(), configManager.itemStats(),
-                        configManager.combatDamage().weaponBaseFormula()), this);
+                        configManager.combatDamage().weaponBaseFormula(), playerStatAggregator()), this);
         getServer().getPluginManager().registerEvents(
                 new WoodRepairListener(configManager.dedicatedEffects(), configManager.craftingFeatures()), this);
         getServer().getPluginManager().registerEvents(
                 new DisassemblyListener(configManager.dedicatedEffects(), configManager.craftingFeatures(),
                         configManager.itemCatalog(), itemFactory, aggregator), this);
+        // C-1(2026-08-08): 「ただのスクラップ」4個->重み付き抽選で種別スクラップ1個。右クリック消費
+        // (Bukkitレシピにしない理由は ScrapConversionListener のクラス javadoc 参照)。
+        getServer().getPluginManager().registerEvents(
+                new ScrapConversionListener(configManager.craftingFeatures(),
+                        configManager.itemCatalog(), itemFactory), this);
         getServer().getPluginManager().registerEvents(
                 new PotionMergeListener(configManager.dedicatedEffects(), configManager.craftingFeatures()), this);
+        // ゲート判定は「実際に登録された customMix」だけを見る (2026-07-31 D10 レビュー指摘#1/#3)。
+        // フィールド参照のラムダなのは、登録器がこの行より後で組まれるため(ラムダは呼ばれた時点の値を読む)。
         getServer().getPluginManager().registerEvents(
-                new BrewUnlockListener(configManager.dedicatedEffects(), configManager.craftingFeatures(), this), this);
+                new BrewUnlockListener(configManager.dedicatedEffects(),
+                        () -> brewPotionMixRegistrar == null
+                                ? java.util.List.<com.trinityforge.stats.BrewPotionMixRegistrar.MixPlan>of()
+                                : brewPotionMixRegistrar.livePlans(),
+                        com.trinityforge.listeners.BrewStandOwners.blockPdc(this), this), this);
         getServer().getPluginManager().registerEvents(
                 new OverEnchantListener(configManager.dedicatedEffects(), configManager.craftingFeatures()), this);
         getServer().getPluginManager().registerEvents(roleBuffListener, this);
-        // TF装備の砥石: エンチャ除去のみ許可し PDC ステを保全。
-        getServer().getPluginManager().registerEvents(new GrindstonePreserveListener(), this);
+        // 「常時」バフの自己修復(2026-08-19)。参加/リスポーン/ロール変更だけだと、牛乳・/effect clear・
+        // duration 満了・HuskSync の遅れた snapshot 適用のどれか1つで永久に落ちる。
+        roleBuffListener.startPeriodicRefresh();
+        // TF装備の砥石: エンチャ除去のみ許可し、砥石が剥がす見た目/派生ステを元のロールで復元する(U4)。
+        getServer().getPluginManager().registerEvents(
+                new GrindstonePreserveListener(configManager.itemCatalog(), itemFactory), this);
         // Tool use-level gate (block break) — mirrors CombatListener weapon gate.
         getServer().getPluginManager().registerEvents(
                 new UseRequirementListener(skillLevelSource, configManager.useRequirements(),
                         configManager.itemStats()), this);
-        // 装備使用ゲートの共有評価器: 防具装備ゲート(下)と ArsPaper フォークの触媒詠唱ゲート
-        // (useRequirementGate() 経由)が、近接/弓/ツールと同じ規則・文言で使う。
-        this.useRequirementService = new UseRequirementService(configManager.useRequirements(),
-                configManager.itemStats(), skillLevelSource);
-        // 防具の装備ゲート: 要件未達の防具は装備直後に引き剥がして返却する
-        // (PlayerArmorChangeEvent はキャンセル不可のため)。
+        // 防具の装備ゲート: 上で生成した共有評価器を使い、要件未達の防具は装備直後に引き剥がして
+        // 返却する(PlayerArmorChangeEvent はキャンセル不可)。同じ評価器をaggregatorにも渡しているため、
+        // 次tickの剥離前でも要件未達防具のステータスは集計されない。
         getServer().getPluginManager().registerEvents(
                 new ArmorUseGateListener(this, useRequirementService), this);
 
@@ -606,6 +1025,10 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ItemDamageClampListener(), this);
         getServer().getPluginManager().registerEvents(
                 new CatalogSmithingListener(configManager.itemCatalog(), itemFactory), this);
+        // 統合版(Bedrock)クライアントは鍛冶台のスロット判定を自前で持っていて、
+        // サーバが登録したレシピでは広がらない(Geyser #4706 は "Can't Fix")。
+        // 本物の鍛冶台へサーバ側からアイテムを差し込むことで、既存の判定を一切迂回せずに解消する。
+        getServer().getPluginManager().registerEvents(new BedrockSmithingAssistListener(), this);
         getServer().getPluginManager().registerEvents(
                 new CatalogAnvilListener(this, configManager.itemCatalog(), itemFactory), this);
         // 釣果が宝/ゴミどちらのグループから引かれたか(FishingGimmickListenerの置換フロー)を
@@ -619,7 +1042,7 @@ public final class TrinityForge extends JavaPlugin {
         PickupQualityListener pickupQualityListener = new PickupQualityListener(
                 this, itemFactory, configManager.itemStats(),
                 configManager.qualityTiers(), configManager.quality(),
-                configManager.itemCatalog(), lootLuck);
+                configManager.itemCatalog(), lootLuck, craftQualityService);
         getServer().getPluginManager().registerEvents(pickupQualityListener, this);
         this.stampCommand = new StampCommand(pickupQualityListener);
 
@@ -631,9 +1054,9 @@ public final class TrinityForge extends JavaPlugin {
 
         // Gacha ticket right-click (gacha.yml): right-clicking a ticket item (matched by its
         // items/catalog.yml id, not display name) draws one weighted prize and consumes the ticket.
-        getServer().getPluginManager().registerEvents(
-                new GachaListener(this, configManager.gacha(), configManager.itemCatalog(),
-                        itemFactory, configManager.quality(), aggregator), this);
+        GachaListener gachaListener = new GachaListener(this, configManager.gacha(), configManager.itemCatalog(),
+                itemFactory, configManager.quality(), aggregator);
+        getServer().getPluginManager().registerEvents(gachaListener, this);
 
         // 汎用アクティブスキル基盤 (2026-07-25 gather-rework-active-framework §3 W1): haste-active-mining を
         // 基盤上の最初のActiveSkillとして再実装(旧HasteActiveMiningListenerの私製CT Mapを置換)。
@@ -642,6 +1065,11 @@ public final class TrinityForge extends JavaPlugin {
         // §3 component 5設計どおりW3の採取系フィードバック(B-1)とも共有する。
         this.activeSkillRegistry = new ActiveSkillRegistry();
         this.activeSkillRegistry.register(new HasteActiveSkill(configManager.miningGimmick()));
+        // 2026-08-18 (W-59): シャベル専用の独立アクティブスキル(haste-active-digging)。
+        // 解放ゲート・数値(amplifier/持続/CT)・設定ファイル(DiggingGimmickConfig)は完全に独立。
+        // 第2波(ユーザー確定要件)でCTバケツの共有はやめ、代わりに「対象ツールから持ち替えると
+        // 効果を強制終了する」(ActiveSkill#toolBound → ToolBoundEffectListener)方式へ移した。
+        this.activeSkillRegistry.register(new DiggingHasteActiveSkill(configManager.diggingGimmick()));
         // 2026-07-25 CT設計一本化 §2: 登録した全ActiveSkillに対応するCT短縮ステータスキー
         // (StatVocabulary.ATTACK_KEYS の "<id>-cooldown-reduction") が存在するか起動時に検査する。
         // 新しいActiveSkillを追加して対応するキーの登録を忘れると、ここでIllegalStateExceptionが飛んで
@@ -651,35 +1079,60 @@ public final class TrinityForge extends JavaPlugin {
         this.activeFeedbackLayer = new FeedbackLayer();
         this.activeCommand = new ActiveCommand(activeSkillRegistry, configManager.dedicatedEffects(),
                 activeCooldownManager, activeFeedbackLayer, aggregator);
+        // 2026-08-18: ツール束縛の効果(採掘速度上昇など)のセッション台帳。ディスパッチャと
+        // ToolBoundEffectListener で**同じインスタンス**を共有すること(別々に作ると持ち替え検知が
+        // 「セッションが開いていない」と判断して何もしない)。
+        com.trinityforge.active.ActiveEffectSessions activeEffectSessions =
+                new com.trinityforge.active.ActiveEffectSessions();
         getServer().getPluginManager().registerEvents(
                 new ActivationDispatcher(activeSkillRegistry, configManager.dedicatedEffects(),
-                        activeCooldownManager, activeFeedbackLayer, aggregator), this);
-
-        // 採掘スキルツリーのflag系dedicated-effect(skilltree/dedicated-effects.yml)consumer群
+                        activeCooldownManager, activeFeedbackLayer, aggregator, activeEffectSessions), this);
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.active.ToolBoundEffectListener(this, activeSkillRegistry,
+                        activeEffectSessions, activeFeedbackLayer), this);
+        // 採掘スキルツリーのflag系dedicated-effect(各 skilltree/*.yml ノードの dedicated-effects: フィールド)consumer群
         // (stats/mining-gimmick.yml でチューニング): 鉱脈破壊/怪しいブロック復活/スポナーST回収 +
         // mining drop-table(旧ガチャ券1-3/古代のがれき個別consumerを置換、2026-07-23 §4)。
         getServer().getPluginManager().registerEvents(
                 new VeinMiningListener(configManager.dedicatedEffects(), configManager.miningGimmick(),
-                        crossPluginItemResolver, placedBlockTracker, activeFeedbackLayer), this);
+                        crossPluginItemResolver, placedBlockTracker, activeFeedbackLayer,
+                        chainBreakExpGrant), this);
         getServer().getPluginManager().registerEvents(
                 new MiningGimmickListener(this, configManager.dedicatedEffects(), aggregator,
-                        configManager.miningGimmick()), this);
+                        configManager.miningGimmick(), placedBlockTracker), this);
 
-        // 伐採スキルツリーのflag系dedicated-effect(skilltree/dedicated-effects.yml)consumer群
+        // 伐採スキルツリーのflag系dedicated-effect(各 skilltree/*.yml ノードの dedicated-effects: フィールド)consumer群
         // (stats/woodcutting-gimmick.yml でチューニング): tree-fell(旧小木/大木一括伐採を統合) +
         // woodcutting drop-table(旧リンゴ/金リンゴ/クリスタルリンゴ個別consumerを置換、2026-07-23 §4)。
         // 2026-07-25 PRG-07: 一括伐採CTを私製Mapから汎用CooldownManager(activeCooldownManager、
         // ActivationDispatcherと共有)へ統合し、tree-fell-cooldown-reductionステータスを読むようにした。
-        getServer().getPluginManager().registerEvents(
+        TreeFellingListener treeFellingListener =
                 new TreeFellingListener(configManager.dedicatedEffects(), configManager.woodcuttingGimmick(),
                         crossPluginItemResolver, placedBlockTracker, activeFeedbackLayer,
-                        activeCooldownManager, aggregator), this);
+                        activeCooldownManager, aggregator, chainBreakExpGrant);
+        // 段階破壊のスケジューリングに使う Plugin を明示注入する。未注入だと getProvidingPlugin
+        // 一本足になり、失敗時は WARNING を出して同tick破壊へ縮退する(N1/N2 の配線)。
+        treeFellingListener.setPlugin(this);
+        getServer().getPluginManager().registerEvents(treeFellingListener, this);
+        // 通常アクティブと半アクティブを同じ0.5秒タスクで表示し、同tickでの二重上書きを避ける。
+        // 一括伐採の適格条件/CT計算は発動リスナー自身へ委譲し、表示との仕様ずれを防ぐ。
+        new com.trinityforge.active.ActiveCooldownDisplay(this, activeSkillRegistry,
+                configManager.dedicatedEffects(), activeCooldownManager, activeFeedbackLayer,
+                aggregator, List.of(treeFellingListener)).start();
 
         // 掘削(シャベル適正ブロック破壊)ギミック: digging drop-table(2026-07-23 §4、新設リスナー)。
         // 対象判定は NativeSkillExperienceListener.grantGathering と同じ digging_break 分類ロジックを流用する。
         getServer().getPluginManager().registerEvents(
                 new DiggingGimmickListener(configManager.dedicatedEffects(), configManager.diggingGimmick(),
                         progressionCatalog, placedBlockTracker, crossPluginItemResolver), this);
+
+        // 農業(作物収穫)ギミック。2026-08-01 に新設した drop-table 経路は 2026-08-09 に機構ごと撤去した
+        // (設定・Java・エディタUIを削除)。掘削と同形の対象判定は残しているが、作物は必ず
+        // プレイヤーが植える = 種の設置が PlacedBlockTracker に必ずマークを付けるため、
+        // 「置く→壊す」ガードだけはリスナー側で別扱いしている(素の isPlaced を掛けると全収穫が除外される)。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.FarmingGimmickListener(
+                        configManager.farmingGimmick(), progressionCatalog, placedBlockTracker), this);
 
         // 2026-07-25 切削C-1/C-2: シャベル耐久累計→バニラ/職業EXPボーナス。バニラ分は本リスナー自身が
         // PlayerExpChangeEventで直接適用し、職業分は experienceDispatcher の任意resolverへ配線する
@@ -701,20 +1154,25 @@ public final class TrinityForge extends JavaPlugin {
                 new com.trinityforge.listeners.FurnaceSmeltListener(
                         this, configManager.dedicatedEffects(), configManager.smithingGimmick()), this);
 
-        // 農業/畜産スキルツリーのflag/percent系dedicated-effect(skilltree/dedicated-effects.yml)consumer群
+        // 農業/畜産スキルツリーのflag/percent系dedicated-effect(各 skilltree/*.yml ノードの dedicated-effects: フィールド)consumer群
         // (stats/farming-gimmick.yml でチューニング): 植え直しと収穫同時(auto-replant)・範囲収穫
         // (area-harvest)・動物への与ダメ倍率(animal-damage-4x)・ハチ非敵対+養蜂幸運(bee-no-aggro/
         // hive-harvest-fortune)。
-        getServer().getPluginManager().registerEvents(
-                new FarmingHarvestListener(this, configManager.dedicatedEffects(),
-                        configManager.farmingGimmick(), activeFeedbackLayer), this);
+        FarmingHarvestListener farmingHarvestListener = new FarmingHarvestListener(
+                this, configManager.dedicatedEffects(),
+                configManager.farmingGimmick(), activeFeedbackLayer, chainBreakExpGrant);
+        // 自動で植え直した作物にも「自分で植えた作物」と同じ成長ボーナスを乗せる (2026-08-17)。
+        if (plantedCropGrowthListener != null) {
+            farmingHarvestListener.setOnCropReplanted(plantedCropGrowthListener::trackPlanted);
+        }
+        getServer().getPluginManager().registerEvents(farmingHarvestListener, this);
         getServer().getPluginManager().registerEvents(
                 new AnimalDamageListener(configManager.dedicatedEffects(), configManager.farmingGimmick()), this);
         getServer().getPluginManager().registerEvents(
                 new BeekeepingListener(configManager.dedicatedEffects(), configManager.farmingGimmick(),
                         aggregator), this);
 
-        // 農業ツリーA-α/β系「食事」ギミックのflag/percent系dedicated-effect(skilltree/dedicated-effects.yml)
+        // 農業ツリーA-α/β系「食事」ギミックのflag/percent系dedicated-effect(各 skilltree/*.yml ノードの dedicated-effects: フィールド)
         // consumer群(stats/food-gimmick.yml でチューニング): ゴミ食免疫(junkfood-immunity)・ゴミ食/非ゴミ食の
         // 満腹度回復反転(junkfood-inversion)・食事非消費確率(no-food-consume-chance)・完全食満腹バフ
         // (satiety-buff)・カスタム食料(custom-foods: 圧縮食料等の満腹度/隠し満腹度をREPLACE方式で上書き、
@@ -728,50 +1186,125 @@ public final class TrinityForge extends JavaPlugin {
         // junk-to-scrapフォールバックへ自動的に切替わる(FishingGimmickConfig#dropTablesEmpty参照)。
         // fish-sell-toggle保持時は宝抽選をゴミ抽選へ丸ごと差し替える(2026-07-25経済連携、クラスjavadoc参照)。
         // FishingQualityListener(NORMAL)より先に走らせる必要があるため EventPriority.LOW で登録。
-        getServer().getPluginManager().registerEvents(
-                new FishingGimmickListener(configManager.dedicatedEffects(), configManager.fishingGimmick(),
-                        crossPluginItemResolver, playerStatAggregator, skillLevelSource, fishingTreasureKey),
-                this);
+        FishingGimmickListener fishingGimmickListener = new FishingGimmickListener(
+                configManager.dedicatedEffects(), configManager.fishingGimmick(),
+                crossPluginItemResolver, playerStatAggregator, skillLevelSource, fishingTreasureKey);
+        // ENCHANTED_BOOK の釣果に中身のエンチャントを抽選するとき、サーバから消してあるエンチャント
+        // (removed-vanilla-items、既定は修繕)を候補から外すために参照する(2026-07-30)。
+        fishingGimmickListener.setVanillaItemRemover(vanillaItemRemover);
+        getServer().getPluginManager().registerEvents(fishingGimmickListener, this);
 
         // fish-sell-toggle (2026-07-25 経済連携): 釣った魚を釣った瞬間に自動でVault通貨へ換金する。
         // Vault不在時はeconomyBridge.available()==falseで静かに無効化(通常どおりアイテムとして入手)。
         // 宝/ゴミ置換(FishingGimmickListener, LOW)・品質刻印(FishingQualityListener, NORMAL)の後、
         // 最終確定したMaterialに対して判定する必要があるため EventPriority.MONITOR で登録。
-        getServer().getPluginManager().registerEvents(
+        com.trinityforge.listeners.FishSellListener fishSellListener =
                 new com.trinityforge.listeners.FishSellListener(configManager.dedicatedEffects(),
-                        configManager.fishingGimmick(), aggregator, economyBridge), this);
+                        configManager.fishingGimmick(), aggregator, economyBridge);
+        getServer().getPluginManager().registerEvents(fishSellListener, this);
 
         // enchanting.yml B-3のxp-bottle-store-unlock(flag): 経験値瓶への経験値の格納/取出(MVP)。
+        // 2026-08-15: 数値設定(xp-bottle-store)は progression/crafting-features.yml へ移設したので
+        // 参照する config も CraftingFeaturesConfig へ切り替える。
         getServer().getPluginManager().registerEvents(
-                new XpBottleListener(configManager.dedicatedEffects(), configManager.fishingGimmick()), this);
+                new XpBottleListener(configManager.dedicatedEffects(), configManager.craftingFeatures()), this);
 
         // Vanilla mob-type system (combat/mob-types.yml): EntityType-keyed level/defense/coordinate
         // scaling + extra drops, independent of the EliteMobs-keyed mob-profiles.yml system. The
         // spawn listener stamps the PDC profile; the drop listener rolls the extra drop table.
+        // M-2: 手懐けた友好モブのレベルは飼い主の総合戦闘レベル(SymmetricCombatService#combatLevelOf、
+        // 実体は combatLevelConfig.model().compute(skillLevelSource.levelsOf(id)))で決める。
+        // combatService はこの時点で既に生成済み(上のcombatService初期化を参照)。
         getServer().getPluginManager().registerEvents(
-                new MobTypeSpawnListener(this, configManager.mobTypes()), this);
-        getServer().getPluginManager().registerEvents(
+                new MobTypeSpawnListener(this, configManager.mobTypes(), configManager,
+                        skillLevelSource, combatService::combatLevelOf), this);
+        // 変身(ゾンビ→ドラウンド等)で PDC と MAX_HEALTH が完全に消えるのを埋める。
+        // MobTypeSpawnListener より先(EntityTransformEvent は CreatureSpawnEvent の前)に走るので、
+        // 引き継いだダンジョンテーマ等を同リスナーが見られる。
+        getServer().getPluginManager().registerEvents(new MobTransformListener(), this);
+        MobTypeDropListener mobTypeDropListener =
                 new MobTypeDropListener(configManager.mobTypes(), configManager.craftQuality(),
                         configManager.quality(), itemFactory, mobDropBonusSource,
-                        configManager.itemStats()), this);
+                        configManager.itemStats(), crossPluginItemResolver);
+        mobTypeDropListener.setKillRewardAdjuster(killRewardAdjuster);
+        getServer().getPluginManager().registerEvents(mobTypeDropListener, this);
 
         // レベル帯テーブル(combat/mob-level-table.yml): ドロップ削除/追加/バニラEXP上書き、
         // 任意でダンジョンインスタンスワールド限定。field/dungeon両方のレベル刻印モブに適用。
         // HIGH優先度で MobTypeDropListener(NORMAL) の後に走らせる(§report参照)。
-        getServer().getPluginManager().registerEvents(
-                new MobLevelTableListener(configManager.mobLevelTable(), dungeonWorldRegistry,
-                        crossPluginItemResolver), this);
+        MobLevelTableListener mobLevelTableListener = new MobLevelTableListener(
+                configManager.mobLevelTable(), dungeonWorldRegistry, crossPluginItemResolver);
+        mobLevelTableListener.setKillRewardAdjuster(killRewardAdjuster);
+        // 2026-08-19 W-130: custom: ドロップの品質決定器。未配線だと品質0固定(=常に劣悪)になる。
+        com.trinityforge.mobs.MobDropQualityResolver mobDropQualityResolver =
+                new com.trinityforge.mobs.MobDropQualityResolver(configManager.craftQuality(),
+                        configManager.quality(), configManager.itemStats(), mobDropBonusSource);
+        mobLevelTableListener.setQualityResolver(mobDropQualityResolver);
+        getServer().getPluginManager().registerEvents(mobLevelTableListener, this);
 
         // ダンジョン(ワールド)×モブid単位のドロップオーバーライド(combat/mob-overrides.yml、
         // 2026-07-26新設)。MONITOR優先度でMobLevelTableListener(HIGH)より後に走らせ、EliteMobs自身の
         // LootTables#onDeathによるgetDrops()クリアの影響も受けない(MobOverrideDropListener Javadoc参照)。
-        getServer().getPluginManager().registerEvents(
-                new MobOverrideDropListener(configManager.mobOverrides(), crossPluginItemResolver), this);
+        MobOverrideDropListener mobOverrideDropListener =
+                // 2026-08-09: レベル差の足きりとドロップ増加ステは KillRewardAdjuster へ集約した。
+                new MobOverrideDropListener(configManager.mobOverrides(), crossPluginItemResolver, killRewardAdjuster);
+        mobOverrideDropListener.setQualityResolver(mobDropQualityResolver);
+        getServer().getPluginManager().registerEvents(mobOverrideDropListener, this);
 
         // 同じ combat/mob-overrides.yml の「モブごとのレベル依存EXP式」(2026-07-26)。同じMONITOR優先度で
         // MobLevelTableListener(HIGH)のレベル帯 vanilla-exp より後 = より具体的な指定が勝つ。
         getServer().getPluginManager().registerEvents(
                 new MobOverrideExpListener(configManager.mobOverrides()), this);
+
+        // レベル差による足きりのEXP側(2026-08-09、combat/damage.yml の level-cutoff)。
+        // EXPを書き込む2つのリスナー(MobLevelTableListener=HIGH / MobOverrideExpListener=MONITOR)より
+        // 「後に登録する」ことが、確定したEXPへ倍率を掛ける唯一の保証になる(同一優先度は登録順)。
+        getServer().getPluginManager().registerEvents(
+                new LevelCutoffExpListener(killRewardAdjuster), this);
+
+        // AFK(離席)対策 (2026-07-27, afk.yml): 判定は AfkActivityListener が集める「人間にしか出せない
+        // 入力」だけで行う。報酬停止はここで4経路へ述語を挿す —
+        //   ①スキルEXP: NativeExperienceDispatcher(ゲームプレイEXPの唯一の合流点)
+        //   ②バニラEXP: AfkSuppressionListener(PlayerExpChangeEvent、オーブ回収も含む)
+        //   ③TF追加ドロップ: mob-types / mob-level-table / mob-overrides の add-drops
+        //   ④釣り自動換金: FishSellListener
+        // 抑止の可否は都度 config を読む(reload で即反映され、再配線が要らない)。
+        this.afkService = new com.trinityforge.afk.AfkService(this, configManager.afk());
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.afk.AfkActivityListener(afkService, configManager.afk()), this);
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.afk.AfkSuppressionListener(afkService, configManager.afk()), this);
+        experienceDispatcher.setGrantSuppressor(playerId ->
+                configManager.afk().suppressSkillExp() && afkService.isSuppressed(playerId));
+        mobTypeDropListener.setDropGate(killer ->
+                configManager.afk().suppressMobDrops() && afkService.isAfk(killer));
+        mobLevelTableListener.setDropGate(killer ->
+                configManager.afk().suppressMobDrops() && afkService.isAfk(killer));
+        mobOverrideDropListener.setDropGate(killer ->
+                configManager.afk().suppressMobDrops() && afkService.isAfk(killer));
+        fishSellListener.setSellGate(player ->
+                configManager.afk().suppressFishingSell() && afkService.isAfk(player));
+        afkService.start();
+
+        // ---- サーバ間チャットと管理者TP (network.yml, 2026-08-15) ----
+        // プロキシ(Velocity)の旧BungeeCordプラグインメッセージチャンネルに乗る。
+        // 無効なら登録もしない(使わないチャンネルを開けっ放しにしない)。
+        if (configManager.network().enabled()) {
+            this.proxyChannel = new com.trinityforge.network.ProxyChannel(this);
+            proxyChannel.register();
+            getServer().getPluginManager().registerEvents(proxyChannel, this);
+
+            getServer().getPluginManager().registerEvents(
+                    new com.trinityforge.network.CrossServerChat(this, proxyChannel, configManager.network()),
+                    this);
+
+            this.crossServerTeleport = new com.trinityforge.network.CrossServerTeleport(
+                    this, proxyChannel, configManager.network());
+            getServer().getPluginManager().registerEvents(crossServerTeleport, this);
+            // 迎えに来なかった控えを捨てる。残すとログアウト後の同名参加で誤爆する。
+            getServer().getScheduler().runTaskTimer(this,
+                    crossServerTeleport::purgeExpired, 20L * 60L, 20L * 60L);
+        }
 
         // TT/放置対策(同一地点の逓減)。自身はEXPを配らず、上記2リスナーと戦闘/防具EXP経路から
         // 呼ばれる縮小係数の供給元。Listenerとして登録するのはログアウト時の履歴破棄のためだけ。
@@ -793,12 +1326,41 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(damagePopupDisplay, this);
         damagePopupDisplay.start();
 
+        installDamageIndicatorLimiter();
+        installTitleDisplayMountBridge();
+
         // 称号頭上表示(パッセンジャーTextDisplay) + パーティクル演出の周期タスク開始。
         titleDisplayService.start();
         particleEffectService.start();
         // アチーブメント統計ポーリング(1分毎、§6.2): JUMP/WALK_ONE_CM/PLAY_ONE_MINUTE等バニラStatistic。
         this.achievementPollTask = getServer().getScheduler().runTaskTimer(this,
                 achievementService::pollStatistics, 20L * 60, 20L * 60);
+
+        // ランキング(PlaceholderAPI)向けの集計。ログアウト時＋定期でミラーへ写す。
+        // ログイン時に写さないのは、HuskSync の流し込みが PlayerJoinEvent より後だから。
+        if (rankingStatsService != null) {
+            getServer().getPluginManager().registerEvents(rankingStatsService, this);
+            rankingStatsService.start();
+            // PlaceholderAPI は任意依存。未導入なら登録ごとスキップするだけで機能は落とさない。
+            // クラス参照を if の内側に閉じ込めているので、不在時にクラスロードも起きない。
+            if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
+                try {
+                    new com.trinityforge.placeholder.TrinityForgePlaceholders(this).register();
+                    getLogger().info("PlaceholderAPI 拡張 'trinityforge' を登録しました。");
+                } catch (RuntimeException | LinkageError e) {
+                    getLogger().warning("PlaceholderAPI 拡張の登録に失敗しました: " + e);
+                }
+            }
+        }
+
+        // 敵の特殊攻撃(2026-07-31): combat/mob-abilities.yml のテンプレートを
+        // combat/mob-overrides.yml の abilities: に従って撃つ。プレイヤー周囲だけを走査する。
+        this.mobAbilityTask = new com.trinityforge.combat.MobAbilityTask(this,
+                configManager.mobAbilities(), configManager.mobOverrides(),
+                new com.trinityforge.combat.MobAbilityExecutor(this, combatService),
+                new com.trinityforge.combat.MobAbilityCooldowns(),
+                new java.util.Random());
+        mobAbilityTask.start();
 
         // Block player-facing /em /ag while TF owns progression (ops can bypass).
         getServer().getPluginManager().registerEvents(new EliteMobsCommandGateListener(), this);
@@ -808,6 +1370,57 @@ public final class TrinityForge extends JavaPlugin {
         // so anything reaching getInstance() during enable never observes a half-built plugin.
         instance = this;
         getLogger().info("TrinityForge enabled (Paper 1.21.11).");
+    }
+
+    /**
+     * バニラの被弾パーティクル({@code damage_indicator})の個数上限を有効化する(任意依存)。
+     *
+     * <p>packetevents が無い環境では {@link com.trinityforge.combat.DamageIndicatorParticleLimiter}
+     * を<b>参照してはならない</b>(packetevents の型を直接持つのでクラスロードが
+     * {@link NoClassDefFoundError} になる)。そのためプラグイン存在チェックを先に行い、
+     * それでも失敗した場合は {@link Throwable} ごと握って警告1行に留める(起動は絶対に止めない)。
+     */
+    private void installDamageIndicatorLimiter() {
+        if (getServer().getPluginManager()
+                .getPlugin(com.trinityforge.combat.DamageIndicatorParticleLimiter.PACKETEVENTS_PLUGIN) == null) {
+            getLogger().info("[display] packetevents が未導入のため damage_indicator パーティクル上限は"
+                    + "無効です(バニラそのままの個数で表示されます)。");
+            return;
+        }
+        try {
+            this.damageIndicatorUninstaller =
+                    com.trinityforge.combat.DamageIndicatorParticleLimiter.install(this, configManager.display());
+        } catch (Throwable ex) { // NoClassDefFoundError も含めて握る — 表示だけの機能で起動を止めない
+            getLogger().warning("[display] damage_indicator パーティクル上限を有効化できませんでした: " + ex);
+        }
+    }
+
+    /**
+     * 称号の表示体をクライアント側でだけプレイヤーへ騎乗させる(任意依存、2026-08-19 / W-153)。
+     *
+     * <p>実サーバ報告「称号の位置がネームタグと同期していない。少し遅れてついてくる」への対処。
+     * サーバ側で本当に騎乗させると<b>そのプレイヤーのテレポートが無言で失敗する</b>
+     * (PaperMC/Paper#10168)ので、パケットだけで騎乗させる。
+     * packetevents が無ければ {@link com.trinityforge.progression.TitleDisplayMountBridge} を
+     * <b>参照してはならない</b>(クラスロードが {@link NoClassDefFoundError} になる)。
+     * 未導入時は従来のテレポート追従のまま動く(ズレは残るが表示は出る)。
+     */
+    private void installTitleDisplayMountBridge() {
+        if (titleDisplayService == null) {
+            return;
+        }
+        if (getServer().getPluginManager()
+                .getPlugin(com.trinityforge.progression.TitleDisplayMountBridge.PACKETEVENTS_PLUGIN) == null) {
+            getLogger().info("[title-display] packetevents が未導入のため、称号はテレポート追従で表示します"
+                    + "(ネームタグとの追従に僅かなズレが残ります)。");
+            return;
+        }
+        try {
+            this.titleMountUninstaller =
+                    com.trinityforge.progression.TitleDisplayMountBridge.install(this, titleDisplayService);
+        } catch (Throwable ex) { // NoClassDefFoundError も含めて握る — 表示だけの機能で起動を止めない
+            getLogger().warning("[title-display] 称号のクライアント騎乗を有効化できませんでした: " + ex);
+        }
     }
 
     @Override
@@ -829,9 +1442,34 @@ public final class TrinityForge extends JavaPlugin {
         if (gatheringEfficiencyApplier != null) {
             gatheringEfficiencyApplier.stripAllOnline();
         }
+        // Cancel the AFK check task (leak-safety, mirrors hate/bleed).
+        if (afkService != null) {
+            afkService.stop();
+        }
+        // プラグインメッセージのチャンネルを閉じる(hot-reload での多重登録防止)。
+        if (proxyChannel != null) {
+            proxyChannel.unregister();
+        }
         // Cancel the focus-HP tick task and despawn every tracked TextDisplay (leak-safety).
         if (focusHpDisplay != null) {
             focusHpDisplay.shutdown();
+        }
+        // packetevents は TF の無効化でリスナーを自動的に外さないので明示的に外す(多重登録防止)。
+        if (damageIndicatorUninstaller != null) {
+            try {
+                damageIndicatorUninstaller.run();
+            } catch (Throwable ex) {
+                getLogger().warning("[display] damage_indicator パーティクル上限の登録解除に失敗しました: " + ex);
+            }
+            damageIndicatorUninstaller = null;
+        }
+        if (titleMountUninstaller != null) {
+            try {
+                titleMountUninstaller.run();
+            } catch (Throwable ex) {
+                getLogger().warning("[title-display] 称号のクライアント騎乗の登録解除に失敗しました: " + ex);
+            }
+            titleMountUninstaller = null;
         }
         // DamagePopupDisplay has no shutdown(): its displays are one-shot and so short-lived (default
         // 15 ticks = 0.75s) that forced cleanup on disable is unnecessary — each already schedules its
@@ -846,6 +1484,47 @@ public final class TrinityForge extends JavaPlugin {
         if (achievementPollTask != null) {
             achievementPollTask.cancel();
             achievementPollTask = null;
+        }
+        if (mobAbilityTask != null) {
+            mobAbilityTask.stop();
+            mobAbilityTask = null;
+        }
+        // ランキングミラーの最終フラッシュ。onDisable 中は非同期タスクを投げられないため、
+        // shutdown() の中でメインスレッドのまま書き切る(サーバ停止時の取りこぼし防止)。
+        if (rankingStatsService != null) {
+            try {
+                rankingStatsService.shutdown();
+            } catch (RuntimeException e) {
+                getLogger().warning("ランキングミラーの最終フラッシュに失敗しました: " + e);
+            }
+            rankingStatsService = null;
+        }
+        if (rankingMirrorStore != null) {
+            rankingMirrorStore.close();
+            rankingMirrorStore = null;
+        }
+        // 日次逓減の最終フラッシュ。/stop の全員キックで飛ぶ PlayerQuitEvent は
+        // 非同期タスクを投げられないので保存を先送りしてある(ProgressionPreloadListener 参照)。
+        // ここで書かないと「サーバ再起動で全員の逓減がリセット」に戻る。
+        if (dailyExpAutosaveTask != null) {
+            dailyExpAutosaveTask.cancel();
+            dailyExpAutosaveTask = null;
+        }
+        if (dailyExpPersistence != null) {
+            try {
+                dailyExpPersistence.saveAll();
+            } catch (RuntimeException e) {
+                getLogger().warning("日次EXP逓減の最終フラッシュに失敗しました: " + e);
+            }
+            dailyExpPersistence = null;
+        }
+        if (dailyExpWindowStore != null) {
+            dailyExpWindowStore.close();
+            dailyExpWindowStore = null;
+        }
+        if (mailStore != null) {
+            mailStore.close();
+            mailStore = null;
         }
         try {
             if (experienceDispatcher != null) {
@@ -871,6 +1550,19 @@ public final class TrinityForge extends JavaPlugin {
         return sender.isOp() || sender.hasPermission("trinityforge.admin");
     }
 
+    /**
+     * Rebuilds online-player projections whose source configs may have changed during reload.
+     * Kept as one operation so a newly added projection cannot silently diverge from the reload path.
+     */
+    void reapplyOnlinePlayerProjectionsAfterReload() {
+        if (perkAttributeApplier != null) {
+            perkAttributeApplier.applyAllOnline();
+        }
+        if (gatheringEfficiencyApplier != null) {
+            gatheringEfficiencyApplier.applyAllOnline();
+        }
+    }
+
     private void registerCommands() {
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final Commands commands = event.registrar();
@@ -880,10 +1572,10 @@ public final class TrinityForge extends JavaPlugin {
                                     || src.getSender().hasPermission("trinityforge.use"))
                             .executes(ctx -> {
                                 ctx.getSource().getSender().sendMessage(Component.text(
-                                        "用法: /tf <reload|skills|progression|give|bind|stamp|import|dungeon|stats|collection|inspect>",
+                                        "用法: /tf <mail|reload|skills|achievement|start|stop|progression|give|bind|stamp|import|dungeon|stats|status|role|collection|recipes|glyphs|settings|reward|inspect>",
                                         NamedTextColor.YELLOW));
                                 ctx.getSource().getSender().sendMessage(Component.text(
-                                        "※ reload/progression/give/bind/stamp/import/dungeon は OP または trinityforge.admin が必要です。",
+                                        "※ reload/progression/give/bind/stamp/import/dungeon/reward は OP または trinityforge.admin が必要です。",
                                         NamedTextColor.GRAY));
                                 return Command.SINGLE_SUCCESS;
                             })
@@ -898,7 +1590,12 @@ public final class TrinityForge extends JavaPlugin {
                                         } else if (progressionCatalog != null && progressionRepository != null) {
                                             try {
                                                 int rewritten = new com.trinityforge.progression.ProgressionCurveReconciler(
-                                                        progressionRepository, progressionCatalog).recalculateAll();
+                                                        progressionRepository, progressionCatalog,
+                                                        // reload 直後に読み直した値を渡す。ここを既定(1)のままにすると
+                                                        // power.levels-per-skill-point を変えた直後の reload が
+                                                        // 全員のポイント残高を旧式で書き戻してしまう。
+                                                        () -> configManager.skillExp().powerLevelsPerSkillPoint())
+                                                        .recalculateAll();
                                                 if (rewritten > 0) {
                                                     getLogger().info("[progression] curve/cap reconciler rewrote "
                                                             + rewritten + " skill row(s)");
@@ -924,16 +1621,24 @@ public final class TrinityForge extends JavaPlugin {
                                         if (hateService != null) {
                                             hateService.applyConfig();
                                         }
-                                        // A reload may have changed skill-tree buffs; immediately
-                                        // re-apply native perk attributes for every online player.
-                                        if (perkAttributeApplier != null) {
-                                            perkAttributeApplier.applyAllOnline();
-                                        }
+                                        // Reloaded stats/perks may change runtime projections already
+                                        // present on online players; update both attributes and the
+                                        // gathering-efficiency enchant mirror immediately.
+                                        reapplyOnlinePlayerProjectionsAfterReload();
                                         // A reload may have added/edited/removed a catalog `recipe:`;
                                         // re-derive the whole registered set (fail-soft per entry).
                                         if (catalogRecipeRegistrar != null) {
                                             catalogRecipeRegistrar.registerAll();
+                                            exportBedrockRecipeTable();
                                             CatalogRitualBridge.registerAll(TrinityForge.this, configManager.itemCatalog());
+                                        }
+                                        // brew-unlocks の増減を醸造 customMixes へ反映する (D10)。
+                                        if (brewPotionMixRegistrar != null) {
+                                            brewPotionMixRegistrar.registerAll();
+                                        }
+                                        // レシピの増減 / recipe: ゲートの配置替えをレシピ帳へ反映する (D7)。
+                                        if (recipeDiscoveryListener != null) {
+                                            recipeDiscoveryListener.reconcileAllOnline();
                                         }
                                         // removed-vanilla-recipes の増減を反映 (外れた分は復元)。
                                         if (vanillaRecipeRemover != null) {
@@ -948,6 +1653,16 @@ public final class TrinityForge extends JavaPlugin {
                                             if (vanillaItemRemovalListener != null) {
                                                 vanillaItemRemovalListener.sweepAllOnline();
                                             }
+                                        }
+                                        // AFK判定タイマーの間隔/有効フラグが変わりうるので張り直す
+                                        // (start() は冪等: 既存タスクを止めてから再スケジュールする)。
+                                        if (afkService != null) {
+                                            afkService.start();
+                                        }
+                                        // special-rewards.yml から報酬IDが削除されていたら、オンライン
+                                        // 全員のPDC保持分を即座に掃除する(安全弁はプルーナー自身が持つ)。
+                                        if (specialRewardPruneListener != null) {
+                                            specialRewardPruneListener.pruneAllOnline();
                                         }
                                         var sender = ctx.getSource().getSender();
                                         if (issues == 0) {
@@ -1080,6 +1795,22 @@ public final class TrinityForge extends JavaPlugin {
                                                                 StringArgumentType.getString(ctx, "player"));
                                                         if (target == null) return 0;
                                                         progressionRepository.resetPlayer(target.getUniqueId());
+                                                        // ランキングミラーは単調増加でしか更新されないので、
+                                                        // ここで消さないとリセット後も古い最大値が残り続ける。
+                                                        if (rankingStatsService != null) {
+                                                            rankingStatsService.forget(target.getUniqueId());
+                                                        }
+                                                        // 日次逓減の蓄積も落とす。残すと「進行を初期化したのに
+                                                        // EXP取得量だけ減ったまま」という説明のつかない状態になる。
+                                                        dailyExpDiminishing.forget(target.getUniqueId());
+                                                        if (dailyExpWindowStore != null) {
+                                                            try {
+                                                                dailyExpWindowStore.delete(target.getUniqueId());
+                                                            } catch (java.sql.SQLException ex) {
+                                                                getLogger().warning(
+                                                                        "日次EXP逓減の蓄積を削除できませんでした: " + ex);
+                                                            }
+                                                        }
                                                         perkAttributeApplier.apply(target);
                                                         perkMirrorService.sync(target);
                                                         ctx.getSource().getSender().sendMessage(Component.text(
@@ -1115,10 +1846,44 @@ public final class TrinityForge extends JavaPlugin {
                                     .requires(TrinityForge::isTfAdmin))
                             .then(dungeonCommand.node()
                                     .requires(TrinityForge::isTfAdmin))
+                            // プレイヤー向け(requiresなし = trinityforge.use で誰でも)。
+                            // EliteMobs の /em start・/em quit に相当する正式なTF側入口。
+                            .then(instanceCommand.startNode())
+                            .then(instanceCommand.stopNode())
+                            .then(instanceCommand.quitNode())
                             .then(statsCommand.node())
+                            // /tf status: ステータス確認GUI (2026-07-29)。/tf stats と同じ値。
+                            .then(Commands.literal("status")
+                                    .executes(ctx -> {
+                                        if (!(ctx.getSource().getSender() instanceof Player player)) {
+                                            ctx.getSource().getSender().sendMessage(Component.text(
+                                                    "プレイヤーのみ実行できます。", NamedTextColor.RED));
+                                            return 0;
+                                        }
+                                        statusGui.open(player);
+                                        return Command.SINGLE_SUCCESS;
+                                    }))
+                            // /tf achievement: 単独の /achievement と同じGUI(2026-07-30)。
+                            .then(achievementNode())
                             .then(roleCommand.node())
                             .then(collectionCommand.node())
+                            .then(recipesCommand.node())
+                            .then(glyphsCommand.node())
                             .then(settingsCommand.node())
+                            .then(catalogCommand.node())
+                            .then(mailCommand == null
+                                    ? io.papermc.paper.command.brigadier.Commands.literal("mail")
+                                            .executes(ctx -> {
+                                                ctx.getSource().getSender().sendMessage(Component.text(
+                                                        "メール機能は初期化に失敗しています(サーバログを確認してください)。",
+                                                        NamedTextColor.RED));
+                                                return 0;
+                                            })
+                                    : mailCommand.node())
+                            // /tf menu(統合メニュー)は 2026-08-05 (W-28) に廃止。
+                            // 入口が二重化するとどちらが正か分からなくなるため復活させない。
+                            .then(specialRewardCommand.node()
+                                    .requires(TrinityForge::isTfAdmin))
                             .then(new InspectCommand().node())
                             // DEBUG専用(2026-07-25 §6 Q2): /tf 用法テキスト・タブ補完のプレイヤー導線には
                             // 出さない。正式トリガーはスニーク+右クリック(ActivationDispatcher)。
@@ -1152,7 +1917,95 @@ public final class TrinityForge extends JavaPlugin {
                             .build(),
                     "Open the TrinityForge skill tree",
                     List.of("s"));
+            // アチーブメント進捗GUI(2026-07-29)。スキルツリーと同じ操作感にそろえてある。
+            // 2026-07-30: /tf のサブコマンドにも同じノードを生やした(/skills と /tf skills が
+            // 併存しているのと同じ形)。ノード定義は achievementNode() の1本だけで、
+            // 単独コマンドと /tf achievement のどちらからも同じものを組み立てる。
+            commands.register(
+                    achievementNode()
+                            .requires(src -> src.getSender().hasPermission("trinityforge.use"))
+                            .build(),
+                    "Open the TrinityForge achievement progress GUI",
+                    List.of("achievements", "ach"));
+
+            // サーバ間テレポート(管理者専用, 2026-08-15)。
+            // 同じサーバに相手が居るときは普通のテレポートになり、居ないときだけ
+            // プロキシ経由で相手を探して移動する。network.yml で無効化できる。
+            if (crossServerTeleport != null) {
+                commands.register(
+                        Commands.literal("tpto")
+                                .requires(TrinityForge::isTfAdmin)
+                                .then(Commands.argument("player", StringArgumentType.word())
+                                        .executes(ctx -> runTeleport(ctx.getSource(),
+                                                StringArgumentType.getString(ctx, "player"), true)))
+                                .build(),
+                        "相手のところへ移動する(サーバをまたぐ)",
+                        List.of());
+                commands.register(
+                        Commands.literal("tphere")
+                                .requires(TrinityForge::isTfAdmin)
+                                .then(Commands.argument("player", StringArgumentType.word())
+                                        .executes(ctx -> runTeleport(ctx.getSource(),
+                                                StringArgumentType.getString(ctx, "player"), false)))
+                                .build(),
+                        "相手を自分のところへ呼び寄せる(サーバをまたぐ)",
+                        List.of());
+            }
         });
+    }
+
+    /**
+     * {@code /tpto} と {@code /tphere} の共通部分。
+     *
+     * <p>タブ補完に他サーバのプレイヤーは出せない(プロキシに聞くのは実行時)ので、
+     * 名前は自由入力として受ける。存在しない名前は
+     * {@link com.trinityforge.network.CrossServerTeleport} 側で
+     * 「どのサーバにも見つかりません」に落ちる。
+     */
+    private int runTeleport(CommandSourceStack source, String targetName, boolean goToTarget) {
+        if (!(source.getSender() instanceof Player player)) {
+            source.getSender().sendMessage(Component.text(
+                    "プレイヤーのみ実行できます。", NamedTextColor.RED));
+            return 0;
+        }
+        if (crossServerTeleport == null) {
+            player.sendMessage(Component.text(
+                    "サーバ間テレポートは network.yml で無効になっています。", NamedTextColor.RED));
+            return 0;
+        }
+        if (goToTarget) {
+            crossServerTeleport.teleportTo(player, targetName);
+        } else {
+            crossServerTeleport.teleportHere(player, targetName);
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /**
+     * {@code achievement} サブツリー。単独コマンド {@code /achievement} と {@code /tf achievement} の
+     * 両方から使う(Brigadier のノードは1つのツリーにしか繋げないため、builder を都度組み立てる)。
+     */
+    private com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> achievementNode() {
+        return Commands.literal("achievement")
+                .executes(ctx -> {
+                    if (!(ctx.getSource().getSender() instanceof Player player)) {
+                        ctx.getSource().getSender().sendMessage(Component.text(
+                                "プレイヤーのみ実行できます。", NamedTextColor.RED));
+                        return 0;
+                    }
+                    achievementGui.open(player);
+                    return Command.SINGLE_SUCCESS;
+                })
+                .then(Commands.argument("id", StringArgumentType.word())
+                        .executes(ctx -> {
+                            if (!(ctx.getSource().getSender() instanceof Player player)) {
+                                ctx.getSource().getSender().sendMessage(Component.text(
+                                        "プレイヤーのみ実行できます。", NamedTextColor.RED));
+                                return 0;
+                            }
+                            achievementGui.open(player, StringArgumentType.getString(ctx, "id"));
+                            return Command.SINGLE_SUCCESS;
+                        }));
     }
 
     private int executeProgressionLevel(
@@ -1212,6 +2065,58 @@ public final class TrinityForge extends JavaPlugin {
         return progressionService;
     }
 
+    /** ランキング用集計値。DB を開けなかった場合は {@code null}（プレースホルダは 0 を返す）。 */
+    public com.trinityforge.ranking.RankingStatsService rankingStatsService() {
+        return rankingStatsService;
+    }
+
+    /**
+     * ランキング上位 N 件を返す公開 API（2026-08-16、外部プラグイン UserRankBoard 向け）。
+     *
+     * <p>PlaceholderAPI 拡張（{@code TrinityForgePlaceholders}）は仕様上プレイヤー 1 人分の値しか
+     * 返せないため、順位表を作るにはこちらを直接呼ぶ。
+     *
+     * <p>受け付ける {@code stat}:
+     * <ul>
+     *   <li>{@code collection_items} — 図鑑（アイテム）登録数</li>
+     *   <li>{@code collection_mobs} — 図鑑（モブ）登録数</li>
+     *   <li>{@code glyphs_unlocked} — 解放済みグリフ数</li>
+     *   <li>{@code mob_kills} — 討伐数</li>
+     *   <li>{@code skill_<id>_level} — 個別スキルのレベル（例 {@code skill_mining_level}）</li>
+     *   <li>{@code skill_total_level} — 全スキルのレベル合計（POWER は含まない）</li>
+     * </ul>
+     * 値が 0（スキルなら Lv0）の行は返さない。未知の {@code stat}・{@code limit <= 0}・
+     * DB 未初期化・DB エラーは<b>いずれも空リスト</b>（例外を投げない ── 順位表のために
+     * 呼び出し側プラグインを落とさない）。件数は 1000 件で頭打ち。
+     *
+     * <p><b>SQLite への同期アクセスなのでメインスレッドから毎 tick 呼ばないこと。</b>
+     * 非同期スレッドから呼ぶか、呼び出し側でキャッシュすること。
+     *
+     * @param stat 上記のいずれか
+     * @param limit 最大件数
+     * @return 値の降順。{@link com.trinityforge.ranking.RankingEntry#name()} は不明なら空文字
+     */
+    public java.util.List<com.trinityforge.ranking.RankingEntry> rankingTop(String stat, int limit) {
+        com.trinityforge.ranking.RankingMirrorStore store = this.rankingMirrorStore;
+        if (store == null || stat == null) {
+            return java.util.List.of();
+        }
+        String key = stat.trim().toLowerCase(java.util.Locale.ROOT);
+        try {
+            if ("skill_total_level".equals(key)) {
+                return store.topTotalSkillLevel(limit);
+            }
+            if (key.startsWith("skill_") && key.endsWith("_level")) {
+                String skillId = key.substring("skill_".length(), key.length() - "_level".length());
+                return store.topSkillLevel(skillId, limit);
+            }
+            return store.top(key, limit);
+        } catch (java.sql.SQLException ex) {
+            getLogger().log(Level.WARNING, "ランキング上位の取得に失敗しました: " + stat, ex);
+            return java.util.List.of();
+        }
+    }
+
     public NativeExperienceDispatcher experienceDispatcher() {
         return experienceDispatcher;
     }
@@ -1265,6 +2170,23 @@ public final class TrinityForge extends JavaPlugin {
     }
 
     /**
+     * 死亡時の装備耐久ペナルティ({@code combat/damage.yml durability.on-death})を適用する。
+     *
+     * <p>EliteMobs のインスタンスダンジョンは致死ダメージをキャンセルして「ダウン」状態へ移すため
+     * {@code PlayerDeathEvent} が発火せず、TF の死亡ペナルティが一切走らなかった(EliteMobs 自前の
+     * {@code AlternativeDurabilityLoss} は EliteMobs 製アイテムしか対象にしない)。フォークの
+     * {@code InstancePlayerManager#playerDeath} からこれを直接呼ぶことで穴を埋める。
+     *
+     * <p>{@code onEnable} 前や設定で無効化されている場合は何もしない。適用条件(クリエイティブ除外・
+     * {@code dungeon-only})の判定はサービス側が持つので、呼び出し側は無条件に呼んでよい。
+     */
+    public void applyDeathDurabilityPenalty(org.bukkit.entity.Player player) {
+        if (equipmentDurabilityService != null && player != null) {
+            equipmentDurabilityService.applyOnDeath(player);
+        }
+    }
+
+    /**
      * TT/放置対策の「同一地点の逓減」トラッカー (2026-07-26)。武器EXP・防具EXP・バニラEXPの3経路が
      * 同じインスタンスを共有する — 経路ごとに別勘定にすると、経路を混ぜるだけで逓減を回避できるため。
      */
@@ -1286,9 +2208,11 @@ public final class TrinityForge extends JavaPlugin {
     /**
      * The player's総合stat total (装備 + skill-tree perk合算, mainhand context) for {@code key} — the
      * public read seam forks use instead of the retired perk-only native reward path (2026-07-23
-     * stat-gate-overhaul §2 移行B14: fork consumer系 {@code lapis_cost_reduction}/
-     * {@code source_cost_reduction}/{@code material_refund_chance}/{@code ingredient_save_chance}
-     * 等はこのAPI経由で読む想定。fork側の切替は別ウェーブ)。{@code 0.0} when
+     * stat-gate-overhaul §2 移行B14: fork consumer系 {@code source_cost_reduction}/
+     * {@code material_refund_chance}/{@code ingredient_save_chance}
+     * 等はこのAPI経由で読む想定。fork側の切替は別ウェーブ。なお {@code lapis_cost_reduction} は
+     * 2026-08-14 に廃止し、消費側だった ArsPaper の {@code LapisCostReductionListener} ごと削除した)。
+     * {@code 0.0} when
      * the aggregator has not been built yet (before {@link #onEnable} completes) or {@code player} is
      * {@code null}.
      */
@@ -1373,15 +2297,106 @@ public final class TrinityForge extends JavaPlugin {
     }
 
     /**
+     * lore 行の組み立て器({@code stats/lore.yml} の {@code layout.line-template} / 表示名 / 桁数 /
+     * 単位 / 色をすべて通す唯一の経路)。{@code inertStatKeys} を配線済みの1本を共有するので、
+     * <b>フォークが独自に整形し直さずにこれを呼べば体裁が必ず TF 装備と一致する</b>。
+     *
+     * <p><b>なぜ公開するか(2026-08-04)</b>: ArsPaper 側のスレッド lore が
+     * 「表示名を1件だけ引いて自前で連結する」経路({@code TrinityForgeBridge#threadStatDisplay})を
+     * 使っていたため、(1) 引くキーを canonical 化していたのに {@code lore.yml} の表(=著者が書いた
+     * ハイフン綴りのまま)は canonical 化されておらず<b>全キーが引けずステータスidが素で表示され</b>、
+     * (2) 引けたとしても色/アイコン/テンプレートは TF と別物、という2重の食い違いになっていた。
+     * 表示は1箇所からしか作らせないのが唯一の再発防止になる。Null until {@link #onEnable} has run.
+     */
+    public LoreComposer loreComposer() {
+        return loreComposer;
+    }
+
+    /**
      * Re-registers every catalog workbench recipe. Called by the ArsPaper fork from its enable hook
      * (alongside {@code repushCatalogRituals}) so recipe RESULTS whose catalog id is an Ars custom
      * item are rebuilt as real Ars items (with their functional {@code arspaper:*} PDC) — at
      * TrinityForge's own enable time Ars is not yet up and those results fall back to TF identity
      * builds. Idempotent; safe no-op before {@link #onEnable} completes.
      */
+    /**
+     * 統合版(Bedrock)クライアント向けの補正レシピ表を
+     * {@code plugins/TrinityForge/bedrock-recipes.json} へ書き出す。
+     *
+     * <p><b>なぜ要るのか</b>: 統合版はクラフト結果を<b>クライアント側で</b>計算する。ところが
+     * Geyser がクライアントへ渡すレシピ表は、素材を「Java のアイテム型 → バニラの Bedrock 定義」
+     * に落としてしまう (CustomModelData は Java の {@code Ingredient} に載らないので変換元に無い)。
+     * 結果として「バニラ素材 → カスタム完成品」というレシピが配られ、盤面に乗るカスタム素材と
+     * <b>永久に一致しない</b>。この表はその欠けた情報を外へ出すためのもので、
+     * 受け取り側(GeyserExtra)が実際の Bedrock アイテム定義を指す補正レシピを追送する。
+     *
+     * <p><b>受け取り側のクラスには一切依存しない</b> — 既知のパスへ JSON を置くだけなので、
+     * GeyserExtra が入っていなければ誰も読まないファイルが 1 つ出来るだけ。
+     * 失敗しても統合版のクラフト補正が効かなくなるだけで、サーバの動作には影響しない。
+     */
+    private void exportBedrockRecipeTable() {
+        if (catalogRecipeRegistrar == null) {
+            return;
+        }
+        try {
+            BedrockRecipeTable.Table table = BedrockRecipeExporter.build(
+                    catalogRecipeRegistrar.allRegistered(),
+                    catalogRecipeRegistrar.allCompletableSmithing(),
+                    configManager.itemCatalog(),
+                    configManager.dedicatedEffects().recipeGatePerks().keySet());
+            BedrockRecipeExporter.write(getDataFolder().toPath(), table);
+            long smithing = table.recipes().stream()
+                    .filter(recipe -> recipe.type() == BedrockRecipeTable.Type.SMITHING)
+                    .count();
+            // 種別の内訳を出す。合計だけだと、スミス台が 0 件へ落ちても
+            // 200 件中の数件の差として埋もれて気づけない(鍛冶台だけ静かに元へ戻る)。
+            getLogger().info("[bedrock] 統合版向け補正レシピ表: " + table.recipes().size() + " 件"
+                    + "(うち鍛冶台 " + smithing + " 件)"
+                    + describeSkippedBedrockRecipes(table.skipped()));
+        } catch (java.io.IOException | RuntimeException ex) {
+            getLogger().log(java.util.logging.Level.WARNING,
+                    "[bedrock] 補正レシピ表の書き出しに失敗した(統合版のクラフト補正のみ無効になる)", ex);
+        }
+    }
+
+    /**
+     * 見送った分を必ずログに出す。黙って切り捨てると「全部書き出せた」ように読めてしまう。
+     * 件数が多いときのために名前は先頭 10 件だけにする。
+     */
+    private static String describeSkippedBedrockRecipes(java.util.List<String> skipped) {
+        if (skipped.isEmpty()) {
+            return "";
+        }
+        java.util.List<String> shown = skipped.subList(0, Math.min(10, skipped.size()));
+        String tail = skipped.size() > shown.size() ? " ほか " + (skipped.size() - shown.size()) + " 件" : "";
+        return " / 素材を解決できず見送り " + skipped.size() + " 件: " + String.join(", ", shown) + tail;
+    }
+
     public void refreshCatalogRecipes() {
         if (catalogRecipeRegistrar != null) {
             catalogRecipeRegistrar.registerAll();
+            // 統合版向けの補正レシピ表は「ここ」が本番。TF の onEnable 時点では ArsPaper が
+            // まだ上がっておらず、圧縮素材のような Ars 実体の custom: 素材を解決できないので、
+            // 初回書き出しは取りこぼしだらけになる。Ars の enable 後に上書きする。
+            exportBedrockRecipeTable();
+        }
+        // ArsPaper の enable でレシピが増えるので、レシピ帳の解禁も張り直す (D7)。
+        // この時点でオンラインのプレイヤーは通常いないが、reload 経路と同じ扱いにしておく。
+        if (recipeDiscoveryListener != null) {
+            recipeDiscoveryListener.reconcileAllOnline();
+        }
+    }
+
+    /**
+     * {@code /minecraft:reload}(データパック再読込)後の張り直し (2026-07-31 D10)。
+     * {@code PotionBrewing#reload} は customMixes を引き継がないため、醸造 mix は必ず再登録が要る。
+     */
+    private void reapplyAfterResourcesReload() {
+        if (brewPotionMixRegistrar != null) {
+            brewPotionMixRegistrar.registerAll();
+        }
+        if (recipeDiscoveryListener != null) {
+            recipeDiscoveryListener.reconcileAllOnline();
         }
     }
 
@@ -1392,6 +2407,19 @@ public final class TrinityForge extends JavaPlugin {
      */
     public com.trinityforge.stats.CatalogRecipeRegistrar catalogRecipeRegistrar() {
         return catalogRecipeRegistrar;
+    }
+
+    /**
+     * 醸造 customMix の登録器。ArsPaper フォークのレシピ一覧 GUI（{@code /tf recipes}）が
+     * 「醸造」カテゴリを出すために参照する (W-167, 2026-08-20)。
+     *
+     * <p>参照するのは {@link com.trinityforge.stats.BrewPotionMixRegistrar#livePlans()} 側だけにすること。
+     * 生の {@code brew-unlocks} には「バニラ衝突・綴り間違い・重複の敗者」で<b>登録されなかった組</b>が
+     * 混ざっており、それを一覧に出すと「載っているのに永久に作れない」レシピを見せることになる。
+     * {@code onEnable} まで null。
+     */
+    public com.trinityforge.stats.BrewPotionMixRegistrar brewPotionMixRegistrar() {
+        return brewPotionMixRegistrar;
     }
 
     /**

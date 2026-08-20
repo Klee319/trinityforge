@@ -24,7 +24,10 @@
   // ============================================================
 
   // ---- materials エントリ ----
-  const MATERIAL_KNOWN = new Set(["base_material", "custom_model_data", "display_name", "name_color", "lore", "recipe", "enchant_glow"]);
+  // recipes: は 2026-08-13 に追加。レシピ編集UIは catalog.yml と共通の正規形
+  // (0件=キーなし / 1件=recipe: / 2件以上=recipes:)へ書き戻すので、素材も両方を往復させる
+  // (ArsPaper の UnifiedRecipeLoader も同日に両方を読むようにした)。
+  const MATERIAL_KNOWN = new Set(["base_material", "custom_model_data", "display_name", "name_color", "lore", "recipe", "recipes", "enchant_glow"]);
 
   function parseMaterialEntry(id, entry) {
     const e = entry && typeof entry === "object" && !Array.isArray(entry) ? entry : {};
@@ -42,6 +45,8 @@
       hasRecipe: has("recipe"),
       recipe: has("recipe") && e.recipe && typeof e.recipe === "object" && !Array.isArray(e.recipe)
         ? clone(e.recipe) : null,
+      hasRecipes: has("recipes") && Array.isArray(e.recipes),
+      recipes: Array.isArray(e.recipes) ? clone(e.recipes) : null,
       hasEnchantGlow: has("enchant_glow"), enchantGlow: e.enchant_glow
     };
     for (const k of Object.keys(e)) if (!MATERIAL_KNOWN.has(k)) model._extra[k] = clone(e[k]);
@@ -60,6 +65,7 @@
         case "name_color": if (model.hasNameColor) out.name_color = model.nameColor; break;
         case "lore": if (model.hasLore) out.lore = model.lore.slice(); break;
         case "recipe": if (model.hasRecipe && model.recipe) out.recipe = clone(model.recipe); break;
+        case "recipes": if (model.hasRecipes && model.recipes) out.recipes = clone(model.recipes); break;
         case "enchant_glow": if (model.hasEnchantGlow) out.enchant_glow = model.enchantGlow; break;
         default: if (Object.prototype.hasOwnProperty.call(model._extra, k)) out[k] = clone(model._extra[k]);
       }
@@ -72,14 +78,36 @@
     if (model.hasNameColor && !emitted.has("name_color")) out.name_color = model.nameColor;
     if (model.hasLore && !emitted.has("lore")) out.lore = model.lore.slice();
     if (model.hasRecipe && model.recipe && !emitted.has("recipe")) out.recipe = clone(model.recipe);
+    if (model.hasRecipes && model.recipes && !emitted.has("recipes")) out.recipes = clone(model.recipes);
     if (model.hasEnchantGlow && !emitted.has("enchant_glow")) out.enchant_glow = model.enchantGlow;
     return out;
   }
 
   // ---- threads エントリ ----
-  const THREAD_EFFECT_KEYS = ["regen-bonus", "mana-bonus", "recovery", "cost-reduction", "slots"];
+  // mana-max-percent / regen-percent は 2026-08-02 の出荷 threads.yml (mana_amplify / mana_circulate)
+  // で既に使われているが、lib/schema.js の検証リストと共にここでも取りこぼされていたため追加した
+  // (2026-08-08)。slots は 2026-08-08 に「特殊効果」専用セクション(potion-effect/potion-level/
+  // flight と同グループ)へ移したため、この汎用「効果パラメータ」ループからは外す
+  // (THREAD_KNOWN には引き続き含めて lossless round-trip を保つ)。
+  const THREAD_EFFECT_KEYS = ["regen-bonus", "mana-bonus", "recovery", "cost-reduction", "mana-max-percent", "regen-percent"];
   const THREAD_EFFECT_SET = new Set(THREAD_EFFECT_KEYS);
-  const THREAD_KNOWN = new Set(["display_name", "stackable", "max", "recipe"].concat(THREAD_EFFECT_KEYS));
+  // スレッドの特殊効果(装備しているだけで常時付与されるポーション効果)候補。有益効果18種のみ
+  // (有害効果は常時付与すると事故になるため候補に出さない)。
+  // ⚠ lib/schema.js の THREAD_POTION_EFFECTS と同じ id 集合を保つこと(検証側とUI側のミラー、
+  //   片方だけ増減すると「GUIでは選べるのに保存時エラー」または逆の食い違いになる)。
+  const THREAD_POTION_EFFECTS = [
+    ["speed", "移動速度上昇"], ["haste", "採掘速度上昇"], ["strength", "攻撃力上昇"],
+    ["jump_boost", "跳躍力上昇"], ["regeneration", "再生能力"], ["resistance", "耐性"],
+    ["fire_resistance", "火炎耐性"], ["water_breathing", "水中呼吸"], ["invisibility", "透明化"],
+    ["night_vision", "暗視"], ["health_boost", "体力増強"], ["absorption", "衝撃吸収"],
+    ["saturation", "満腹度回復"], ["luck", "幸運"], ["slow_falling", "落下速度低下"],
+    ["conduit_power", "コンジットパワー"], ["dolphins_grace", "イルカの好意"],
+    ["hero_of_the_village", "村の英雄"]
+  ];
+  const THREAD_KNOWN = new Set([
+    "display_name", "stackable", "max", "recipe",
+    "potion-effect", "potion-level", "flight", "slots"
+  ].concat(THREAD_EFFECT_KEYS));
 
   function parseThreadEntry(id, entry) {
     const e = entry && typeof entry === "object" && !Array.isArray(entry) ? entry : {};
@@ -92,6 +120,11 @@
       effects: {}, // 効果パラメータ (存在するものだけ、順序は元キー順に従う)
       hasStackable: has("stackable"), stackable: e.stackable,
       hasMax: has("max"), max: e.max,
+      // 特殊効果 (装備固有のポーション効果/レベル/飛行/バックパック枠)。
+      hasPotionEffect: has("potion-effect"), potionEffect: e["potion-effect"],
+      hasPotionLevel: has("potion-level"), potionLevel: e["potion-level"],
+      hasFlight: has("flight"), flight: e.flight,
+      hasSlots: has("slots"), slots: e.slots,
       hasRecipe: has("recipe"),
       recipe: RC.parseRitualRecipe(e.recipe)
     };
@@ -110,6 +143,10 @@
       if (k === "display_name") { if (model.hasDisplayName) out.display_name = model.displayName; }
       else if (k === "stackable") { if (model.hasStackable) out.stackable = model.stackable; }
       else if (k === "max") { if (model.hasMax) out.max = model.max; }
+      else if (k === "potion-effect") { if (model.hasPotionEffect) out["potion-effect"] = model.potionEffect; }
+      else if (k === "potion-level") { if (model.hasPotionLevel) out["potion-level"] = model.potionLevel; }
+      else if (k === "flight") { if (model.hasFlight) out.flight = model.flight; }
+      else if (k === "slots") { if (model.hasSlots) out.slots = model.slots; }
       else if (k === "recipe") { if (model.hasRecipe) out.recipe = RC.serializeRitualRecipe(model.recipe); }
       else if (THREAD_EFFECT_SET.has(k)) { if (Object.prototype.hasOwnProperty.call(model.effects, k)) out[k] = model.effects[k]; }
       else if (Object.prototype.hasOwnProperty.call(model._extra, k)) out[k] = clone(model._extra[k]);
@@ -119,6 +156,10 @@
     for (const k of THREAD_EFFECT_KEYS) if (Object.prototype.hasOwnProperty.call(model.effects, k) && !emitted.has(k)) out[k] = model.effects[k];
     if (model.hasStackable && !emitted.has("stackable")) out.stackable = model.stackable;
     if (model.hasMax && !emitted.has("max")) out.max = model.max;
+    if (model.hasPotionEffect && !emitted.has("potion-effect")) out["potion-effect"] = model.potionEffect;
+    if (model.hasPotionLevel && !emitted.has("potion-level")) out["potion-level"] = model.potionLevel;
+    if (model.hasFlight && !emitted.has("flight")) out.flight = model.flight;
+    if (model.hasSlots && !emitted.has("slots")) out.slots = model.slots;
     if (model.hasRecipe && !emitted.has("recipe")) out.recipe = RC.serializeRitualRecipe(model.recipe);
     return out;
   }
@@ -126,7 +167,7 @@
   const CORE = {
     parseMaterialEntry, serializeMaterialEntry,
     parseThreadEntry, serializeThreadEntry,
-    THREAD_EFFECT_KEYS
+    THREAD_EFFECT_KEYS, THREAD_POTION_EFFECTS
   };
   root.ARS_FORMS = CORE;
   if (typeof module !== "undefined" && module.exports) module.exports = CORE;
@@ -160,6 +201,164 @@
   }
 
   // ============================================================
+  // threads.yml の効果 (数値効果 + ポーション効果/飛行/バックパック枠) を
+  // 1つの「+ 効果追加」セレクトへ統合したUI部品。
+  //
+  // 2026-08-09: 「アイテムステータスの設定でArs効果とそれ以外でスレッド分けないでほしい。
+  // もともとのスレッド設定の中で効果をセレクトメニューで追加可能な方式にしてほしい」という
+  // 差し戻しを受け、buildThreadsForm 内で別々の節だった「効果パラメータ」(renderEffects)と
+  // 「特殊効果」(renderSpecialEffects、2026-08-08新設)を統合した。forms.js の item-stats.yml
+  // 「スレッド」タブ(threads.yml を横から編集する)からも同じ部品を再利用する
+  // (定義の複製を避けるため、追加できる効果の一覧は CORE.THREAD_EFFECT_KEYS /
+  // CORE.THREAD_POTION_EFFECTS をそのまま参照する)。
+  //
+  // model は CORE.parseThreadEntry() の戻り値そのもの(そのまま参照して破壊的に編集する)。
+  // onChange は「model を確定して再描画する」呼び出し元のコールバック。buildThreadsForm では
+  // models 配列が model を直接保持しているので単純な render の呼び出しでよいが、forms.js 側は
+  // model を毎回 threads.yml から再構築しているため、onChange の中で threads.<id> への
+  // 書き戻し(serializeThreadEntry)まで行う。この部品はどちらの事情も知らない
+  // (呼び出し元が onChange に必要な後処理を包む)。
+  const THREAD_EFFECT_LABELS_JA = {
+    "regen-bonus": "マナ回復速度ボーナス",
+    "mana-bonus": "最大マナボーナス",
+    "recovery": "マナ回復量(被弾/攻撃時)",
+    "cost-reduction": "スペルコスト軽減率(%)",
+    "mana-max-percent": "最大マナの割合上昇(%)",
+    "regen-percent": "マナ回復速度の割合上昇(%)"
+  };
+  const THREAD_POTION_EFFECT_SELECT_OPTIONS = [{ value: "none", primary: "なし(効果を付けない)", secondary: "none" }]
+    .concat(CORE.THREAD_POTION_EFFECTS.map(([id, ja]) => ({ value: id, primary: ja, secondary: id, title: id })));
+
+  window.buildThreadEffectsBox = function buildThreadEffectsBox(model, onChange, opts) {
+    const m = model;
+    // 2026-08-13 実サーバ報告(「効果の引数に数値を入力しても保存時に null(空) になる」)の対策。
+    // 数値入力欄は model を書き換えるだけで呼び出し元へ何も通知していなかった。model を
+    // 使い捨てにする呼び出し元(forms.js の item-stats「スレッド」タブ。毎回の再描画で
+    // threads.yml から model を作り直す)では、その書き換えが次の再描画で捨てられ、
+    // 保存対象の threads.yml 側には一度も届かない。
+    // ここで onChange(=再描画を伴う確定)を呼ぶわけにはいかない — 打鍵のたびに入力欄が
+    // 作り直されてフォーカスが飛び、×ボタンのクリックも blur→再描画に食われて1回目が効かなくなる。
+    // そのため「値だけが変わった」ことを再描画なしで伝える opts.onValueCommit を分けている。
+    // 未指定の呼び出し(buildThreadsForm。models 配列が model をそのまま保持しているので
+    // 書き換えがそのまま保存へ乗る)は従来どおり何もしない。
+    const commitValue = opts && typeof opts.onValueCommit === "function" ? opts.onValueCommit : () => {};
+    const box = h("div", { class: "effect-params-box" });
+    const presentNumeric = CORE.THREAD_EFFECT_KEYS.filter((k) => Object.prototype.hasOwnProperty.call(m.effects, k));
+    const hasPotionGroup = !!(m.hasPotionEffect || m.hasPotionLevel);
+    const hasFlightGroup = !!m.hasFlight;
+    const hasSlotsGroup = !!m.hasSlots;
+
+    if (!presentNumeric.length && !hasPotionGroup && !hasFlightGroup && !hasSlotsGroup) {
+      box.appendChild(h("div", { class: "empty-hint",
+        text: "効果はまだありません。「+ 効果追加」で数値効果・ポーション効果・飛行・バックパック枠を足せます。" }));
+    }
+
+    for (const k of presentNumeric) {
+      const row = h("div", { class: "stat-row" });
+      row.appendChild(h("span", { class: "form-label", text: `${THREAD_EFFECT_LABELS_JA[k] || k} (${k})`, title: k }));
+      row.appendChild(window.numberInput(m.effects[k], (v) => { m.effects[k] = v == null ? 0 : v; commitValue(); }));
+      row.appendChild(h("button", {
+        class: "btn-small danger", type: "button", text: "×",
+        onclick: () => { delete m.effects[k]; onChange(); }
+      }));
+      box.appendChild(row);
+    }
+
+    if (hasPotionGroup) {
+      const effectRow = h("div", { class: "stat-row" });
+      effectRow.appendChild(h("span", { class: "form-label", text: "ポーション効果 (potion-effect)", title: "potion-effect" }));
+      effectRow.appendChild(window.listSelect({
+        value: m.hasPotionEffect ? (m.potionEffect || "") : "",
+        placeholder: "(効果を選択)",
+        options: THREAD_POTION_EFFECT_SELECT_OPTIONS,
+        allowCustom: false,
+        onCommit: (v) => {
+          if (!v) { m.hasPotionEffect = false; m.potionEffect = undefined; }
+          else { m.hasPotionEffect = true; m.potionEffect = v; }
+          onChange();
+          return true;
+        }
+      }));
+      effectRow.appendChild(h("span", { class: "mini-label", text: "Lv" }));
+      const levelInput = window.numberInput(m.hasPotionLevel ? m.potionLevel : null, (v) => {
+        if (v == null || v < 1) { m.hasPotionLevel = false; m.potionLevel = undefined; }
+        else { m.hasPotionLevel = true; m.potionLevel = Math.trunc(v); }
+        commitValue();
+      }, { int: true });
+      if (!m.hasPotionEffect || m.potionEffect === "none") {
+        levelInput.disabled = true;
+        levelInput.title = "ポーション効果を選ぶと設定できます";
+      }
+      effectRow.appendChild(levelInput);
+      effectRow.appendChild(h("button", {
+        class: "btn-small danger", type: "button", text: "×",
+        title: "未設定に戻す(装備固有の既定値を使う)",
+        onclick: () => {
+          m.hasPotionEffect = false; m.potionEffect = undefined;
+          m.hasPotionLevel = false; m.potionLevel = undefined;
+          onChange();
+        }
+      }));
+      box.appendChild(effectRow);
+    }
+
+    if (hasFlightGroup) {
+      const flightRow = h("div", { class: "stat-row" });
+      flightRow.appendChild(h("span", { class: "form-label", text: "飛行 (flight)", title: "flight" }));
+      flightRow.appendChild(h("input", {
+        type: "checkbox", checked: !!m.flight,
+        onchange: (e) => { m.flight = e.target.checked; onChange(); }
+      }));
+      flightRow.appendChild(h("button", {
+        class: "btn-small danger", type: "button", text: "×",
+        onclick: () => { m.hasFlight = false; m.flight = undefined; onChange(); }
+      }));
+      box.appendChild(flightRow);
+    }
+
+    if (hasSlotsGroup) {
+      const slotsRow = h("div", { class: "stat-row" });
+      slotsRow.appendChild(h("span", { class: "form-label", text: "バックパック枠 (slots)", title: "slots" }));
+      slotsRow.appendChild(window.numberInput(m.slots, (v) => {
+        m.slots = v == null || v < 0 ? 0 : Math.trunc(v);
+        commitValue();
+      }, { int: true }));
+      slotsRow.appendChild(h("button", {
+        class: "btn-small danger", type: "button", text: "×",
+        onclick: () => { m.hasSlots = false; m.slots = undefined; onChange(); }
+      }));
+      box.appendChild(slotsRow);
+    }
+
+    // ---- + 効果追加 ----
+    const addOptions = [];
+    for (const k of CORE.THREAD_EFFECT_KEYS) {
+      if (!Object.prototype.hasOwnProperty.call(m.effects, k)) {
+        addOptions.push({ value: k, label: `${THREAD_EFFECT_LABELS_JA[k] || k} (${k})` });
+      }
+    }
+    if (!hasPotionGroup) addOptions.push({ value: "potion-effect", label: "ポーション効果 (potion-effect)" });
+    if (!hasFlightGroup) addOptions.push({ value: "flight", label: "飛行 (flight)" });
+    if (!hasSlotsGroup) addOptions.push({ value: "slots", label: "バックパック枠 (slots)" });
+    if (addOptions.length) {
+      const sel = h("select", { class: "field-input" });
+      sel.appendChild(h("option", { value: "", text: "+ 効果追加" }));
+      for (const opt of addOptions) sel.appendChild(h("option", { value: opt.value, text: opt.label }));
+      sel.addEventListener("change", (e) => {
+        const v = e.target.value;
+        if (!v) return;
+        if (v === "potion-effect") { m.hasPotionEffect = true; m.potionEffect = CORE.THREAD_POTION_EFFECTS[0][0]; }
+        else if (v === "flight") { m.hasFlight = true; m.flight = true; }
+        else if (v === "slots") { m.hasSlots = true; m.slots = 0; }
+        else { m.effects[v] = 0; }
+        onChange();
+      });
+      box.appendChild(h("div", { class: "effect-add-row" }, [sel]));
+    }
+    return box;
+  };
+
+  // ============================================================
   // materials.yml
   // ============================================================
   window.buildMaterialsForm = function buildMaterialsForm(data, opts) {
@@ -171,6 +370,10 @@
     // { id:"catalog", data:<catalog.ymlのデータ>, dirty:false } を split-views 経由で受け取り、
     // 移動が発生したら dirty=true にして保存時に両ファイルへ書き込ませる。
     const crossFile = options.crossFile && options.crossFile.data ? options.crossFile : null;
+    // 2026-08-04: 「素材」画面はカテゴリバー1本を materials.yml の素材と catalog.yml の鍵で共有する。
+    // 鍵カテゴリを選んでいる間は素材側を丸ごと畳む — 畳まないと「該当する素材がありません」と
+    // 検索欄・「+ 素材追加」が鍵一覧の上に残り、以前の「謎の塊が下にぶら下がっている」状態に戻る。
+    const suppressed = typeof options.suppressed === "function" ? options.suppressed : () => false;
     const src = data && typeof data === "object" ? data : {};
     const topKeys = Object.keys(src);
     if (!topKeys.includes("materials")) topKeys.push("materials");
@@ -264,10 +467,15 @@
       if (m.hasEnchantGlow ? !!m.enchantGlow : true) e["enchant-glow"] = true;
       if (Array.isArray(m.lore) && m.lore.length) e.lore = m.lore.map(toMM);
       if (m.hasRecipe && m.recipe) e.recipe = clone(m.recipe);
+      if (m.hasRecipes && Array.isArray(m.recipes)) e.recipes = clone(m.recipes);
       for (const k of Object.keys(m._extra || {})) e[k] = clone(m._extra[k]);
       cat.items[entry.id] = e;
       if (typeof window.setItemDisplayTab === "function") window.setItemDisplayTab(cat, entry.id, tab);
       if (typeof window.appendEditorOrder === "function") window.appendEditorOrder(cat, tab, entry.id);
+      // 移動先(カタログの表示タブ)でも必ずどこかのカテゴリへ入れる。
+      if (typeof window.ensureItemEditorCategory === "function") {
+        window.ensureItemEditorCategory(cat, tab, entry.id);
+      }
       // 素材側から除去 (ネストカテゴリ/並び順も掃除)。
       models.splice(models.indexOf(entry), 1);
       if (editorCategoryKey && typeof window.removeEditorCategoryItem === "function") {
@@ -279,18 +487,30 @@
 
     function render() {
       root.innerHTML = "";
+      if (suppressed()) return;
+      // この画面で追加/改名した素材も `custom:<id>` セレクトの候補へ載せる。
+      // app.js は**画面を開いた時点の** materials.yml しか候補へ積まないため、
+      // ここで積まないと「いま足したばかりの素材が、次に作る素材のレシピ素材セレクトに
+      // 出てこない」= 保存して開き直すまで参照できない(2026-08-08 報告)。
+      // カタログ画面(forms.js の renderList)は同じことを既にやっている。
+      if (typeof window.setCustomItemCandidates === "function") {
+        window.setCustomItemCandidates(models.map((m) => ({
+          id: m.id,
+          label: (typeof window.stripDisplayNamePlain === "function"
+            ? window.stripDisplayNamePlain(m.model && m.model.displayName)
+            : (m.model && m.model.displayName)) || m.id
+        })), { replace: false });
+      }
       const visible = filterModelsByText(visibleModels());
       // 検索欄 (ID/表示名で絞り込み。カタログ他タブの filterRow と同じ挙動)。
       // CMD一括割当ボタンはここには置かない。全ファイル横断で「リソースパック管理」画面
       // (respack-view.js の「全アイテムCMD一括採番＆保存」) に集約済み。
       const filterRow = h("div", { class: "item-stats-filter" }, [
         h("span", { class: "mini-label", text: "検索" }),
-        h("input", {
-          class: "field-input", type: "text", spellcheck: "false",
-          placeholder: "ID/表示名で絞り込み",
-          value: filterText,
-          oninput: (e) => { filterText = e.target.value; render(); }
-        })
+        // render() は root ごと作り直すので、この検索欄は毎回新しい要素になる。
+        // window.filterInput が同じ key の欄へフォーカスとカーソル位置を引き継ぐ。
+        window.filterInput("ars-materials", filterText, (v) => { filterText = v; render(); },
+          { placeholder: "ID/表示名で絞り込み" })
       ]);
       root.appendChild(filterRow);
       if (models.length === 0) {
@@ -305,7 +525,13 @@
           class: "btn", type: "button", text: "+ 素材追加",
           onclick: () => {
             const id = uniqueId("new_material", models);
-            const model = CORE.parseMaterialEntry(id, { base_material: "PAPER", custom_model_data: 0, display_name: "", lore: [] });
+            // custom_model_data は**書かない**。0 を既定値として入れると
+            //   ・CMD一括採番の対象判定が「未設定」から外れる方向へ揺れる
+            //   ・テクスチャ登録が「CMD未設定なら自動採番」の分岐に入らず CMD 0 へ登録される
+            //   ・yml に意味の無い custom_model_data: 0 が残る
+            // の3つが起きる(2026-08-08 報告「追加時のCMDを null にしてほしい。でないと
+            // CMD一括采配が使えない」)。キーごと持たせず、採番/入力で初めて生やす。
+            const model = CORE.parseMaterialEntry(id, { base_material: "PAPER", display_name: "", lore: [] });
             models.push({ id, model });
             // アクティブなネストカテゴリで絞り込み中なら、そのカテゴリへ割り当てて見える位置に出す。
             if (editorCategoryKey && typeof window.assignItemToActiveEditorCategory === "function") {
@@ -389,10 +615,9 @@
             dup.id = copyId;
             models.splice(models.indexOf(entry) + 1, 0, { id: copyId, model: dup });
             // 複製元と同じネストカテゴリへ割り当てる (絞り込み中でも見失わない)。
-            if (editorCategoryKey && typeof window.getItemEditorCategory === "function"
-                && typeof window.moveItemEditorCategory === "function") {
-              const cat = window.getItemEditorCategory(src, editorCategoryKey, entry.id);
-              if (cat) window.moveItemEditorCategory(src, editorCategoryKey, copyId, cat);
+            // 元が無所属なら通常の追加と同じ扱い (絞り込み中のカテゴリ or 「未分類」)。
+            if (editorCategoryKey && typeof window.duplicateItemEditorCategory === "function") {
+              window.duplicateItemEditorCategory(src, editorCategoryKey, entry.id, copyId);
             }
             render();
           }
@@ -441,7 +666,12 @@
         fieldRow("base_material", h("span", { class: "input-with-hint" }, [matInput, matHint])),
         fieldRow("custom_model_data", (() => {
           const wrap = h("span", { class: "cmd-field-row" });
-          const cmdNumInput = window.numberInput(model.customModelData, (v) => { model.customModelData = v == null ? 0 : v; model.hasCmd = true; }, { int: true });
+          // 入力欄を空にしたら「未設定」へ戻す(0 を書くとCMD一括採番の対象から外れる)。
+          const cmdNumInput = window.numberInput(model.customModelData, (v) => {
+            if (v == null) { model.hasCmd = false; model.customModelData = undefined; return; }
+            model.customModelData = v;
+            model.hasCmd = true;
+          }, { int: true });
           wrap.appendChild(cmdNumInput);
           // M-4: entryだけでなく数値入力欄の表示値にも直接反映する (フル再描画はしない)。
           function syncAssignedCmd(cmd) {
@@ -502,19 +732,24 @@
       }
 
       function renderMaterialRecipeSection(m) {
-        const entryLike = { recipe: m.hasRecipe ? m.recipe : undefined };
+        // 共通UI(catalog.yml と同じ部品)は recipe:(1件) と recipes:(2件以上) を出し入れするので、
+        // **両方を渡して両方を書き戻す**。2026-08-13 実サーバ報告「2つ目のレシピを登録すると
+        // 1つ目が消える」の真因はここで recipe: しか渡さず recipe: しか読み戻していなかったこと
+        // (2件目を足した瞬間に共通UIが entryLike を recipes: へ正規化し、hasRecipe=false になって
+        //  1件目ごと消えていた)。
+        const entryLike = {};
+        if (m.hasRecipe && m.recipe) entryLike.recipe = m.recipe;
+        if (m.hasRecipes && Array.isArray(m.recipes)) entryLike.recipes = m.recipes;
         const renderRecipe = window.renderCatalogRecipeSection;
         if (typeof renderRecipe !== "function") {
           return h("div", { class: "empty-hint", text: "レシピ UI を読み込めません (forms.js)" });
         }
         return renderRecipe(entryLike, () => {
-          if (entryLike.recipe !== undefined && entryLike.recipe !== null) {
-            m.hasRecipe = true;
-            m.recipe = entryLike.recipe;
-          } else {
-            m.hasRecipe = false;
-            m.recipe = null;
-          }
+          const single = entryLike.recipe;
+          m.hasRecipe = single !== undefined && single !== null;
+          m.recipe = m.hasRecipe ? single : null;
+          m.hasRecipes = Array.isArray(entryLike.recipes);
+          m.recipes = m.hasRecipes ? entryLike.recipes : null;
           render();
         });
       }
@@ -551,15 +786,6 @@
     if (UI && UI.ensureCustomDatalist) UI.ensureCustomDatalist();
     // 折りたたみ状態(開いているidの集合)。既定は全て折りたたみ (skilltreeと同じUX)。再描画をまたいで保持する。
     const expanded = new Set();
-
-    // 効果パラメータの日本語ラベル (threads.yml ヘッダ準拠)。
-    const EFFECT_LABELS = {
-      "regen-bonus": "マナ回復速度ボーナス",
-      "mana-bonus": "最大マナボーナス",
-      "recovery": "マナ回復量(被弾/攻撃時)",
-      "cost-reduction": "スペルコスト軽減率(%)",
-      "slots": "バックパックスロット数"
-    };
 
     function render() {
       root.innerHTML = "";
@@ -618,9 +844,11 @@
       const body = [];
       body.push(fieldRow("display_name", window.textInput(model.displayName, (v) => { model.displayName = v; model.hasDisplayName = true; }), "表示名 (display_name)"));
 
-      // ---- 効果パラメータ ----
-      body.push(h("div", { class: "sub-title", text: "効果パラメータ" }));
-      body.push(renderEffects(model));
+      // ---- 効果 (数値効果 + ポーション効果/飛行/バックパック枠を1つの「+ 効果追加」で管理) ----
+      // 2026-08-09: 旧「効果パラメータ」節と「特殊効果」節(2026-08-08新設)を統合した
+      // (window.buildThreadEffectsBox、forms.js の item-stats.yml「スレッド」タブとも共通)。
+      body.push(h("div", { class: "sub-title", text: "効果" }));
+      body.push(window.buildThreadEffectsBox(model, render));
 
       // ---- stackable / max ----
       body.push(h("div", { class: "sub-title", text: "重複設定" }));
@@ -645,36 +873,18 @@
         onToggle: (open) => { if (open) expanded.add(entry.id); else expanded.delete(entry.id); }
       });
 
-      function renderEffects(m) {
-        const box = h("div", { class: "effect-params-box" });
-        const present = CORE.THREAD_EFFECT_KEYS.filter((k) => Object.prototype.hasOwnProperty.call(m.effects, k));
-        if (present.length === 0) box.appendChild(h("div", { class: "empty-hint", text: "効果パラメータはありません。「+ 効果追加」で数値効果を足せます。" }));
-        for (const k of present) {
-          const row = h("div", { class: "stat-row" });
-          row.appendChild(h("span", { class: "form-label", text: `${EFFECT_LABELS[k] || k} (${k})`, title: k }));
-          row.appendChild(window.numberInput(m.effects[k], (v) => { m.effects[k] = v == null ? 0 : v; }));
-          row.appendChild(h("button", { class: "btn-small danger", type: "button", text: "×", onclick: () => { delete m.effects[k]; render(); } }));
-          box.appendChild(row);
-        }
-        // 追加セレクト (未追加の効果キーのみ)。
-        const remaining = CORE.THREAD_EFFECT_KEYS.filter((k) => !Object.prototype.hasOwnProperty.call(m.effects, k));
-        if (remaining.length) {
-          const sel = h("select", { class: "field-input" });
-          sel.appendChild(h("option", { value: "", text: "+ 効果追加" }));
-          for (const k of remaining) sel.appendChild(h("option", { value: k, text: `${EFFECT_LABELS[k] || k} (${k})` }));
-          sel.addEventListener("change", (e) => { const k = e.target.value; if (!k) return; m.effects[k] = 0; render(); });
-          box.appendChild(h("div", { class: "effect-add-row" }, [sel]));
-        }
-        return box;
-      }
-
       function renderStackable(m) {
+        // 2026-08-18: フォーク側の既定が反転した(ThreadApplicationPolicy.DEFAULT_STACKABLE = true /
+        // DEFAULT_MAX_STACK = 2)。未記載の項目でチェックを外して見せると「重複不可」と誤読させるので、
+        // 未記載は【有効】として描く(触らなければ yml へは何も書かない = 既定のまま)。
         const box = h("div", { class: "result-slot" });
-        const stackOn = h("input", { type: "checkbox", checked: !!m.stackable, onchange: (e) => { m.stackable = e.target.checked; m.hasStackable = true; render(); } });
-        box.appendChild(h("label", { class: "result-default" }, [stackOn, h("span", { text: "同じ防具に複数セット可 (stackable)" })]));
+        const effectiveStackable = m.hasStackable ? !!m.stackable : true;
+        const stackOn = h("input", { type: "checkbox", checked: effectiveStackable, onchange: (e) => { m.stackable = e.target.checked; m.hasStackable = true; render(); } });
+        box.appendChild(h("label", { class: "result-default" }, [stackOn, h("span", { text: "同じ装備に複数セット可 (stackable・未設定でも可)" })]));
         const maxInput = window.numberInput(m.max, (v) => { m.max = v == null ? 1 : v; m.hasMax = true; }, { int: true });
-        if (!m.stackable) { maxInput.disabled = true; maxInput.title = "stackable が有効なときのみ設定できます"; }
-        box.appendChild(fieldRow("max", maxInput, "最大セット数 (max)"));
+        if (!effectiveStackable) { maxInput.disabled = true; maxInput.title = "stackable が有効なときのみ設定できます"; }
+        else if (!m.hasMax) { maxInput.placeholder = "未設定 = 2"; }
+        box.appendChild(fieldRow("max", maxInput, "最大セット数 (max・未設定は2)"));
         return box;
       }
     }

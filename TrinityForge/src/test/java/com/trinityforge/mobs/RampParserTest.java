@@ -98,6 +98,29 @@ class RampParserTest {
     }
 
     @Test
+    @DisplayName("ramp reads high-level-from and high-level-per-level")
+    void rampReadsHighLevelBreakpoint() throws Exception {
+        YamlConfiguration cfg = yaml("ar:\n  base: 100.0\n  per-level: 0.0\n"
+                + "  high-level-from: 45\n  high-level-per-level: 50.0\n");
+        Ramp r = RampParser.ramp(cfg.getConfigurationSection("ar"));
+        assertEquals(45.0, r.highLevelFrom(), DELTA);
+        assertEquals(50.0, r.highLevelPerLevel(), DELTA);
+        assertEquals(100.0, r.at(45), DELTA);
+        assertEquals(100.0 + 50.0 * 15, r.at(60), DELTA);
+    }
+
+    @Test
+    @DisplayName("ramp defaults high-level-from/high-level-per-level to a no-op when absent")
+    void rampMissingHighLevelBreakpointDefaultsToNoOp() throws Exception {
+        YamlConfiguration cfg = yaml("ar:\n  base: 1.0\n  per-level: 0.5\n");
+        Ramp r = RampParser.ramp(cfg.getConfigurationSection("ar"));
+        assertEquals(Double.POSITIVE_INFINITY, r.highLevelFrom(), DELTA);
+        assertEquals(0.0, r.highLevelPerLevel(), DELTA);
+        // 途方もなく高いレベルでも従来どおり線形のまま(後方互換)。
+        assertEquals(r.base() + r.perLevel() * 500, r.at(500), DELTA);
+    }
+
+    @Test
     @DisplayName("defenseRamp(null) yields four all-zero ramps")
     void defenseRampNullAllZero() {
         DefenseRamp d = RampParser.defenseRamp(null);

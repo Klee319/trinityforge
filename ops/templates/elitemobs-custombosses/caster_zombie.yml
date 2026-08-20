@@ -1,0 +1,7 @@
+# 術者のゾンビ (caster_zombie) — 通常攻撃が完全に魔法として解決される派生モブ(attack.magic-ratio: 1.0)。
+# combat/mob-overrides.yml の overrides.default.mobs.caster_zombie が強さ/技/ドロップを上書きする。
+# 配備手順は ops/deploy-elitemobs-magic-mobs.md を参照。
+isEnabled: true
+entityType: ZOMBIE
+name: "&d術者のゾンビ"
+level: 20

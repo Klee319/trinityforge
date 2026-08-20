@@ -36,7 +36,10 @@ test("今回追加した経済連携3キーが登録済みで、ドメインプ�
 
 test("原価/消費が減る系のキーは↓、増加系のキーは↑を使う(命名規則の一貫性サンプル)", () => {
   assert.ok(STAT_LABELS["mana-cost-reduction-flat"].endsWith("↓"));
-  assert.ok(STAT_LABELS["lapis-cost-reduction"].endsWith("↓"));
+  // 2026-08-14: lapis-cost-reduction は廃止したので、同じ命名規則のサンプルを別キーへ差し替えた。
+  assert.ok(STAT_LABELS["source-cost-reduction"].endsWith("↓"));
+  assert.equal(STAT_LABELS["lapis-cost-reduction"], undefined,
+    "廃止したラピス消費↓がラベル辞書へ戻っている(セレクトメニューへ再び出る)");
   assert.ok(STAT_LABELS["damage-reduction"].endsWith("↓"));
   assert.ok(STAT_LABELS["attack-power"].endsWith("↑"));
   assert.ok(STAT_LABELS["fishing-luck"].endsWith("↑"));

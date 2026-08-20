@@ -19,6 +19,7 @@ config-editor で保存すると本文コメントは復元されないため([t
 
 ```
     # エンチャントポイント=enchant_luck(良エンチャント出現率の格上げ抽選に使うポイント、
-    # EnchantLuckListener/stats/enchant-luck.yml消費)。エンチャントEXPの減少=enchant_exp_gain_bonus
-    # (ENCHANTING スキルEXP獲得量への符号付き増減、NativeSkillExperienceListener消費)。
+    # EnchantLuckListener/stats/enchant-luck.yml消費)。エンチャントEXPの減少=enchanting_exp_bonus
+    # (ENCHANTING スキルEXP獲得量への符号付き増減。2026-08-14 に専用キー enchant_exp_gain_bonus を
+    # 廃止して職業EXP増加の共通機構へ統合した。適用は NativeProgressionService#grant)。
 ```

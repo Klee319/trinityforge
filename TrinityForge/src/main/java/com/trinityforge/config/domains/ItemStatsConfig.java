@@ -153,6 +153,13 @@ public final class ItemStatsConfig {
         if (raw.hasSkill()) {
             return Optional.of(raw);
         }
+        if (raw.hasRole()) {
+            // use-skill が無くても use-role だけで要件になる。ここで empty を返すと
+            // ロール条件が黙って消える(装備制限が一切かからない)。
+            return Optional.of(UseSkillDefaults.infer(material, customModelData)
+                    .map(skill -> new ItemUseRequirement(raw.levelOrZero(), skill, raw.role()))
+                    .orElse(raw));
+        }
         return UseSkillDefaults.infer(material, customModelData)
                 .map(skill -> new ItemUseRequirement(raw.levelOrZero(), skill));
     }
@@ -431,10 +438,17 @@ public final class ItemStatsConfig {
                             entry.getBoolean("offhand-stats-apply", false),
                             parseRandomizeGrants(entry),
                             parseGrantChances(entry),
-                            parseMultipliers(entry)));  // may throw -> skip item
+                            parseMultipliers(entry),  // may throw -> skip item
+                            // 装着専用(スレッド)。true のアイテムは装備/手持ちスロットから
+                            // ステを一切寄与しない。詳細は ItemStatProfile#socketedOnly の javadoc。
+                            entry.getBoolean("socketed-only-stats", false),
+                            // 2026-08-20 W-163: オフハンド寄与を「盾を構えている間」に限定する。
+                            // offhand-stats-apply が false のときは意味を持たない。
+                            entry.getBoolean("offhand-stats-require-blocking", false)));
                     ItemUseRequirement useReq = parseUseRequirement(entry);
                     // Keep skill-only OR level-authored rows (level-only needs UseSkillDefaults later).
-                    if (useReq.hasSkill() || entry.contains("use-level-requirement")) {
+                    if (useReq.hasSkill() || useReq.hasRole()
+                            || entry.contains("use-level-requirement")) {
                         parsedUse.put(normalizedKey, useReq);
                     }
                     Integer offset = parseQualityModeOffset(entry);
@@ -673,7 +687,7 @@ public final class ItemStatsConfig {
     private static boolean isLegacyFallbackKey(String key) {
         return switch (key) {
             case "fixed", "per-quality", "random", "durability", "offhand-stats-apply",
-                 "advanced", "use-skill", "use-level-requirement" -> true;
+                 "advanced", "use-skill", "use-level-requirement", "use-role" -> true;
             default -> false;
         };
     }
@@ -816,6 +830,13 @@ public final class ItemStatsConfig {
      * {@code {min, max}} section, has a non-numeric/non-finite bound, or has {@code min > max}, throws
      * {@link IllegalArgumentException} so the whole item is skipped with a logged warning — matching the
      * {@code fixed}/{@code per-quality} malformed-skip contract (never a silent dead roll).
+     *
+     * <p>The quantization step (旧 random-roll-pools の「刻み幅」仕様。StatRange 側へ移設) is derived
+     * from the number of decimal places AUTHORED on {@code min}/{@code max} in the yml (the larger of
+     * the two): {@code min: 0.5, max: 2.0} → 0.1刻み、両方とも整数（{@code min: 200, max: 600}）なら
+     * 1刻み。{@code getDouble} は {@code 2} と {@code 2.0} を区別しないため、桁数は生オブジェクト
+     * ({@code section.get(key)}) の {@code toString()} から数える。指数表記（{@code 1.0E-4} 等）が来た
+     * ときは量子化を諦めて {@code step = 0}（＝連続値のまま、壊れるより無効化）にする。
      */
     private static Map<String, StatRange> parseRandom(ConfigurationSection entry) {
         Map<String, StatRange> random = new LinkedHashMap<>();
@@ -840,10 +861,51 @@ public final class ItemStatsConfig {
                     throw new IllegalArgumentException(
                             "random stat '" + statKey + "' has min (" + min + ") > max (" + max + ")");
                 }
-                random.put(StatKeys.canonical(statKey), new StatRange(min, max));
+                double step = quantizationStep(range);
+                random.put(StatKeys.canonical(statKey), new StatRange(min, max, step));
             }
         }
         return random;
+    }
+
+    /**
+     * The authored quantization step for a {@code {min, max}} random-range section: {@code 10^-d} where
+     * {@code d} is the larger of the two bounds' authored decimal places, or {@code 0} (no quantization)
+     * when either bound was authored in exponential notation. See {@link #parseRandom} javadoc for the
+     * full rule.
+     */
+    private static double quantizationStep(ConfigurationSection range) {
+        int minDecimals = authoredDecimalPlaces(range.get("min"));
+        int maxDecimals = authoredDecimalPlaces(range.get("max"));
+        if (minDecimals < 0 || maxDecimals < 0) {
+            return 0d;
+        }
+        return Math.pow(10, -Math.max(minDecimals, maxDecimals));
+    }
+
+    /**
+     * The number of decimal places in {@code raw}'s own {@code toString()} (trailing zeros stripped), so
+     * {@code 2} and {@code 2.0} are told apart even though {@code ConfigurationSection#getDouble} would
+     * collapse both to {@code 2.0}. Returns {@code -1} when the value was authored in exponential
+     * notation ({@code e}/{@code E} present) — the caller treats that as "give up quantizing".
+     */
+    private static int authoredDecimalPlaces(Object raw) {
+        if (raw == null) {
+            return 0;
+        }
+        String text = raw.toString();
+        if (text.indexOf('e') >= 0 || text.indexOf('E') >= 0) {
+            return -1;
+        }
+        int dot = text.indexOf('.');
+        if (dot < 0) {
+            return 0;
+        }
+        int end = text.length();
+        while (end > dot + 1 && text.charAt(end - 1) == '0') {
+            end--;
+        }
+        return end == dot + 1 ? 0 : end - dot - 1;
     }
 
     private static boolean parseRandomizeGrants(ConfigurationSection entry) {
@@ -893,6 +955,6 @@ public final class ItemStatsConfig {
         if (skill != null && skill.isBlank()) {
             skill = null;
         }
-        return new ItemUseRequirement(level, skill);
+        return new ItemUseRequirement(level, skill, entry.getString("use-role"));
     }
 }

@@ -1,0 +1,26 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/copper_nugget",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 5312,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/copper_ingot_scrap"
+        }
+      },
+      {
+        "threshold": 5315,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/diamond_scrap"
+        }
+      }
+    ]
+  }
+}

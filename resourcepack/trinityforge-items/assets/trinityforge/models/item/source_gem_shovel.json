@@ -1,5 +1,5 @@
 {
-  "parent": "minecraft:item/handheld",
+  "parent": "minecraft:item/diamond_shovel",
   "textures": {
     "layer0": "trinityforge:item/source_gem_shovel"
   }

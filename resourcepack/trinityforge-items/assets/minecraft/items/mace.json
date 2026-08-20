@@ -17,8 +17,8 @@
       {
         "threshold": 128,
         "model": {
-          "model": "minecraft:item/mace",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/hero_mace"
         }
       },
       {
@@ -82,6 +82,34 @@
         "model": {
           "type": "minecraft:model",
           "model": "trinityforge:item/source_gem_mace"
+        }
+      },
+      {
+        "threshold": 5602,
+        "model": {
+          "model": "minecraft:item/mace",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5608,
+        "model": {
+          "model": "minecraft:item/mace",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5700,
+        "model": {
+          "model": "minecraft:item/mace",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5720,
+        "model": {
+          "model": "minecraft:item/mace",
+          "type": "minecraft:model"
         }
       }
     ]

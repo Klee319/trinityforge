@@ -8,6 +8,10 @@
 </head>
 <body>
   <header class="topbar">
+    <button id="sidebar-toggle-btn" class="sidebar-toggle" type="button"
+            aria-expanded="false" aria-controls="app-sidebar" aria-label="メニューを開閉">
+      <span class="sidebar-toggle-icon" aria-hidden="true"></span>
+    </button>
     <div class="brand">
       <span class="brand-mark">TF</span>
       <span class="brand-text">TrinityForge / ArsPaper Config Editor</span>
@@ -27,7 +31,8 @@
   </header>
 
   <div class="layout">
-    <aside class="sidebar">
+    <div id="sidebar-scrim" class="sidebar-scrim" hidden></div>
+    <aside id="app-sidebar" class="sidebar">
       <div class="sidebar-title">メニュー</div>
       <nav id="config-list" class="config-list"></nav>
     </aside>
@@ -69,8 +74,11 @@
   <script src="js/tf-quality-dist.js"></script>
   <script src="js/tf-forms.js"></script>
   <script src="js/mob-forms.js"></script>
+  <script src="js/mob-abilities-form.js"></script>
+  <script src="js/loot-tables-form.js"></script>
   <script src="js/tf-dungeon-forms.js"></script>
   <script src="js/tf-lifestyle-forms.js"></script>
+  <script src="js/tf-afk-form.js"></script>
   <script src="js/tf-phase3-forms.js"></script>
   <script src="js/ars-source-forms.js"></script>
   <script src="js/tf-lore.js"></script>
@@ -79,6 +87,7 @@
   <script src="js/tf-skilltree.js"></script>
   <script src="js/tf-crafting-features.js"></script>
   <script src="js/tf-rewards-forms.js"></script>
+  <script src="js/tf-level-broadcast-form.js"></script>
   <script src="js/ars-p4.js"></script>
   <script src="js/ars-spellbooks.js"></script>
   <script src="js/p5-forms.js"></script>
@@ -86,6 +95,7 @@
   <script src="js/simulator.js"></script>
   <script src="js/home.js"></script>
   <script src="js/manual.js"></script>
+  <script src="js/editor-meta-integrity.js"></script>
   <script src="js/editor-categories.js"></script>
   <script src="js/split-views.js"></script>
   <script src="js/item-stats-hub.js"></script>

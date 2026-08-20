@@ -78,23 +78,77 @@
   }
 
   /**
-   * 全ノード横断で、一回性の解放効果IDが複数ノードに置かれていれば警告集合を返す。
-   * ars-tier(加算型)は対象外。旧形式(未知プレフィックス)のIDは判定不能のため対象外。
-   * @param {object} nodes skilltree working.nodes
-   * @returns {Set<string>} 重複している raw id の集合
+   * 重複判定に使うキーを1配置ぶん返す。判定対象外(ars-tier / 旧形式 / 欠損)は null。
+   *
+   * feature:<id> の value は「そのノードが解放する段階(tier)」であり、Java 側は
+   * DedicatedEffectGateIndex#valueMaxByPerks で保持ノードのうち最大の tier を採る。
+   * つまり同じ機能を tier 違いで複数ノードに置くのは設計どおりの正しい形なので、
+   * feature だけは tier までキーに含めて「引数が違えば別物」とする
+   * (2026-08-14: id だけで数えていたため tier 違いが全部「⚠ 重複」になっていた)。
+   * 空欄の value は FeatureEffectParam#defaultsMissingValue により tier1 として読まれるので
+   * 明示 value:1 と同一キーに畳む。
+   *
+   * feature 以外の unique 種別 (glyph/brew/trade/recipe/ritual/drop/overenchant/reward) は
+   * 純粋な on/off 解放で value に意味が無い。手書き yml に紛れ込んだ value で
+   * 重複警告が消えないよう、value は一切キーに入れない。
+   * @param {{id:*, value:*}} placement dedicated-effects の1要素
+   * @returns {string|null}
    */
-  function computeDuplicateGateEffectIds(nodes) {
-    const counts = {};
+  function gateEffectDuplicateKey(placement) {
+    const parsed = parseGateEffectId(placement && placement.id);
+    if (!parsed || !isUniqueGateEffectType(parsed.type)) return null;
+    if (parsed.type !== "feature") return parsed.raw;
+    const raw = placement.value;
+    const tier = raw == null || raw === "" ? 1 : Number(raw);
+    return `${parsed.raw}#${Number.isFinite(tier) ? tier : String(raw)}`;
+  }
+
+  /**
+   * 重複しているキーごとに「どこに置かれているか」を返す。
+   *
+   * <p>2026-08-16: 以前は開いているツリー1本の nodes しか見ておらず、<b>ツリーをまたぐ重複を
+   * 構造的に検出できなかった</b>(Java 側 DedicatedEffectGateIndex は全16ツリー横断で警告を出す)。
+   * 実際 glyph:snare が alchemy と ars_magic の両方に置かれていたのを editor は一度も表示できて
+   * いなかった。他ツリー分は {@code extraPlacements} で渡す。
+   *
+   * @param {object} nodes 開いているツリーの working.nodes
+   * @param {Array<{id:*, value:*, where:string}>} [extraPlacements] 他ツリーの配置(保存済み)
+   * @param {string} [currentLabel] 開いているツリーの表示名(where 用)
+   * @returns {Map<string, string[]>} 2箇所以上にあるキー → 配置場所の一覧
+   */
+  function computeDuplicateGateEffectLocations(nodes, extraPlacements, currentLabel) {
+    const locations = new Map();
+    const push = (placement, where) => {
+      const key = gateEffectDuplicateKey(placement);
+      if (key == null) return;
+      if (!locations.has(key)) locations.set(key, []);
+      locations.get(key).push(where);
+    };
     for (const nodeId of Object.keys(nodes || {})) {
       const node = nodes[nodeId];
       const list = node && Array.isArray(node["dedicated-effects"]) ? node["dedicated-effects"] : [];
       for (const placement of list) {
-        const parsed = parseGateEffectId(placement && placement.id);
-        if (!parsed || !isUniqueGateEffectType(parsed.type)) continue;
-        counts[parsed.raw] = (counts[parsed.raw] || 0) + 1;
+        push(placement, `${currentLabel || "このツリー"}/${nodeId}`);
       }
     }
-    return new Set(Object.keys(counts).filter((id) => counts[id] > 1));
+    for (const placement of Array.isArray(extraPlacements) ? extraPlacements : []) {
+      push(placement, (placement && placement.where) || "他ツリー");
+    }
+    for (const [key, where] of [...locations]) {
+      if (where.length < 2) locations.delete(key);
+    }
+    return locations;
+  }
+
+  /**
+   * 全ノード横断で、一回性の解放効果が同じ設定のまま複数ノードに置かれていれば警告集合を返す。
+   * ars-tier(加算型)は対象外。旧形式(未知プレフィックス)のIDは判定不能のため対象外。
+   * @param {object} nodes skilltree working.nodes
+   * @param {Array<{id:*, value:*, where:string}>} [extraPlacements] 他ツリーの配置
+   * @returns {Set<string>} 重複しているキーの集合 (gateEffectDuplicateKey と同じ形)
+   */
+  function computeDuplicateGateEffectIds(nodes, extraPlacements) {
+    return new Set(computeDuplicateGateEffectLocations(nodes, extraPlacements).keys());
   }
 
   /**
@@ -119,13 +173,70 @@
     return { remove: false, value: rawValue == null ? 0 : rawValue };
   }
 
+  /**
+   * recipe: ゲートのターゲットを実行時のキー形へ正規化する(2026-08-16)。
+   *
+   * <p>実行時のゲートキーは {@code CatalogCraftGateListener#resolveGateId} が返す
+   * 「レシピキーの path 部分」で、バニラレシピでは必ず小文字(`diamond_sword`)。ところが
+   * レシピゲート欄は Material セレクト(`DIAMOND_SWORD` 形式)を候補に出すため、選ぶと
+   * `recipe:DIAMOND_SWORD` が書かれ、大文字小文字が一致せず<b>無言で効かないゲート</b>になる
+   * (GateEffectId#parse はプレフィックスしか小文字化しない)。
+   *
+   * <p>カタログID/ArsPaperのエントリIDは元から小文字なので影響を受けない。判定は
+   * 「英大文字を含み、かつ小文字を含まない」= Material 名の形だけに絞る。
+   * @param {*} raw
+   * @returns {string}
+   */
+  function normalizeRecipeGateTarget(raw) {
+    const target = String(raw == null ? "" : raw).trim();
+    if (!target) return "";
+    return /^[A-Z0-9_]+$/.test(target) ? target.toLowerCase() : target;
+  }
+
+  /**
+   * recipe:/ritual: のチャンネル取り違えを判定する(2026-08-16)。
+   *
+   * <p>ArsPaper の UnlockGate は {@code hasRecipePermission} と {@code hasRitualPermission} が
+   * <b>別々のマップ</b>を引くので、儀式アイテムを recipe: 側に置くと儀式経路はそのマップを一切見ず
+   * <b>無言で常時解放</b>になる(逆も同じ)。語彙は両方持っているので editor 側で検出できる。
+   * @param {"recipe"|"ritual"} prefix いま書かれているチャンネル
+   * @param {string} target
+   * @param {{recipes?:string[], rituals?:string[]}} vocab
+   * @returns {null|{correct:"recipe"|"ritual", message:string}} 問題なしは null
+   */
+  function gateChannelMismatch(prefix, target, vocab) {
+    const id = String(target == null ? "" : target).trim();
+    if (!id) return null;
+    const recipes = (vocab && vocab.recipes) || [];
+    const rituals = (vocab && vocab.rituals) || [];
+    if (prefix === "recipe" && rituals.includes(id) && !recipes.includes(id)) {
+      return {
+        correct: "ritual",
+        message: "これは儀式(method: ritual)のIDです。レシピゲート側に置くと儀式経路が"
+          + "このマップを見ないため、無言で常時解放になります。「儀式エフェクト」へ切り替えてください。"
+      };
+    }
+    if (prefix === "ritual" && recipes.includes(id) && !rituals.includes(id)) {
+      return {
+        correct: "recipe",
+        message: "これは作業台レシピのIDです。儀式ゲート側に置くと無言で常時解放になります。"
+          + "「クラフトレシピ」へ切り替えてください。"
+      };
+    }
+    return null;
+  }
+
   const API = {
+    normalizeRecipeGateTarget,
+    gateChannelMismatch,
     parseGateEffectId,
     parseDropTarget,
     isLegacyGateEffectId,
     gateEffectTypeLabel,
     isUniqueGateEffectType,
+    gateEffectDuplicateKey,
     computeDuplicateGateEffectIds,
+    computeDuplicateGateEffectLocations,
     resolveFeatureValueEdit
   };
 

@@ -143,7 +143,9 @@ public final class MobProfileConfig implements LoadableConfig {
                 section.getDouble("crit-damage", 0.0),
                 section.getDouble("penetration", 0.0),
                 section.getDouble("damage-modifier", 1.0),
-                section.getDouble("fixed-damage", 0.0));
+                section.getDouble("fixed-damage", 0.0),
+                // 2026-08-02: mob-types.ymlと同じ attack.magic-ratio。既定0.0=完全物理。
+                section.getDouble("magic-ratio", 0.0));
     }
 
     private static String blankToNull(String raw) {

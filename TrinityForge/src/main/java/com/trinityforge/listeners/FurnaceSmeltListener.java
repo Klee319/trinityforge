@@ -22,10 +22,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
-import java.util.EnumSet;
 import java.util.Objects;
 import java.util.OptionalDouble;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -49,6 +47,11 @@ import java.util.concurrent.ThreadLocalRandom;
  * 速度短縮/ボーナス確率の両方を減衰させる。0にはしていない(醸造EXPのauto_multが0.25である前例に
  * 揃え、「無人放置が完全に無価値ではないが手動より明確に劣る」バランスにするため)。
  *
+ * <p><b>tier→%変換(2026-07-28)</b>: {@code dedicatedEffects.valueMax} が返すのは
+ * {@code feature:furnace-smelt-speed/bonus}(SCALE)の tier番号(1/2/3)であり、そのまま%として使えない。
+ * {@link SmithingGimmickConfig#smeltSpeedPercent(int)} / {@link SmithingGimmickConfig#smeltBonusPercent(int)}
+ * で tier→% を解決してから {@link FurnaceSmeltPolicy#effectivePercent} へ渡す。
+ *
  * <p><b>属性クリアのタイミング</b>: {@link #onSmelt}実行の1tick後、かまどの精錬物スロットが
  * 空になっていれば(=この所有者が入れた分を精錬し終えた)所有者/モードをクリアする。かまどは
  * 1回の燃料で連続して複数個を精錬するため、精錬物スロットにまだアイテムが残っている間は
@@ -58,10 +61,6 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public final class FurnaceSmeltListener implements Listener {
 
-    private static final Set<InventoryAction> MANUAL_INSERT_ACTIONS = EnumSet.of(
-            InventoryAction.PLACE_ALL, InventoryAction.PLACE_ONE, InventoryAction.PLACE_SOME,
-            InventoryAction.SWAP_WITH_CURSOR, InventoryAction.HOTBAR_SWAP,
-            InventoryAction.MOVE_TO_OTHER_INVENTORY);
     private static final int SMELTING_SLOT = 0;
     private static final String MODE_MANUAL = "manual";
     private static final String MODE_AUTO = "auto";
@@ -93,12 +92,56 @@ public final class FurnaceSmeltListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         InventoryHolder holder = event.getView().getTopInventory().getHolder();
         if (!(holder instanceof Furnace furnace)) return;
-        int rawSlot = event.getRawSlot();
-        if (rawSlot != SMELTING_SLOT) return;
-        if (event.getCurrentItem() == null || event.getCurrentItem().getType().isAir()) return;
-        if (!MANUAL_INSERT_ACTIONS.contains(event.getAction())) return;
+        ItemStack inserted = manualInsertionCandidate(event, player);
+        boolean shiftedFromPlayer = event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY;
+        if (!canEnterSmeltingSlot(furnace, inserted, shiftedFromPlayer)) return;
 
         stamp(furnace, player.getUniqueId(), MODE_MANUAL);
+    }
+
+    /**
+     * InventoryClickEvent exposes the pre-click state. Direct placement therefore comes from the cursor
+     * (not currentItem), while shift-click comes from the clicked player-inventory slot.
+     */
+    private ItemStack manualInsertionCandidate(InventoryClickEvent event, Player player) {
+        InventoryAction action = event.getAction();
+        int rawSlot = event.getRawSlot();
+        if (rawSlot == SMELTING_SLOT) {
+            return switch (action) {
+                case PLACE_ALL, PLACE_ONE, PLACE_SOME, SWAP_WITH_CURSOR -> event.getCursor();
+                case HOTBAR_SWAP -> {
+                    int hotbarButton = event.getHotbarButton();
+                    yield hotbarButton >= 0
+                            ? player.getInventory().getItem(hotbarButton)
+                            : player.getInventory().getItemInOffHand();
+                }
+                default -> null;
+            };
+        }
+        int topSize = event.getView().getTopInventory().getSize();
+        if (action == InventoryAction.MOVE_TO_OTHER_INVENTORY && rawSlot >= topSize) {
+            return event.getCurrentItem();
+        }
+        return null;
+    }
+
+    /** Rejects fuel/non-smeltable shift-clicks and clicks that cannot add to the current input stack. */
+    private boolean canEnterSmeltingSlot(Furnace furnace, ItemStack inserted, boolean verifySmeltable) {
+        if (inserted == null || inserted.getType().isAir()) {
+            return false;
+        }
+        // A direct PLACE_* action already names the furnace input as its accepted destination. A
+        // shift-click originates in the player inventory and could instead target the fuel slot, so
+        // only that ambiguous path needs the recipe-aware canSmelt check.
+        if (!verifySmeltable) {
+            return true;
+        }
+        if (!furnace.getInventory().canSmelt(inserted)) {
+            return false;
+        }
+        ItemStack current = furnace.getInventory().getSmelting();
+        return current == null || current.getType().isAir()
+                || (current.isSimilar(inserted) && current.getAmount() < current.getMaxStackSize());
     }
 
     /** ホッパー等の自動投入先がかまどなら、投入先スロットに関わらずモードをautoへ上書きする。 */
@@ -121,15 +164,38 @@ public final class FurnaceSmeltListener implements Listener {
 
         OptionalDouble tier = dedicatedEffects.valueMax(owner, EFFECT_SPEED);
         if (tier.isEmpty()) return;
+        double rawPercent = gimmickConfig.smeltSpeedPercent((int) tier.getAsDouble());
         boolean automated = MODE_AUTO.equals(readMode(furnace));
         double effectivePercent = FurnaceSmeltPolicy.effectivePercent(
-                tier.getAsDouble(), automated, gimmickConfig.autoModeMultiplier());
+                rawPercent, automated, gimmickConfig.autoModeMultiplier());
         if (effectivePercent <= 0.0) return;
 
-        event.setTotalCookTime(FurnaceSmeltPolicy.reducedCookTime(event.getTotalCookTime(), effectivePercent));
+        event.setTotalCookTime(
+                FurnaceSmeltPolicy.cookTimeWithSpeedBonus(vanillaCookTime(event), effectivePercent));
     }
 
-    /** 精錬ボーナス: 確率で追加の結果アイテムをかまど上へ落とす(GatheringExtraDropListenerと同型)。 */
+    /**
+     * 短縮の基準にする「バニラの調理時間」。<b>レシピ側から引く</b>のが本命で、
+     * {@link FurnaceStartSmeltEvent#getTotalCookTime()} は最後の砦。
+     *
+     * <p>理由(2026-08-19 W-150): 我々は同じかまどの {@code cookTimeTotal} を毎回書き換えている。
+     * イベントが渡してくる現在値を基準にすると、実装によっては<b>前回短縮した値を基準に
+     * さらに短縮する</b>=1個ごとに複利で縮んで最終的に1tickへ落ちる、という壊れ方をしうる。
+     * レシピの {@code cookingTime} は我々が触らない不変値なので、そこから引けば何個目でも同じ結果になる。
+     */
+    private static int vanillaCookTime(FurnaceStartSmeltEvent event) {
+        try {
+            org.bukkit.inventory.CookingRecipe<?> recipe = event.getRecipe();
+            if (recipe != null && recipe.getCookingTime() > 0) {
+                return recipe.getCookingTime();
+            }
+        } catch (RuntimeException | LinkageError ignored) {
+            // MockBukkit 等でレシピが取れない環境ではイベントの現在値へフォールバックする。
+        }
+        return event.getTotalCookTime();
+    }
+
+    /** 精錬ボーナス: 確率で追加の結果アイテムをかまどの結果スロットへ積む(入り切らない分だけ地面へ)。 */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onSmelt(FurnaceSmeltEvent event) {
         Block block = event.getBlock();
@@ -150,9 +216,10 @@ public final class FurnaceSmeltListener implements Listener {
         if (result == null || result.getType().isAir()) return;
         OptionalDouble tier = dedicatedEffects.valueMax(owner, EFFECT_BONUS);
         if (tier.isEmpty()) return;
+        double rawPercent = gimmickConfig.smeltBonusPercent((int) tier.getAsDouble());
         boolean automated = MODE_AUTO.equals(readMode(furnace));
         double chance = FurnaceSmeltPolicy.effectivePercent(
-                tier.getAsDouble(), automated, gimmickConfig.autoModeMultiplier());
+                rawPercent, automated, gimmickConfig.autoModeMultiplier());
         if (chance <= 0.0) return;
 
         // 1.0%超 = 保証1回 + 端数分の追加抽選(GatheringExtraDropListenerと同じ丸め方)。
@@ -165,8 +232,58 @@ public final class FurnaceSmeltListener implements Listener {
         }
         if (extraCopies <= 0) return;
 
-        for (int i = 0; i < extraCopies; i++) {
-            block.getWorld().dropItemNaturally(block.getLocation().add(0.5, 1.0, 0.5), result.clone());
+        // 2026-07-30 実サーバ報告「精錬ボーナスで増えた分がかまどから吐き出される」への対応。
+        // 以前は無条件に dropItemNaturally していたため、ボーナス分だけが地面に散らばり、
+        // ホッパー回収の構成では取りこぼしになっていた。結果スロットへ積むのが本来の挙動。
+        //
+        // 次tickに回すのは、この時点(FurnaceSmeltEvent)ではバニラがまだ本来の1個を結果スロットへ
+        // 入れていないため。ここで先に積むと、バニラ側のマージでスタック上限を超えた分が
+        // 黙って消える(かまどの結果スロットは上限を超えた投入を単純に切り捨てる)。
+        ItemStack bonus = result.clone();
+        final int copies = extraCopies;
+        plugin.getServer().getScheduler().runTask(plugin, () -> depositExtra(block, bonus, copies));
+    }
+
+    /**
+     * ボーナス分をかまどの結果スロットへ積む。
+     *
+     * <p>2026-08-01「かまどが満杯になってもアイテムを吐き出す」への対応:
+     * <b>かまどが健在なら、収まらなかった分は地面へ落とさず破棄する。</b>
+     * バニラは満杯のかまどでは精錬自体を止める({@code AbstractFurnaceBlockEntity#canBurn} が
+     * 結果スロットの上限到達で false)ため、破棄されるのは「上限に達したちょうどその1回」の
+     * 最大1個だけで、ホッパー回収の構成では散らばりの方が実害が大きい。
+     * 2026-07-30 の「消滅させない」方針をここで反転させている。
+     *
+     * <p>ただし次tickまでにかまどが壊された/別ブロックになった場合は、既に付与が確定した分を
+     * 消さないために従来どおり全数を地面へ落とす。
+     *
+     * <p>package-private なのはテストのため。{@link #onSmelt} からは次tickのスケジューラ越しに
+     * 呼ばれるので、MockBukkit のスケジューラ進行に依存せずこの分岐だけを直接検証できるようにしてある
+     * ({@link #clearIfIdle(org.bukkit.block.Furnace)} と同じ理由・同じ方針)。
+     */
+    void depositExtra(Block block, ItemStack bonus, int extraCopies) {
+        int remaining = extraCopies;
+        if (block.getState() instanceof Furnace furnace) {
+            ItemStack current = furnace.getInventory().getResult();
+            if (current == null || current.getType().isAir()) {
+                int accepted = Math.min(remaining, bonus.getMaxStackSize());
+                ItemStack placed = bonus.clone();
+                placed.setAmount(accepted);
+                furnace.getInventory().setResult(placed);
+                remaining -= accepted;
+            } else if (current.isSimilar(bonus)) {
+                int room = Math.max(0, current.getMaxStackSize() - current.getAmount());
+                int accepted = Math.min(remaining, room);
+                if (accepted > 0) {
+                    current.setAmount(current.getAmount() + accepted);
+                    furnace.getInventory().setResult(current);
+                    remaining -= accepted;
+                }
+            }
+            return; // かまどが健在なら溢れた分は吐き出さない(地面に散らばらせない)。
+        }
+        for (int i = 0; i < remaining; i++) {
+            block.getWorld().dropItemNaturally(block.getLocation().add(0.5, 1.0, 0.5), bonus.clone());
         }
     }
 
@@ -193,6 +310,20 @@ public final class FurnaceSmeltListener implements Listener {
         return smelting == null || smelting.getType().isAir() || smelting.getAmount() <= 0;
     }
 
+    /**
+     * 所有者/モードの刻印。<b>{@code furnace.update()} は「かまどの中身をスナップショットへ巻き戻す」
+     * 操作でもある</b>ので、呼ぶ場所を選ぶ（{@code CraftBlockEntityState#update()} は PDC だけでなく
+     * スナップショットの NBT を丸ごと実体へ load し、{@code loadAdditional} は {@code items} を
+     * 新しいリストへ差し替える。詳細は {@link BrewOwnership} のクラス javadoc と
+     * {@code docs/agent-context/common-traps.md}）。
+     *
+     * <p>ここが安全なのは、呼び口が {@code InventoryClickEvent} /
+     * {@code InventoryMoveItemEvent} / {@code FurnaceStartSmeltEvent} の<b>いずれもバニラが
+     * 中身を書き換える前</b>だから — スナップショット＝現在の中身なので書き戻しが実質 no-op になる。
+     * <b>{@code FurnaceSmeltEvent}（精錬完了）の最中に呼んではいけない</b>。
+     * そちらは {@link #onSmelt} が {@code runTask} で次 tick へ回し、
+     * {@link #clearIfIdle(org.bukkit.block.Block)} で {@code BlockState} を取り直している。
+     */
     private void stamp(Furnace furnace, UUID owner, String mode) {
         if (owner != null) {
             furnace.getPersistentDataContainer().set(ownerKey, PersistentDataType.STRING, owner.toString());

@@ -49,6 +49,26 @@ class SkillTreeGuiVisualsTest {
     }
 
     @Test
+    void toggleViewControlUsesAPlainVanillaMaterialWithNoCustomItemModel() {
+        // 2026-08-04新設: 一覧モード⇔通常モードの切替ボタン。新しいリソースパックCMDを要求しない
+        // (itemModel=nullは統合版でも素のバニラ材質のまま描画できる)。
+        var visual = SkillTreeGuiVisuals.control("toggle-view");
+
+        assertEquals(Material.COMPASS, visual.material());
+        assertNull(visual.itemModel());
+    }
+
+    @Test
+    void perkListControlUsesTheClockMaterialTheUserAskedFor() {
+        // 2026-08-05新設(W-29): 「最下段左端を時計アイコンで固定」がユーザー要件そのものなので、
+        // 材質を CLOCK 以外へ差し替えると要件を満たさない。toggle-view と同じくCMDは要求しない。
+        var visual = SkillTreeGuiVisuals.control("perk-list");
+
+        assertEquals(Material.CLOCK, visual.material());
+        assertNull(visual.itemModel());
+    }
+
+    @Test
     void connectorsUseStateAndShapeSpecificValhallaTextures() {
         assertEquals(Material.GRAY_DYE,
                 SkillTreeGuiVisuals.connector(SkillTreeGuiVisuals.ConnectorState.LOCKED, "06").material());
@@ -72,8 +92,12 @@ class SkillTreeGuiVisualsTest {
                 SkillTreeGuiVisuals.skill("POWER", Material.ARMOR_STAND).itemModel());
         assertEquals("gui/skill/landscaping",
                 SkillTreeGuiVisuals.skill("WOODCUTTING", Material.IRON_AXE).itemModel());
-        assertEquals("gui/skill/landscaping",
-                SkillTreeGuiVisuals.skill("DIGGING", Material.IRON_SHOVEL).itemModel());
+        // 2026-07-28: DIGGING は WOODCUTTING と同じ landscaping モデルを共有していたため、スキル選択
+        // GUIで伐採と切削が同じアイコンになっていた。専用モデルが無いスキルはモデル未指定にして、
+        // digging.yml の icon(鉄のシャベル)をそのまま出す。
+        assertNull(SkillTreeGuiVisuals.skill("DIGGING", Material.IRON_SHOVEL).itemModel());
+        assertEquals(Material.IRON_SHOVEL,
+                SkillTreeGuiVisuals.skill("DIGGING", Material.IRON_SHOVEL).material());
         assertEquals(Material.BREWING_STAND,
                 SkillTreeGuiVisuals.skill("ALCHEMY", Material.BREWING_STAND).material());
         assertNull(SkillTreeGuiVisuals.skill("ALCHEMY", Material.BREWING_STAND).itemModel());

@@ -40,11 +40,17 @@ amplifier/持続時間。cooldown-ticksはここに置かない(2026-07-25 CT設
 ため、tier行に書いても読まれない — 上のグローバルscalarが全tier共通で使われる)。
 ```
 
-### 直後: `fortune-per-level: 0.01`
+### 直後: `fortune-per-level: 0.003`
 
 ```
-Lv1あたりの追加mining-fortune。実効期待値は (fortune + Lv×この値) × 0.30 個/ブロック。
-1のままだとMINING Lv100で1ブロックあたり期待+30個となり、vein-mining(最大32ブロック)併用で
-1回約1000個ドロップし経済崩壊するため0.01に縮小(fishing-gimmick.yml bonus-per-level:0.02相当)。
+Lv1あたりの追加mining-fortune。実効期待値は fortune + Lv×この値 個/ブロック。
+1のままだとMINING Lv100で1ブロックあたり期待+100個となり、vein-mining(最大32ブロック)併用で
+経済崩壊するため縮小してある(Lv100で+30%相当)。
+
+【2026-07-28】以前は上式全体に × 0.30 が掛かっていた。この係数があると skilltree が宣言する
+「ドロップ増加+15%」が実際には +4.5% にしかならず effect-text と食い違うため撤去し、
+レベル項の増加量を従来どおりに保つため 0.01 → 0.003 (= 0.01 × 0.30) へ下げた。
+併せて mining-fortune を PercentStatNormalize.RATE_KEYS へ登録した(登録漏れにより
+skilltree の mining-fortune: 15 が 0.15 ではなく 15 のまま効き、ドロップが約6倍になっていた)。
 ```
 

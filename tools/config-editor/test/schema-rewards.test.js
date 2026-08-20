@@ -35,6 +35,16 @@ test("tf-special-rewards: titles.display は文字列必須", () => {
   assert.ok(errors.some((e) => /titles\.x\.display/.test(e)));
 });
 
+test("tf-special-rewards: prune-orphaned-grants の正常系(true/false)はエラーなし", () => {
+  assert.deepStrictEqual(validate("tf-special-rewards", { "prune-orphaned-grants": true }), []);
+  assert.deepStrictEqual(validate("tf-special-rewards", { "prune-orphaned-grants": false }), []);
+});
+
+test("tf-special-rewards: prune-orphaned-grants の型不正はエラー", () => {
+  const errors = validate("tf-special-rewards", { "prune-orphaned-grants": "yes" });
+  assert.ok(errors.some((e) => /prune-orphaned-grants/.test(e)));
+});
+
 // ---- tf-achievements ----
 
 test("tf-achievements: statistic トリガーの正常系はエラーなし", () => {
@@ -67,6 +77,43 @@ test("tf-achievements: static（図鑑登録）トリガーの正常系はエラ
   assert.deepStrictEqual(validate("tf-achievements", { achievements: { collector: {
     trigger: { type: "static", collection: { scope: "category", target: "weapons", threshold: 75, percent: true } }
   } } }), []);
+});
+
+// 2026-07-31: Java 側は 2026-07-27 に collection.targets(複数)へ拡張済みだったのに、
+// このスキーマは単数 target 必須のままだった。そのため「Java では正しく動く定義」が
+// エディタでは常に検証エラーになり、複数対象アチーブメントを GUI で作れなかった。
+test("tf-achievements: collection.targets(複数)だけでも通り、threshold は省略できる", () => {
+  assert.deepStrictEqual(validate("tf-achievements", { achievements: { relics: {
+    trigger: { type: "static", collection: {
+      scope: "item", targets: ["binder_fragment", "reality_thread_core", "abyssal_ingot"]
+    } }
+  } } }), []);
+});
+
+test("tf-achievements: threshold 省略が許されるのは scope=item/mob かつ percent でないときだけ", () => {
+  const category = validate("tf-achievements", { achievements: { a: {
+    trigger: { type: "static", collection: { scope: "category", targets: ["dungeon"] } }
+  } } });
+  assert.ok(category.some((e) => /collection\.threshold/.test(e)), "category は候補数と列挙数が一致しないので必須");
+
+  const percent = validate("tf-achievements", { achievements: { b: {
+    trigger: { type: "static", collection: { scope: "item", targets: ["x", "y"], percent: true } }
+  } } });
+  assert.ok(percent.some((e) => /collection\.threshold/.test(e)), "percent は百分率なので件数を既定にできない");
+});
+
+test("tf-achievements: target も targets も無ければエラー(scope!=all)", () => {
+  const errors = validate("tf-achievements", { achievements: { a: {
+    trigger: { type: "static", collection: { scope: "item", threshold: 1 } }
+  } } });
+  assert.ok(errors.some((e) => /collection\.target \/ targets/.test(e)));
+});
+
+test("tf-achievements: collection.targets の型不正はエラー", () => {
+  const errors = validate("tf-achievements", { achievements: { a: {
+    trigger: { type: "static", collection: { scope: "item", targets: ["ok", 3, " "] } }
+  } } });
+  assert.ok(errors.some((e) => /collection\.targets/.test(e)));
 });
 
 test("tf-achievements: trigger欠落・type不正はエラー", () => {
@@ -165,6 +212,28 @@ test("tf-achievements: rewards.permanent-buffs の値型不正はエラー", () 
     }
   });
   assert.ok(errors.some((e) => /rewards\.permanent-buffs\.attack-power/.test(e)));
+});
+
+test("tf-achievements: vanilla-advancements の正常系はエラーなし", () => {
+  const errors = validate("tf-achievements", {
+    "vanilla-advancements": { disabled: true, "keep-recipe-advancements": true, keep: ["minecraft:story/"] },
+    achievements: {}
+  });
+  assert.deepStrictEqual(errors, []);
+});
+
+test("tf-achievements: vanilla-advancements の型不正はエラー", () => {
+  const errors = validate("tf-achievements", {
+    "vanilla-advancements": { disabled: "yes", "keep-recipe-advancements": 1, keep: [1, "ok"] }
+  });
+  assert.ok(errors.some((e) => /vanilla-advancements\.disabled/.test(e)));
+  assert.ok(errors.some((e) => /vanilla-advancements\.keep-recipe-advancements/.test(e)));
+  assert.ok(errors.some((e) => /vanilla-advancements\.keep\[0\]/.test(e)));
+});
+
+test("tf-achievements: vanilla-advancements自体が非マップならエラー", () => {
+  const errors = validate("tf-achievements", { "vanilla-advancements": "nope" });
+  assert.ok(errors.some((e) => /vanilla-advancements:/.test(e)));
 });
 
 // ---- tf-collection ----

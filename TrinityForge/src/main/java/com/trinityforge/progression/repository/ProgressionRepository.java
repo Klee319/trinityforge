@@ -80,6 +80,21 @@ public interface ProgressionRepository extends AutoCloseable {
                      String prestigePerkId, SkillProgress resetProgress, long refundPoints);
 
     /**
+     * Atomically performs prestige while retaining selected ordinary perks with their existing
+     * persisted metadata, including {@code purchase_cost}. Implementations that do not support
+     * retention fail closed instead of committing a partial prestige.
+     */
+    default boolean prestige(UUID playerId, String skillId, String ordinaryPerkPrefix,
+                             String prestigePerkId, SkillProgress resetProgress, long refundPoints,
+                             Set<String> retainedOrdinaryPerkIds) {
+        if (retainedOrdinaryPerkIds == null || retainedOrdinaryPerkIds.isEmpty()) {
+            return prestige(playerId, skillId, ordinaryPerkPrefix,
+                    prestigePerkId, resetProgress, refundPoints);
+        }
+        return false;
+    }
+
+    /**
      * Returns the effective set of unlocked perk IDs for the player.
      * On success with no rows, returns {@link LoadResult#found(Set)} with an empty set.
      */

@@ -22,10 +22,42 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * {@link BaseStatsConfig} load coverage: keys are canonicalised, PERCENT-family values are coerced to
- * fractions exactly like item stats, 0 / non-numeric / absent entries drop out (= vanilla).
+ * fractions exactly like item stats, and ordinary 0 / non-numeric / absent entries drop out
+ * (= vanilla). Stun duration is the documented exception: old 0/absent state migrates to 25tick.
  * Uses the same reflective fake {@link Plugin} pattern as {@code RoleBuffsConfigTest}.
  */
 class BaseStatsConfigTest {
+
+    @Test
+    void stunDurationBaselineIsConfigurableAsTicks(@TempDir File tempDir) throws IOException {
+        BaseStatsConfig config = loaded(tempDir, """
+                base-stats:
+                  stun-duration-bonus: 25
+                """);
+
+        assertEquals(25.0, config.statOrDefault("stun-duration-bonus", 0.0), 1e-9);
+    }
+
+    @Test
+    void legacyStunDurationBaseIsMigratedBeforeAggregation(@TempDir File tempDir) throws IOException {
+        BaseStatsConfig legacyZero = loaded(tempDir, """
+                base-stats:
+                  stun-duration-bonus: 0
+                """);
+        assertEquals(25.0, legacyZero.statOrDefault("stun-duration-bonus", 0.0), 1e-9);
+
+        BaseStatsConfig legacyBonus = loaded(tempDir, """
+                base-stats:
+                  stun-duration-bonus: 0.2
+                """);
+        assertEquals(30.0, legacyBonus.statOrDefault("stun-duration-bonus", 0.0), 1e-9);
+
+        BaseStatsConfig oneTick = loaded(tempDir, """
+                base-stats:
+                  stun-duration-bonus: 1
+                """);
+        assertEquals(1.0, oneTick.statOrDefault("stun-duration-bonus", 0.0), 1e-9);
+    }
 
     private ServerMock server;
 
@@ -114,43 +146,44 @@ class BaseStatsConfigTest {
     }
 
     @Test
-    void missingSectionYieldsEmptyMap(@TempDir File tempDir) throws IOException {
+    void missingSectionInjectsOnlyTheLegacyStunBaseline(@TempDir File tempDir) throws IOException {
         BaseStatsConfig config = loaded(tempDir, "base-stats: {}\n");
-        assertTrue(config.stats().isEmpty());
-        assertEquals(Map.of(), config.stats());
+        assertEquals(Map.of("stun_duration_bonus", 25.0), config.stats());
     }
 
-    // 2026-07-25 (config editor T2): ArsPaper mana.default-max 等の移設先。
-    // TrinityForgeBridge.manaBaseStat はこの statOrDefault (もしくは stats()直読み)経由でフォークへ届く。
+    // 2026-07-25 (config editor T2) / 2026-08-16: ArsPaper のマナ回復5キー(mana-idle-* 等)はここが真源で、
+    // TrinityForgeBridge.manaBaseStatRaw はこの statOrDefault (もしくは stats()直読み)経由でフォークへ届く。
+    // マナ基礎3キー(mana-max-base / mana-regen-base / mana-regen-interval-ticks)は 2026-08-16 に
+    // ArsPaper の config.yml の mana.* へ移設したので、ここでの往復テストは残す5キーで行う
+    // (移設側の固定は ManaBaseKeysMigrationTest)。
 
     @Test
     void statOrDefaultReturnsFallbackWhenKeyAbsent(@TempDir File tempDir) throws IOException {
         BaseStatsConfig config = loaded(tempDir, "base-stats: {}\n");
-        assertEquals(100.0, config.statOrDefault("mana-max-base", 100.0), 1e-9);
+        assertEquals(5.0, config.statOrDefault("mana-idle-seconds", 5.0), 1e-9);
     }
 
     @Test
     void statOrDefaultReturnsFallbackWhenValueIsZero(@TempDir File tempDir) throws IOException {
         // 0 は「加算なし」として保持されない(= 空欄と同じ)ので fallback が返る。「空欄=バニラ」の
-        // 意味論が新規マナキーでも維持されていることの回帰ガード。
+        // 意味論がマナキーでも維持されていることの回帰ガード。
         BaseStatsConfig config = loaded(tempDir, """
                 base-stats:
-                  mana-max-base: 0
+                  mana-idle-seconds: 0
                 """);
-        assertEquals(100.0, config.statOrDefault("mana-max-base", 100.0), 1e-9);
+        assertEquals(5.0, config.statOrDefault("mana-idle-seconds", 5.0), 1e-9);
     }
 
     @Test
-    void manaMaxBaseIsReadableAfterMigrationFromArsPaperConfig(@TempDir File tempDir) throws IOException {
+    void remainingManaKeysAreStillReadableByTheForkBridge(@TempDir File tempDir) throws IOException {
+        // 契約(2026-08-16): 移設したのは基礎3キーだけで、この5キーは base-stats.yml が真源のまま。
         BaseStatsConfig config = loaded(tempDir, """
                 base-stats:
-                  mana-max-base: 150
-                  mana-regen-base: 8
-                  mana-regen-interval-ticks: 15
+                  mana-idle-seconds: 8
+                  mana-idle-bonus-flat: 3
                 """);
-        assertEquals(150.0, config.statOrDefault("mana-max-base", 100.0), 1e-9);
-        assertEquals(8.0, config.statOrDefault("mana-regen-base", 5.0), 1e-9);
-        assertEquals(15.0, config.statOrDefault("mana-regen-interval-ticks", 20.0), 1e-9);
+        assertEquals(8.0, config.statOrDefault("mana-idle-seconds", 5.0), 1e-9);
+        assertEquals(3.0, config.statOrDefault("mana-idle-bonus-flat", 0.0), 1e-9);
     }
 
     @Test

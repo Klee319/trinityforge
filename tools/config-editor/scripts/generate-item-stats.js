@@ -10,6 +10,39 @@ const YAML = require("yaml");
 const root = path.resolve(__dirname, "..", "..", "..");
 const catalogPath = path.join(root, "TrinityForge", "src", "main", "resources", "items", "catalog.yml");
 const targetPath = path.join(root, "TrinityForge", "src", "main", "resources", "stats", "item-stats.yml");
+
+// ---------------------------------------------------------------------------
+// 実行ゲート (2026-08-02 追加)
+//
+// このスクリプトは出荷 item-stats.yml を【丸ごと上書きする】。ところが tiers 表は
+// 手で入れた調整を1つも持っていないため、うっかり走らせると以下が無言で巻き戻る:
+//
+//   ・U5 重武器 attack-power ×1.157 (目標帯 +15% への引き下げ)
+//   ・U6 遠隔武器の attack-speed 0.1 (近接素振りの抑止)
+//   ・yml 内の日本語コメント全部 (YAML.stringify は再生成なのでコメントを持てない)
+//   ・generator が生成しない孤児CMD (GOLDEN_SWORD#59 / WOODEN_SWORD#60 / #51 …)
+//
+// 「気づけない事故」なので、意図の表明なしには走らせない。復旧は git checkout だけなので
+// 実害は小さいが、他セッションの WIP を巻き込むと戻せなくなる。
+// ---------------------------------------------------------------------------
+if (!process.argv.includes("--force")) {
+  console.error(`generate-item-stats.js は出荷 item-stats.yml を丸ごと上書きします。
+
+  上書きすると失われるもの:
+    - U5 重武器 attack-power ×1.157 (この generator の tiers 表は持っていません)
+    - U6 遠隔武器 attack-speed 0.1
+    - yml 内の日本語コメント全部 (再生成なのでコメントは復元されません)
+    - generator が生成しない孤児CMD (GOLDEN_SWORD#59 / WOODEN_SWORD#60 / #51 など)
+
+  出荷 yml が真源です。表を書き換えたいときは generator ではなく yml を直接編集するか、
+  設定エディタから保存してください。
+
+  それでも再生成する場合:  node scripts/generate-item-stats.js --force
+  実行後は必ず  git diff -- TrinityForge/src/main/resources/stats/item-stats.yml  で
+  意図しない巻き戻りが無いか確認してください。`);
+  process.exit(1);
+}
+
 const catalog = YAML.parse(fs.readFileSync(catalogPath, "utf8"));
 
 const tiers = {
@@ -24,6 +57,18 @@ const tiers = {
   WITHER:    { level: 85, offset: -7, power: 15000, threads: 2 },
   DRAGON:    { level: 100, offset: -8, power: 28000, threads: 3 },
   INFINITY:  { level: 100, offset: -8, power: 45000, threads: 0 }
+};
+
+// Gathering tools deliberately progress earlier than weapons. The quality offset follows the same
+// ten-level baseline convention, while named special tiers keep their shared tier values.
+const gatheringToolTiers = {
+  WOOD:      { level: 0,  offset:  0 },
+  STONE:     { level: 0,  offset:  0 },
+  COPPER:    { level: 10, offset: -1 },
+  IRON:      { level: 20, offset: -2 },
+  GOLD:      { level: 20, offset: -2 },
+  DIAMOND:   { level: 40, offset: -4 },
+  NETHERITE: { level: 60, offset: -6 }
 };
 
 const family = {
@@ -57,7 +102,13 @@ const armorTiers = {
   INFINITY:   { weight: 10, level: 100, offset: -8, durability: [900, 1300, 1220, 1050], threads: 0 }
 };
 
+// 防具値(点数)の重量別テーブル。2026-08-15 に防具値ステ(armor-defense-rate)を廃止したので、
+// ここは「はしごの目盛り」としてだけ残し、出力は DEFENSE_RATE_PER_POINT を掛けた
+// 防御率(defense-rate)にする。目盛りを点数のまま持つのは、既存のはしご設計
+// (最良4部位で重量10 = 20点 = 30%軽減)をそのまま読めるようにするため。
 const armorPoints = { 1: 4, 2: 5, 3: 6, 4: 8, 5: 10, 7: 14, 8: 16, 9: 18, 10: 20 };
+// combat/damage.yml の vanilla-armor.defense-rate-per-point と同値(1点=1.5%軽減)。
+const DEFENSE_RATE_PER_POINT = 0.015;
 const armorResistance = { 1: .02, 2: .03, 3: .045, 4: .065, 5: .09, 7: .15, 8: .20, 9: .26, 10: .32 };
 const armorFlat = { 1: 8, 2: 12, 3: 20, 4: 30, 5: 45, 7: 90, 8: 135, 9: 200, 10: 280 };
 const armorStrength = { 1: .04, 2: .06, 3: .08, 4: .11, 5: .14, 7: .24, 8: .30, 9: .36, 10: .42 };
@@ -226,15 +277,21 @@ function toolEntry(durability, tierName = "", skill = null) {
       durability: { min: -Math.floor(durability * .25), max: Math.ceil(durability * .5) }
     };
   }
-  // Explicit gathering skill so the tool row is registered (use-level omitted => no use gate lock).
-  if (skill) result["use-skill"] = skill;
+  if (skill) {
+    const tier = gatheringToolTiers[tierName] || tiers[tierName];
+    if (tier) {
+      result["use-level-requirement"] = tier.level;
+      result["quality-mode-offset"] = tier.offset;
+    }
+    result["use-skill"] = skill;
+  }
   return result;
 }
 function armorEntry(config, slotName, magic = null, health = 0, physical = true, mana = 0) {
   const s = slot[slotName];
   const index = ["HELMET", "CHESTPLATE", "LEGGINGS", "BOOTS"].indexOf(slotName);
   const fixed = {
-    "armor-defense-rate": Math.max(1, Math.round(armorPoints[config.weight] * s.share)),
+    "defense-rate": round(Math.max(1, Math.round(armorPoints[config.weight] * s.share)) * DEFENSE_RATE_PER_POINT),
     durability: Math.floor(config.durability[index] * .6)
   };
   if (physical) {
@@ -347,7 +404,7 @@ for (const [kind, spec] of Object.entries(mageConfig)) {
 const categories = structuredClone(catalog._editor.categories);
 // Catalog categories store custom ids, while item-stats is keyed by Material or Material#CMD.
 // Convert every catalog member before adding vanilla entries so nested-category filtering uses
-// the same identifiers as the actual items map (not orphan aliases such as wooden_cane).
+// the same identifiers as the actual items map (not orphan aliases such as wooden_wand).
 for (const rows of Object.values(categories)) {
   for (const row of rows || []) {
     row.itemIds = [...new Set((row.itemIds || []).map((id) => {

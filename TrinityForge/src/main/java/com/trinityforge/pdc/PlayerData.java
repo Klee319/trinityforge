@@ -54,6 +54,40 @@ public final class PlayerData {
         writeJoined(PdcKeys.PLAYER_HELD_PERKS, perks, "perk id");
     }
 
+    /**
+     * スキルノードロック (2026-07-27): プレステージしても維持するノードの perk ID 一覧。
+     * 未指定なら空。ロック自体は「所持しているか」とは独立した保護指定なので、
+     * 所持していない perk がロックされていても無害(プレステージ時に無視される)。
+     */
+    public List<String> lockedPerks() {
+        return readJoined(PdcKeys.PLAYER_LOCKED_PERKS);
+    }
+
+    public void setLockedPerks(List<String> perks) {
+        writeJoined(PdcKeys.PLAYER_LOCKED_PERKS, perks, "perk id");
+    }
+
+    /**
+     * ロック状態を反転する。
+     *
+     * @return 反転後にロックされていれば {@code true}(=ロックを付けた)、外したなら {@code false}
+     */
+    public boolean toggleLockedPerk(String perkId) {
+        if (perkId == null || perkId.isBlank()) {
+            throw new IllegalArgumentException("perk id must not be blank");
+        }
+        List<String> current = new java.util.ArrayList<>(lockedPerks());
+        boolean added;
+        if (current.remove(perkId)) {
+            added = false;
+        } else {
+            current.add(perkId);
+            added = true;
+        }
+        writeJoined(PdcKeys.PLAYER_LOCKED_PERKS, current, "perk id");
+        return added;
+    }
+
     /** コレクション図鑑 (M7): 発見済みエントリID一覧。未記録なら空。 */
     public List<String> collectionEntries() {
         return readJoined(PdcKeys.PLAYER_COLLECTION_ENTRIES);
@@ -63,6 +97,33 @@ public final class PlayerData {
         writeJoined(PdcKeys.PLAYER_COLLECTION_ENTRIES, entries, "collection entry id");
     }
 
+    /**
+     * 戦闘で実際に使った装備の記録 (2026-08-16)。要素は {@code weapon:<id>} / {@code armor:<id>}。
+     * 未記録なら空。
+     */
+    public List<String> gearUsed() {
+        return readJoined(PdcKeys.PLAYER_GEAR_USED);
+    }
+
+    /**
+     * 装備の使用を1件記録する。
+     *
+     * @return 新規に記録されたら true(既に記録済みなら false・冪等)。
+     */
+    public boolean recordGearUsed(String token) {
+        if (token == null || token.isBlank()) {
+            return false;
+        }
+        String normalized = token.trim();
+        List<String> current = new java.util.ArrayList<>(gearUsed());
+        if (current.contains(normalized)) {
+            return false;
+        }
+        current.add(normalized);
+        writeJoined(PdcKeys.PLAYER_GEAR_USED, current, "gear use token");
+        return true;
+    }
+
     /** コレクション図鑑: 解放済み報酬ティアID一覧。未解放なら空。 */
     public List<String> claimedCollectionTiers() {
         return readJoined(PdcKeys.PLAYER_COLLECTION_CLAIMED_TIERS);
@@ -70,6 +131,20 @@ public final class PlayerData {
 
     public void setClaimedCollectionTiers(List<String> tiers) {
         writeJoined(PdcKeys.PLAYER_COLLECTION_CLAIMED_TIERS, tiers, "collection tier id");
+    }
+
+    /**
+     * コレクション図鑑 (2026-07-31, K-11): 参加時の全スロット走査を「遡り登録」として
+     * 静かに1回済ませたか。未設定なら false = まだ済んでいない(既存プレイヤー全員が該当)。
+     */
+    public boolean collectionBackfillDone() {
+        return container.getOrDefault(
+                PdcKeys.PLAYER_COLLECTION_BACKFILL_DONE, PersistentDataType.BYTE, (byte) 0) != 0;
+    }
+
+    /** 遡り登録を済ませたことを記録する(一方向。戻す用途は無い)。 */
+    public void markCollectionBackfillDone() {
+        container.set(PdcKeys.PLAYER_COLLECTION_BACKFILL_DONE, PersistentDataType.BYTE, (byte) 1);
     }
 
     private List<String> readJoined(org.bukkit.NamespacedKey key) {
@@ -112,6 +187,35 @@ public final class PlayerData {
             current.add(id);
             writeJoined(PdcKeys.PLAYER_UNLOCKED_SPECIAL_REWARDS, current, "special reward id");
         }
+    }
+
+    /**
+     * {@code id} の直接付与を取り消す (2026-07-27、{@code /tf reward revoke} 用)。
+     * 未保有なら何もしない。
+     *
+     * <p>取り消せるのは<b>直接付与された分だけ</b>。スキルツリーの {@code reward:<id>} perk 由来の保有は
+     * perk 側が真実なので、ここを消しても {@code SpecialRewardService#isUnlocked} は true のままになる
+     * (perk を剥がすのは prestige/リセット側の責務)。
+     *
+     * @return 実際に取り消したら {@code true}
+     */
+    public boolean revokeSpecialReward(String id) {
+        if (id == null || id.isBlank()) {
+            return false;
+        }
+        List<String> current = new java.util.ArrayList<>(unlockedSpecialRewards());
+        if (!current.remove(id)) {
+            return false;
+        }
+        writeJoined(PdcKeys.PLAYER_UNLOCKED_SPECIAL_REWARDS, current, "special reward id");
+        // 取り消した報酬を装備したままだと、以後ずっと未保有の称号/パーティクルが出続ける。
+        if (equippedTitle().filter(id::equals).isPresent()) {
+            setEquippedTitle(null);
+        }
+        if (equippedParticle().filter(id::equals).isPresent()) {
+            setEquippedParticle(null);
+        }
+        return true;
     }
 
     public Optional<String> equippedTitle() {
@@ -217,6 +321,63 @@ public final class PlayerData {
         return true;
     }
 
+    // --- アチーブメント手動解放方式 (2026-08-04): 達成(条件成立)と解放(受け取り)を分離する ---
+
+    /** 解放(受け取り)済みアチーブメントID一覧。 */
+    public List<String> claimedAchievementIds() {
+        return readJoined(PdcKeys.PLAYER_ACHIEVEMENTS_CLAIMED);
+    }
+
+    /**
+     * {@code id} を解放済みとして記録する(報酬付与の唯一のトリガーは呼び出し側の
+     * {@code AchievementService#claim})。既に解放済みなら {@code false} を返し何もしない
+     * (＝ここが冪等であることが「2回解放しても報酬は1回だけ」の実体)。
+     */
+    public boolean markAchievementClaimed(String id) {
+        if (id == null || id.isBlank()) {
+            return false;
+        }
+        List<String> current = new java.util.ArrayList<>(claimedAchievementIds());
+        if (current.contains(id)) {
+            return false;
+        }
+        current.add(id);
+        writeJoined(PdcKeys.PLAYER_ACHIEVEMENTS_CLAIMED, current, "achievement id");
+        return true;
+    }
+
+    /**
+     * 手動解放方式導入前の「達成済み=報酬受領済み」プレイヤーを、解放済み集合へ1回だけ移行したか。
+     * 未設定(既定 false)は既存プレイヤー全員が該当する(移行がまだ済んでいない)。
+     */
+    public boolean achievementClaimMigrationDone() {
+        return container.getOrDefault(
+                PdcKeys.PLAYER_ACHIEVEMENTS_CLAIM_MIGRATED, PersistentDataType.BYTE, (byte) 0) != 0;
+    }
+
+    /** 移行を済ませたことを記録する(一方向)。 */
+    public void markAchievementClaimMigrationDone() {
+        container.set(PdcKeys.PLAYER_ACHIEVEMENTS_CLAIM_MIGRATED, PersistentDataType.BYTE, (byte) 1);
+    }
+
+    /** {@code id} について「解放できます」通知を既に送ったか(スパム防止)。 */
+    public boolean pendingClaimNotified(String id) {
+        return readJoined(PdcKeys.PLAYER_ACHIEVEMENTS_PENDING_NOTIFIED).contains(id);
+    }
+
+    /** {@code id} について通知済みであることを記録する(既に記録済みなら何もしない)。 */
+    public void markPendingClaimNotified(String id) {
+        if (id == null || id.isBlank()) {
+            return;
+        }
+        List<String> current = new java.util.ArrayList<>(readJoined(PdcKeys.PLAYER_ACHIEVEMENTS_PENDING_NOTIFIED));
+        if (current.contains(id)) {
+            return;
+        }
+        current.add(id);
+        writeJoined(PdcKeys.PLAYER_ACHIEVEMENTS_PENDING_NOTIFIED, current, "achievement id");
+    }
+
     public Optional<String> rolePrimary() {
         return Optional.ofNullable(
                 container.get(PdcKeys.PLAYER_ROLE_PRIMARY, PersistentDataType.STRING));
@@ -249,6 +410,24 @@ public final class PlayerData {
         container.remove(PdcKeys.PLAYER_ROLE_SUPPORT);
     }
 
+    /** 戦闘職を最後に変更した時刻 (epoch millis)。未変更なら 0。 */
+    public long rolePrimaryChangedAt() {
+        return container.getOrDefault(PdcKeys.PLAYER_ROLE_PRIMARY_CHANGED_AT, PersistentDataType.LONG, 0L);
+    }
+
+    /** 補助職を最後に変更した時刻 (epoch millis)。未変更なら 0。 */
+    public long roleSupportChangedAt() {
+        return container.getOrDefault(PdcKeys.PLAYER_ROLE_SUPPORT_CHANGED_AT, PersistentDataType.LONG, 0L);
+    }
+
+    public void setRolePrimaryChangedAt(long epochMillis) {
+        container.set(PdcKeys.PLAYER_ROLE_PRIMARY_CHANGED_AT, PersistentDataType.LONG, epochMillis);
+    }
+
+    public void setRoleSupportChangedAt(long epochMillis) {
+        container.set(PdcKeys.PLAYER_ROLE_SUPPORT_CHANGED_AT, PersistentDataType.LONG, epochMillis);
+    }
+
     /**
      * ガチャ天井(pity)カウンタ: {@code poolId}のプールで連続して最高レア枠を引けなかった回数。
      * 未記録(未プレイ)なら0。{@code com.trinityforge.gacha.GachaDraw#drawWithPity}の
@@ -264,5 +443,35 @@ public final class PlayerData {
      */
     public void setGachaPityCount(String poolId, int count) {
         container.set(PdcKeys.gachaPityKey(poolId), PersistentDataType.INTEGER, Math.max(0, count));
+    }
+
+    /**
+     * 累計カウンタの現在値(2026-07-31)。未記録なら 0。
+     *
+     * <p>バニラ {@code Statistic} に無い総量(累計消費ソースなど)を数える汎用の器で、
+     * {@code achievements.yml} の {@code trigger.type: counter} が参照する。
+     */
+    public long lifetimeCounter(String counterId) {
+        return container.getOrDefault(PdcKeys.lifetimeCounterKey(counterId), PersistentDataType.LONG, 0L);
+    }
+
+    /**
+     * 累計カウンタを加算して加算後の値を返す。
+     *
+     * <p>{@code delta <= 0} は何もしない ── 累計は単調増加でなければ「1億到達」の意味が壊れるため、
+     * 減算を通す口をそもそも作らない(返却・キャンセル処理が誤ってマイナスを渡しても安全)。
+     * オーバーフローは飽和させる(1億の目標に対して {@code Long.MAX_VALUE} は事実上の無限)。
+     */
+    public long addLifetimeCounter(String counterId, long delta) {
+        long current = lifetimeCounter(counterId);
+        if (delta <= 0L) {
+            return current;
+        }
+        long updated = current + delta;
+        if (updated < current) {
+            updated = Long.MAX_VALUE;
+        }
+        container.set(PdcKeys.lifetimeCounterKey(counterId), PersistentDataType.LONG, updated);
+        return updated;
     }
 }

@@ -46,6 +46,7 @@ function setupStubs() {
   global.window.numberInput = (value) => makeEl("input", { class: "num", value });
   global.window.checkboxInput = () => makeEl("input", { class: "checkbox" });
   global.window.textInput = (value) => makeEl("input", { class: "text", value });
+  global.window.textInputOnCommit = global.window.textInput;
   global.window.selectInput = () => makeEl("select");
   global.window.materialInput = () => makeEl("div", { class: "material-input" });
   delete require.cache[require.resolve("../public/js/tf-crafting-features.js")];

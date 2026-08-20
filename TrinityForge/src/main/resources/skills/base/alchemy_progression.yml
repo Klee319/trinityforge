@@ -2,11 +2,33 @@
 # Perk tree runtime SoT is skilltree/<skill>.yml (this file: curves + EXP producer rates).
 # Source: vendored from ValhallaMMO jar defaults; edit curves via ConfigEditor skill-exp screen.
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skills/base/alchemy_progression.md
+
 experience:
   max_level: 100
-  exp_level_curve: '(%level% + 75 * 2^(%level%/7.6)) + 300'
-  alchemy_brew_exp: 25
-  exp_multiplier_quality: 0.00334 # Reserved for quality-stamped brew path (future)
+  exp_level_curve: (%level% + 75 * 2^(%level%/7.6)) + 300
+  alchemy_brew_exp: 150
+  exp_multiplier_quality: 0.005
   multiplier_automated: 0.25
   multiplier_manual: 2
-  legacy:
+  brew_result:
+    AWKWARD: 150
+    FIRE_RESISTANCE: 300
+    NIGHT_VISION: 450
+    SLOWNESS: 300
+    SLOW_FALLING: 450
+    TURTLE_MASTER: 1500
+    HEALING: 450
+    REGENERATION: 600
+    LEAPING: 450
+    WEAKNESS: 300
+    HARMING: 300
+    INVISIBILITY: 300
+    WATER_BREATHING: 450
+    STRENGTH: 300
+    SWIFTNESS: 150
+    POISON: 300
+  brew_ingredient:
+    REDSTONE: 150
+    GLOWSTONE_DUST: 150
+    GUNPOWDER: 150
+    DRAGON_BREATH: 450

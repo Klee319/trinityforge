@@ -1,0 +1,85 @@
+# =================================================================================================
+#  Velocity 3.5.x — TrinityForge ネットワーク
+#
+#  初回起動で生成される velocity.toml を、この内容で置き換える (config-version は生成物に合わせる)。
+#  forwarding-secret は【このファイルに書かない】。forwarding.secret ファイルに置く。
+# =================================================================================================
+
+# 生成された velocity.toml の値をそのまま使うこと。バージョンによって変わる。
+config-version = "2.7"
+
+# 外部へ公開するのはこのポートだけ。バックエンドは 127.0.0.1 に閉じる。
+bind = "0.0.0.0:25565"
+
+motd = "<#00b4ff>TrinityForge</#00b4ff> <gray>|</gray> <white>資源サーバ稼働中</white>"
+
+# 実際の max-players より小さく見せる理由は特にないので実数に合わせる。
+show-max-players = 25
+
+online-mode = true
+force-key-authentication = true
+
+# VPN や共有回線からの接続を弾く設定。DDoS 対策として有効に見えるが、
+# 正規プレイヤーの ISP が誤検知されると本人にはどうにもできない締め出しになる。
+# 25人規模ならホワイトリスト運用のほうが確実なので、既定は false のままにしている。
+prevent-client-proxy-connections = false
+
+# modern forwarding。これを使う以上、バックエンドは必ず 127.0.0.1 にバインドすること。
+# 外から直接バックエンドへ繋げる状態だと、任意のプレイヤー名でなりすませる。
+player-info-forwarding-mode = "modern"
+forwarding-secret-file = "forwarding.secret"
+
+announce-forge = false
+
+# 同名ログインで既存セッションを蹴らない。HuskSync 使用時に蹴ると
+# 「切断側の保存」と「接続側の読込」が競合してインベントリ複製の窓が開く。
+kick-existing-players = false
+
+# バックエンドの ping をそのまま返さない (バックエンド構成を外から推測させない)。
+ping-passthrough = "DISABLED"
+
+enable-player-address-logging = true
+
+[servers]
+# 資源サーバはメインと同一マシンの別ポート。
+main     = "127.0.0.1:25566"
+resource = "127.0.0.1:25567"
+
+# 初回接続先。main が落ちていれば resource へ落ちる。
+try = ["main", "resource"]
+
+[forced-hosts]
+# ドメインごとに接続先を固定したい場合のみ使う。今回は未使用。
+
+[advanced]
+compression-threshold = 256
+compression-level = -1
+
+# --- DoS 耐性に効く3つ (ops/SECURITY.md 参照) ---
+# 同一 IP からのログイン試行の最小間隔 (ms)。ログイン洪水の一次防波堤。
+login-ratelimit = 3000
+# ハンドシェイクを張ったまま放置するタイプの枯渇攻撃を切る。
+connection-timeout = 5000
+read-timeout = 30000
+
+haproxy-protocol = false
+tcp-fast-open = false
+bungee-plugin-message-channel = true
+show-ping-requests = false
+
+# バックエンドが予期せず落ちたとき、切断せず別サーバへ回す。
+# 定期再起動・週次リセット中の在席者がここで救われる (FallbackRouter と併用)。
+failover-on-unexpected-server-disconnect = true
+
+announce-proxy-commands = true
+log-command-executions = false
+log-player-connections = true
+
+accepts-transfers = false
+
+[query]
+# 外部からサーバ情報を引ける口は開けない。
+enabled = false
+port = 25565
+map = "Velocity"
+show-plugins = false

@@ -26,13 +26,19 @@ public final class UseSkillDefaults {
 
     private static Optional<String> fromMaterialName(String name) {
         String n = name.toUpperCase(Locale.ROOT);
-        if (n.equals("BOW") || n.equals("CROSSBOW") || n.equals("TRIDENT")) {
+        if (n.equals("BOW") || n.equals("CROSSBOW")) {
             return Optional.of("ARCHERY");
         }
         if (n.equals("MACE") || n.endsWith("_AXE")) {
             return Optional.of("HEAVY_WEAPONS");
         }
-        if (n.endsWith("_SWORD") || n.endsWith("_SPEAR")) {
+        // N5(2026-07-31): TRIDENT は ARCHERY ではなく LIGHT_WEAPONS。
+        // 出荷 stats/item-stats.yml のトライデント14行はすべて use-skill: LIGHT_WEAPONS を明記しており、
+        // 推論だけが ARCHERY で食い違っていた(推論が効くのは use-skill を書かなかった行だけなので
+        // 現物では不発だったが、use-skill 無しのトライデント行を1つ足した瞬間に挙動が変わる landmine)。
+        // 旧 ArcheryExperiencePolicy は BOW/CROSSBOW 以外に 0.0 を返していたため、当時この推論に
+        // 落ちたトライデントは警告なしで戦闘EXPが完全に0になる、という silent-zero も同居していた。
+        if (n.equals("TRIDENT") || n.endsWith("_SWORD") || n.endsWith("_SPEAR")) {
             return Optional.of("LIGHT_WEAPONS");
         }
         if (isArmorPiece(n)) {

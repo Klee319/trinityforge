@@ -7,21 +7,44 @@
 
 drop-tables:
   categories:
-    ruins_thread:
-      display-name: "遺跡の空スレッド"
-      trigger-chance-percent: 5.0
+    tier1:
+      display-name: tier1
       entries:
-        - item: thread_empty
+        - item: custom:gacha_ticket_digging
           weight: 1
           amount: 1
-
+      trigger-chance-percent: 2
+    tier2:
+      display-name: tier2
+      entries:
+        - item: custom:gacha_ticket_digging
+          weight: 1
+          amount: 1
+      trigger-chance-percent: 3
+    tier3:
+      display-name: tier3
+      entries:
+        - item: ANCIENT_DEBRIS
+          weight: 1
+          amount: 1
+      trigger-chance-percent: 0.1
 durability-exp:
-  durability-per-percent: 100
-  # tier別設定(任意、2026-07-26): 未記載なら上のグローバル既定値がそのまま全員に使われる(完全後方互換)。
-  # tierはスキルツリーのノード value から決まる — ここでは digging-durability-vanilla-exp(C-1、value=50)/
-  # digging-durability-job-exp(C-2、value=25)それぞれの上限%そのものをtierとして流用する
-  # (DedicatedEffectsConfig#valueMax)。該当tier未満の行しか無い場合はより小さいtierの行へフォールバックし、
-  # どの行にも満たない場合はグローバル既定値(上のdurability-per-percent)を使う。
-  # tiers:
-  #   25: { durability-per-percent: 80 }   # C-2(職業EXP、上限25%)保持者向けに変換レートを個別調整する例
-  #   50: { durability-per-percent: 120 }  # C-1(バニラEXP、上限50%)保持者向けに変換レートを個別調整する例
+  durability-per-percent: 500
+  vanilla-exp:
+    tiers:
+      "1":
+        cap-percent: 100
+        durability-per-percent: 250
+  job-exp:
+    tiers:
+      "1":
+        cap-percent: 50
+        durability-per-percent: 500
+# haste-active-digging (2026-08-18 W-59): シャベル専用の独立アクティブスキル。
+# mining-gimmick.yml の haste-active-mining とは別の数値(意図的にミラーしない)。
+# CooldownManager 側の CooldownGroup は haste-active-mining と共有するため、ツールを持ち替えて
+# 連発しても合計アップタイムは増えない(片方のCTが残っていればもう片方も撃てない)。
+haste-active-digging:
+  amplifier: 1
+  duration-ticks: 120
+  cooldown-ticks: 800

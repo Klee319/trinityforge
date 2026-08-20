@@ -86,7 +86,9 @@ class PermanentBuffResolverTest {
     }
 
     @Test
-    void onlyAchievedAchievementBuffsAreIncluded(@TempDir File dir) throws Exception {
+    void onlyClaimedAchievementBuffsAreIncluded(@TempDir File dir) throws Exception {
+        // 2026-08-04 手動解放方式: permanent-buffsは報酬なので、条件成立(achieved)だけでは
+        // 寄与せず、解放済み(claimed)になって初めて合算対象になる。
         AchievementsConfig achievements = achievementsOf(dir, """
                 achievements:
                   jump-king:
@@ -108,10 +110,13 @@ class PermanentBuffResolverTest {
         assertTrue(resolver.buffsFor(player).isEmpty(), "未達成時は空");
 
         PlayerData.of(player).markAchieved("jump-king");
+        assertTrue(resolver.buffsFor(player).isEmpty(), "達成しただけ(未解放)では寄与しない");
+
+        PlayerData.of(player).markAchievementClaimed("jump-king");
         Map<String, Double> buffs = resolver.buffsFor(player);
         assertEquals(5.0, buffs.get("attack_power"));
         assertEquals(0.02, buffs.get("move_speed"));
-        assertEquals(2, buffs.size(), "未達成のunearnedは寄与しない");
+        assertEquals(2, buffs.size(), "未解放のunearnedは寄与しない");
     }
 
     @Test
@@ -161,6 +166,7 @@ class PermanentBuffResolverTest {
         PermanentBuffResolver resolver = new PermanentBuffResolver(achievements, collection);
         Player player = server.addPlayer();
         PlayerData.of(player).markAchieved("a");
+        PlayerData.of(player).markAchievementClaimed("a");
         PlayerData.of(player).setClaimedCollectionTiers(List.of("bronze"));
 
         Map<String, Double> buffs = resolver.buffsFor(player);

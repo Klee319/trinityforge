@@ -3,6 +3,7 @@ package com.trinityforge.combat;
 import com.trinityforge.config.domains.CombatDamageConfig;
 import com.trinityforge.config.domains.CraftingFeaturesConfig;
 import com.trinityforge.config.domains.ItemStatsConfig;
+import com.trinityforge.config.domains.StatCapsConfig;
 import com.trinityforge.stats.DerivedItemStats;
 import com.trinityforge.stats.StatKeys;
 import org.bukkit.Material;
@@ -33,14 +34,32 @@ public final class WeaponAttackStatResolver {
     private final CombatDamageConfig combatDamage;
     private final AttackStatKeys attackStatKeys;
     private final CraftingFeaturesConfig craftingFeatures;
+    /**
+     * {@code combat/stat-caps.yml}(任意・{@code null}可)。{@code null} のときは
+     * {@link #activeStatCaps()} が実行中のプラグインから解決する。理由は
+     * {@link #attackPowerOf} の javadoc 参照。
+     */
+    private final StatCapsConfig statCaps;
 
     public WeaponAttackStatResolver(ItemStatsConfig itemStats,
                                     CombatDamageConfig combatDamage, AttackStatKeys attackStatKeys,
                                     CraftingFeaturesConfig craftingFeatures) {
+        this(itemStats, combatDamage, attackStatKeys, craftingFeatures, null);
+    }
+
+    /**
+     * {@code statCaps} を明示注入する版(2026-07-31)。テストが「プラグイン実体なしで上限を効かせる」
+     * ために使う。本番の配線は4引数版のままで、{@link #attackPowerOf} が実行中のプラグインから
+     * {@code stat-caps.yml} を解決する。
+     */
+    public WeaponAttackStatResolver(ItemStatsConfig itemStats,
+                                    CombatDamageConfig combatDamage, AttackStatKeys attackStatKeys,
+                                    CraftingFeaturesConfig craftingFeatures, StatCapsConfig statCaps) {
         this.itemStats = Objects.requireNonNull(itemStats, "itemStats");
         this.combatDamage = Objects.requireNonNull(combatDamage, "combatDamage");
         this.attackStatKeys = Objects.requireNonNull(attackStatKeys, "attackStatKeys");
         this.craftingFeatures = Objects.requireNonNull(craftingFeatures, "craftingFeatures");
+        this.statCaps = statCaps;
     }
 
     /**
@@ -70,6 +89,39 @@ public final class WeaponAttackStatResolver {
      * the value matches what {@code CombatListener} would use as the melee base. Exposed for the ArsPaper
      * magic-hybrid path, which needs a catalyst/weapon's attack-power to fold into a spell's base damage.
      * Must be called on the server main thread (Bukkit item reads are synchronous).
+     *
+     * <p><b>2026-07-31 (F4 指摘4): {@code combat/stat-caps.yml} の {@code attack-power} 上限を掛ける。</b>
+     * 近接は {@code CombatListener} が {@code PlayerCombatAggregate#clamp} を通す一方、魔法経路
+     * (ArsPaperフォーク → このメソッド)は上限を一切通っていなかった。出荷は {@code stat-caps: {}} で
+     * no-op なので実害は無かったが、運用者がインフレを抑えようとして {@code attack-power: 3000} と
+     * 書くと<b>近接だけが従い魔法だけ素通りする</b>という無言のドリフトになる
+     * ({@code CombatDamageConfig#magicalAttackPowerScale} の javadoc が謳う「物理と対称の加算」が
+     * clamp の有無で破れている状態)。
+     *
+     * <p>上限の解決順は「コンストラクタで注入された {@code statCaps} → 実行中プラグインの
+     * {@code config().statCaps()}」。本番の配線(4引数コンストラクタ)を変えずに上限を効かせるための
+     * 二段構えで、プラグイン未起動(単体テスト)では素通し=従来挙動になる。
+     *
+     * <p><b>⚠️ 静的グローバル参照({@code TrinityForge.getInstance()})が残っている理由
+     * (2026-07-31 F5 指摘6)</b>: 本番でこのクラスを組み立てているのは
+     * {@code TrinityForge.java} の1箇所<b>だけ</b>で、そこへ {@code configManager.statCaps()} を
+     * 足せば5引数コンストラクタ(=真の依存注入)へ移行できる。しかし当該ファイルは
+     * 「複数セッションが並行して編集するため、どのレーンも触らない」という運用制約の対象なので、
+     * このレーンでは配線を変更できなかった。必要な変更は<b>引数を1つ足す1行だけ</b>で、
+     * {@code tmp/findings/X1-wiring-followup.md} に記録してある。移行後は
+     * {@link #activeStatCaps()} と4引数コンストラクタを削除できる。
+     * それまでの副作用として、テストが {@code TrinityForgeSingletonTestSupport} で張ったモックに
+     * 挙動が依存する（＝5引数コンストラクタで明示注入するテストを正とする）。
+     *
+     * <p><b>⚠️ {@code stat-caps.yml} の {@code attack-power} は近接と魔法で意味が違う(是正しない)</b>:
+     * 近接は {@code PlayerCombatAggregate#clamp} が
+     * 「装備＋オフハンド＋パーク＋永続バフ＋{@code base-stats} を全部足した<b>合算総量</b>」へ掛けるが、
+     * こちらは<b>触媒/杖1本の単品値</b>へ掛かる。よって {@code attack-power: 3000} と書いたとき
+     * 近接は「全部合わせて3000まで」、魔法は「杖1本あたり3000まで」になり、
+     * 魔法側の実効上限は 3000 を超えうる。揃えるには合算の設計変更が必要なので別件として据え置き、
+     * この非対称を {@code docs/config-reference/combat/stat-caps.md} に明記した。
+     * また {@link #forItem} が返す他のステ({@code crit-chance} / {@code penetration} 等)は
+     * このクランプを通らない — 上限に服するのは {@code attack-power} 1キーだけである。
      */
     public double attackPowerOf(ItemStack item) {
         if (item == null || item.getType().isAir() || item.getAmount() <= 0) {
@@ -79,9 +131,38 @@ public final class WeaponAttackStatResolver {
             Map<String, Double> derived = DerivedItemStats.resolve(
                     item, itemStats, combatDamage.weaponBaseFormula(),
                     craftingFeatures.threadSlotMaxByCategory());
-            return derived.getOrDefault(StatKeys.canonical("attack-power"), 0.0);
+            return cappedAttackPower(derived.getOrDefault(ATTACK_POWER_KEY, 0.0));
         } catch (RuntimeException malformedItem) {
             return 0.0;
+        }
+    }
+
+    private static final String ATTACK_POWER_KEY = StatKeys.canonical("attack-power");
+
+    /**
+     * {@code raw} に {@code stat-caps.yml} の {@code attack-power} 上限を適用した値。
+     * 上限未設定 / caps自体が解決できない場合は {@code raw} をそのまま返す
+     * ({@link StatCapsConfig#clamp} と同じ「上側だけ・未設定はno-op」の意味論)。
+     */
+    private double cappedAttackPower(double raw) {
+        StatCapsConfig caps = statCaps != null ? statCaps : activeStatCaps();
+        return caps == null ? raw : caps.clamp(ATTACK_POWER_KEY, raw);
+    }
+
+    /**
+     * 実行中のプラグインが読み込んだ {@code combat/stat-caps.yml}。プラグイン未起動/未初期化/例外時は
+     * {@code null}(=上限なし)。{@code TrinityForge.getInstance()} 経由の遅延解決は
+     * {@code NativeSkillExperienceListener} 等の既存コードと同じ流儀。
+     */
+    private static StatCapsConfig activeStatCaps() {
+        try {
+            com.trinityforge.TrinityForge plugin = com.trinityforge.TrinityForge.getInstance();
+            if (plugin == null || plugin.config() == null) {
+                return null;
+            }
+            return plugin.config().statCaps();
+        } catch (RuntimeException | NoClassDefFoundError unavailable) {
+            return null;
         }
     }
 
@@ -103,6 +184,29 @@ public final class WeaponAttackStatResolver {
             // profileStats already returns a fresh mutable LinkedHashMap. Thread previews carry no
             // `random` section and have no rollSeed context, so quality 0 + rollSeed 0L (roll layer no-op).
             return DerivedItemStats.profileStats(material, customModelData, 0, 0L, itemStats);
+        } catch (RuntimeException malformedProfile) {
+            return new java.util.LinkedHashMap<>();
+        }
+    }
+
+    /**
+     * The full derived item-stats map (canonical key → value) for a bare {@code (material,
+     * customModelData)} at the given {@code qualityLevel}/{@code rollSeed} — i.e. {@link #resolveItemStats}
+     * with the roll layer live instead of pinned to quality 0 / seed 0. This is the entry point for the
+     * ArsPaper fork to pull a single equipped thread's individual roll from armor: a thread is stamped
+     * with TF's own {@code rollSeed} and quality at generation time, and derives through the exact same
+     * {@link DerivedItemStats#profileStats} path as any weapon, so the two-arg preview overload above and
+     * this one only differ in whether the roll layer is exercised. Returns a fresh, caller-owned
+     * <b>mutable</b> map (empty for a null material, no matching entry, or any derivation failure —
+     * fail-open). Must be called on the server main thread.
+     */
+    public Map<String, Double> resolveItemStats(Material material, Integer customModelData,
+                                                int qualityLevel, long rollSeed) {
+        if (material == null) {
+            return new java.util.LinkedHashMap<>();
+        }
+        try {
+            return DerivedItemStats.profileStats(material, customModelData, qualityLevel, rollSeed, itemStats);
         } catch (RuntimeException malformedProfile) {
             return new java.util.LinkedHashMap<>();
         }

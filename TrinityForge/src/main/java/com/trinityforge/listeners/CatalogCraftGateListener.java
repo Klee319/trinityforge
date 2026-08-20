@@ -8,6 +8,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Keyed;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.block.Crafter;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -88,6 +89,13 @@ public final class CatalogCraftGateListener implements Listener {
             return;
         }
         CraftingInventory inv = event.getInventory();
+        if (event.isRepair()) {
+            if (!dedicatedEffects.isActive(player, "feature:wood-repair-unlock")) {
+                inv.setResult(null);
+                player.sendActionBar(GATE_MESSAGE);
+            }
+            return;
+        }
         String gateId = resolveGateId(inv.getRecipe());
         if (isBlocked(gateId, player)) {
             inv.setResult(new ItemStack(Material.AIR));
@@ -97,6 +105,13 @@ public final class CatalogCraftGateListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onCrafterCraft(CrafterCraftEvent event) {
+        // バニラの同種修理にはKeyedレシピがないため、通常のrecipe gate判定だけでは
+        // 自動作業台がwood-repair-unlockの迂回経路になる。Crafterには解放状態を
+        // 帰属できるプレイヤーがいないので、同種修理は常に安全側で停止する。
+        if (isCrafterRepair(event)) {
+            event.setCancelled(true);
+            return;
+        }
         String gateId = resolveGateId(event.getRecipe());
         // Crafterはプレイヤー操作を伴わない(レッドストーン駆動)ため個々の解放状態を判定できない。
         // ゲート対象(=いずれかのスキルツリーノードが実際に配置しているID)である限り、安全側に倒して
@@ -104,6 +119,14 @@ public final class CatalogCraftGateListener implements Listener {
         if (gateId != null && dedicatedEffects.recipeGatePerks().containsKey(gateId)) {
             event.setCancelled(true);
         }
+    }
+
+    static boolean isCrafterRepair(CrafterCraftEvent event) {
+        if (event.getBlock().getState() instanceof Crafter crafter) {
+            return CraftQualityListener.isVanillaSameItemRepair(
+                    crafter.getInventory().getContents(), event.getResult());
+        }
+        return false;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -129,7 +152,15 @@ public final class CatalogCraftGateListener implements Listener {
         if (!(recipe instanceof Keyed keyed)) {
             return null;
         }
-        NamespacedKey key = keyed.getKey();
+        return resolveGateId(keyed.getKey());
+    }
+
+    /**
+     * {@link #resolveGateId(Recipe)} のキーだけ版。レシピ実体を持たずキーしか無い経路
+     * ({@code RecipeDiscoveryListener} のレシピ帳解禁: 「隠す集合」を「実際にブロックされる集合」と
+     * 必ず一致させるため、判定ロジックをこちらへ寄せて二重管理を作らない)から使う。
+     */
+    static String resolveGateId(NamespacedKey key) {
         if (key == null) {
             return null;
         }
@@ -141,6 +172,18 @@ public final class CatalogCraftGateListener implements Listener {
             return path.substring(CATALOG_PREFIX.length());
         }
         return path;
+    }
+
+    /**
+     * base の材質に対応する {@code recipe:<id>} ゲート id。ゲート対象でなければ {@code null}。
+     *
+     * <p>public なのは<b>統合版向けレシピ表の書き出し</b>({@code BedrockRecipeExporter})が
+     * 同じ対応表を要るため。あちらで材質→id を書き直すと、
+     * 「サーバは塞いでいるのにクライアントには完成品が見えている」という
+     * <b>最も分かりにくい壊れ方</b>が、対応表がずれた分だけ発生する。
+     */
+    public static String netheriteGateIdFor(Material base) {
+        return base == null ? null : NETHERITE_UPGRADE_GATE_IDS.get(base);
     }
 
     private static String netheriteGateId(SmithingInventory inventory) {
@@ -179,6 +222,17 @@ public final class CatalogCraftGateListener implements Listener {
      * 何か(TFカタログ品 / バニラの実在レシピ / 既知のネザライトアップグレード対応表)へ解決できるかを
      * チェックする。解決できないIDは「配置されているのに何もゲートしない」サイレント無効ゲートになる
      * ため、綴り間違い等を起動時に警告で検出する(コードは書き換えない、報告のみ)。
+     *
+     * <p><b>呼び出しタイミングの制約 (2026-07-28)</b>: {@link #hasVanillaRecipe} が
+     * {@code Bukkit.recipeIterator()} を舐めるので、<b>全プラグインの enable 完了後</b>
+     * (= {@code TrinityForge#onEnable} 内ではなく {@code runTask} の最初のtick)に呼ぶこと。
+     * ArsPaper は TF に depend しており TF より後に enable するため、onEnable 内で呼ぶと
+     * ArsPaper の作業台レシピ(tf_core_* など)が未登録で、実在するのに「解決できない」と誤警告する。
+     *
+     * <p>なお {@code ritual:} ゲートはここでは検証<b>しない</b>。儀式は Bukkit のレシピではなく
+     * ArsPaper 内部の {@code RitualRecipe} なので TF からは列挙できない。{@code recipe:}/{@code ritual:}
+     * のチャンネル取り違え(儀式アイテムを recipe: に置くと無言で常時解放になる)は、代わりに
+     * ビルド時の {@code RecipeRitualGateChannelDriftTest} が固定している。
      */
     public static void verifyRecipeGateIds(DedicatedEffectsConfig dedicatedEffects,
                                             ItemCatalogConfig itemCatalog, Logger log) {

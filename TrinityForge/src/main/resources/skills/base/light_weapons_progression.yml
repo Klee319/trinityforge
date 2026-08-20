@@ -2,9 +2,7 @@
 # Perk tree runtime SoT is skilltree/<skill>.yml (this file: curves + EXP producer rates).
 # Source: vendored from ValhallaMMO jar defaults; edit curves via ConfigEditor skill-exp screen.
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skills/base/light_weapons_progression.md
+
 experience:
   max_level: 100
-  exp_level_curve: '(%level% + 75 * 2^(%level%/7.6)) + 300'
-  exp_per_damage: 7
-  exp_enemies_nerfed: []
-  legacy:
+  exp_level_curve: (%level% + 75 * 2^(%level%/8)) + 300

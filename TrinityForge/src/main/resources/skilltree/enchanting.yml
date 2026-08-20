@@ -12,19 +12,23 @@
 # ============================================================================
 
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/enchanting.md
+
 skill: ENCHANTING
 display-name: エンチャント
 icon: ENCHANTING_TABLE
 starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  max-times: 5
   at-level: 100
   name: 大エンチャンターの栄光
   effect-text: エンチャント運 永続+10・エンチャントの消費経験値レベルを永続-10%軽減
   buffs:
-    enchant_luck: 10
-    enchant_cost_reduction: 0.10
+    enchant-luck: 10
+    enchant-cost-reduction: 0.2
+  description: |-
+    エンチャント運+10
+    エンチャント効率+20%
 nodes:
   A:
     name: はじまりのエンチャンター
@@ -43,13 +47,14 @@ nodes:
     level: 30
     role: main
     parent: A
-    icon: LAPIS_LAZULI
+    icon: EXPERIENCE_BOTTLE
     cost: 1
-    effect-text: ラピスラズリの消費量減少
+    effect-text: エンチャントの消費経験値レベル-10%
     effects:
-      - ラピスラズリの消費量減少
+      - エンチャントの消費経験値レベル-10%
     buffs:
-      lapis-cost-reduction: 1
+      enchant-cost-reduction: 0.1
+    description: エンチャント効率+10%
   C:
     name: エンチャントの達人
     level: 50
@@ -61,7 +66,7 @@ nodes:
     effects:
       - エンチャント運+10
     buffs:
-      enchant_luck: 10
+      enchant-luck: 10
   D:
     name: カリスマエンチャンター
     level: 70
@@ -72,11 +77,15 @@ nodes:
     effect-text: 幸運・シルクタッチのグリフ解放
     effects:
       - 幸運・シルクタッチのグリフを解放
-    buffs:
-      loot_luck: 1
     dedicated-effects:
       - id: glyph:fortune
       - id: glyph:extract
+    description: |-
+      幸運グリフ解放
+      抽出グリフ解放
+      エンチャント効率+10%
+    buffs:
+      enchant-cost-reduction: 0.1
   E:
     name: エンチャントの伝道師
     level: 90
@@ -89,43 +98,12 @@ nodes:
       - 司書取引を解放
     dedicated-effects:
       - id: trade:LIBRARIAN
-  C-1:
-    name: オーバーエンチャントI
-    level: 40
-    role: branch
-    parent: C
-    icon: DIAMOND
-    cost: 1
-    effect-text: 以下のいずれかのレベルを+1：- ダメージ増加系 - ダメージ軽減系
-    effects:
-      - "以下のいずれかのレベルを+1: ダメージ増加系 / ダメージ軽減系"
-    dedicated-effects:
-      - id: overenchant:lv1
-  C-2:
-    name: オーバーエンチャントII
-    level: 60
-    role: branch
-    parent: C-1
-    icon: DIAMOND
-    cost: 1
-    effect-text: 以下のいずれかのレベルを+2(幸運は+1)：- ドロップ増加 - 耐久力 - 幸運
-    effects:
-      - "以下のいずれかのレベルを+2(幸運は+1): ドロップ増加 / 耐久力 / 幸運"
-    dedicated-effects:
-      - id: overenchant:lv2
-  C-3:
-    name: オーバーエンチャントIII
-    level: 80
-    role: branch
-    parent: C-2
-    icon: NETHERITE_INGOT
-    cost: 1
-    effect-text: 以下のいずれかのレベルを+1：- ダメージ増加系 - ダメージ軽減系 - 補助系(ドロップ増加、耐久力、幸運)
-    effects:
-      - "以下のいずれかのレベルを+1: ダメージ増加系 / ダメージ軽減系 / 補助系(ドロップ増加・耐久力・幸運)"
-    dedicated-effects:
-      - id: overenchant:lv3
-  B-1:
+    description: |-
+      司書取引の解放
+      エンチャント運+10
+    buffs:
+      enchant-luck: 10
+  B-1-1:
     name: EXPジェネレーター
     level: 40
     role: branch
@@ -138,11 +116,15 @@ nodes:
       - 全スキルEXP入手量+5%
     buffs:
       skill-exp-bonus: 0.05
-  B-2:
+      vanilla-exp-bonus: 0.05
+    description: |-
+      全バニラEXP入手量+5%
+      全職業EXP入手量+5%
+  B-1-2:
     name: EXPクリエイター
     level: 40
     role: branch
-    parent: B-1
+    parent: B-1-1
     icon: EXPERIENCE_BOTTLE
     cost: 1
     effect-text: 全バニラEXP入手量+10%・全スキルEXP入手量+10%
@@ -151,77 +133,215 @@ nodes:
       - 全スキルEXP入手量+10%
     buffs:
       skill-exp-bonus: 0.1
-  B-3:
-    name: EXPフリーザー
-    level: 60
+      vanilla-exp-bonus: 0.1
+    description: |-
+      全バニラEXP入手量+10%
+      全職業EXP入手量+10%
+  B-2-1:
+    name: EXPフリーザーⅠ
+    level: 40
     role: branch
-    parent: B-2
+    parent: B
     icon: EXPERIENCE_BOTTLE
     cost: 1
-    effect-text: 自身の経験値を経験値瓶に保存可能
     effects:
-      - 自身の経験値を経験値瓶に保存可能
+      - ガラス瓶を右クリックで自身の経験値を保存可能
       - "(設計メモ: 経験値増殖の観点からデバフ必須)"
     dedicated-effects:
       - id: feature:xp-bottle-store-unlock
+        value: 1
+    description: |-
+      ガラス瓶にEXPを貯蓄可能になる　Lv1
+      &8ガラス瓶を右クリックで自身の経験値を保存可能(バニラのエンチャント瓶とは異なる)
+  B-2-2:
+    name: EXPフリーザーⅡ
+    level: 60
+    role: branch
+    parent: B-2-1
+    icon: EXPERIENCE_BOTTLE
+    cost: 1
+    effects:
+      - ガラス瓶を右クリックで自身の経験値を保存可能
+      - "(設計メモ: 経験値増殖の観点からデバフ必須)"
+    dedicated-effects:
+      - id: feature:xp-bottle-store-unlock
+        value: 2
+    description: ガラス瓶にEXPを貯蓄可能になる　Lv2
+  B-2-3:
+    role: branch
+    parent: B-2-2
+    name: EXPフリーザーⅢ
+    level: 80
+    cost: 1
+    description: ガラス瓶にEXPを貯蓄可能になる　Lv3
+    dedicated-effects:
+      - id: feature:xp-bottle-store-unlock
+        value: 3
   A-alpha-1:
     name: 増幅の理I
-    level: 10
+    level: 20
     role: greek
     parent: A
     group: A-greek
     icon: GLOWSTONE_DUST
     cost: 1
+    # 2026-08-20 ユーザー報告「表示と実体が違う」の修正。表示は「運+8・スキルEXP-5%」なのに
+    # buffs は enchant-luck: 5 と enchant-cost-reduction: -0.1 で、【運の量が違ううえ EXP の増減が
+    # 存在しなかった】(効率の増減が EXP の代役として書かれていた。ノードB と同じ代役パターン)。
+    # 一次仕様(skilltree/職業別草案_生産.md)と EnchantingAlchemyBuffsWiringTest の pin はどちらも
+    # 「運+8・EXP-5%」なので、そちらへ実体を合わせ、代役だった効率の増減は取り除く
+    # (残すと「運を取る代わりに EXP が減る」というこの枝の対価が二重に掛かる)。
     effect-text: エンチャント運+8・エンチャント時のスキルEXP獲得-5%（運を求める代わりにEXPが減る）
     effects:
       - エンチャント運+8
       - エンチャント時のスキルEXP獲得-5%
     buffs:
-      enchant_luck: 8
-      enchant_exp_gain_bonus: -0.05
+      enchant-luck: 8
+      enchanting-exp-bonus: -0.05
+    description: |-
+      エンチャント運+8
+      エンチャント時のスキルEXP獲得-5%
   A-alpha-2:
     name: 増幅の理II
-    level: 30
+    level: 40
     role: greek
     parent: A-alpha-1
     group: A-greek
     icon: GLOWSTONE_DUST
     cost: 1
+    # 2026-08-20: I と同じ修正(実値は +10 だった)。α路線は I と II で同額(+8)というのが一次仕様。
     effect-text: エンチャント運+8・エンチャント時のスキルEXP獲得-5%
     effects:
       - エンチャント運+8
       - エンチャント時のスキルEXP獲得-5%
     buffs:
-      enchant_luck: 8
-      enchant_exp_gain_bonus: -0.05
+      enchant-luck: 8
+      enchanting-exp-bonus: -0.05
+    description: |-
+      エンチャント運+8
+      エンチャント時のスキルEXP獲得-5%
   A-beta-1:
     name: 抑制の理I
-    level: 10
+    level: 20
     role: greek
     parent: A
     group: A-greek
     icon: REDSTONE
     cost: 1
+    # 2026-08-20: このノードは【effect-text が無く、buffs に運も EXP も無かった】ので、
+    # 一次仕様と pin が定める「運+4・EXP+5%」が丸ごと存在せず、GUI にも何も出ていなかった
+    # (実際に効いていたのは代役の enchant-cost-reduction だけ)。α と対になる枝なので、
+    # α と同じく代役を外して本来の2効果を載せる。
     effect-text: エンチャント運+4・エンチャント時のスキルEXP獲得+5%（運を抑える代わりにEXPが増える）
     effects:
       - エンチャント運+4
       - エンチャント時のスキルEXP獲得+5%
     buffs:
-      enchant_luck: 4
-      enchant_exp_gain_bonus: 0.05
+      enchant-luck: 4
+      enchanting-exp-bonus: 0.05
+    description: |-
+      エンチャント運+4
+      エンチャント時のスキルEXP獲得+5%
   A-beta-2:
     name: 抑制の理II
-    level: 30
+    level: 40
     role: greek
     parent: A-beta-1
     group: A-greek
     icon: REDSTONE
     cost: 1
+    # 2026-08-20: I と同じ(効果が丸ごと存在しなかった)。
     effect-text: エンチャント運+4・エンチャント時のスキルEXP獲得+5%
     effects:
       - エンチャント運+4
       - エンチャント時のスキルEXP獲得+5%
     buffs:
-      enchant_luck: 4
-      enchant_exp_gain_bonus: 0.05
-
+      enchant-luck: 4
+      enchanting-exp-bonus: 0.05
+    description: |-
+      エンチャント運+4
+      エンチャント時のスキルEXP獲得+5%
+  C-alpha-1:
+    name: 武力突破
+    level: 60
+    role: branch
+    parent: C
+    icon: DIAMOND
+    cost: 1
+    effect-text: 以下のいずれかのレベルを+1：- ダメージ増加系 - ダメージ軽減系
+    effects:
+      - "以下のいずれかのレベルを+1: ダメージ増加系 / ダメージ軽減系"
+    dedicated-effects:
+      - id: overenchant:alpha-1
+    description: ダメージ増加系エンチャントの上限レベルを+1
+    group: C-greek
+  C-beta-1:
+    name: 防力突破
+    level: 60
+    role: branch
+    parent: C
+    icon: DIAMOND
+    cost: 1
+    effect-text: 以下のいずれかのレベルを+1：- ダメージ増加系 - ダメージ軽減系
+    effects:
+      - "以下のいずれかのレベルを+1: ダメージ増加系 / ダメージ軽減系"
+    dedicated-effects:
+      - id: overenchant:beta-1
+    description: ダメージ軽減系エンチャントの上限レベルを+1
+    group: C-greek
+  C-gamma-1:
+    name: 知力突破
+    level: 60
+    role: branch
+    parent: C
+    icon: DIAMOND
+    cost: 1
+    effect-text: 以下のいずれかのレベルを+1：- ダメージ増加系 - ダメージ軽減系
+    effects:
+      - "以下のいずれかのレベルを+1: ダメージ増加系 / ダメージ軽減系"
+    dedicated-effects:
+      - id: overenchant:gamma-1
+    description: 便利系エンチャントの上限レベルを増加
+    group: C-greek
+  C-alpha-2:
+    name: 武力解放
+    level: 80
+    role: branch
+    parent: C-alpha-1
+    icon: DIAMOND
+    cost: 1
+    effect-text: 以下のいずれかのレベルを+1：- ダメージ増加系 - ダメージ軽減系
+    effects:
+      - "以下のいずれかのレベルを+1: ダメージ増加系 / ダメージ軽減系"
+    dedicated-effects:
+      - id: overenchant:alpha-2
+    description: ダメージ増加系エンチャントの上限レベルを+1
+    group: C-greek
+  C-beta-2:
+    name: 防力解放
+    level: 80
+    role: branch
+    parent: C-beta-1
+    icon: DIAMOND
+    cost: 1
+    effect-text: 以下のいずれかのレベルを+1：- ダメージ増加系 - ダメージ軽減系
+    effects:
+      - "以下のいずれかのレベルを+1: ダメージ増加系 / ダメージ軽減系"
+    dedicated-effects:
+      - id: overenchant:beta-2
+    description: ダメージ軽減系エンチャントの上限レベルを+1
+    group: C-greek
+  C-gamma-2:
+    name: 知力解放
+    level: 80
+    role: branch
+    parent: C-gamma-1
+    icon: DIAMOND
+    cost: 1
+    effect-text: 以下のいずれかのレベルを+1：- ダメージ増加系 - ダメージ軽減系
+    effects:
+      - "以下のいずれかのレベルを+1: ダメージ増加系 / ダメージ軽減系"
+    dedicated-effects:
+      - id: overenchant:gamma-2
+    description: 便利系エンチャントの上限レベルを増加
+    group: C-greek

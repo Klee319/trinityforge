@@ -2,86 +2,95 @@
 # Perk tree runtime SoT is skilltree/<skill>.yml (this file: curves + EXP producer rates).
 # Source: vendored from ValhallaMMO jar defaults; edit curves via ConfigEditor skill-exp screen.
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skills/base/enchanting_progression.md
+
 experience:
-  exp_level_curve: '(%level% + 75 * 2^(%level%/7.6)) + 300'
+  exp_level_curve: (%level% + 75 * 2^(%level%/7.6)) + 300
   max_level: 100
-  legacy:
   exp_gain:
-    experience_spent_conversion: 0.5 # The fraction of spent experience during enchanting that's converted into additional enchanting skill experience
+    experience_spent_conversion: 0.5
     enchantment_base:
       power: 180
       efficiency: 180
-      piercing: 180
+      piercing: 150
       sharpness: 180
-      bane_of_arthropods: 300
-      smite: 300
-      quick_charge: 330
-      impaling: 360
-      protection: 200
-      feather_falling: 330
-      fire_protection: 330
-      projectile_protection: 330
-      blast_protection: 300
-      unbreaking: 350
-      loyalty: 350
-      sweeping: 450
-      sweeping_edge: 450
-      fortune: 450
-      looting: 450
-      riptide: 450
-      luck_of_the_sea: 450
-      lure: 450
-      respiration: 450
-      depth_strider: 450
-      thorns: 600
+      bane_of_arthropods: 150
+      smite: 150
+      quick_charge: 200
+      impaling: 200
+      protection: 250
+      feather_falling: 250
+      fire_protection: 200
+      projectile_protection: 200
+      blast_protection: 200
+      unbreaking: 250
+      loyalty: 250
+      sweeping_edge: 250
+      fortune: 250
+      looting: 250
+      riptide: 200
+      luck_of_the_sea: 250
+      lure: 250
+      respiration: 200
+      depth_strider: 200
+      thorns: 300
       soul_speed: 600
-      knockback: 350
-      punch: 550
-      fire_aspect: 550
-      frost_walker: 550
+      knockback: 300
+      punch: 300
+      fire_aspect: 300
+      frost_walker: 300
       mending: 750
-      multishot: 750
-      aqua_affinity: 750
-      flame: 750
-      silk_touch: 1000
-      infinity: 1000
-      channeling: 1000
-    enchantment_level_multiplier: # The original amount of EXP earned from the potion is further changed depending on what the player does after
-      1: 1.0 # Multiplier of the base exp if the enchantment level is just I
-      2: 2.2 # Multiplier of the base exp if the enchantment level is II
-      3: 3.4 # Multiplier of the base exp if the enchantment level is III
-      4: 4.6 # etc.
-      5: 5.8
-      6: 7.0
-      7: 8.2
-      8: 9.4
-      9: 10.6
-      10: 11.8
+      multishot: 300
+      aqua_affinity: 500
+      flame: 500
+      silk_touch: 500
+      infinity: 500
+      channeling: 500
+      density: 180
+      breach: 150
+      wind_burst: 300
+      swift_sneak: 600
+      binding_curse: 250
+      vanishing_curse: 250
+    enchantment_level_multiplier:
+      "1": 1
+      "2": 2.2
+      "3": 3.4
+      "4": 4.6
+      "5": 5.8
+      "6": 7
+      "7": 8.2
+      "8": 9.4
+      "9": 10.6
+      "10": 11.8
     enchantment_type_multiplier:
-      BOW: 1.0
-      CROSSBOW: 1.0
-      WOOD: 1.0
-      LEATHER: 1.0
-      STONE: 1.0
-      CHAINMAIL: 1.0
-      IRON: 1.0
-      GOLD: 1.0
-      DIAMOND: 1.0
-      NETHERITE: 1.0
-      PRISMARINE: 1.0
-      MEMBRANE: 1.0
+      BOW: 1
+      CROSSBOW: 1
+      WOOD: 1
+      LEATHER: 1
+      STONE: 1
+      CHAINMAIL: 1
+      IRON: 1
+      GOLD: 1
+      DIAMOND: 1
+      NETHERITE: 1
+      PRISMARINE: 1
+      MEMBRANE: 1
+      MACE: 1
+      TRIDENT: 1
+      SHEARS: 1
     enchantment_item_multiplier:
-      SWORD: 1.0
-      PICKAXE: 1.0
-      AXE: 1.0
-      SHOVEL: 1.0
-      HOE: 1.0
-      BOOTS: 1.0
-      LEGGINGS: 1.0
-      CHESTPLATE: 1.0
-      HELMET: 1.0
-      SHEARS: 1.0
-      TRIDENT: 1.0
-      CROSSBOW: 1.0
-      BOW: 1.0
-      FISHING_ROD: 1.0
+      SWORD: 1
+      PICKAXE: 1
+      AXE: 1
+      SHOVEL: 1
+      HOE: 1
+      BOOTS: 1
+      LEGGINGS: 1
+      CHESTPLATE: 1
+      HELMET: 1
+      SHEARS: 1
+      TRIDENT: 1
+      CROSSBOW: 1
+      BOW: 1
+      FISHING_ROD: 1
+      MACE: 1

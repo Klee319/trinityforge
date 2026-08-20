@@ -6,6 +6,7 @@ import com.trinityforge.config.domains.ItemGrant;
 import com.trinityforge.pdc.PlayerData;
 import com.trinityforge.skilltree.runtime.PerkAttributeApplier;
 import com.trinityforge.stats.CrossPluginItemResolver;
+import com.trinityforge.text.MiniText;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -35,14 +36,17 @@ import java.util.logging.Logger;
  */
 public final class CollectionService {
 
-    private static final String ENTRY_PREFIX_ITEM = "item:";
-    private static final String ENTRY_PREFIX_MOB = "mob:";
+    // public: ランキング用の集計(RankingStatsService)がアイテム/モブを数え分けるのに同じ接頭辞を使う。
+    // 二重定義すると片方だけ変えたときに集計が黙ってゼロになるので、定義はここ1箇所だけに置く。
+    public static final String ENTRY_PREFIX_ITEM = "item:";
+    public static final String ENTRY_PREFIX_MOB = "mob:";
 
     private final CollectionConfig config;
     private final Logger log;
     private final CrossPluginItemResolver itemResolver;
     private final NativeExperienceDispatcher experienceDispatcher;
     private final PerkAttributeApplier perkAttributeApplier;
+    private final CollectionEntryNames entryNames;
 
     public CollectionService(CollectionConfig config, Logger log) {
         this(config, log, null, null);
@@ -78,6 +82,28 @@ public final class CollectionService {
         this.itemResolver = itemResolver;
         this.experienceDispatcher = experienceDispatcher;
         this.perkAttributeApplier = perkAttributeApplier;
+        this.entryNames = new CollectionEntryNames(itemResolver);
+    }
+
+    /**
+     * 図鑑エントリの表示名 (2026-07-27)。{@code display-names.*} の明示上書きが最優先で、
+     * 無ければアイテムの display-name / モブの翻訳キーへ落ちる。どちらも解決できないときだけ
+     * 生ID({@link #displayOf(String)} と同じ文字列)になる。
+     */
+    public Component displayComponent(String entryId) {
+        if (entryId == null || entryId.isBlank()) {
+            return Component.empty();
+        }
+        String override = null;
+        if (entryId.startsWith(ENTRY_PREFIX_ITEM)) {
+            override = config.itemDisplayNames().get(entryId.substring(ENTRY_PREFIX_ITEM.length()));
+        } else if (entryId.startsWith(ENTRY_PREFIX_MOB)) {
+            override = config.mobDisplayNames().get(entryId.substring(ENTRY_PREFIX_MOB.length()));
+        }
+        if (override != null && !override.isBlank()) {
+            return Component.text(override);
+        }
+        return entryNames.display(entryId);
     }
 
     public static String itemEntryId(String catalogId) {
@@ -90,19 +116,36 @@ public final class CollectionService {
 
     /** Returns collection progress for an achievement trigger: {@code [owned, total]}. */
     public int[] progress(Player player, String scope, String target) {
+        return progress(player, scope, target == null || target.isBlank() ? List.of() : List.of(target));
+    }
+
+    /**
+     * 複数ターゲット版 (2026-07-27): 候補集合は列挙した各ターゲットの<b>和</b>。
+     * {@code scope=item/mob} なら「列挙したアイテム/モブのうち何種類を登録済みか」、
+     * {@code scope=category} なら「列挙したカテゴリの全エントリのうち何種類か」になる。
+     * これにより「アイテムA・B・Cが全部そろったら達成」を1つのアチーブメントで書ける。
+     */
+    public int[] progress(Player player, String scope, List<String> targets) {
         String normalizedScope = scope == null ? "all" : scope;
+        List<String> normalizedTargets = targets == null ? List.of() : targets;
         Set<String> candidates = new LinkedHashSet<>();
-        if (normalizedScope.equals("item")) candidates.add(itemEntryId(target));
-        else if (normalizedScope.equals("mob")) candidates.add(mobEntryId(target));
-        else if (normalizedScope.equals("category")) {
+        if (normalizedScope.equals("item")) {
+            normalizedTargets.forEach(target -> addItemCandidate(candidates, target));
+        } else if (normalizedScope.equals("mob")) {
+            normalizedTargets.forEach(target -> candidates.add(mobEntryId(target)));
+        } else if (normalizedScope.equals("category")) {
             for (CollectionConfig.Category category : config.itemCategories()) {
-                if (category.id().equals(target)) category.entries().forEach(id -> candidates.add(itemEntryId(id)));
+                if (normalizedTargets.contains(category.id())) {
+                    category.entries().forEach(id -> addItemCandidate(candidates, id));
+                }
             }
             for (CollectionConfig.Category category : config.mobCategories()) {
-                if (category.id().equals(target)) category.entries().forEach(id -> candidates.add(mobEntryId(id)));
+                if (normalizedTargets.contains(category.id())) {
+                    category.entries().forEach(id -> candidates.add(mobEntryId(id)));
+                }
             }
         } else {
-            for (CollectionConfig.Category category : config.itemCategories()) category.entries().forEach(id -> candidates.add(itemEntryId(id)));
+            for (CollectionConfig.Category category : config.itemCategories()) category.entries().forEach(id -> addItemCandidate(candidates, id));
             for (CollectionConfig.Category category : config.mobCategories()) category.entries().forEach(id -> candidates.add(mobEntryId(id)));
         }
         Set<String> owned = new LinkedHashSet<>();
@@ -112,6 +155,27 @@ public final class CollectionService {
         }
         int count = (int) candidates.stream().filter(owned::contains).count();
         return new int[]{count, candidates.size()};
+    }
+
+    /**
+     * 図鑑の母数(候補集合)へ item エントリを足す。{@code draft: true}(準備中)のカタログIDは除外する
+     * ── 敵対的レビュー指摘4(2026-08-02)。
+     *
+     * <p>{@code collection.yml} の {@code categories.items} は draft ID を含んだまま(消してはいけない
+     * ── editor 内での参照はユーザー意図どおりの正常状態)なので、母数計算のこちら側で落とす必要がある。
+     * draft は {@code ItemCatalogConfig#load} が配布経路そのものから外しているため、対象アイテムは
+     * <b>プレイヤーが理論上も入手不可能</b>。分母に残したままだと {@code scope: all}/{@code category}
+     * の図鑑進捗が永久に100%へ到達しない(2026-08-02時点の出荷 collection.yml で abyss_* 13件 +
+     * binder_* 17件 = 30件が該当)。
+     *
+     * <p>{@link #itemResolver} が未注入(2引数コンストラクタを使う既存テスト等)の場合は draft 判定が
+     * できないため、従来どおり無条件で候補に含める(fail-open、既存呼び出し側の挙動を変えない)。
+     */
+    private void addItemCandidate(Set<String> candidates, String itemId) {
+        if (itemResolver != null && itemResolver.isDraft(itemId)) {
+            return;
+        }
+        candidates.add(itemEntryId(itemId));
     }
 
     /**
@@ -140,6 +204,21 @@ public final class CollectionService {
      * @return 新規登録されたエントリ数(品質pt更新のみのエントリは含まない)
      */
     public int record(Player player, Map<String, Integer> entryIdsWithQuality) {
+        return record(player, entryIdsWithQuality, true);
+    }
+
+    /**
+     * @param announce {@code false} = <b>遡り登録</b>(バグ修正やconfig追加で「既に持っていた物」が
+     *                 後から一斉に記録可能になる場合)。1件ごとの「図鑑に登録」チャットと、
+     *                 到達した報酬ティアの<b>サーバー全体ブロードキャスト</b>を抑止する。
+     *                 報酬そのもの(称号/アイテム/EXP/コマンド)は通常どおり付与し、ティア解放は
+     *                 プレイヤー本人にだけ知らせる — 付与されたのに何も表示されないと、
+     *                 称号が増えた理由が分からなくなるため。
+     *                 <p>2026-07-31 (K-11): 素のバニラ品が1件も記録されていなかった不具合を直した
+     *                 結果、既存プレイヤーの参加時に最大16件が一括登録され、t3(60)/t4(120)/t5(200)
+     *                 を跨いだ人数分の全体告知が連続発火する。これが事故に見えるため入れた口。
+     */
+    public int record(Player player, Map<String, Integer> entryIdsWithQuality, boolean announce) {
         if (!config.enabled() || entryIdsWithQuality.isEmpty()) {
             return 0;
         }
@@ -174,11 +253,13 @@ public final class CollectionService {
             return 0;
         }
         data.setCollectionEntries(known.values().stream().map(CollectionRecord::encode).toList());
-        for (String id : newlyAdded) {
-            player.sendMessage(Component.text("図鑑に登録: ", NamedTextColor.AQUA)
-                    .append(Component.text(displayOf(id), NamedTextColor.WHITE)));
+        if (announce) {
+            for (String id : newlyAdded) {
+                player.sendMessage(Component.text("図鑑に登録: ", NamedTextColor.AQUA)
+                        .append(displayComponent(id).colorIfAbsent(NamedTextColor.WHITE)));
+            }
         }
-        grantPendingTiers(player, data, known.size());
+        grantPendingTiers(player, data, known.size(), announce);
         return newlyAdded.size();
     }
 
@@ -191,7 +272,7 @@ public final class CollectionService {
             return;
         }
         PlayerData data = PlayerData.of(player);
-        grantPendingTiers(player, data, data.collectionEntries().size());
+        grantPendingTiers(player, data, data.collectionEntries().size(), true);
     }
 
     /**
@@ -202,7 +283,7 @@ public final class CollectionService {
      * クラッシュ窓で「一度きり報酬(称号/コマンド等)が失われる」設計方針自体はAchievementServiceと
      * 同様に踏襲する(permanent-buffsは達成/解放フラグからの都度再計算なので影響を受けない)。
      */
-    private void grantPendingTiers(Player player, PlayerData data, int entryCount) {
+    private void grantPendingTiers(Player player, PlayerData data, int entryCount, boolean broadcastAllowed) {
         List<String> claimed = new ArrayList<>(data.claimedCollectionTiers());
         boolean anyChanged = false;
         for (CollectionConfig.RewardTier tier : config.tiers()) {
@@ -212,7 +293,7 @@ public final class CollectionService {
             claimed.add(tier.id());
             data.setClaimedCollectionTiers(claimed);
             anyChanged = true;
-            announce(player, tier);
+            announce(player, tier, broadcastAllowed);
             runCommands(player, tier);
             for (String specialId : tier.special()) {
                 data.grantSpecialReward(specialId);
@@ -242,12 +323,19 @@ public final class CollectionService {
         return out;
     }
 
-    private void announce(Player player, CollectionConfig.RewardTier tier) {
+    /**
+     * @param broadcastAllowed false のときは {@code tier.broadcast()} が true でも本人通知に落とす
+     *                         (遡り登録。{@link #record(Player, Map, boolean)} の javadoc 参照)
+     */
+    private void announce(Player player, CollectionConfig.RewardTier tier, boolean broadcastAllowed) {
+        // title は collection.yml 由来で MiniMessage 記法を持つ(出荷値に <aqua>記録者</aqua> 等)。
+        // Component.text() に渡すとタグがそのまま見えるので必ず MiniText で描画する
+        // (AchievementService#grantRewards が同じ形。表示名系の描画は全部ここに揃える)。
         Component message = Component.text("コレクション報酬解放: ", NamedTextColor.GOLD)
-                .append(Component.text(tier.title() != null ? tier.title() : tier.id(),
+                .append(MiniText.render(tier.title() != null ? tier.title() : tier.id(),
                         NamedTextColor.YELLOW))
                 .append(Component.text(" (図鑑 " + tier.threshold() + " 種到達)", NamedTextColor.GRAY));
-        if (tier.broadcast()) {
+        if (tier.broadcast() && broadcastAllowed) {
             Bukkit.getServer().sendMessage(Component.text(player.getName() + " が", NamedTextColor.GOLD)
                     .append(message));
         } else {

@@ -24,29 +24,47 @@
   // 2026-07-25 修正2: base-stats.yml に書いても効果が無い(no-op)キーを画面から除外する。
   // 根拠(Java側裏取り): base-stats.yml の値は PlayerStatAggregator の item マップ
   // (属性チャネルなら PerkAttributeApplier)にしか入らず、PerkBuffResolver.general() には一切入らない。
-  // 以下の7キーは general() 経由でしか読まれないため、base-stats に書いても完全な no-op になる:
+  // 以下のキーは general() 経由でしか読まれないため、base-stats に書いても完全な no-op になる:
   //  - glyph-slot-bonus:
   //    TrinityForge/src/main/java/com/trinityforge/integration/ars/ArsNativeBridge.java:65
   //    (perkBuffResolver.buffsFor(playerId).general().getOrDefault(GLYPH_SLOT_BONUS, 0.0))
-  //  - heavy-armor-move-speed-per-piece / heavy-armor-set-bonus-multiplier /
-  //    heavy-armor-set-knockback-resistance / light-armor-move-speed-per-piece /
-  //    light-armor-set-bonus-multiplier / light-armor-set-dodge-chance:
-  //    TrinityForge/src/main/java/com/trinityforge/skilltree/runtime/NativeAttributeBridge.java:49
-  //    (Map<String, Double> general = perkBuffs.buffsFor(id).general(); armorAttributesFor() 全体が
-  //    この general マップからしか読まない)。加えて防具セット系6キーは装備2枚未満で0になる
-  //    (装備枚数依存)ため、プレイヤー基礎ステとしての意味も持たない。
+  // (2026-08-13 訂正: armor-set-bonus は上記の no-op 群から外れた。かつて
+  //  「NativeAttributeBridge#armorAttributesFor() は perkBuffs.general() からしか読まず、
+  //  base-stats.yml は一切合流しない」と書いていたが、これは 2026-08-13 の配線変更で誤りになった。
+  //  現在は armorAttributesFor() が PlayerStatAggregator#nonPerkStatTotal(player, "armor_set_bonus")
+  //  も注入するため、combat/base-stats.yml・装備の item-stats・役職バフ・永続バフ由来の
+  //  armor-set-bonus も増幅率に合流する。よって base-stats.yml から編集できる必要があり、
+  //  この画面から除外してはいけない。
+  //  TrinityForge/src/main/java/com/trinityforge/skilltree/runtime/NativeAttributeBridge.java
+  //  (armorAttributesFor() 内 nonPerkStatTotal(player, "armor_set_bonus") 呼び出し箇所)
   // (2026-07-27: 以前ここに「charged-shot-unlocked だけは例外」と書いていたが、当のキーが
   //  挙動ゼロの同語反復フラグと判明したため語彙ごと撤去した。この画面にフラグ系のステは無い。)
   // 将来キーを追加する際は、Java側で `.general()` 経由でしか読まれないことを確認してからここに足すこと
   // (`agg.totalOf(...)` / PlayerStatAggregator 経由で読まれるキーはここに入れてはいけない)。
+  //
+  // 2026-07-27 注記: このSetには理由が異なる2種類のキーが混在する(定数名はリネームしない —
+  // 参照箇所が増えて差分が膨らむため。この注記で代替する)。
+  //  (a) no-op系(上記1キー): base-stats.yml に書いても Java側が読まない完全な死に設定。
+  //  (b) そもそもプレイヤー総合ステでない系: tool-enchant-efficiency は「プレイヤー基礎ステータス」
+  //      (全員一律加算の総合ステ)ではなく、クラフト時にツール自身へエンチャントとして刻まれる
+  //      アイテム専用ステ(item-stats.yml 側の対象)。base-stats.yml へ書いても no-op という意味では
+  //      (a)と同じ結果になるが、原因は「対象外の画面に出ている」であって「読み出し経路が違う」では
+  //      ない。lore.yml からも2026-07-26に削除済み(gathering-efficiency へ統合、StatKeysのエイリアス
+  //      で読み替えられる)ため、この画面(基礎/上限どちらのタブ)から除外する。
   const NO_OP_BASE_STATS_KEYS = new Set([
     "glyph-slot-bonus",
-    "heavy-armor-move-speed-per-piece",
-    "heavy-armor-set-bonus-multiplier",
-    "heavy-armor-set-knockback-resistance",
-    "light-armor-move-speed-per-piece",
-    "light-armor-set-bonus-multiplier",
-    "light-armor-set-dodge-chance"
+    "tool-enchant-efficiency",
+    // 2026-07-29(重複ステ間引き) 理由(c): 同じ画面の別キーと完全に同じ意味になるキー。
+    // mana-bonus は「マナ上限への加算」、mana-regen は「マナ回復量への加算」で、
+    // 全員一律値としては基礎値へ足されるだけだったため、この画面からは外している。
+    // アイテム/パークステとしては引き続き有効なので語彙(StatVocabulary)からは消さない。
+    // 既存値は保存でロスレスに温存される。
+    // 2026-08-16 追記: 加算先の基礎値だった mana-max-base / mana-regen-base は
+    // base-stats.yml から撤去され、真源は ArsPaper の config.yml の
+    // mana.default-max / mana.default-regen-rate へ戻った(編集は「ArsPaper 全体設定 (config)」画面)。
+    // この Set の中身は変えない(test/tf-base-stats-form.test.js が2キーで固定している)。
+    "mana-bonus",
+    "mana-regen"
   ]);
 
   function statLabel(key) {
@@ -109,7 +127,7 @@
   }
 
   // lore 表示の全ステキー (STAT_LIST 優先, フォールバック補完, 非表示ステ除外)。forms.js statList と同趣旨。
-  // 修正2: base-stats.yml では no-op な7キー (NO_OP_BASE_STATS_KEYS) もここで除外する。除外は表示のみで
+  // 修正2: base-stats.yml で no-op / 重複なキー (NO_OP_BASE_STATS_KEYS) もここで除外する。除外は表示のみで
   // working["base-stats"] マップ自体には触れない(既存値がある場合でも保存でロスレス温存される)。
   function allStatKeys() {
     const primary = (window.STAT_LIST && window.STAT_LIST.length) ? window.STAT_LIST : [];
@@ -167,7 +185,7 @@
       keys: [
         "attack-power", "crit-chance", "crit-damage", "flat-bonus-damage",
         "percent-bonus-damage", "penetration", "damage-modifier", "fixed-damage",
-        "bleed-chance", "bleed-damage"
+        "bleed-chance", "bleed-damage", "bleed-damage-rate"
       ]
     },
     {
@@ -177,7 +195,9 @@
     {
       title: "防御 (守備力/回避の暴走対策 - PlayerDefenseResolverが直接クランプ)",
       keys: [
-        "phys-resistance", "magic-resistance", "damage-reduction", "armor-defense-rate",
+        // 2026-08-15: 防具値(armor-defense-rate)を廃止し防御率(defense-rate)へ一本化した。
+        // 防御はすべてこの割合キーを通るので PlayerDefenseResolver のクランプが全経路に掛かる。
+        "phys-resistance", "magic-resistance", "damage-reduction", "defense-rate",
         "dodge-chance", "armor-strength", "phys-flat-defense", "magic-flat-defense"
       ]
     },
@@ -186,20 +206,34 @@
       keys: [
         "mining-fortune", "fishing-luck", "fishing-bonus", "gathering-efficiency",
         "fish-sell-price-bonus", "disassembly-return-bonus", "ocean-fishing-bonus",
-        "hunger-save-chance", "mob-drop-bonus", "skill-exp-bonus", "loot-luck",
+        "hunger-save-chance", "mob-drop-bonus", "skill-exp-bonus",
+        // 2026-08-05: 職業EXP増加(スキル別)を全スキル分そろえた(POWERを除く15スキル)。
+        "woodcutting-exp-bonus", "farming-exp-bonus", "digging-exp-bonus",
+        "mining-exp-bonus", "fishing-exp-bonus", "alchemy-exp-bonus", "enchanting-exp-bonus",
+        "smithing-exp-bonus", "ars-smithing-exp-bonus", "ars-magic-exp-bonus", "archery-exp-bonus",
+        "light-weapons-exp-bonus", "heavy-weapons-exp-bonus",
+        "light-armor-exp-bonus", "heavy-armor-exp-bonus", "loot-luck",
         "mob-drop-quality", "gacha-rate-bonus", "suspicious-respawn-chance",
         "hive-harvest-fortune", "food-save-chance", "workbench-quality-bonus",
-        "ritual-quality-bonus", "craft-upswing-bonus", "craft-downswing-reduction",
+        "ritual-quality-bonus",
+        // 2026-07-31: 旧 craft-upswing-bonus / craft-downswing-reduction を作業台/儀式の2組へ分割。
+        "workbench-upswing-bonus", "workbench-downswing-reduction",
+        "ritual-upswing-bonus", "ritual-downswing-reduction",
         "craft-roll-up-bonus", "craft-roll-down-reduction", "craft-roll-inset",
         "vanilla-exp-bonus", "kill-vanilla-exp-bonus", "break-vanilla-exp-bonus",
+        // 2026-08-15: 破壊時バニラEXPを採取スキル別へ分割(共通キーは採取全般として残す)。
+        "mining-break-vanilla-exp-bonus", "woodcutting-break-vanilla-exp-bonus",
+        "digging-break-vanilla-exp-bonus", "farming-break-vanilla-exp-bonus",
         "breeding-vanilla-exp-bonus", "woodcutting-extra-drop-chance",
         "harvest-extra-drop-chance", "food-restore-bonus", "hidden-saturation-bonus",
         "breeding-extra-child-chance", "bred-animal-growth-bonus",
         "planted-crop-growth-bonus", "mana-bonus", "mana-regen", "ars-tier-bonus",
         "glyph-slot-bonus", "hit-mana-recovery", "damage-mana-recovery",
         "mana-cost-reduction-flat", "mana-cost-reduction-percent",
-        "lapis-cost-reduction", "source-cost-reduction", "material-refund-chance",
-        "ingredient-save-chance", "enchant-luck", "enchant-exp-gain-bonus",
+        "source-cost-reduction", "material-refund-chance",
+        // 2026-08-14: enchant-exp-gain-bonus は廃止 (enchanting-exp-bonus へ統合)。
+        // 2026-08-14: lapis-cost-reduction も廃止 (ArsPaper の消費リスナーごと削除)。
+        "ingredient-save-chance", "enchant-luck",
         "potion-quality-bonus", "brew-speed-bonus", "enchant-cost-reduction",
         "glyph-damage-multiplier-bonus"
       ]
@@ -322,33 +356,26 @@
     return wrap;
   }
 
-  // gathering-efficiency-max-enchant-level (stat-caps.yml ルート直下、stat-caps: マップの外側)。
-  // 0以下 = 「無制限」を明示的に上書き。未設定 = stats/gathering-efficiency.yml (旧ファイル)の
-  // max-enchant-level が引き続き使われる(後方互換、Java側がそちらへフォールバックする)。
-  function bookshelfLikeIntControl(rootMap, key, opts) {
-    const present = Object.prototype.hasOwnProperty.call(rootMap, key);
-    const numInput = window.numberInput(present ? rootMap[key] : null, (v) => {
-      if (v == null || v === "") return;
-      rootMap[key] = Math.trunc(Number(v));
-    }, { int: true });
-    numInput.disabled = !present;
-    const checkbox = window.checkboxInput(present, (checked) => {
-      if (checked) {
-        if (!Object.prototype.hasOwnProperty.call(rootMap, key)) {
-          rootMap[key] = opts && opts.defaultValue != null ? opts.defaultValue : 0;
-        }
-        numInput.disabled = false;
-        numInput.value = String(rootMap[key]);
-      } else {
-        delete rootMap[key];
-        numInput.disabled = true;
-        numInput.value = "";
-      }
-    });
-    const wrap = h("span", { class: "stat-cap-control" });
-    wrap.appendChild(checkbox);
-    wrap.appendChild(numInput);
-    return wrap;
+  // 2026-08-05: gathering-efficiency-max-enchant-level 行の削除に伴い bookshelfLikeIntControl
+  // (ルート直下の整数キーを「チェックで有無を切り替える」コントロール)も撤去した。
+  // 唯一の利用箇所がその行で、他に使う予定が無いため残さない。
+
+  // 2026-07-27: 「上限」タブの見出しを、手書きの STAT_CAPS_SECTIONS (クランプ機構の出典別)
+  // から「基礎」タブと同じ lore カテゴリ (categoryOf/CATEGORY_ORDER/CATEGORY_LABEL) 別へ変更。
+  // 表示するキー集合(= statCapsAllKeys()。実際にクランプが効くキーの許可リスト)は一切変えず、
+  // 並べ方だけを変える。STAT_CAPS_SECTIONS 自体は「キー許可リスト + クランプ機構の出典」として
+  // 削除せず残す(他から参照されている可能性があるため module.exports からも外さない)。
+  //
+  // クランプ機構の情報(旧見出し「totalOf経由」「CombatListenerが直接クランプ」等)は
+  // カテゴリ別グルーピングに変えると見出しから消えてしまう実装上重要な情報なので、
+  // 各行のラベルの title 属性(ホバー)として残す。バッジ案(行に新規DOM要素を追加)も検討したが、
+  // .stat-row は既存2列固定レイアウト(ラベル+値コントロール)で、バッジを増やすと基礎タブと
+  // 構造が乖離し .stat-row 系CSSの共有が崩れる。title 属性なら既存の「ラベルに title を持たせる」
+  // 慣習(statLabel の隣に生キーIDを title で出す既存パターン、例: renderBaseTabBody)をそのまま
+  // 踏襲でき、見た目・レイアウトへの影響がゼロなのでこちらを採用する。
+  const STAT_CAPS_SOURCE_BY_KEY = {};
+  for (const sec of STAT_CAPS_SECTIONS) {
+    for (const k of sec.keys) STAT_CAPS_SOURCE_BY_KEY[k] = sec.title;
   }
 
   function buildStatCapsTabBody(statCapsWorking) {
@@ -369,14 +396,32 @@
       + "(バニラAttributeチャネル直結の move-speed / attack-speed-bonus / attack-reach / "
       + "knockback-resistance / max-health、アイテム個別ステ、*-cooldown-reduction系は"
       + "Java側の仕様上クランプが効かないため、意図的に出していません)。" }));
+    body.appendChild(h("div", { class: "field-desc", text:
+      "見出しは「基礎ステータス」タブと同じカテゴリ分類です。各行のラベルにカーソルを合わせると、"
+      + "そのキーの上限がどこで効くか(totalOf経由/CombatListenerが直接クランプ 等)を確認できます。" }));
 
-    for (const sec of STAT_CAPS_SECTIONS) {
+    const keys = statCapsAllKeys();
+    const byCat = {};
+    for (const k of keys) {
+      const c = categoryOf(k);
+      (byCat[c] = byCat[c] || []).push(k);
+    }
+    for (const c of Object.keys(byCat)) {
+      byCat[c].sort((a, b) => orderOf(a) - orderOf(b) || (a < b ? -1 : 1));
+    }
+    const cats = CATEGORY_ORDER.filter((c) => byCat[c] && byCat[c].length);
+    // CATEGORY_ORDER に無い未知カテゴリも末尾に拾う(renderBaseTabBody と同じ取りこぼし防止)。
+    for (const c of Object.keys(byCat)) if (!cats.includes(c)) cats.push(c);
+
+    for (const c of cats) {
       const section = h("div", { class: "mob-defense-block" });
-      section.appendChild(h("div", { class: "sub-title", text: sec.title }));
+      section.appendChild(h("div", { class: "sub-title", text: CATEGORY_LABEL[c] || c }));
       const rows = h("div", { class: "stat-rows" });
-      for (const k of sec.keys) {
+      for (const k of byCat[c]) {
+        const source = STAT_CAPS_SOURCE_BY_KEY[k];
+        const labelTitle = source ? k + " — クランプ機構: " + source : k;
         rows.appendChild(h("div", { class: "stat-row" }, [
-          h("span", { class: "stat-row-label", text: statLabel(k), title: k }),
+          h("span", { class: "stat-row-label", text: statLabel(k), title: labelTitle }),
           capValueControl(k, capsMap)
         ]));
       }
@@ -384,22 +429,11 @@
       body.appendChild(section);
     }
 
-    // T2 (2026-07-26): 「最終効率の上限 (gathering-efficiency)」独立カテゴリを畳んでここへ統合。
-    const bookshelfSection = h("div", { class: "mob-defense-block" });
-    bookshelfSection.appendChild(h("div", { class: "sub-title", text: "最終効率 → 効率強化エンチャントの上限" }));
-    const bsRows = h("div", { class: "stat-rows" });
-    bsRows.appendChild(h("div", { class: "stat-row" }, [
-      h("span", { class: "stat-row-label", text: "効率強化エンチャントの上限レベル", title: "gathering-efficiency-max-enchant-level" }),
-      bookshelfLikeIntControl(statCapsWorking, "gathering-efficiency-max-enchant-level", { defaultValue: 0 })
-    ]));
-    bookshelfSection.appendChild(bsRows);
-    bookshelfSection.appendChild(h("div", { class: "field-hint", text:
-      "gathering-efficiency(最終効率)ステを、メインハンドの道具へ実行時に「効率強化」エンチャントの"
-      + "レベルとして反映する際の上限です。旧設定 stats/gathering-efficiency.yml の max-enchant-level を"
-      + "統合したもので、こちらにチェックを入れて値を保存すると旧ファイルより優先されます"
-      + "(旧ファイルは後方互換のため残り続け、ここが未設定の間はそちらの値が使われます)。"
-      + "0以下 = 無制限。内部ハード上限255は常に超えません。" }));
-    body.appendChild(bookshelfSection);
+    // 2026-08-05 ユーザー決定: 「採集効率 → 効率強化エンチャントの上限」ブロックを削除した。
+    // T2 (2026-07-26) でここへ統合した gathering-efficiency-max-enchant-level は
+    // stats/gathering-efficiency.yml の max-enchant-level と二重管理になっており、
+    // 「設定が2箇所あって優先順位が要る」状態そのものが不要だったため。
+    // Java 側の上書きブリッジ(StatCapsConfig)も同日撤去済みで、上限は旧ファイル一本。
 
     return body;
   }

@@ -13,6 +13,7 @@
   --danger: #e0574a;
   --radius: 8px;
   --scrollbar-size: 8px;
+  --main-pad-top: 18px;
   --scrollbar-track: transparent;
   --scrollbar-thumb: #3a4250;
   --scrollbar-thumb-hover: #526074;
@@ -27,6 +28,10 @@
 body {
   margin: 0; background: var(--bg); color: var(--text); font-size: 14px;
   display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+  /* R (2026-08-04): モバイルブラウザの 100vh はアドレスバーを含む固定値なので、バーが出ている間
+     ビューポート下端が画面外に出て .main の最下部(保存ボタン等)へ永久に届かなくなる。dvh は
+     実際の可視高に追従する。未対応ブラウザは上の 100vh をそのまま使う(宣言順のフォールバック)。 */
+  height: 100dvh;
 }
 
 /* ダークテーマ向けスクロールバー（白長方形のOS既定を避ける） */
@@ -133,7 +138,9 @@ body {
    min-width:0 対応で無くす方向を優先し、ここは保険として hidden にする)。 */
 .main {
   min-width: 0; min-height: 0;
-  padding: 18px 24px;
+  /* 上端パディングは .hub-subtabs のスクロール追従が参照するので変数で共有する
+     (直値で二重に持つと片方だけ変えたときにカテゴリバーの上に隙間ができる) */
+  padding: var(--main-pad-top) 24px 18px;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
@@ -189,9 +196,15 @@ select.field-input option {
 
 /* dedicated forms */
 .dedicated-form { display: flex; flex-direction: column; gap: 12px; }
+/* 使用制限スイッチ画面に差し込む AFK サブフォーム。素の div のままだと中の entry-card が
+   隙間なく積み上がってカード同士がつながって見えるため、.dedicated-form と同じ間隔にする。 */
+.afk-section { display: flex; flex-direction: column; gap: 12px; }
 /* エントリカードを縦に並べる汎用コンテナ。カード同士が密着しないよう間隔を確保する
-   (item-catalog / skilltree / materials 等の一覧が対象。要件: カード間の余白)。 */
-.card-list, .nodes-container { display: flex; flex-direction: column; gap: 12px; }
+   (item-catalog / skilltree / materials 等の一覧が対象。要件: カード間の余白)。
+   2026-07-27 タスク2: .card-list-body は8箇所(tf-lifestyle-forms.js の村人取引/ダンジョン系フォーム等)
+   で使われているのにCSS未定義だったため、この汎用コンテナと同じ間隔で描画されていなかった
+   (根本原因: クラス名の綴り違いでルールが一つも当たっていなかった)。同じ役割なのでここへ統合する。 */
+.card-list, .nodes-container, .card-list-body { display: flex; flex-direction: column; gap: 12px; }
 .glyphs-form .glyphs-card-list,
 .glyphs-form.card-list { display: flex; flex-direction: column; gap: 14px; }
 .glyphs-form .entry-card { margin: 0; }
@@ -242,8 +255,29 @@ select.field-input option {
   background: var(--bg);
   padding-top: 2px;
 }
+/* 2026-07-27 修正: 追従中のバーが本体から離れて見えるUI崩れ。
+   .main の上端パディング(--main-pad-top)はスクロール領域の内側なので、
+   スクロール中のカードがその帯に描画され「固定されたバーの上」に覗いていた。
+   バーの背景をその帯まで上へ伸ばして覆う。
+   ※ margin-top を負にする手は効かない(sticky の固定位置は変わらず、
+     静止時の位置だけがずれる)ので、擬似要素で塗る。 */
+.hub-subtabs::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: var(--main-pad-top);
+  background: var(--bg);
+  pointer-events: none;
+}
 .hub-subtabs.hub-subtabs-flow {
   position: static;
+}
+/* 追従しない版(カタログ/アイテムステータス)は帯を覆う必要がない。
+   position:static だと ::before の基準が先祖になり、無関係な位置に帯が出る。 */
+.hub-subtabs.hub-subtabs-flow::before {
+  content: none;
 }
 /* 折りたたみトグル (▶/▼)。ヘッダ左端に小さく配置する。 */
 .collapse-toggle { flex: none; min-width: 26px; padding: 3px 6px; }
@@ -287,7 +321,18 @@ select.field-input option {
   color: var(--muted);
 }
 .editor-tab-select:disabled { opacity: 0.55; cursor: not-allowed; }
-.entry-key-label { font-size: 11px; color: var(--muted); text-transform: uppercase; }
+.entry-key-label { font-size: 11px; color: var(--muted); }
+/* 折りたたみカードのヘッダに出す要約 (畳んだままでも中身の見当がつくように)。 */
+.entry-summary {
+  font-size: 11px;
+  color: var(--muted);
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+}
 /* 変更不可のキー(EliteMobs同梱ダンジョン/モブのid)。入力欄に見えないよう code 表示にする。 */
 .entry-key-fixed {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -302,7 +347,8 @@ select.field-input option {
 
 .form-field { display: flex; align-items: center; gap: 10px; }
 /* label 全体クリックで select が開かないよう、制御は入力部品のみに限定する。
-   ? ヘルプだけはホバーで title を出せるよう pointer-events を戻す。 */
+   ? ヘルプはホバー/クリック/フォーカスで独自ツールチップ(.help-tooltip)を開くので、
+   そこだけ pointer-events を戻す(2026-07-27 に title 属性方式から移行済み)。 */
 .form-field > .form-label { pointer-events: none; }
 .form-field > .form-label .help-icon { pointer-events: auto; }
 .form-field > select.field-input,
@@ -334,7 +380,11 @@ select.field-input option {
 /* ボタン/追加セレクトの並び。gap無しで密着しないよう統一する */
 .form-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 /* ラベル幅は form-field と共通の190pxに統一する (縦ライン揃え)。 */
-.field-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 8px 16px; }
+/* R (2026-08-04): minmax の下限を直値 340px にすると、トラック幅がそれを下回る狭い画面で
+   グリッド自身が 340px を主張して親からあふれる(auto-fill は下限を守るため列を潰せない)。
+   min(340px, 100%) にすると「広い時は340px下限・狭い時は親幅」に自動で切り替わり、
+   1列に落ちてあふれが消える。以下の auto-fill/auto-fit グリッドすべて同じ理由。 */
+.field-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 8px 16px; }
 .field-grid .form-field { justify-content: flex-start; }
 .field-grid .form-label { width: 190px; }
 /* A-3 (2026-07-25): ラベル(190px固定)+セレクト/素材サジェスト(260/280px固定)の合計が
@@ -349,6 +399,10 @@ select.field-input option {
 
 .sub-section { border-top: 1px solid var(--border); padding-top: 8px; }
 .sub-title { font-size: 12px; font-weight: 700; color: var(--accent); margin: 6px 0; }
+/* 見出し + 「?」ヘルプ (util.js window.subTitleEl)。説明は独自ツールチップへ回すので
+   `.sub-title` へ title 属性は書かない (書くとブラウザ標準ツールチップが二重に出る)。 */
+.sub-title { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.sub-title > .sub-title-text { color: inherit; }
 .stat-rows, .lore-rows { display: flex; flex-direction: column; gap: 6px; }
 .stat-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 /* プレイヤー基礎ステ画面: 固定ラベル + 値入力を揃える。 */
@@ -375,13 +429,20 @@ select.field-input option {
 .threshold-box { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; margin: 6px 0; background: var(--bg); }
 .stat-rows.indented { margin-left: 16px; padding-left: 8px; border-left: 2px solid var(--border); }
 .inline-check { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted, #888); }
-/* listSelect / material-suggest: トリガー幅は固定寄り。開閉で行高さが変わらない */
+/* listSelect / material-suggest: トリガー幅は固定寄り。開閉で行高さが変わらない。
+   2026-07-29: flex-basis を px で直接指定していたため、縦積みの flex コンテナ
+   (.stat-rows は flex-direction:column) に直接置かれたセレクトでは basis が「高さ」として
+   効き、37px のトリガーの周りに 240〜280px の空白ができていた
+   (「＋ 敵種類を追加…」等の追加セレクトが該当)。basis は auto にして幅は width で与える —
+   横並びの行では width が使用 basis になるので見た目は従来どおりで、縦積みでは
+   高さが内容なりになる。 */
 .stat-select,
 .list-select {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  flex: 0 1 240px;
+  flex: 0 1 auto;
+  width: 240px;
   min-width: 180px;
   max-width: 100%;
   position: relative;
@@ -458,11 +519,13 @@ select.field-input option {
 .material-select { flex: 1 1 260px; min-width: 200px; }
 .material-select > select { max-width: 100%; }
 
-/* Material 部分一致サジェスト (モダンなコンボボックス) */
+/* Material / アイテム参照セレクト (listSelect ベース)。
+   flex-basis を px にしない理由は .list-select の注記と同じ (縦積みで高さに化ける)。 */
 .material-suggest {
   position: relative;
   display: inline-flex;
-  flex: 1 1 280px;
+  flex: 1 1 auto;
+  width: 280px;
   min-width: 220px;
   max-width: 100%;
   vertical-align: top;
@@ -488,6 +551,22 @@ select.field-input option {
   border-radius: 10px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
   color: var(--text);
+  box-sizing: border-box;
+}
+/* listSelect のドロップダウン先頭に常設する絞り込み欄。スクロールしても隠れないよう sticky。 */
+.list-select-filter-row {
+  position: sticky;
+  top: -6px;
+  z-index: 1;
+  margin: -6px -6px 4px;
+  padding: 6px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+  list-style: none;
+}
+.list-select-filter {
+  width: 100%;
+  min-width: 0;
   box-sizing: border-box;
 }
 .material-suggest-item {
@@ -612,6 +691,28 @@ select.field-input option {
 /* レシピゲート行内のワイルドカード一括追加パターン入力。行内の他入力と高さを揃えつつ幅は控えめに。 */
 .skilltree-form .stat-row > .gate-bulk-pattern { flex: 0 1 150px; min-width: 0; }
 
+/* ワイルドカード一括追加モーダル (2026-07-27)。追加前に一致結果を確認・取捨選択する。 */
+.gate-bulk-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gate-bulk-controls .gate-bulk-pattern { flex: 1 1 200px; min-width: 0; }
+.gate-bulk-summary { font-size: 12px; color: var(--muted); }
+.gate-bulk-list {
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 280px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 6px;
+  background: var(--panel-2);
+}
+.gate-bulk-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 6px; border-radius: 4px; font-size: 12px; cursor: pointer;
+}
+.gate-bulk-row:hover { background: var(--panel); }
+.gate-bulk-row.is-existing { color: var(--muted); cursor: default; }
+.gate-bulk-id { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gate-bulk-tag {
+  font-size: 11px; padding: 1px 7px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--muted); flex: 0 0 auto;
+}
+
 /* tf-skilltree: 読み取り専用ブロック (effect-text/effects/commands) とノード名見出し */
 .ro-block { border-top: 1px solid var(--border); padding-top: 8px; display: flex; flex-direction: column; gap: 4px; }
 .ro-row { color: var(--muted); font-size: 12px; line-height: 1.5; }
@@ -650,12 +751,17 @@ select.field-input option {
 .constants-view { display: flex; flex-direction: column; gap: 14px; }
 .const-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .const-card-title { font-size: 13px; font-weight: 700; color: var(--accent); padding: 9px 12px; background: var(--panel-2); border-bottom: 1px solid var(--border); }
-.const-body { padding: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px 18px; }
+.const-body { padding: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 12px 18px; }
 .const-field { display: flex; flex-direction: column; gap: 3px; }
 .const-field-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .const-label { font-size: 13px; color: var(--text); }
 .const-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
 .kv-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; grid-column: 1 / -1; }
+/* 「説明 → 既定値 → tier表」と縦に読ませるカード (精錬速度/精錬ボーナス等)。
+   const-body の2列グリッドのままだと小見出しや追加ボタンが入力の右隣へ回り込む。 */
+.const-body.fs-tier-body { display: flex; flex-direction: column; gap: 8px; }
+.const-body.fs-tier-body > .form-hint { margin: 0 0 2px; }
+.const-body.fs-tier-body > .sub-title { margin: 8px 0 0; }
 
 /* 火力シミュレータ */
 .sim-view { display: flex; flex-direction: column; gap: 12px; }
@@ -713,13 +819,46 @@ select.field-input option {
 .help-icon {
   display: inline-flex; align-items: center; justify-content: center;
   width: 15px; height: 15px; border-radius: 50%; border: 1px solid var(--border);
-  color: var(--muted); font-size: 10px; font-weight: 700; cursor: help; user-select: none;
+  color: var(--muted); font-size: 10px; font-weight: 700; cursor: pointer; user-select: none;
 }
-.help-icon:hover { color: var(--accent); border-color: var(--accent); }
+.help-icon:hover, .help-icon:focus-visible { color: var(--accent); border-color: var(--accent); }
+.help-icon:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* 「?」の独自ツールチップ (2026-07-27)。ブラウザ標準titleは折返し・書式を制御できないため自前実装。
+   ホバー/クリック/フォーカスいずれでも開く(util.js window.helpIcon)。 */
+.help-tooltip {
+  position: fixed; z-index: 2000;
+  max-width: 320px;
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  padding: 8px 10px;
+  font-size: 12px; line-height: 1.5;
+}
+.help-tooltip-key {
+  font-size: 10px; color: var(--muted); font-family: "Consolas", "Courier New", monospace;
+  background: #232a35; padding: 1px 5px; border-radius: 4px;
+  display: inline-block; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+.help-tooltip-line { color: var(--text); overflow-wrap: break-word; }
+.help-tooltip-line:empty { min-height: 0.6em; }
+/* 説明文中の MiniMessage タグ/プレースホルダー (<icon> <gray> 等)。地の文と同じ書式で流すと
+   「説明に HTML が漏れている」ようにしか見えないので、editor の「機械が読む文字列」規約
+   (.form-label-key / .help-tooltip-key / .locked-id と同じ等幅+チップ)へ揃える (2026-08-01)。 */
+.help-tooltip-tag {
+  font-family: "Consolas", "Courier New", monospace; font-size: 11px;
+  color: var(--accent); background: #232a35;
+  padding: 0 3px; border-radius: 3px; white-space: nowrap;
+}
 
 .input-with-hint { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .stat-hint, .mat-hint { font-size: 12px; color: var(--accent); white-space: nowrap; }
 .stat-hint:empty, .mat-hint:empty { display: none; }
+
+/* form-hint / field-desc: 19ファイル・56箇所で使われているのに定義が無く、地の文と同じ見た目
+   (白・通常サイズ)で描画されラベルと見分けが付かなかった (2026-07-27)。.form-banner / .empty-hint
+   と同じ補助テキストの流儀(font-size:12px / color:var(--muted) / line-height:1.5)に揃える。 */
+.form-hint, .field-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
 
 /* ---- 空状態ガイド ---- */
 .empty-hint { font-size: 12px; color: var(--muted); padding: 4px 2px 6px; }
@@ -775,7 +914,7 @@ select.field-input option {
 .home-basepath-key { font-weight: 600; min-width: 110px; }
 .home-basepath-path { color: var(--muted); font-size: 12px; font-family: "Consolas", "Courier New", monospace; word-break: break-all; flex: 1; min-width: 200px; }
 .home-basepath-hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
-.home-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.home-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 12px; }
 .home-card {
   text-align: left; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 14px 16px; cursor: pointer; color: var(--text); display: flex; flex-direction: column; gap: 6px;
@@ -974,6 +1113,10 @@ select.field-input option {
 .hub-tabs .recipe-tab { font-size: 15px; padding: 9px 18px; }
 .hub-body { display: flex; flex-direction: column; }
 .hub-ars { display: flex; flex-direction: column; }
+/* 「素材」タブの複合ビュー (materials.yml の素材 + catalog.yml の鍵、2026-08-04)。
+   カテゴリバー1本で2つの一覧を切り替えるので、見出しは付けずカードの列だけを並べる。 */
+.hub-materials-composite { display: flex; flex-direction: column; gap: 16px; }
+.hub-materials-keys { display: flex; flex-direction: column; }
 
 /* ============================================================
    ArsPaper items.yml 専用フォーム (ars-recipes)
@@ -1205,7 +1348,13 @@ select.field-input option {
 .cf-tabs { margin-bottom: 4px; }
 .cf-body { display: flex; flex-direction: column; gap: 12px; }
 .cf-muted { font-size: 11px; color: var(--muted); font-family: ui-monospace, Consolas, monospace; }
-.field-hint { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+/* 2026-07-29: 説明文が「ラベル(190px)+入力欄」の残り幅(2列レイアウトだと約150px)へ
+   押し込まれ、40字程度の一文が3〜4行に折り返されて行の高さもバラバラになっていた
+   (スキルギミック各ページ / エンチャント運・本棚パワー等)。説明を持つ行だけ2段組にして、
+   説明はカラム幅いっぱいを使わせる。 */
+.form-field:has(> .field-hint) { flex-wrap: wrap; }
+.form-field > .field-hint { flex: 1 0 100%; }
+.field-hint { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
 
 .cf-flow {
   display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px;
@@ -1225,7 +1374,7 @@ select.field-input option {
 
 .cf-map {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
   gap: 10px;
   margin-top: 6px;
 }
@@ -1260,7 +1409,7 @@ select.field-input option {
 
 .cf-cat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
   gap: 12px;
 }
 .cf-cat-card {
@@ -1313,6 +1462,23 @@ select.field-input option {
 .cf-mat-card-head {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
+/* 2026-07-29: 解体の対象シリーズカードを折りたたみ式にした。
+   <details> に display:flex を掛けるとブラウザによって閉じても中身が消えないので
+   block のまま残し、間隔は子要素の margin で作る。 */
+.cf-mat-card-collapsible { display: block; }
+.cf-mat-card-collapsible > summary {
+  cursor: pointer; list-style: none; user-select: none;
+}
+.cf-mat-card-collapsible > summary::-webkit-details-marker { display: none; }
+/* 開閉マークは transform ではなく content の差し替えで出す
+   (summary::before への rotate はブラウザによって効かない)。 */
+.cf-mat-card-collapsible > summary::before {
+  content: "\25B6"; font-size: 10px; color: var(--muted); margin-right: 2px;
+}
+.cf-mat-card-collapsible[open] > summary::before { content: "\25BC"; }
+.cf-mat-card-collapsible > summary > .entry-key-label { flex: 0 0 auto; }
+.cf-mat-card-collapsible > summary > .entry-summary { flex: 1 1 auto; }
+.cf-mat-card-collapsible > *:not(summary) { margin-top: 10px; }
 .cf-brew-card { margin-top: 4px; }
 .achievement-layout { display: flex; gap: 16px; align-items: flex-start; }
 .achievement-list-pane {
@@ -1321,15 +1487,35 @@ select.field-input option {
 }
 .achievement-list-item { text-align: left; justify-content: space-between; }
 .achievement-detail-pane { flex: 1 1 auto; min-width: 0; }
+/* 詳細ペインの節タブ (2026-07-29): 基本/達成条件/前提・分岐/報酬 の切替。 */
+.achievement-section-tabs { margin: 4px 0 10px; }
+/* 一覧の字下げ(前提の深さ)を潰さないよう、ラベルは折り返さず省略表示にする。 */
+.achievement-list-item .nav-item-label {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
 .form-field-group {
   display: flex; flex-direction: column; gap: 8px;
   padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
   background: color-mix(in srgb, var(--panel, #161a22) 96%, transparent);
 }
+/* アチーブメント「達成条件」タブ: 枠もラベルも付けず素直に縦積みする
+   (タブ名がそのまま見出しなので、中で「トリガー」ともう一度言わない)。 */
+.ach-trigger-fields { display: flex; flex-direction: column; gap: 10px; }
 @media (max-width: 860px) {
   .achievement-layout { flex-direction: column; }
   .achievement-list-pane { flex: none; max-height: 240px; }
 }
+/* 1 カード内に「行動あたりの獲得EXP」「レベル曲線・獲得レート」の2ブロックを
+   入れるときの小見出し (Ars魔法/Ars鍛冶/鍛冶のカード統合)。 */
+.se-card-subhead {
+  font-size: 12px; font-weight: 600; color: var(--text);
+  padding-bottom: 4px; margin-top: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.se-card-subhead:first-child { margin-top: 0; }
+/* 統合時は入れ子の entry-body になるので、外側のパディングを二重に掛けない。 */
+.entry-body > .se-curve-body { padding: 0; }
+
 .se-help-card { margin-bottom: 8px; }
 .se-help-list {
   margin: 0; padding-left: 1.2em; font-size: 13px; line-height: 1.55; color: var(--text);
@@ -1344,6 +1530,18 @@ select.field-input option {
 }
 .se-skill-card > summary::-webkit-details-marker { display: none; }
 .se-skill-summary .cf-muted { margin-left: auto; }
+.se-nested-section {
+  grid-column: 1 / -1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.se-nested-section > summary {
+  cursor: pointer;
+  padding: 9px 12px;
+  background: var(--panel-2);
+}
+.se-nested-section > .const-body { padding: 10px 12px; }
 
 .ur-status {
   display: flex; align-items: flex-start; gap: 12px;
@@ -1440,6 +1638,28 @@ select.field-input option {
    .btn-small + ファイル名ラベルのトーンに揃える。 */
 .cmd-file-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .cmd-file-row .cmd-tex-filename { max-width: 260px; }
+
+/* ファイルのドラッグ&ドロップ枠 (2026-07-27)。
+   「ボタン + 未選択ラベル」の羅列だと何を入れる欄か分からなかったため、
+   点線枠でドロップ先だと分かる形にした。フォーカスリングはキーボード操作用。 */
+.cmd-dropzone {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border: 1px dashed var(--border); border-radius: var(--radius);
+  background: var(--panel); cursor: pointer; transition: border-color .12s, background .12s;
+}
+.cmd-dropzone:hover { border-color: var(--accent); background: var(--panel-2); }
+.cmd-dropzone:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cmd-dropzone.is-over { border-color: var(--accent); background: var(--accent-soft); border-style: solid; }
+.cmd-dropzone-icon { font-size: 16px; color: var(--muted); width: 22px; text-align: center; flex: 0 0 auto; }
+.cmd-dropzone-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1 1 auto; }
+.cmd-dropzone-label { font-size: 12px; color: var(--text); }
+.cmd-dropzone-hint { font-size: 11px; color: var(--muted); }
+.cmd-dropzone-file {
+  font-size: 11px; color: var(--muted); max-width: 220px; flex: 0 1 auto;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cmd-dropzone-file.has-file { color: var(--ok); }
+.cmd-upload-btn { align-self: flex-start; margin-top: 2px; }
 .cmd-model-info { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 20px; }
 .cmd-model-meta { font-size: 11px; color: var(--muted); }
 .cmd-preview-broken { font-size: 11px; color: var(--warn); white-space: nowrap; }
@@ -1453,3 +1673,186 @@ select.field-input option {
 .respack-reserved { font-size: 12px; color: var(--muted); }
 .respack-reserved-list { padding: 8px 0 0; word-break: break-all; }
 .respack-corrupt-banner { color: var(--danger); border-color: var(--danger); background: rgba(224, 87, 74, 0.08); font-weight: 600; }
+
+/* ============================================================
+   レスポンシブ (R / 2026-08-04)
+
+   このファイルは長らく「サイドバー300px固定 + 十分に広い .main」を前提に書かれていて、
+   @media が3つしか無かった。狭い画面で実際に起きていた壊れ方は3種類:
+
+   1. サイドバーが 300px を主張し続けるので、900px 幅では本文が 600px、375px 幅では
+      本文が 75px しか残らない(＝実質使えない)。
+   2. .main は overflow-x:hidden なので、あふれた要素は「スクロールで見える」のではなく
+      クリップされ永久に到達できない。入力欄や削除ボタンが消えるのはこれが原因。
+   3. ラベル(190px固定) + セレクト(260px, flex-shrink:0) のような固定幅の横並びは、
+      親が狭くても縮まないので 2 を直接引き起こす。
+
+   方針: 閾値は CSS 側に一元化し、JS は body.sidebar-open のクラス1つだけを持つ。
+   ドロワーの吸着位置はトップバー実高に追従させる必要があるため、px の決め打ちをせず
+   .layout(トップバーの下の残り全部)を position:relative の基準にして absolute で貼る。
+   ============================================================ */
+
+/* --- 常時: ドロワー用の部品 (広い画面では隠れている) --- */
+
+/* .layout はドロワーの位置基準。トップバー実高を JS/マジックナンバーで持たずに
+   「トップバーの下の残り全部」を得るため、基準をここに置く。 */
+.layout { position: relative; }
+
+/* 3つ目の子(ハンバーガー)が入ると space-between では brand が中央へ流れるので、
+   パス設定側を右端へ固定して並びを確定させる。 */
+.topbar-paths { margin-left: auto; }
+
+.sidebar-toggle {
+  display: none; /* ドロワー閾値でだけ出す。広い画面はサイドバーが常時見えている */
+  flex: none;
+  width: 34px; height: 34px;
+  align-items: center; justify-content: center;
+  padding: 0;
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px;
+  cursor: pointer;
+}
+.sidebar-toggle:hover { border-color: var(--accent); }
+.sidebar-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* ハンバーガー: 中央1本を実体、上下2本を擬似要素で描く(SVG も追加DOMも要らない) */
+.sidebar-toggle-icon { position: relative; }
+.sidebar-toggle-icon,
+.sidebar-toggle-icon::before,
+.sidebar-toggle-icon::after {
+  display: block; width: 16px; height: 2px;
+  border-radius: 1px; background: currentColor;
+}
+.sidebar-toggle-icon::before,
+.sidebar-toggle-icon::after { content: ""; position: absolute; left: 0; }
+.sidebar-toggle-icon::before { top: -5px; }
+.sidebar-toggle-icon::after { top: 5px; }
+
+.sidebar-scrim { display: none; }
+/* JS は hidden 属性で開閉する。閾値内で display:block を当てても閉状態は必ず隠す。 */
+.sidebar-scrim[hidden] { display: none !important; }
+
+/* 列数の多い表(CMD台帳=8列 等)のスクロール枠。親 .main は overflow-x:hidden なので、
+   ここでスクロールさせないと右端の列(操作ボタン)が切り落とされて永久に押せない。
+   閾値で切り替えず常時スクロール可能にするのは、あふれるかどうかが画面幅ではなく
+   中身の文字数で決まる(＝どの幅でも起きうる)ため。表自身の width:100% は温存されるので
+   広い画面の見た目は変わらない。 */
+.table-scroll { overflow-x: auto; max-width: 100%; }
+
+/* 長い1トークン(Windows絶対パス・SHA-1)は折返し候補が無いのであふれる。ブロック自身の幅は
+   親に収まったままインライン内容だけがはみ出すので、**要素の矩形を見る検査では見つからない**
+   (scrollWidth と clientWidth を比べないと気づけない)。`.main` は overflow-x:hidden なので
+   はみ出した分は切り落とされ、出力先パスが読めなくなる。
+   `.respack-reserved-list` が既に word-break:break-all を持っているのと同じ理由。 */
+.respack-build-result { overflow-wrap: anywhere; }
+
+/* --- 1. ラップトップ幅: サイドバーと本文余白を詰める --- */
+@media (max-width: 1280px) {
+  .layout { grid-template-columns: 248px 1fr; }
+  .main { padding: var(--main-pad-top) 18px 16px; }
+}
+
+/* --- 2. タブレット横: 固定2カラムを1カラムへ --- */
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: 216px 1fr; }
+  /* minmax(340px) + minmax(360px) で下限合計 700px + gap を主張し続けるため、
+     本文幅がそれを下回ると必ずあふれる。1カラムへ倒す。 */
+  .sim-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* --- 3. ドロワー化 (この閾値は app.js の SIDEBAR_DRAWER_MQ と一致させる) --- */
+@media (max-width: 900px) {
+  .sidebar-toggle { display: inline-flex; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .sidebar {
+    position: absolute; top: 0; bottom: 0; left: 0; z-index: 30;
+    width: min(300px, 84vw);
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.45);
+    /* visibility は離散プロパティだが transition に載せると「表示は即時 / 非表示は
+       アニメーション終了後」になる。閉じている間キーボードフォーカスが画面外の
+       メニュー項目へ入るのを防ぐのが目的。 */
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), visibility 180ms;
+  }
+  body.sidebar-open .sidebar { transform: none; visibility: visible; }
+  .sidebar-scrim {
+    display: block;
+    position: absolute; inset: 0; z-index: 25;
+    background: rgba(0, 0, 0, 0.5);
+  }
+  .main { padding: var(--main-pad-top) 14px 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none; }
+}
+
+/* --- 4. 固定幅の横並びを縦積みへ (あふれ＝クリップの直接原因を消す) --- */
+@media (max-width: 700px) {
+  /* ラベル190px + セレクト260px(min-width:180px, shrink:0) は 375px 幅に入らない。 */
+  .form-field { flex-wrap: wrap; }
+  .form-label,
+  .field-grid .form-label { width: 100%; }
+  .form-field > select.field-input,
+  .form-field > .stat-select,
+  .form-field > .list-select,
+  .form-field > .material-select,
+  .form-field > .material-suggest,
+  .form-field > .editor-cat-field,
+  .form-field > .input-with-hint { flex: 1 1 100%; width: 100%; min-width: 0; max-width: 100%; }
+  .form-field > .input-with-hint > .material-suggest { width: 100%; min-width: 0; }
+
+  /* stat-row 系: flex:0 0 260px / 0 0 400px は shrink 0 なので親が狭くても縮まない。 */
+  .stat-row > .stat-row-label,
+  .stat-row > .list-select,
+  .stat-row > .stat-select,
+  .stat-row > .material-suggest,
+  .stat-row > .field-readonly,
+  .stat-row > .input-with-hint,
+  .skilltree-form .stat-row > .material-suggest,
+  .skilltree-form .stat-row > .dedicated-effect-select,
+  .kv-rows .pedestal-row > input.field-input:first-child {
+    flex: 1 1 100%; min-width: 0; max-width: 100%;
+  }
+  .stat-row > .input-with-hint { flex-wrap: wrap; }
+  .stat-row > .input-with-hint > .material-suggest { min-width: 0; }
+
+  .drop-item-control > .drop-item-kind,
+  .drop-item-control > .input-with-hint,
+  .drop-item-control > .catalog-id-suggest { flex: 1 1 100%; width: 100%; min-width: 0; }
+
+  /* パス設定: 88px 固定ラベル + 入力 + 状態 の3列を、ラベルを上段へ出して2段にする。 */
+  .path-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .path-label { grid-column: 1 / -1; }
+
+}
+
+/* --- 5. スマホ: トップバー / 見出し / 保存ボタン --- */
+@media (max-width: 600px) {
+  .topbar { padding: 8px 12px; gap: 10px; }
+  .brand-text { display: none; } /* TF マークだけ残す */
+  .main { padding: var(--main-pad-top) 12px 14px; }
+  /* 見出しと保存ボタンを2段にし、保存は親指の届く全幅ボタンにする。 */
+  .editor-header { flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+  .editor-header > div { flex: 1 1 100%; min-width: 0; }
+  .editor-header > #save-btn { flex: 1 1 100%; }
+  .editor-title { font-size: 17px; }
+  .empty { padding: 24px 12px; }
+  .entry-head { padding: 8px 10px; }
+  .const-body { padding: 10px; }
+  .modal-box { padding: 16px; width: calc(100% - 24px); }
+}
+
+/* --- 6. 最狭 (375px 想定) --- */
+@media (max-width: 400px) {
+  .main { padding: var(--main-pad-top) 10px 12px; }
+  /* パス設定ボタンの「n/m」要約はボタン名を押し出すので落とす。 */
+  .paths-toggle .paths-summary { display: none; }
+}
+
+/* --- 7. タッチ端末: 密なフォームを壊さない範囲でタップ領域を広げる --- */
+@media (pointer: coarse) {
+  .nav-item { padding: 10px; }
+  .btn-small { padding: 7px 11px; }
+  .collapse-toggle { min-height: 32px; }
+}

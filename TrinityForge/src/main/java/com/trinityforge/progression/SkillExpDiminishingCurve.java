@@ -25,7 +25,7 @@ public final class SkillExpDiminishingCurve implements ExpDiminishingCurve {
     /** タスク1と同じ4採取スキル。 */
     private static final Set<String> GATHERING_SKILLS = Set.of(
             SkillId.MINING, SkillId.FARMING, SkillId.WOODCUTTING, SkillId.DIGGING);
-    /** タスク2のcombat.*(武器2種)＋既存の防具EXP(防具2種)＋ARS_MAGIC(魔法詠唱)。 */
+    /** 戦闘系6スキル(軽・重武器、弓術、軽・重防具、Ars魔法)。 */
     private static final Set<String> COMBAT_SKILLS = Set.of(
             SkillId.HEAVY_WEAPONS, SkillId.LIGHT_WEAPONS, SkillId.ARCHERY,
             SkillId.HEAVY_ARMOR, SkillId.LIGHT_ARMOR, SkillId.ARS_MAGIC);

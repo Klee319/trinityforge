@@ -34,25 +34,29 @@
 #   例: glyph:<glyphId> / recipe:<catalogId> / feature:<featureId>。
 #     dedicated-effects:
 #       - id: light-glyph-unlock       # param=none の効果は value 不要
-#       - id: lapis-cost-reduction
-#         value: 5                     # param=percent/int/level の効果は value 必須
+#       - id: feature:vein-mining
+#         value: 2                     # param=percent/int/level/scale の効果は value 必須
 #   ★カタログの「実ゲーム挙動」への配線はまだ無い基盤段階です（後続タスク）。
 # ============================================================================
 
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/mining.md
+
 skill: MINING
 display-name: 採掘
 icon: IRON_PICKAXE
 starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  max-times: 5
   at-level: 100
   name: 採掘王の栄光
   effect-text: メインにツルハシを持つと採掘速度上昇 永続+1(既にある場合追加で+1)・ドロップ増加 永続+20%
   mainhand-buffs:
-    mining-fortune: 20
+    mining-fortune: 0.15
     gathering-efficiency: 1
+  description: |-
+    効率強化増幅+1
+    幸運(採掘)+15%
 nodes:
   A:
     name: はじまりの鉱夫
@@ -63,7 +67,7 @@ nodes:
     cost: 1
     description: 破壊で少量のバニラEXP
     dedicated-effects:
-      - id: feature:break-vanilla-exp
+      - id: feature:break-vanilla-exp-mining
   B:
     name: 洞窟の導き手
     level: 30
@@ -74,6 +78,11 @@ nodes:
     effect-text: 光源グリフ解放
     dedicated-effects:
       - id: glyph:light
+    description: |-
+      光源グリフ解放
+      効率強化増幅+1
+    mainhand-buffs:
+      gathering-efficiency: 1
   C:
     name: 鉱山の仕事人
     level: 50
@@ -82,8 +91,12 @@ nodes:
     icon: GOLDEN_PICKAXE
     cost: 1
     effect-text: 破壊で2倍のバニラEXP
-    buffs:
-      break-vanilla-exp-bonus: 1.0
+    mainhand-buffs:
+      mining-break-vanilla-exp-bonus: 0.5
+      mining-fortune: 0.1
+    description: |-
+      破壊で1.5倍のバニラEXP
+      幸運(採掘)+10%
   D:
     name: 露天掘りの匠
     level: 70
@@ -91,12 +104,16 @@ nodes:
     parent: C
     icon: IRON_PICKAXE
     cost: 1
-    effect-text: 破壊グリフ解放・シルクタッチでスポナーの回収が可能に・最終効率 永続+1
-    buffs:
-      gathering-efficiency: 1
+    effect-text: 破壊グリフ解放・シルクタッチでスポナーの回収が可能に・メインにツルハシを持つと採集効率+1
+    mainhand-buffs:
+      mining-fortune: 0.1
     dedicated-effects:
       - id: glyph:break
       - id: feature:spawner-silktouch-harvest
+    description: |-
+      破壊グリフ解放
+      シルクタッチでスポナーの回収が可能になる
+      幸運+10%
   E:
     name: 至高の採掘王
     level: 90
@@ -104,12 +121,16 @@ nodes:
     parent: D
     icon: DIAMOND_PICKAXE
     cost: 1
-    effect-text: 採掘グリフ解放・ジュエリーコアのクラフト解放・最終効率 永続+1
-    buffs:
+    effect-text: 採掘グリフ解放・ジュエリーコアのクラフト解放・メインにツルハシを持つと採集効率+1
+    mainhand-buffs:
       gathering-efficiency: 1
     dedicated-effects:
       - id: glyph:advanced_break
-      - id: recipe:tf_core_jewelry
+      - id: recipe:core_jewelry
+    description: |-
+      採掘グリフ解放
+      ジュエリーコアのクラフト解放
+      効率強化増幅+1
   A-1:
     name: 高速破壊I
     level: 20
@@ -123,9 +144,13 @@ nodes:
     dedicated-effects:
       - id: feature:haste-active-mining
         value: 1
+    description: |-
+      スキル発動で5sの高速破壊(採掘速度上昇III)
+      CT30s
+      &8つるはしから持ち替えると効果は即終了します(CTは進行したまま)
   A-2:
     name: 高速破壊II
-    level: 20
+    level: 40
     role: branch
     parent: A-1
     icon: REDSTONE
@@ -135,12 +160,15 @@ nodes:
       - スキル発動で10秒間/CD22.5秒の高速破壊(採掘速度上昇IV)
     dedicated-effects:
       - id: feature:haste-active-mining
-        value: 3
+        value: 2
     mainhand-buffs:
       haste-active-mining-cooldown-reduction: 0.25
+    description: |-
+      スキル発動で10sの高速破壊(採掘速度上昇IV)
+      CT30s
   A-3:
     name: 高速破壊III
-    level: 40
+    level: 60
     role: branch
     parent: A-2
     icon: REDSTONE
@@ -150,20 +178,26 @@ nodes:
       - スキル発動で12秒間/CD15秒の高速破壊(採掘速度上昇V)
     dedicated-effects:
       - id: feature:haste-active-mining
-        value: 5
+        value: 3
     mainhand-buffs:
       haste-active-mining-cooldown-reduction: 0.25
-  D-1:
+    description: |-
+      スキル発動で15sの高速破壊(採掘速度上昇V)
+      CT30s
+  B-2-1:
     name: 鉱脈破壊
-    level: 70
+    level: 40
     role: branch
-    parent: D
+    parent: B
     icon: RAW_IRON
     cost: 1
     effect-text: 鉱石のみ一括で破壊
     dedicated-effects:
       - id: feature:vein-mining
-  B-1:
+    description: |-
+      鉱石を一括で破壊可能にする
+      &8/tf settings 設定でオン/オフ可能
+  B-1-1:
     name: 精密破壊I
     level: 40
     role: branch
@@ -174,29 +208,28 @@ nodes:
     effects:
       - 鉱石のドロップ増加+15%
     mainhand-buffs:
-      mining-fortune: 15
-  B-2:
+      mining-fortune: 0.15
+  B-1-2:
     name: 精密破壊II
-    level: 40
+    level: 60
     role: branch
-    parent: B-1
+    parent: B-1-1
     icon: LAPIS_LAZULI
     cost: 1
     effect-text: 鉱石のドロップ増加+20%
     effects:
       - 鉱石のドロップ増加+20%
     mainhand-buffs:
-      mining-fortune: 20
-  B-3:
+      mining-fortune: 0.2
+  B-1-3:
     name: 精密破壊III
-    level: 60
+    level: 80
     role: branch
-    parent: B-2
+    parent: B-1-2
     icon: LAPIS_LAZULI
     cost: 1
     effect-text: 鉱石のドロップ増加+25%
     effects:
       - 鉱石のドロップ増加+25%
     mainhand-buffs:
-      mining-fortune: 25
-
+      mining-fortune: 0.25

@@ -194,14 +194,24 @@ public final class NativeSkillCatalog {
                         // POWER EXPを等比減衰させる係数。0.0 = 減衰なし(後方互換/旧挙動)、未指定時は
                         // NativeProgressionService#DEFAULT_PRESTIGE_POWER_DECAY_RATE(0.5)。
                         putScalarRate(rates, "power.prestige_decay_rate", expMap.get("prestige_decay_rate"));
-                        putScalarRate(rates, "smithing.tool_stack",
-                                expMap.get("durability_tools_exp_multiplier_stack"));
-                        putScalarRate(rates, "smithing.armor_stack",
-                                expMap.get("durability_armors_exp_multiplier_stack"));
-                        putScalarRate(rates, "armor.damage_exp_rate",
-                                expMap.get("exp_multiplier_point"));
-                        putScalarRate(rates, "armor.exp_damage_piece",
+                        // Valhalla armor-hit formula:
+                        // exp_damage_piece * rawDamage * wornPieces
+                        // * (1 + totalArmorPoints * exp_multiplier_point)
+                        // * entityMultiplier * PvPMultiplier.
+                        // Keep the two similarly named values under unambiguous runtime keys. The
+                        // previous implementation accidentally treated exp_multiplier_point as a
+                        // final-damage coefficient and exp_damage_piece as a flat per-hit addend.
+                        putScalarRate(rates, "armor.exp_per_damage_piece",
                                 expMap.get("exp_damage_piece"));
+                        putScalarRate(rates, "armor.exp_armor_point_multiplier",
+                                expMap.get("exp_multiplier_point"));
+                        putScalarRate(rates, "armor.pvp_multiplier",
+                                expMap.get("pvp_multiplier"));
+                        putScalarRate(rates, "armor.pvp_multiplier_exponent",
+                                expMap.get("pvp_multiplier_exponent"));
+                        if (expMap.get("is_chunk_nerfed") instanceof Boolean enabled) {
+                            rates.put("armor.location_diminishing_enabled", enabled ? 1.0 : 0.0);
+                        }
                         // Exploit fix (semi-AFK armor-EXP farm): minimum final-damage threshold + per-
                         // (victim,attacker) cooldown for the piece-flat armor EXP grant. See
                         // skills/base/{light,heavy}_armor_progression.yml exp_damage_piece_* comments.
@@ -219,17 +229,32 @@ public final class NativeSkillCatalog {
                                 expMap.get("exp_multiplier_mine"));
                         putScalarRate(rates, "mining.blast_mult",
                                 expMap.get("exp_multiplier_blast"));
+                        // N5(2026-07-31): 弓術の per-hit EXP 係数(archery.bow_base / crossbow_base /
+                        // damage_bonus / distance_* / infinity_multiplier / spawner_multiplier /
+                        // pvp_multiplier / max_health_limitation / entity.*)の変換をここから削除した。
+                        // 弓術EXPは討伐時ベース(stats/skill-exp.yml の combat.kill-exp)へ統一され、
+                        // これらを読む唯一の利用者(CombatListener の per-hit 式)が消えたため。
+                        // 変換だけ残すと「editor から編集できるのに効かないキー」になる。
+                        // ※防具の pvp_multiplier / entity_exp_multipliers は別キー(armor.pvp_multiplier /
+                        //   actionExp の entity_exp_multipliers.*)で生きているので影響しない。
                         Object expGain = expMap.get("exp_gain");
                         if (expGain instanceof Map<?, ?> gainMap) {
                             putScalarRate(rates, "enchant.level_cost_multiplier",
                                     gainMap.get("experience_spent_conversion"));
+                            // Valhalla's enchanting producer is not a flat "levels spent" award.
+                            // Its editable exp_gain section contains four nested tables:
+                            // enchantment base, enchantment-level multiplier, equipment-material
+                            // multiplier, and equipment-kind multiplier. Preserve those nested paths
+                            // in actionExp so the listener can evaluate the same data-driven formula
+                            // without hard-coding any enchantment or tier values.
+                            flattenNumericTables(actionExp, "exp_gain", gainMap);
                         }
                         for (Map.Entry<?, ?> action : expMap.entrySet()) {
                             if (!(action.getKey() instanceof String actionName)
                                     || !(action.getValue() instanceof Map<?, ?> values)) {
                                 continue;
                             }
-                            if ("exp_gain".equals(actionName) || "legacy".equals(actionName)) {
+                            if ("exp_gain".equals(actionName)) {
                                 continue;
                             }
                             for (Map.Entry<?, ?> value : values.entrySet()) {
@@ -256,6 +281,18 @@ public final class NativeSkillCatalog {
     private static void putScalarRate(Map<String, Double> rates, String key, Object raw) {
         if (raw instanceof Number number) {
             rates.put(key, number.doubleValue());
+        }
+    }
+
+    private static void flattenNumericTables(Map<String, Double> target, String path, Map<?, ?> source) {
+        for (Map.Entry<?, ?> entry : source.entrySet()) {
+            String key = String.valueOf(entry.getKey());
+            Object value = entry.getValue();
+            if (value instanceof Map<?, ?> nested) {
+                flattenNumericTables(target, path + "." + key, nested);
+            } else if (value instanceof Number number) {
+                target.put(path + "." + key, Math.max(0.0, number.doubleValue()));
+            }
         }
     }
 }

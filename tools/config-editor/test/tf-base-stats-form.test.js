@@ -4,10 +4,16 @@
 //
 // 修正1: window.labelForStat という未定義関数を呼んでいたため日本語ラベルが出ず生キーが表示される
 //        バグ。正しいAPIは window.LABELS.statLabel (public/js/labels.js)。
-// 修正2: base-stats.yml に書いても no-op な7キー(glyph-slot-bonus / heavy-armor-* / light-armor-*)を
-//        画面から除外する。除外は表示のみで、既存データのロスレス往復は壊さないこと。
+// 修正2: base-stats.yml に書いても no-op なキー(glyph-slot-bonus)を画面から除外する。
+//        2026-07-31 に heavy-/light-armor-move-speed-per-piece は語彙ごと廃止された。除外は表示のみで、
+//        既存データのロスレス往復は壊さないこと。
 //        (2026-07-27: 唯一の例外だった charged-shot-unlocked は挙動ゼロの同語反復フラグと判明し、
-//         ステ語彙ごと撤去された。この画面にフラグ系のステはもう存在しない。)
+//         ステ語彙ごと撤去された。この画面にフラグ系のステはもう存在しない。armor-set-buffs全面移行で
+//         旧4キー(light/heavy-armor-set-bonus-multiplier, light-armor-set-dodge-chance,
+//         heavy-armor-set-knockback-resistance)は armor-set-bonus 1本へ統一された。
+//         2026-08-13 訂正: armor-set-bonus はさらに NativeAttributeBridge#armorAttributesFor() が
+//         PlayerStatAggregator#nonPerkStatTotal 経由で base-stats.yml 由来分も読むよう配線が変わり、
+//         no-op ではなくなったため NO_OP_BASE_STATS_KEYS から外れ、この画面に表示されるようになった。)
 // 修正3: バニラ既定値バッジの文言を「絶対値・既定X」→「バニラ:X」へ変更。JS側の
 //        VANILLA_ATTRIBUTE_DEFAULTS が Java 側の正典 VanillaAttributeDefaults.java とキー集合・値
 //        ともに一致していること(ドリフト検知)。
@@ -139,23 +145,32 @@ test("statLabel: 実物のlabels.jsをロードしても生キーではなく日
   }
 });
 
-// ---- 修正2: no-op 7キーの除外 ----
+// ---- 修正2: no-op 1キー + tool-enchant-efficiency の除外 ----
+// (2026-08-13: armor-set-bonus は NativeAttributeBridge#armorAttributesFor() が
+//  PlayerStatAggregator#nonPerkStatTotal 経由で base-stats.yml 由来分も読むようになったため
+//  no-op ではなくなり、除外対象から外れた。この画面に表示されるべき通常ステとして扱う。)
 
 const EXPECTED_NO_OP_KEYS = [
-  "glyph-slot-bonus",
-  "heavy-armor-move-speed-per-piece",
-  "heavy-armor-set-bonus-multiplier",
-  "heavy-armor-set-knockback-resistance",
-  "light-armor-move-speed-per-piece",
-  "light-armor-set-bonus-multiplier",
-  "light-armor-set-dodge-chance"
+  "glyph-slot-bonus"
 ];
 
-test("NO_OP_BASE_STATS_KEYS: 指定された7キーちょうどを含む", () => {
-  assert.deepEqual([...NO_OP_BASE_STATS_KEYS].sort(), [...EXPECTED_NO_OP_KEYS].sort());
+// 2026-07-27: tool-enchant-efficiency を追加。ただし理由は上記1キー(no-op = 読み出し経路が無い)
+// とは異なり、「プレイヤー総合ステではなくアイテム専用ステ(item-stats.yml側)なので、そもそも
+// この画面(base-stats)の対象外」。NO_OP_BASE_STATS_KEYS のコメント参照。
+const EXPECTED_NOT_PLAYER_STAT_KEYS = ["tool-enchant-efficiency"];
+// 2026-07-29(重複ステ間引き): さらに理由(c)として「同じ画面の別キーと意味が重複」を追加。
+// mana-bonus / mana-regen は全員一律値としては mana-max-base / mana-regen-base に足されるだけで、
+// プレイヤー基礎ステ画面に2組並べる意味がない(アイテム/パークステとしては存続)。
+const EXPECTED_REDUNDANT_KEYS = ["mana-bonus", "mana-regen"];
+const ALL_EXCLUDED_KEYS = [
+  ...EXPECTED_NO_OP_KEYS, ...EXPECTED_NOT_PLAYER_STAT_KEYS, ...EXPECTED_REDUNDANT_KEYS
+];
+
+test("NO_OP_BASE_STATS_KEYS: no-op 1キー + アイテム専用1キー + 重複2キーちょうどを含む", () => {
+  assert.deepEqual([...NO_OP_BASE_STATS_KEYS].sort(), [...ALL_EXCLUDED_KEYS].sort());
 });
 
-test("allStatKeys: no-op 7キーが除外され、通常ステは残る", () => {
+test("allStatKeys: 除外キー(no-op/アイテム専用/重複)が落ち、通常ステ(armor-set-bonus含む)は残る", () => {
   const prevList = global.window.STAT_LIST;
   const prevFallback = global.window.FALLBACK_STATS;
   const prevHidden = global.window.HIDDEN_STATS;
@@ -163,16 +178,16 @@ test("allStatKeys: no-op 7キーが除外され、通常ステは残る", () => 
     global.window.STAT_LIST = [];
     global.window.FALLBACK_STATS = [
       "attack-power", "glyph-slot-bonus",
-      "heavy-armor-move-speed-per-piece", "heavy-armor-set-bonus-multiplier",
-      "heavy-armor-set-knockback-resistance", "light-armor-move-speed-per-piece",
-      "light-armor-set-bonus-multiplier", "light-armor-set-dodge-chance"
+      "armor-set-bonus", "tool-enchant-efficiency", "mana-bonus", "mana-regen"
     ];
     global.window.HIDDEN_STATS = [];
     const keys = allStatKeys();
-    for (const k of EXPECTED_NO_OP_KEYS) {
-      assert.ok(!keys.includes(k), `no-opキー "${k}" が画面に残っている`);
+    for (const k of ALL_EXCLUDED_KEYS) {
+      assert.ok(!keys.includes(k), `除外対象キー "${k}" が画面に残っている`);
     }
     assert.ok(keys.includes("attack-power"), "通常ステまで除外されてしまっている");
+    assert.ok(keys.includes("armor-set-bonus"),
+      "armor-set-bonus が画面から消えている(2026-08-13 の配線変更で no-op ではなくなったはず)");
   } finally {
     global.window.STAT_LIST = prevList;
     global.window.FALLBACK_STATS = prevFallback;
@@ -181,8 +196,16 @@ test("allStatKeys: no-op 7キーが除外され、通常ステは残る", () => 
 });
 
 // materials.js の FALLBACK_STATS (他画面=item-stats/skilltreeバフでも共有) からは
-// no-op 7キーを削除していないこと(=base-stats画面限定の除外であること)を確認する。
-test("materials.js の FALLBACK_STATS には no-op 7キーが引き続き残っている(他画面では有効なため)", () => {
+// no-op キーを削除していないこと(=base-stats画面限定の除外であること)を確認する。
+//
+// 2026-08-14 訂正: ここには以前「tool-enchant-efficiency は item-stats では今も有効なステなので
+// FALLBACK_STATS から消してはいけない」と書いてあったが、これは誤り。当キーは 2026-07-26 の
+// 「効率」ステ統合で gathering-efficiency へ吸収され、StatKeys.LEGACY_KEY_ALIASES が canonical 化の
+// 時点で読み替えるため、item-stats でも「別項目に見えて実体は同じキー」になる。実サーバから
+// 「クラフト:効率増幅↑ が選択肢に残っている」と報告されたので FALLBACK_STATS から削除し、
+// HIDDEN_STATS でも止めた(→ legacy-stat-not-selectable-2026-08-14.test.js)。
+// よってこのテストの対象は EXPECTED_NO_OP_KEYS だけ。
+test("materials.js の FALLBACK_STATS には no-op キーが引き続き残っている(他画面では有効なため)", () => {
   delete require.cache[require.resolve("../public/js/materials.js")];
   require("../public/js/materials.js");
   const fallback = global.window.FALLBACK_STATS;
@@ -253,10 +276,7 @@ function withDomStubs(fn) {
     return el;
   };
   global.window.STAT_LIST = ["attack-power", "crit-chance", "max-health", "attack-speed-bonus",
-    "arrow-piercing", "glyph-slot-bonus",
-    "heavy-armor-move-speed-per-piece", "heavy-armor-set-bonus-multiplier",
-    "heavy-armor-set-knockback-resistance", "light-armor-move-speed-per-piece",
-    "light-armor-set-bonus-multiplier", "light-armor-set-dodge-chance"];
+    "arrow-piercing", "glyph-slot-bonus", "armor-set-bonus"];
   global.window.FALLBACK_STATS = [];
   global.window.HIDDEN_STATS = [];
   global.window.STAT_META = {
@@ -266,12 +286,7 @@ function withDomStubs(fn) {
     "attack-speed-bonus": { name: "攻撃速度加算", category: "attack", order: 4 },
     "arrow-piercing": { name: "矢貫通", category: "attack", order: 3 },
     "glyph-slot-bonus": { name: "グリフ枠", category: "ars", order: 1 },
-    "heavy-armor-move-speed-per-piece": { name: "重鎧移動", category: "defense", order: 1 },
-    "heavy-armor-set-bonus-multiplier": { name: "重鎧倍率", category: "defense", order: 2 },
-    "heavy-armor-set-knockback-resistance": { name: "重鎧ノックバック耐性", category: "defense", order: 3 },
-    "light-armor-move-speed-per-piece": { name: "軽鎧移動", category: "defense", order: 4 },
-    "light-armor-set-bonus-multiplier": { name: "軽鎧倍率", category: "defense", order: 5 },
-    "light-armor-set-dodge-chance": { name: "軽鎧回避", category: "defense", order: 6 }
+    "armor-set-bonus": { name: "セット効果増幅", category: "defense", order: 5 }
   };
   global.window.STAT_FORMATS = { "arrow-piercing": "INTEGER" };
   global.window.LABELS = { statLabel: (k) => k };
@@ -284,7 +299,7 @@ function withDomStubs(fn) {
   }
 }
 
-test("buildBaseStatsForm: no-op 7キーの行が描画されず、通常ステの行は描画される", () => {
+test("buildBaseStatsForm: no-opキーの行が描画されず、通常ステの行は描画される", () => {
   withDomStubs(() => {
     const result = global.window.buildBaseStatsForm({});
     const labelTexts = [];
@@ -412,8 +427,7 @@ test("ロスレス: no-op除外キーに既存値がある場合、buildBaseStat
   withDomStubs(() => {
     const existing = {
       "glyph-slot-bonus": 3,
-      "heavy-armor-move-speed-per-piece": 0.5,
-      "light-armor-set-dodge-chance": 0.02,
+      "armor-set-bonus": 0.02,
       "attack-power": 10
     };
     const data = { "base-stats": { ...existing } };

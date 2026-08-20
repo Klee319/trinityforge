@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/mace",
+  "textures": {
+    "layer0": "trinityforge:item/hero_mace"
+  }
+}

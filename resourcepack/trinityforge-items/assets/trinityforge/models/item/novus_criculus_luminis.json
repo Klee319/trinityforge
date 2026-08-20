@@ -1,5 +1,5 @@
 {
-  "parent": "minecraft:item/generated",
+  "parent": "minecraft:item/glowstone_dust",
   "textures": {
     "layer0": "trinityforge:item/novus_criculus_luminis"
   }

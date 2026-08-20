@@ -335,54 +335,8 @@ public final class SkillTreeProgressionGenerator {
      */
     private static String connectorSuffix(Coord cell, Coord before, Coord after,
                                           boolean beforeNode, boolean afterNode) {
-        boolean beforeVertical = before.x() == cell.x();   // 前が真上/真下
-        boolean afterVertical = after.x() == cell.x();     // 後が真上/真下
-
-        if (beforeVertical && afterVertical) {
-            // 縦ストレート
-            boolean nodeAbove = (beforeNode && before.y() < cell.y()) || (afterNode && after.y() < cell.y());
-            boolean nodeBelow = (beforeNode && before.y() > cell.y()) || (afterNode && after.y() > cell.y());
-            if (nodeAbove && nodeBelow) {
-                return "00";
-            }
-            if (nodeAbove) {
-                return "10";
-            }
-            if (nodeBelow) {
-                return "11";
-            }
-            return "06";
-        }
-        if (!beforeVertical && !afterVertical) {
-            // 横ストレート
-            boolean nodeEast = (beforeNode && before.x() > cell.x()) || (afterNode && after.x() > cell.x());
-            boolean nodeWest = (beforeNode && before.x() < cell.x()) || (afterNode && after.x() < cell.x());
-            if (nodeEast && !nodeWest) {
-                return "08";
-            }
-            if (nodeWest && !nodeEast) {
-                return "09";
-            }
-            return "07";
-        }
-
-        int arms = directionMask(cell, before) | directionMask(cell, after);
-        return switch (arms) {
-            case 0b0011 -> "12"; // north + east
-            case 0b0110 -> "13"; // east + south
-            case 0b1100 -> "14"; // south + west
-            case 0b1001 -> "15"; // west + north
-            default -> throw new IllegalStateException(
-                    "invalid connector corner at " + cell.format());
-        };
-    }
-
-    private static int directionMask(Coord from, Coord to) {
-        if (to.y() < from.y()) return 0b0001;
-        if (to.x() > from.x()) return 0b0010;
-        if (to.y() > from.y()) return 0b0100;
-        if (to.x() < from.x()) return 0b1000;
-        return 0;
+        // 2026-07-29: 実体は GridConnectorRouting へ集約(アチーブメントGUIと共有)。
+        return GridConnectorRouting.suffix(cell, before, after, beforeNode, afterNode);
     }
 
     private static Map<String, Object> buildDocument(SkillTreeLayout layout,

@@ -7,6 +7,20 @@
 (function () {
   const h = window.h;
 
+  // 鍵(ダンジョンキー)の表示タブピン。実体は catalog.yml に残したまま、「素材」画面の
+  // カテゴリバーから一覧・編集する (2026-08-02 導入 → 2026-08-04 に id/ラベルを改称)。
+  // ⚠ 実データ移行の値 "material"(buildCatalogForm の moveEntryToMaterials)とは**絶対に**
+  //   文字列を一致させない。鍵は catalog.yml 前提の実装(gates.yml の key-item 判定・レシピ・
+  //   CMD台帳)を持つので、materials.yml へ移すとダンジョン入場が壊れる。
+  // ⚠ CATALOG_CATEGORIES(=カタログのタブバー/ナビ)には入れない。鍵の置き場は「素材」画面1本で、
+  //   カタログ側にタブを増やすと導線が二重になる。
+  const KEY_TAB_ID = "key";
+  const KEY_TAB_LABEL = "鍵";
+  window.CATALOG_KEY_TAB = [KEY_TAB_ID, KEY_TAB_LABEL];
+  // 「素材」画面のカテゴリバー(materials.yml の _editor.categories.material)に置く鍵カテゴリの id。
+  // このカテゴリを選んでいる間だけ、素材リストの代わりに鍵(catalog.yml)の一覧を出す。
+  window.MATERIALS_KEY_CATEGORY_ID = "cat_dungeon_keys";
+
   function statList() {
     // lore.yml 由来の STAT_LIST を優先しつつ、FALLBACK_STATS にしか無いキー(採集・マナ等の
     // 本体が読むが lore に載っていない場合があるステ)も候補へ確実に含める (和集合・重複排除)。
@@ -27,7 +41,9 @@
   /** 耐久値など ALWAYS_SHOWN を候補の末尾へ固定し、それ以外は lore のカテゴリ→order 順。 */
   function orderStatCandidates(keys) {
     const always = window.ALWAYS_SHOWN_STATS || ["durability"];
-    const catRank = { attack: 0, defense: 1, support: 2, ars: 3, other: 4 };
+    // 候補プルダウンの並び順。STAT_FILTER_GROUPS と同じ7分類・同じ並びにすること
+    // (旧5分類のままだと craft/gathering/utility が全部「不明(9)」で末尾へ団子になる)。
+    const catRank = { attack: 0, defense: 1, craft: 2, gathering: 3, utility: 4, support: 4, ars: 5, other: 6 };
     const bottom = [];
     const rest = [];
     for (const k of keys) {
@@ -67,8 +83,28 @@
   const RATE_PERCENT_KEYS = new Set([
     "damage-modifier", "percent-bonus-damage", "crit-chance", "penetration", "bleed-chance",
     "dodge-chance", "phys-resistance", "magic-resistance", "damage-reduction"
+    // 2026-08-15(W-30): 出血ダメージの割合版。実数の bleed-damage は矯正対象外のまま。
+    , "bleed-damage-rate"
     , "armor-strength"
-    // armor-defense-rate はバニラ防具ポイント(INTEGER)。÷100しない。
+    // 2026-08-15: 防具値(armor-defense-rate, バニラ防具ポイントの整数)を廃止し、
+    // 1点=1.5%軽減 で換算してこの defense-rate([0,1] の軽減率)へ一本化した。
+    // アイテム側もパーク側も同じ率キーになったので、全経路が矯正対象。
+    , "defense-rate"
+    // 2026-07-28: 採集の率系キー。Java 側 PercentStatNormalize.RATE_KEYS と対になる
+    // (mining-fortune はそちらでも登録漏れしていて、15 が 1500% として効いていた)。
+    // 2026-08-05: fishing-bonus / ocean-fishing-bonus も追加。以前は「追加ドロップの期待個数(生値)」
+    // として対象外にしていたが、出荷スキルツリーは 5/10/10 とパーセントポイントで書かれており、
+    // 矯正しないと1回の釣りで追加ドロップ25個になっていた(mining-fortune と同じ壊れ方)。
+    , "mining-fortune", "fishing-luck", "fishing-bonus", "ocean-fishing-bonus"
+    // 2026-08-05: 職業EXP増加(スキル別)15キー。Java 側は SkillExpBonusKeys(SkillId.ALL 由来)で
+    // 自動追随するが、こちらは lore.yml のキー名を直接持つ必要があるため列挙する。
+    // 過不足は lore-unit-and-stat-vocab-drift のテストが出荷 lore.yml と突き合わせて落とす。
+    , "woodcutting-exp-bonus", "farming-exp-bonus", "digging-exp-bonus"
+    , "mining-exp-bonus", "fishing-exp-bonus", "alchemy-exp-bonus", "enchanting-exp-bonus"
+    , "smithing-exp-bonus", "ars-smithing-exp-bonus", "ars-magic-exp-bonus", "archery-exp-bonus"
+    , "light-weapons-exp-bonus", "heavy-weapons-exp-bonus"
+    , "light-armor-exp-bonus", "heavy-armor-exp-bonus"
+    , "skill-exp-bonus"
   ]);
   function coerceRatePercent(key, value) {
     if (!RATE_PERCENT_KEYS.has(key) || value == null || !Number.isFinite(Number(value))) return value;
@@ -124,17 +160,38 @@
       }));
       return wrap;
     }
+    return rateValueControl(value, (v) => setter(v == null ? 0 : v), { blankWhenEmpty: false });
+  }
+  // thread-sets フォーム等でも同じ %入力(割合保存) を再利用する。
+  window.statValueControl = statValueControl;
+
+  // [0,1] の割合フィールド用の %入力(表示=値×100 / 保存=入力÷100)。
+  //
+  // **`statValueControl` と分けてあるのは、キーで判定できない割合があるから。**
+  // モブ定義の `physical.resistance` や `attack.crit-chance` は yml の中でブロックに
+  // 属する短縮キーで、`stats/lore.yml` のステ語彙(`phys-resistance` 等)には無い。
+  // つまり `isPercentStat` では割合だと判定できないので、「これは割合だ」と分かっている
+  // 呼び出し側がこちらを直接使う。
+  //
+  // `blankWhenEmpty` の既定が true なのはモブ系フォームの都合:
+  // あちらは「空欄 = キーを書かない(上位スコープの値を継承)」で 0 とは意味が違うため、
+  // 空欄を 0 に潰すとレベル係数やオーバーライドの継承が黙って壊れる。
+  // `statValueControl` 側は従来どおり null を 0 として扱う(既存画面の挙動を変えない)。
+  function rateValueControl(value, setter, opts) {
+    const options = opts || {};
+    const blankWhenEmpty = options.blankWhenEmpty !== false;
+    const empty = value == null || value === "";
     const wrap = h("span", { class: "pct-input" });
-    const shown = value == null ? 0 : roundTo(Number(value) * 100, 4);
+    const shown = empty ? (blankWhenEmpty ? "" : 0) : roundTo(Number(value) * 100, 4);
     const input = window.numberInput(shown, (v) => {
-      setter(v == null || v === "" ? 0 : roundTo(Number(v) / 100, 6));
+      if (v == null || v === "") { setter(blankWhenEmpty ? null : 0); return; }
+      setter(roundTo(Number(v) / 100, 6));
     });
     wrap.appendChild(input);
     wrap.appendChild(h("span", { class: "pct-suffix", text: "%" }));
     return wrap;
   }
-  // thread-sets フォーム等でも同じ %入力(割合保存) を再利用する。
-  window.statValueControl = statValueControl;
+  window.rateValueControl = rateValueControl;
 
   // 挿入順を保ったままマップのキーをリネームする。
   function renameKey(map, oldKey, newKey) {
@@ -266,6 +323,36 @@
   // opts.allowEmpty:false のときは空選択を出さない (craft-quality の category-skill 用。
   // カテゴリは必ずスキルを持つため「未設定=削除」を提示しない)。
   // 現在値がリストに無ければロスレス表示のため選択肢に補う。
+  // progression/role-buffs.yml のキーと一致させること。ここがずれると
+  // 「エディタで選べるのに実行時は一致しない」という無言の不一致になる。
+  const USE_ROLE_IDS = [
+    "swordfighter", "mage", "tank",
+    "farmer", "fisher", "miner", "digger", "woodcutter"
+  ];
+
+  function roleSelect(value, onChange) {
+    const cur = value == null ? "" : String(value);
+    const label = window.LABELS ? window.LABELS.enumLabel : (g, v) => v;
+    const ids = USE_ROLE_IDS.slice();
+    if (cur && !ids.includes(cur)) ids.push(cur);
+    const optsList = [{ value: "", primary: "(職業を問わない)", secondary: "" }];
+    for (const id of ids) {
+      const ja = label("use-role", id);
+      optsList.push({
+        value: id,
+        primary: ja && ja !== id ? ja : id,
+        secondary: ja && ja !== id ? id : "",
+        title: id
+      });
+    }
+    return window.listSelect({
+      value: cur,
+      options: optsList,
+      placeholder: "(職業を問わない)",
+      onChange
+    });
+  }
+
   function skillSelect(value, onChange, opts) {
     const allowEmpty = !opts || opts.allowEmpty !== false;
     const cur = value == null ? "" : String(value);
@@ -305,36 +392,55 @@
   ];
   const LEGACY_FALLBACK_KEYS = new Set([
     "fixed", "per-quality", "random", "durability", "offhand-stats-apply",
-    "advanced", "use-skill", "use-level-requirement", "lore-default"
+    "advanced", "use-skill", "use-level-requirement", "use-role", "lore-default"
   ]);
+  // 「特殊アイテム」画面(機能アイテムカテゴリ)へ集約済みの TF 特殊アイテム。唯一の正典は
+  // functional-items.js の TF_SPECIAL_ITEM_IDS で、ここでは二重管理せず参照するだけにする。
+  // ※ index.html の読み込み順は forms.js(64行) → functional-items.js(67行) なので、
+  //   モジュール読み込み時点の const で受けると必ず空配列で固定される。呼び出し時に解決すること。
+  function tfSpecialItemIdsForStats() {
+    const core = window.FUNCTIONAL_ITEMS_CORE;
+    return (core && core.TF_SPECIAL_ITEM_IDS) || [];
+  }
   // カテゴリ(攻撃/守備/補助/Ars)のチェックに関わらず常に「+追加」候補へ出すステ。
   // 耐久力は装備種を問わず設定しうるためカテゴリ非依存にする(要件: 補助カテゴリから独立)。
   window.ALWAYS_SHOWN_STATS = window.ALWAYS_SHOWN_STATS || ["durability"];
-  // タブごとの既定ON (攻撃/守備/補助/Ars)。武器→攻撃、防具→守備、ツール/補助→補助、Ars系→Ars。
+  // タブごとの既定ON。2026-08-13 に stats/lore.yml の7分類へ合わせた
+  // (旧: 攻撃/守備/補助/Ars/その他 の5分類。lore.yml は 2026-07-23 の再編で
+  //  attack/defense/craft/gathering/utility/ars/other になっており、
+  //  クラフト系・採集系のステが行き場を失って「補助」へ落ちていた)。
+  // 武器→攻撃、防具→守備、ツール→採集/クラフト/補助、Ars系→Ars、スレッド→補助/Ars/クラフト。
   const ITEM_STATS_CAT_DEFAULTS = {
-    weapon: { attack: true, defense: false, support: false, ars: false, other: false },
-    armor: { attack: false, defense: true, support: false, ars: false, other: false },
-    tool: { attack: false, defense: false, support: true, ars: false, other: true },
-    other: { attack: false, defense: false, support: true, ars: false, other: true },
-    catalyst: { attack: false, defense: false, support: false, ars: true, other: false },
-    spellbook: { attack: false, defense: false, support: false, ars: true, other: false },
-    thread: { attack: false, defense: false, support: true, ars: true, other: false }
+    weapon: { attack: true, defense: false, craft: false, gathering: false, utility: false, ars: false, other: false },
+    armor: { attack: false, defense: true, craft: false, gathering: false, utility: false, ars: false, other: false },
+    tool: { attack: false, defense: false, craft: true, gathering: true, utility: true, ars: false, other: true },
+    other: { attack: false, defense: false, craft: false, gathering: false, utility: true, ars: false, other: true },
+    catalyst: { attack: false, defense: false, craft: false, gathering: false, utility: false, ars: true, other: false },
+    spellbook: { attack: false, defense: false, craft: false, gathering: false, utility: false, ars: true, other: false },
+    thread: { attack: false, defense: false, craft: true, gathering: false, utility: true, ars: true, other: false }
   };
 
-  // スレッド特殊効果 (暗視・飛行など)。threads.yml のタイプ id に対応する既定候補。
-  const THREAD_SPECIAL_EFFECTS = [
-    { id: "night_vision", label: "暗視" },
-    { id: "fire_resistance", label: "耐火" },
-    { id: "flight", label: "飛行" },
-    { id: "speed", label: "移動速度上昇" },
-    { id: "jump_boost", label: "跳躍力上昇" },
-    { id: "dolphins_grace", label: "イルカの優雅さ" },
-    { id: "conduit_power", label: "コンジットパワー" },
-    { id: "hero_of_the_village", label: "村の英雄" }
-  ];
+  // ⚠ 2026-08-08 削除: 旧 THREAD_SPECIAL_EFFECTS(この定数と、下の renderThreadExtraFields 内に
+  //   あった「特殊効果 (special-effects)」セクション)は、item-stats.yml の items.<key> に
+  //   special-effects: [...] を書けるだけの UI で、TF 本体・ArsPaper フォークとも読むコードが
+  //   1行も無く、出荷 item-stats.yml にも実データが0件だった(選んでも何も起きない飾り)。
+  //   実際のポーション効果(ThreadType#getEffectLore が読む)は threads.yml 側の potion-effect/
+  //   potion-level/flight として設定する(スレッド画面 = public/js/ars-forms.js の
+  //   buildThreadsForm の「特殊効果」セクションを使う。ここ item-stats.yml の「スレッド」タブは
+  //   別ファイル・別データモデルなので special-effects を復活させないこと)。
+  // 「+追加」候補の絞り込みグループ。**stats/lore.yml の category 語彙と同じ7分類**にすること。
+  // 2026-08-13 まではここが旧5分類 (attack/defense/support/ars/other) のままで、lore.yml 側の
+  // craft/gathering/utility が statFilterCategory の許可リストに無く、キー名ヒューリスティックへ
+  // 落ちて全部「補助」扱いになっていた。結果、クラフト系ステ(ロール収束など)は
+  // 「補助」を明示的にONにしない限り候補に出てこず、事実上選べなかった(2026-08-13 ユーザー報告)。
   const STAT_FILTER_GROUPS = [
-    ["attack", "攻撃"], ["defense", "守備"], ["support", "補助"], ["ars", "Ars"], ["other", "その他"]
+    ["attack", "攻撃"], ["defense", "守備"], ["craft", "クラフト"], ["gathering", "採集"],
+    ["utility", "補助"], ["ars", "Ars"], ["other", "その他"]
   ];
+  // 旧語彙 support は 2026-07-23 の再編で utility へ改名された。yml やコード上に残っている
+  // 旧名を新名へ寄せる (statFilterCategory / inferStatCategory の戻り値の正規化に使う)。
+  const LEGACY_STAT_CATEGORY_ALIASES = { support: "utility" };
+  const STAT_FILTER_GROUP_KEYS = new Set(STAT_FILTER_GROUPS.map(([key]) => key));
 
   // ステキー -> {攻撃|守備|補助|Ars} の簡易推論 (item-categories.yml のような設定は無いため、
   // キー名のキーワードから推論するヒューリスティック。lore.yml 由来の未知ステは既定「補助」)。
@@ -347,22 +453,65 @@
     if (["mana", "spell", "cast", "arcane", "glyph", "sunrise", "moonfall", "thread", "slot"].some((k) => s.includes(k))) return "ars";
     if (["attack", "aoe", "crit", "penetration", "bleed", "bonus-damage", "damage-modifier", "fixed-damage"].some((k) => s.includes(k))) return "attack";
     if (["defense", "resistance", "armor", "max-health", "knockback", "dodge", "reduction"].some((k) => s.includes(k))) return "defense";
-    return "support";
+    // 2026-08-13: lore.yml に category が無いキーだけがここへ来る。クラフト系/採集系は
+    // 名前から拾えるので「補助」ひとまとめにせず対応するグループへ落とす。
+    if (s.startsWith("craft-") || s.startsWith("workbench-") || s.startsWith("ritual-")) return "craft";
+    if (["fortune", "fishing-", "harvest-", "woodcutting-", "mining-"].some((k) => s.includes(k))) return "gathering";
+    // 旧称 support。現行語彙は utility (2026-07-23 の7分類再編)。
+    return "utility";
   }
   window.inferStatCategory = inferStatCategory;
 
   // 「+追加」候補の絞り込みに使うステのカテゴリ。lore.yml (STAT_META.category) を最優先し、
   // 無ければキー名ヒューリスティック (仕様: 追加候補の表示選択肢は lore設定のカテゴリに依存)。
+  //
+  // 許可リストは STAT_FILTER_GROUPS から引く。ここをハードコードしていたせいで、
+  // lore.yml 側に増えた craft/gathering/utility が「未知のカテゴリ」としてヒューリスティックへ
+  // 落ちていた (2026-08-13 修正)。グループを増やすときにここを直し忘れても効かなくならないよう、
+  // 語彙は1箇所 (STAT_FILTER_GROUPS) だけを正とする。
   function statFilterCategory(stat) {
     const meta = window.STAT_META && window.STAT_META[stat];
-    const cat = meta && meta.category;
-    if (cat === "attack" || cat === "defense" || cat === "support" || cat === "ars" || cat === "other") {
-      return cat;
-    }
+    const cat = normalizeStatCategory(meta && meta.category);
+    if (cat && STAT_FILTER_GROUP_KEYS.has(cat)) return cat;
     return inferStatCategory(stat);
   }
+  /** 旧カテゴリ名(support)を現行語彙(utility)へ寄せる。未知/空はそのまま返す。 */
+  function normalizeStatCategory(cat) {
+    const key = String(cat == null ? "" : cat);
+    return LEGACY_STAT_CATEGORY_ALIASES[key] || key;
+  }
+  window.normalizeStatCategory = normalizeStatCategory;
+  window.statFilterCategory = statFilterCategory;
 
   const ITEM_STATS_LOCKED_TABS = new Set(["catalyst", "spellbook", "thread"]);
+
+  // 2026-08-15: 実サーバ報告「スレッドの固有設定欄が見出しだけ残って中身が出ない」の真因は
+  // catalog.yml の id タイプミス(thred_translate)で、ArsPaper の UnifiedRecipeLoader が
+  // カタログid を必ず "thread_<threads.ymlのid>" で生成する規約(recipeKey("thread_" + id, ...))
+  // に合っていなかった。resolveThreadId がそのまま null を返し、見出しの下の2セクションが
+  // 何も描かず理由も出さないため、GUI上は「消えた」ようにしか見えなかった。原因を画面に出す。
+  function threadCatalogIdProblem(catId) {
+    if (!catId) {
+      return {
+        reason: "no-catalog",
+        title: "このスレッド行はカタログ(items/catalog.yml)に紐付いていません",
+        hint: "手打ちの material 行などカタログ外のエントリのため、threads.yml / thread-sets.yml との対応が取れません。"
+          + "カタログ側にエントリを作るか、表示タブの割り当てを確認してください。"
+      };
+    }
+    if (typeof catId !== "string" || !catId.startsWith("thread_") || catId.length <= "thread_".length) {
+      return {
+        reason: "bad-prefix",
+        title: `カタログidが「${catId}」でスレッドの命名規則に合っていません`,
+        hint: "スレッドのカタログidは threads.yml の id から thread_<id> として自動生成されます"
+          + "(ArsPaper の UnifiedRecipeLoader)。thread_ で始まらない id は threads.yml /"
+          + " thread-sets.yml のどのエントリにも対応しないため、ゲーム内でもスレッドとして"
+          + "機能しません。アイテムカタログ画面で id を thread_ 始まりに直してください。"
+      };
+    }
+    return null;
+  }
+  window.threadCatalogIdProblem = threadCatalogIdProblem;
 
   window.buildItemStatsForm = function buildItemStatsForm(data, opts) {
     const options = opts && typeof opts === "object" ? opts : {};
@@ -371,18 +520,67 @@
     const editorCategoryKey = options.editorCategoryKey || null;
     const useEditorMeta = !!editorCategoryKey && (!!options.hubMode || !!(data && data._editor));
     const catalogCandidates = Array.isArray(options.catalogCandidates) ? options.catalogCandidates : [];
+    // 「スレッド」タブから threads.yml を横から読み書きするための参照(2026-08-09)。
+    // split-views.js が別途 GET した threads.yml のルートオブジェクトをそのまま(浅いクローンを
+    // 挟まず)渡す想定。呼び出し元が渡さない画面(旧来の呼び出し)では null のままにし、
+    // renderThreadExtraFields 側で threads.yml の効果セクション自体を出さない。
+    const threadsRoot = options.threadsData && typeof options.threadsData === "object" ? options.threadsData : null;
+    // 「スレッド」タブから thread-sets.yml (N個装備のセット効果) を横から読み書きするための参照
+    // (2026-08-09、threadsRoot と同じ流儀)。呼び出し元が渡さない画面では null のままにし、
+    // renderThreadExtraFields 側でセット効果セクション自体を出さない。
+    const threadSetsRoot = options.threadSetsData && typeof options.threadSetsData === "object" ? options.threadSetsData : null;
     const working = data && typeof data === "object" ? data : {};
     if (!working.items || typeof working.items !== "object") working.items = {};
     // カタログ品は必ず対応するステータスタブに「値なしの枠」を持つ。
     // 空エントリは既存の fixed/per-quality/fallback 解決を一切変えないため、同期だけで
     // ゲームバランスを変えず、設定対象の取りこぼしを防げる。
     for (const candidate of catalogCandidates) {
-      const key = candidate && candidate.material
-        ? (candidate.cmd == null ? candidate.material : `${candidate.material}#${candidate.cmd}`) : "";
+      // 素材 (ArsPaper materials.yml 由来、tab: "material") はここでは枠を作らない。
+      // 素材はアイテムステータスを持たず materials.yml 側の別画面で管理するため、
+      // item-stats へ空エントリを生やすと「画面に出ないまま working.items だけ膨らむ
+      // 幽霊エントリ」になる (ITEM_STATS_CATEGORIES に "material" タブが存在しない)。
+      // 2026-08-02: 鍵(表示タブ "key" = CATALOG_KEY_TAB。実体は catalog.yml のまま「素材」画面へ
+      // 寄せているピン)も同じ理由でスキップする。ITEM_STATS_CATEGORIES に対応タブが無いため、
+      // ここを漏らすと鍵が item-stats.yml に「タブの無い幽霊エントリ」として量産される
+      // (鍵にステータスは付けない ── 2026-08-04 ユーザー確認)。
+      if (candidate && (candidate.tab === "material" || candidate.tab === KEY_TAB_ID)) continue;
+      // 2026-08-03: ステータスを持たない品(機能アイテム = ワンド/コンパス/台座/儀式の核/
+      // 筆記台/ウェイストーン/ソースベリー、およびブロックであるソースジャー6種)も枠を作らない。
+      // 印は catalog-candidates.js の EXTRA_SOURCES.statless → candidate.noItemStats。
+      // tab で弾かないのは、これらの tab が "other"(補助) = サブウェポンの正当な置き場と
+      // 同じ値だから — tab で切ると新生の光輪まで一緒に消える。
+      // 候補リスト自体からは消さない: catalog.yml のレシピ素材セレクトが custom:<id> で
+      // 参照するため、候補から消すと「ソースベリーが選べない」(2026-07-30 報告)に戻る。
+      if (candidate && candidate.noItemStats) continue;
+      // TF の特殊アイテム(skill_node_lock / skill_tree_reset)も枠を作らない。
+      // 2026-07-27 ユーザー指示: この2件は「特殊アイテム」画面(機能アイテムカテゴリ)へ集約し、
+      // アイテムステータス側には出さない。
+      // 加えて実害がある — この2件は catalog.yml で custom-model-data を持たないため、
+      // ステータスキーが素の Material(AMETHYST_SHARD / ECHO_SHARD)になる。そこへステを設定すると
+      // 「バニラのアメジストの欠片/残響の欠片すべて」に効いてしまい、特殊アイテム1件を狙えない。
+      if (candidate && tfSpecialItemIdsForStats().includes(candidate.id)) continue;
+      // CMD 未割当の候補は枠を作らない。CMD が無いとキーが素の Material に退化し、
+      // バニラの同素材アイテムすべてにステが効いてしまう(このアイテム単体を指せない)。
+      // 上の skill_node_lock / skill_tree_reset 除外は同じ害を名前で個別に避けていたもので、
+      // 根本原因は CMD の有無なので、**新規追加したカタログ品では必ず再発する**
+      // (既存 item-stats.yml に同じ素キーが在るときだけ下の hasOwnProperty で skip されるため、
+      // 素キーがまだ無い材質のときだけ静かに生える、材質依存の潜在バグだった)。
+      // CMD はステータス設定でその候補を選んだ時点で cmdEnsureCatalogItemCmd が採番する。
+      const key = statsKeyFromCandidate(candidate);
       if (!key || Object.prototype.hasOwnProperty.call(working.items, key)) continue;
+      // タブが決まらない候補を暗黙で「補助」へ落とすと、ユーザーには「なぜここにいるのか
+      // 分からないエントリ」として補助タブに出続けてしまう(かつ素材のようにタブ自体が
+      // 存在しない候補は画面から消す手段がない)。タブ未決定の候補は枠自体を作らずスキップする。
+      if (!candidate || !candidate.tab) continue;
       working.items[key] = {};
       if (typeof window.setItemDisplayTab === "function") {
-        window.setItemDisplayTab(working, key, candidate.tab || "other");
+        window.setItemDisplayTab(working, key, candidate.tab);
+      }
+      // カタログ由来で自動生成した枠も必ずどこかのカテゴリへ入れる。
+      // 入れないと「カタログに足したのにステータス画面では未設定タブにしか出ない」
+      // (2026-08-01 報告「追加した素材がカテゴリ分けできていない」と同じ形)。
+      if (useEditorMeta && typeof window.ensureItemEditorCategory === "function") {
+        window.ensureItemEditorCategory(working, candidate.tab, key);
       }
     }
     for (const entry of Object.values(working.items)) normalizeRatePercentsInEntry(entry);
@@ -399,11 +597,15 @@
     }
     const root = h("div", { class: "dedicated-form" });
 
+    // CMD を持たない候補は item-stats のキーを持たない(空文字を返す)。
+    // 素の Material をキーに使うと**バニラの同素材アイテムすべて**にステが効くので、
+    // それはカタログ品 1 件を指す表現になっていない。素キーは常に「バニラのもの」とみなす。
+    // ※この関数は上の候補同期ループ(関数冒頭)からも巻き上げで呼ばれる。
     function statsKeyFromCandidate(c) {
       if (!c || !c.material) return "";
       const cmd = c.cmd;
       if (cmd != null && cmd !== "") return `${c.material}#${cmd}`;
-      return c.material;
+      return "";
     }
     function pickPreferredCatalogCandidate(matches) {
       if (!matches || !matches.length) return null;
@@ -415,6 +617,10 @@
       const hashIdx = key.indexOf("#");
       const material = hashIdx >= 0 ? key.slice(0, hashIdx) : key;
       const cmd = hashIdx >= 0 ? key.slice(hashIdx + 1) : "";
+      // 素 Material キーはバニラのものなので、CMD 未割当の候補に解決させない。
+      // ここを空にしないと「バニラのダイヤの剣のカードに、追加したばかりの新品の名前が
+      // 表示される」(そのカードを編集すると新品を設定したつもりでバニラ全部に効く)。
+      if (cmd === "") return [];
       return catalogCandidates.filter((c) =>
         c && c.material === material && String(c.cmd == null ? "" : c.cmd) === String(cmd)
       );
@@ -733,7 +939,7 @@
 
       renderCatCheckboxes();
       root.appendChild(h("div", { class: "sub-section" }, [
-        h("div", { class: "sub-title", text: "表示ステータス (攻撃/守備/補助/Ars/その他)", title: "チェックしたカテゴリ(Lore表示設定のカテゴリ)のステだけを「+追加」プルダウンの候補に出します。登録済みのステは絞り込みに関係なく常に表示されます。" }),
+        window.subTitleEl("表示ステータス (攻撃/守備/補助/Ars/その他)", "チェックしたカテゴリ(Lore表示設定のカテゴリ)のステだけを「+追加」プルダウンの候補に出します。登録済みのステは絞り込みに関係なく常に表示されます。"),
         catCheckboxRow
       ]));
       root.appendChild(h("div", {
@@ -756,12 +962,8 @@
 
       const filterRow = h("div", { class: "item-stats-filter" }, [
         h("span", { class: "mini-label", text: "検索" }),
-        h("input", {
-          class: "field-input", type: "text", spellcheck: "false",
-          placeholder: "カタログID / 表示名 / キーで絞り込み",
-          value: filterText,
-          oninput: (e) => { filterText = e.target.value; applyFilter(); }
-        })
+        window.filterInput("item-stats", filterText, (v) => { filterText = v; applyFilter(); },
+          { placeholder: "カタログID / 表示名 / キーで絞り込み" })
       ]);
       root.appendChild(filterRow);
 
@@ -1169,10 +1371,8 @@
       const assignedKeys = assignedStatKeys(entryRef);
       const hasAdvanced = entryRef.advanced && typeof entryRef.advanced === "object";
       const advSection = h("div", { class: "sub-section" });
-      advSection.appendChild(h("div", {
-        class: "sub-title", text: "高度なオプション (advanced)",
-        title: "割り当て済みステのうち、実際に付与される種類を確率でランダム化します。"
-      }));
+      advSection.appendChild(window.subTitleEl("高度なオプション (advanced)",
+        "割り当て済みステのうち、実際に付与される種類を確率でランダム化します。"));
       if (!hasAdvanced) {
         advSection.appendChild(h("button", {
           class: "btn-small", type: "button", text: "+ 高度なオプション追加",
@@ -1219,17 +1419,17 @@
       }
       blocks.push(
         h("div", { class: "sub-section" }, [
-          h("div", { class: "sub-title", text: "固定ステ (fixed)", title: "常に適用される固定ステータス" }),
+          window.subTitleEl("固定ステ (fixed)", "常に適用される固定ステータス"),
           fixedCount ? null : h("div", { class: "empty-hint", text: "まだ固定ステがありません。「+ 固定ステ追加」で追加します。" }),
           fixedRows
         ]),
         h("div", { class: "sub-section" }, [
-          h("div", { class: "sub-title", text: "品質別上昇値 (per-quality)", title: "品質が1上がるごとにこのステへ加算される増分 (fixedの上に加算)" }),
+          window.subTitleEl("品質別上昇値 (per-quality)", "品質が1上がるごとにこのステへ加算される増分 (fixedの上に加算)"),
           pqCount ? null : h("div", { class: "empty-hint", text: "まだ品質別上昇値がありません。「+ 品質別上昇値追加」で追加します。" }),
           perQualityRows
         ]),
         h("div", { class: "sub-section" }, [
-          h("div", { class: "sub-title", text: "ランダムロールステ (random)", title: "レンジ{min,max}を「範囲=1」として品質に応じたロール分布で抽選し、fixed/per-qualityの上に加算(物理魔法共用)。分布パラメータは quality.yml。" }),
+          window.subTitleEl("ランダムロールステ (random)", "レンジ{min,max}を「範囲=1」として品質に応じたロール分布で抽選し、fixed/per-qualityの上に加算(物理魔法共用)。分布パラメータは quality.yml。"),
           randCount ? null : h("div", { class: "empty-hint", text: "まだランダムロールステがありません。「+ ランダムロールステ追加」で追加します。" }),
           randomRows
         ]),
@@ -1469,7 +1669,7 @@
       }));
       return [
         h("div", { class: "sub-section" }, [
-          h("div", { class: "sub-title", text: "固定ステ (fixed)", title: "この装備種で未設定のキーを埋める既定値" }),
+          window.subTitleEl("固定ステ (fixed)", "この装備種で未設定のキーを埋める既定値"),
           fixedKeys.length ? null : h("div", { class: "empty-hint", text: "まだ固定ステがありません。" }),
           fixedRows
         ])
@@ -1489,8 +1689,22 @@
         else delete entry["offhand-stats-apply"];
       });
       grid.appendChild(h("label", { class: "form-field inline-check" }, [
-        window.fieldLabelEl("offhand-stats-apply", { label: "オフハンド合算", desc: "このアイテムをオフハンドに持ったとき、そのステータスを戦闘集計に合算するか(既定OFF)。旧グローバル設定は廃止しアイテム毎に設定します。" }),
+        window.fieldLabelEl("offhand-stats-apply", { label: "オフハンド合算", desc: "このアイテムをオフハンドに持ったとき、そのステータスを戦闘集計に合算するか(既定OFF)。" }),
         offCb
+      ]));
+
+      // offhand-stats-require-blocking (2026-08-20 / W-163): オフハンド合算の対象を
+      // 「盾を構えている間」に限定する。上の「オフハンド合算」がOFFなら意味を持たない。
+      const blockCb = window.checkboxInput(entry["offhand-stats-require-blocking"] === true, (v) => {
+        if (v) entry["offhand-stats-require-blocking"] = true;
+        else delete entry["offhand-stats-require-blocking"];
+      });
+      grid.appendChild(h("label", { class: "form-field inline-check" }, [
+        window.fieldLabelEl("offhand-stats-require-blocking", {
+          label: "構えている間だけ",
+          desc: "ONにすると、上の「オフハンド合算」で乗るステータスが【盾を構えている間だけ】乗る(持っているだけでは乗らない)。盾向け。「オフハンド合算」がOFFのときは効果がない。既定OFF。"
+        }),
+        blockCb
       ]));
 
       grid.appendChild(fieldRow("use-level-requirement", window.numberInput(
@@ -1525,6 +1739,13 @@
         })));
       }
 
+      // 専用職業 (use-role): この職業に就いているときだけ装備/使用できる。
+      // 使用スキルとは独立した条件で、両方書けば両方満たす必要がある(UseRequirementService)。
+      grid.appendChild(fieldRow("use-role", roleSelect(entry["use-role"], (v) => {
+        if (!v) delete entry["use-role"];
+        else entry["use-role"] = v;
+      })));
+
       // 品質基準値 (quality-mode-offset): クラフト品質modeのオフセット。負値可。
       // 空欄=キー削除(デフォルト=クラフトユーザの品質ポイント通り)。
       // 「使用スキル」の右隣に配置 (field-grid は auto-fill の複数列レイアウトのため、
@@ -1541,13 +1762,13 @@
       grid.appendChild(qualityModeField);
 
       return h("div", { class: "sub-section" }, [
-        h("div", { class: "sub-title", text: "使用制限・オフハンド", title: "使用可能レベルと武器種/装備種スキル。カタログではなく item-stats で設定します。" }),
+        window.subTitleEl("使用制限・オフハンド", "使用可能レベルと武器種/装備種スキル。カタログではなく item-stats で設定します。"),
         grid
       ]);
     }
 
     // 触媒/魔導書/スレッド固有フィールド (通常の fixed/per-quality/random に加えて)。
-    function categoryExtraFields(entry) {
+    function categoryExtraFields(entry, catalogMatch) {
       if (activeCat === "spellbook") {
         const grid = h("div", { class: "field-grid" });
         grid.appendChild(fieldRow("max-glyphs", window.numberInput(entry["max-glyphs"], (v) => {
@@ -1560,7 +1781,7 @@
           if (v == null) delete entry["max-glyph-tier"]; else entry["max-glyph-tier"] = Math.trunc(v);
         }, { int: true })));
         return h("div", { class: "sub-section" }, [
-          h("div", { class: "sub-title", text: "魔導書固有", title: "グリフ設定可能数・魔法保存数・設定可能グリフの最大ティア" }),
+          window.subTitleEl("魔導書固有", "グリフ設定可能数・魔法保存数・設定可能グリフの最大ティア"),
           grid
         ]);
       }
@@ -1570,151 +1791,198 @@
           if (v == null) delete entry["max-bind-tier"]; else entry["max-bind-tier"] = Math.trunc(v);
         }, { int: true })));
         return h("div", { class: "sub-section" }, [
-          h("div", { class: "sub-title", text: "触媒固有", title: "この触媒にバインド可能なスペルの最大グリフティア" }),
+          window.subTitleEl("触媒固有", "この触媒にバインド可能なスペルの最大グリフティア"),
           grid
         ]);
       }
       if (activeCat === "thread") {
-        return renderThreadExtraFields(entry);
+        return renderThreadExtraFields(entry, catalogMatch);
       }
       return null;
     }
 
-    function renderThreadExtraFields(entry) {
-      if (!entry["set-effects"] || typeof entry["set-effects"] !== "object") {
-        // 未設定のままキーを増やさない。UI操作時に materialize。
-      }
-      const box = h("div", { class: "sub-section" });
-      box.appendChild(h("div", {
-        class: "sub-title",
-        text: "スレッド固有",
-        title: "セット効果の閾値・ステータス、および暗視などの特殊効果"
-      }));
+    // catalog.yml の id (thread_<id>) から「thread_」を外した文字列が threads.yml / thread-sets.yml
+    // 側の共通 id になる(45件、完全1:1、実測済み)。カタログに紐付かない行(手打ちmaterial等)は null。
+    function resolveThreadId(match) {
+      const catId = match && match.id;
+      if (threadCatalogIdProblem(catId)) return null;
+      return catId.slice("thread_".length);
+    }
 
-      // ---- セット効果 ----
-      const setBox = h("div", { class: "sub-section" });
-      setBox.appendChild(h("div", { class: "mini-label", text: "セット効果 (set-effects)" }));
-      const se = entry["set-effects"] && typeof entry["set-effects"] === "object" ? entry["set-effects"] : null;
-      const thresholds = se && se.thresholds && typeof se.thresholds === "object" ? se.thresholds : {};
-      const thrKeys = Object.keys(thresholds).sort((a, b) => Number(a) - Number(b));
-      const thrRows = h("div", { class: "pedestal-rows" });
-      if (thrKeys.length === 0) {
-        thrRows.appendChild(h("div", { class: "empty-hint", text: "セット効果なし。「+ 閾値追加」で N個装備時のボーナスを定義します。" }));
+    function renderThreadExtraFields(entry, catalogMatch) {
+      const box = h("div", { class: "sub-section" });
+      box.appendChild(window.subTitleEl("スレッド固有",
+        "Ars の効果(threads.yml)と、N個装備で発動するセット効果(thread-sets.yml)"));
+
+      // 2026-08-15: カタログidが命名規則(thread_<id>)から外れている場合、見出しの下を空にせず
+      // 理由をここで打ち切って表示する(実サーバ報告「見出しだけ残って入力欄が1つも出ない」の対処)。
+      const catProblem = threadCatalogIdProblem(catalogMatch && catalogMatch.id);
+      if (catProblem) {
+        box.appendChild(h("div", { class: "warn-banner", text: `${catProblem.title} — ${catProblem.hint}` }));
+        return box;
       }
-      thrKeys.forEach((tk) => {
-        const stats = thresholds[tk] && typeof thresholds[tk] === "object" ? thresholds[tk] : {};
-        const card = h("div", { class: "stat-rows indented" });
-        card.appendChild(h("div", { class: "stat-row" }, [
-          h("span", { class: "mini-label", text: "閾値(個数)" }),
-          window.numberInput(Number(tk), (v) => {
-            const n = v == null || v < 1 ? 1 : Math.trunc(v);
-            const next = String(n);
-            if (next === tk) return;
-            if (!entry["set-effects"]) entry["set-effects"] = { thresholds: {} };
-            if (!entry["set-effects"].thresholds) entry["set-effects"].thresholds = {};
-            if (Object.prototype.hasOwnProperty.call(entry["set-effects"].thresholds, next)) {
-              alert("同じ閾値が既にあります"); render(); return;
-            }
-            entry["set-effects"].thresholds[next] = entry["set-effects"].thresholds[tk];
-            delete entry["set-effects"].thresholds[tk];
-            render();
-          }, { int: true }),
-          h("button", {
-            class: "btn-small danger", type: "button", text: "× 閾値",
-            onclick: () => {
-              delete entry["set-effects"].thresholds[tk];
-              if (Object.keys(entry["set-effects"].thresholds).length === 0) delete entry["set-effects"];
-              render();
-            }
-          })
-        ]));
-        const statKeys = Object.keys(stats);
-        statKeys.forEach((st) => {
+
+      const threadId = resolveThreadId(catalogMatch);
+
+      // ---- threads.yml 側の効果 (regen-bonus 等の数値効果 + potion-effect/potion-level/flight/slots) ----
+      // 2026-08-09: 「アイテムステータスの設定でArs効果とそれ以外でスレッド分けないでほしい。
+      // もともとのスレッド設定の中で効果をセレクトメニューで追加可能な方式にしてほしい」という
+      // 差し戻しを受け、独立した「スレッド効果 (Ars)」ナビ画面(0b23802, 2026-08-08新設)を撤去し、
+      // このカードの中(threads.yml を横から編集する)へ統合した。
+      //
+      // threads.yml の該当エントリを解決し、CORE.parseThreadEntry/serializeThreadEntry を使った
+      // 統合エディタ(window.buildThreadEffectsBox、ars-forms.js と共通)を描く。
+      // threadsRoot が渡っていない画面(旧来の呼び出し経路)では何も描かない。
+      function renderThreadYmlEffects(tid) {
+        if (!threadsRoot || !tid) return null;
+        if (!threadsRoot.threads || typeof threadsRoot.threads !== "object") threadsRoot.threads = {};
+        const threadsMap = threadsRoot.threads;
+        const existed = Object.prototype.hasOwnProperty.call(threadsMap, tid);
+        if (!window.ARS_FORMS || !window.buildThreadEffectsBox) return null; // ars-forms.js 未読込
+        const model = window.ARS_FORMS.parseThreadEntry(tid, threadsMap[tid]);
+        // model は再描画のたびに threads.yml から作り直す使い捨てなので、書き換えたら必ず
+        // threadsMap へ書き戻す。2026-08-13 の実サーバ報告「効果の引数に数値を入力しても
+        // 保存時に null(空) になる」は、数値入力欄がこの書き戻しへ繋がっていなかったのが真因。
+        // 数値入力は writeBack だけ(再描画なし)、効果の追加/削除は行が増減するので commit
+        // (writeBack + 再描画)を使う。数値入力で再描画すると打鍵のたびに入力欄が作り直される。
+        function writeBack() {
+          const out = window.ARS_FORMS.serializeThreadEntry(model);
+          // 未編集のまま(元から存在しなかったエントリが依然として空)なら書き込まない(lazy-touch)。
+          if (!existed && Object.keys(out).length === 0) delete threadsMap[tid];
+          else threadsMap[tid] = out;
+        }
+        function commit() {
+          writeBack();
+          render();
+        }
+        const sec = h("div", { class: "sub-section" });
+        sec.appendChild(h("div", { class: "mini-label", text: `スレッド効果 (threads.yml: ${tid})`,
+          title: "potion-effect/potion-level/flight/slots や regen-bonus 等。「+ 効果追加」から選びます。" }));
+        sec.appendChild(window.buildThreadEffectsBox(model, commit, { onValueCommit: writeBack }));
+        return sec;
+      }
+      const threadYmlSection = renderThreadYmlEffects(threadId);
+      if (threadYmlSection) box.appendChild(threadYmlSection);
+
+      // ---- セット効果 (thread-sets.yml) ----
+      // 2026-08-09: item-stats.yml 側の entry["set-effects"] は editor にしか存在しない飾りだった
+      // (直前に撤去した special-effects と同じパターン。TF本体・ArsPaperフォークとも読むコードが
+      // 無く、出荷 item-stats.yml にも実データ0件だったので撤去した)。実際にスレッドのN個装備
+      // セット効果を読むのは thread-sets.yml (ThreadSetConfig/ArmorManaListener/
+      // ThreadApplicationPolicy が使う。キーは threads.yml と共通のスレッドID)。UIの見た目・
+      // 操作感は旧 set-effects のものをそのまま流用し、書き込み先だけ
+      // threadSetsRoot["thread-sets"][threadId].thresholds へ差し替えた。
+      // threadSetsRoot が渡っていない画面(旧来の呼び出し経路)では何も描かない。
+      function renderThreadSetEffects(tid) {
+        if (!threadSetsRoot || !tid) return null;
+        if (!threadSetsRoot["thread-sets"] || typeof threadSetsRoot["thread-sets"] !== "object") {
+          threadSetsRoot["thread-sets"] = {};
+        }
+        const setsMap = threadSetsRoot["thread-sets"];
+        function pruneNode() {
+          const node = setsMap[tid];
+          if (!node || typeof node !== "object") return;
+          if (node.thresholds && typeof node.thresholds === "object" && isEmptyObject(node.thresholds)) {
+            delete node.thresholds;
+          }
+          if (isEmptyObject(node)) delete setsMap[tid];
+        }
+        const setBox = h("div", { class: "sub-section" });
+        setBox.appendChild(h("div", { class: "mini-label", text: `セット効果 (thread-sets.yml: ${tid})`,
+          title: "N個以上装備で発動する累積しきい値式のステータス。" }));
+        const node = setsMap[tid] && typeof setsMap[tid] === "object" ? setsMap[tid] : null;
+        const thresholds = node && node.thresholds && typeof node.thresholds === "object" ? node.thresholds : {};
+        const thrKeys = Object.keys(thresholds).sort((a, b) => Number(a) - Number(b));
+        const thrRows = h("div", { class: "pedestal-rows" });
+        if (thrKeys.length === 0) {
+          thrRows.appendChild(h("div", { class: "empty-hint", text: "セット効果なし。「+ 閾値追加」で N個装備時のボーナスを定義します。" }));
+        }
+        thrKeys.forEach((tk) => {
+          const stats = thresholds[tk] && typeof thresholds[tk] === "object" ? thresholds[tk] : {};
+          const card = h("div", { class: "stat-rows indented" });
           card.appendChild(h("div", { class: "stat-row" }, [
-            window.statSelect(st, (nv) => {
-              if (!nv || nv === st) return false;
-              if (Object.prototype.hasOwnProperty.call(stats, nv)) { alert("同じステが既にあります"); return false; }
-              renameKey(stats, st, nv);
+            h("span", { class: "mini-label", text: "閾値(個数)" }),
+            window.numberInput(Number(tk), (v) => {
+              const n = v == null || v < 1 ? 1 : Math.trunc(v);
+              const next = String(n);
+              if (next === tk) return;
+              if (Object.prototype.hasOwnProperty.call(setsMap[tid].thresholds, next)) {
+                alert("同じ閾値が既にあります"); render(); return;
+              }
+              setsMap[tid].thresholds[next] = setsMap[tid].thresholds[tk];
+              delete setsMap[tid].thresholds[tk];
               render();
-              return true;
-            }),
-            window.numberInput(stats[st], (v) => { stats[st] = v == null ? 0 : v; }),
-            window.statUnitSlot(st),
+            }, { int: true }),
             h("button", {
-              class: "btn-small danger", type: "button", text: "×",
-              onclick: () => { delete stats[st]; render(); }
+              class: "btn-small danger", type: "button", text: "× 閾値",
+              onclick: () => {
+                delete setsMap[tid].thresholds[tk];
+                pruneNode();
+                render();
+              }
             })
           ]));
+          const statKeys = Object.keys(stats);
+          statKeys.forEach((st) => {
+            card.appendChild(h("div", { class: "stat-row" }, [
+              window.statSelect(st, (nv) => {
+                if (!nv || nv === st) return false;
+                if (Object.prototype.hasOwnProperty.call(stats, nv)) { alert("同じステが既にあります"); return false; }
+                renameKey(stats, st, nv);
+                render();
+                return true;
+              }),
+              // 2026-08-12: 素の numberInput だと %ステ(dodge-chance 等)が割合のまま
+              // 「0.03」と出て単位も付かなかった(statUnitSlot は %ステに空スロットを返す。
+              // % は statValueControl の pct-suffix が出す前提のため)。他の全ステ行と同じく
+              // statValueControl に通して「3 %」入力・割合保存へ揃える。
+              window.statValueControl(st, stats[st], (v) => { stats[st] = v == null ? 0 : v; }),
+              window.statUnitSlot(st),
+              h("button", {
+                class: "btn-small danger", type: "button", text: "×",
+                onclick: () => { delete stats[st]; pruneNode(); render(); }
+              })
+            ]));
+          });
+          card.appendChild(h("button", {
+            class: "btn-small", type: "button", text: "+ セットステ追加",
+            onclick: () => {
+              const name = pickNewStat(stats);
+              stats[name] = 0;
+              render();
+            }
+          }));
+          thrRows.appendChild(card);
         });
-        card.appendChild(h("button", {
-          class: "btn-small", type: "button", text: "+ セットステ追加",
+        thrRows.appendChild(h("button", {
+          class: "btn-small", type: "button", text: "+ 閾値追加",
           onclick: () => {
-            const name = pickNewStat(stats);
-            stats[name] = 0;
+            if (!setsMap[tid] || typeof setsMap[tid] !== "object") setsMap[tid] = { thresholds: {} };
+            if (!setsMap[tid].thresholds || typeof setsMap[tid].thresholds !== "object") setsMap[tid].thresholds = {};
+            let n = 2;
+            while (Object.prototype.hasOwnProperty.call(setsMap[tid].thresholds, String(n))) n++;
+            setsMap[tid].thresholds[String(n)] = {};
             render();
           }
         }));
-        thrRows.appendChild(card);
-      });
-      thrRows.appendChild(h("button", {
-        class: "btn-small", type: "button", text: "+ 閾値追加",
-        onclick: () => {
-          if (!entry["set-effects"]) entry["set-effects"] = { thresholds: {} };
-          if (!entry["set-effects"].thresholds) entry["set-effects"].thresholds = {};
-          let n = 2;
-          while (Object.prototype.hasOwnProperty.call(entry["set-effects"].thresholds, String(n))) n++;
-          entry["set-effects"].thresholds[String(n)] = {};
-          render();
-        }
-      }));
-      setBox.appendChild(thrRows);
-      box.appendChild(setBox);
+        setBox.appendChild(thrRows);
+        return setBox;
+      }
+      const threadSetSection = renderThreadSetEffects(threadId);
+      if (threadSetSection) box.appendChild(threadSetSection);
 
-      // ---- 特殊効果 ----
-      const fxBox = h("div", { class: "sub-section" });
-      fxBox.appendChild(h("div", { class: "mini-label", text: "特殊効果 (special-effects)" }));
-      const fxList = Array.isArray(entry["special-effects"]) ? entry["special-effects"] : [];
-      const fxRows = h("div", { class: "pedestal-rows" });
-      if (fxList.length === 0) {
-        fxRows.appendChild(h("div", { class: "empty-hint", text: "特殊効果なし。暗視・飛行などをセレクトで追加できます。" }));
+      // 2026-08-15: id は正常でも threadsRoot/threadSetsRoot が渡っていない旧来の呼び出し経路
+      // (split-views.js が threads.yml / thread-sets.yml を積んでいない画面)では両方 null になり、
+      // 見出しだけの空セクションが残る。片方だけ描けた場合は正常系(該当ファイルにエントリが
+      // 無いだけ)なので警告は出さない。
+      if (!threadYmlSection && !threadSetSection) {
+        box.appendChild(h("div", {
+          class: "warn-banner",
+          text: "threads.yml / thread-sets.yml が読み込まれていないためスレッド効果の欄を出せません。"
+            + "/api/config/threads と /api/config/thread-sets の応答を確認してください。"
+        }));
       }
-      fxList.forEach((fxId, idx) => {
-        const known = THREAD_SPECIAL_EFFECTS.find((e) => e.id === fxId);
-        fxRows.appendChild(h("div", { class: "stat-row" }, [
-          h("span", { class: "form-label", text: known ? `${known.label} (${fxId})` : fxId }),
-          h("button", {
-            class: "btn-small danger", type: "button", text: "×",
-            onclick: () => {
-              const arr = Array.isArray(entry["special-effects"]) ? entry["special-effects"] : [];
-              arr.splice(idx, 1);
-              if (arr.length === 0) delete entry["special-effects"];
-              else entry["special-effects"] = arr;
-              render();
-            }
-          })
-        ]));
-      });
-      const addSel = h("select", { class: "field-input" });
-      addSel.appendChild(h("option", { value: "", text: "特殊効果を選ぶ…" }));
-      for (const e of THREAD_SPECIAL_EFFECTS) {
-        if (fxList.includes(e.id)) continue;
-        addSel.appendChild(h("option", { value: e.id, text: `${e.label} (${e.id})` }));
-      }
-      fxRows.appendChild(h("div", { class: "form-actions" }, [
-        addSel,
-        h("button", {
-          class: "btn-small", type: "button", text: "+ 追加",
-          onclick: () => {
-            const id = addSel.value;
-            if (!id) return;
-            if (!Array.isArray(entry["special-effects"])) entry["special-effects"] = [];
-            if (!entry["special-effects"].includes(id)) entry["special-effects"].push(id);
-            render();
-          }
-        })
-      ]));
-      fxBox.appendChild(fxRows);
-      box.appendChild(fxBox);
+
       return box;
     }
 
@@ -1794,10 +2062,29 @@
 
       function commitKeyFromCatalog(candidate) {
         if (!candidate) return;
-        commitKey(
-          candidate.material,
-          candidate.cmd != null && candidate.cmd !== "" ? candidate.cmd : ""
-        );
+        const cmd = candidate.cmd != null && candidate.cmd !== "" ? candidate.cmd : "";
+        if (cmd !== "") {
+          commitKey(candidate.material, cmd);
+          return;
+        }
+        // CMD 未割当のカタログ品はキーが素の Material に退化するため、
+        //   - バニラの同素材アイテム全部にステが効いて、このアイテム単体を指せない
+        //   - 既存の素 Material エントリ(バニラ用 77 件)と衝突し「同じキーが既に存在します」で弾かれる
+        // という2つが起きる。**新規追加した品は CMD 未割当なので必ず後者を踏む**
+        // (「カタログに足したのに、登録していないのに既にあると言われる」の原因はこれ)。
+        // 単体を指すには CMD が必須なので、その場で採番してから続ける。
+        if (typeof window.cmdEnsureCatalogItemCmd !== "function") {
+          alert("このアイテムにはCMDが未割当です。「リソースパック管理」画面の「全アイテムCMD一括採番＆保存」で割り当ててから設定してください。");
+          return;
+        }
+        window.cmdEnsureCatalogItemCmd({ id: candidate.id, material: candidate.material })
+          .then((assigned) => {
+            if (typeof assigned !== "number") return; // 中止・失敗時は何も変えない
+            // 同じ画面が持つ候補リストにも反映する。ここを更新しないと、続けて同じ品を選び直した
+            // ときに再び「CMD未割当」と判定して確認ダイアログが二重に出る。
+            candidate.cmd = assigned;
+            commitKey(candidate.material, assigned);
+          });
       }
 
       let matValue = material;
@@ -1868,8 +2155,9 @@
             if (typeof window.setItemDisplayTab === "function") {
               window.setItemDisplayTab(working, copy, activeCat);
             }
-            if (useEditorMeta && typeof window.assignItemToActiveEditorCategory === "function") {
-              window.assignItemToActiveEditorCategory(working, editorCategoryKey, copy);
+            // 複製元と同じネストカテゴリへ。元が無所属のときだけ通常の追加と同じ扱い。
+            if (useEditorMeta && typeof window.duplicateItemEditorCategory === "function") {
+              window.duplicateItemEditorCategory(working, editorCategoryKey, key, copy);
             }
             if (useEditorMeta && typeof window.appendEditorOrder === "function") {
               window.appendEditorOrder(working, editorCategoryKey, copy);
@@ -1916,7 +2204,7 @@
       ];
 
       const bodyChildren = [itemLevelFields(entry)];
-      const extras = categoryExtraFields(entry);
+      const extras = categoryExtraFields(entry, catalogMatch);
       if (extras) bodyChildren.push(extras);
       // 表示ステータス絞り込みは固定ステの1つ上の行へ（renderStatBlocks 内）。
       bodyChildren.push(...renderStatBlocks(entry, key));
@@ -2031,16 +2319,8 @@
             }
             if (isEmptyObject(ml)) delete entry.multipliers;
           }
-          const se = entry["set-effects"];
-          if (se && typeof se === "object") {
-            if (se.thresholds && typeof se.thresholds === "object") {
-              for (const [tk, stats] of Object.entries(se.thresholds)) {
-                if (isEmptyObject(stats)) delete se.thresholds[tk];
-              }
-              if (isEmptyObject(se.thresholds)) delete se.thresholds;
-            }
-            if (isEmptyObject(se)) delete entry["set-effects"];
-          }
+          // entry["set-effects"] の刈り込みは撤去(2026-08-09。このキー自体を editor が
+          // もう書かない。旧データの掃除は不要 — 出荷 item-stats.yml に実データ0件を確認済み)。
           const adv = entry.advanced;
           if (adv && typeof adv === "object") {
             // advanced ブロックがある＝付与ランダム化ON（UIトグルなし）
@@ -2285,7 +2565,11 @@
   }
 
   // 配置グリッド(記号1文字/セル) + 記号→Material対応表。size=3(workbench等)/2(inventory)。
-  function renderShapedRecipeGrid(recipe, rerenderEntry, size) {
+  // onIngredientChange: 素材欄(記号→Material)の値が変わったときだけ呼ぶ軽量コールバック。
+  // rerenderEntry を呼ばないのは、素材欄の change でカード全体を作り直すと入力途中の
+  // フォーカスとスクロールが飛ぶため。「解凍を許可」の可否のように**素材の内容から決まる
+  // 表示**だけをその場で更新するのに使う。
+  function renderShapedRecipeGrid(recipe, rerenderEntry, size, onIngredientChange) {
     const n = size || 3;
     const wrap = h("div", { class: "recipe-shaped-wrap" });
     wrap.appendChild(h("div", { class: "mini-label", text: `配置 (${n}×${n}・各セルに記号1文字、空欄=空きマス)` }));
@@ -2325,6 +2609,7 @@
       row.appendChild(h("span", { class: "entry-hash", text: sym }));
       row.appendChild(ingredientMaterialControl(recipe.ingredients[sym], (v) => {
         recipe.ingredients[sym] = v;
+        if (typeof onIngredientChange === "function") onIngredientChange();
       }, { warnWhenEmpty: true }));
       table.appendChild(row);
     }
@@ -2333,7 +2618,7 @@
   }
 
   // shapeless: Material名の可変リスト。max省略時は9個(workbench等)。inventoryは2×2=4個。
-  function renderShapelessRecipeRows(recipe, rerenderEntry, max) {
+  function renderShapelessRecipeRows(recipe, rerenderEntry, max, onIngredientChange) {
     const maxCount = max || 9;
     const box = h("div", { class: "recipe-shapeless-wrap" });
     box.appendChild(h("div", { class: "mini-label", text: `素材 (順不同・最大${maxCount}個)` }));
@@ -2342,6 +2627,7 @@
       const row = h("div", { class: "stat-row" });
       row.appendChild(ingredientMaterialControl(mat, (v) => {
         recipe.ingredients[idx] = v;
+        if (typeof onIngredientChange === "function") onIngredientChange();
       }));
       row.appendChild(h("button", { class: "btn-small danger", type: "button", text: "×", onclick: () => { recipe.ingredients.splice(idx, 1); rerenderEntry(); } }));
       rows.appendChild(row);
@@ -2382,6 +2668,10 @@
 
   function renderCatalogRecipeSection(entry, rerenderEntry, itemsMap, entryId, opts) {
     const items = itemsMap && typeof itemsMap === "object" ? itemsMap : {};
+    // レシピ数に上限は設けない。2026-08-13 に ArsPaper 側の UnifiedRecipeLoader も
+    // recipe:(単数) と recipes:(配列) の両方を読むようにしたので、素材・魔導書・ソース・
+    // 機能アイテムもカタログとまったく同じ挙動になる(「儀式を使うアイテムは素材以外にもあるのだから
+    // 区別する理由が無い。統合されているべき」というユーザー指示)。
 
     // recipe:(単発マップ) と recipes:(マップ配列) を1つの作業配列に正規化する。
     // 保存形は常に正規形へ書き戻す: 0件=両キーなし / 1件=recipe: のみ / 2件以上=recipes: のみ。
@@ -2410,10 +2700,8 @@
     writeBack();
 
     const box = h("div", { class: "sub-section recipe-section" });
-    box.appendChild(h("div", {
-      class: "sub-title", text: "クラフトレシピ (recipe / recipes・任意)",
-      title: "作業台 / 儀式 / 合成 / ネザライト化。1アイテムに複数レシピを設定できます(例: 圧縮+分解、単発+まとめ生産の儀式)。"
-    }));
+    box.appendChild(window.subTitleEl("クラフトレシピ (recipe / recipes・任意)",
+      "作業台 / 儀式 / 合成 / ネザライト化。1アイテムに複数レシピを設定できます(例: 圧縮+分解、単発+まとめ生産の儀式)。"));
 
     list.forEach((recipe, idx) => {
       const card = h("div", { class: "sub-section recipe-card" });
@@ -2666,9 +2954,16 @@
       });
       box.appendChild(fieldRow("type", typeSel));
 
+      // 「解凍を許可」の可否は素材欄の内容から決まる。素材欄は rerenderEntry を呼ばない
+      // (呼ぶと入力途中のフォーカスが飛ぶ)ので、可否だけをその場で計算し直すフックを渡す。
+      // これが無いと**素材を全部同じにしてもチェックボックスが disabled のまま**で、
+      // 保存してリロードするまで押せなかった(2026-08-08 報告)。
+      let refreshReversible = () => {};
+      const onIngredientChange = () => refreshReversible();
+
       if ((recipe.type || "shaped") === "shaped") {
         ensureShapedRecipe(recipe, gridSize);
-        box.appendChild(renderShapedRecipeGrid(recipe, rerenderEntry, gridSize));
+        box.appendChild(renderShapedRecipeGrid(recipe, rerenderEntry, gridSize, onIngredientChange));
         // 向き固定 (catalog.yml のみ。TF側リスナーが向きを強制するため素材等Ars側では無効)。
         // inventory(2×2)でも shaped であれば workbench 同様に意味を持つ。
         if (opts && opts.allowMirror) {
@@ -2689,32 +2984,34 @@
         }
       } else {
         ensureShapelessRecipe(recipe);
-        box.appendChild(renderShapelessRecipeRows(recipe, rerenderEntry, gridSize * gridSize));
+        box.appendChild(renderShapelessRecipeRows(recipe, rerenderEntry, gridSize * gridSize, onIngredientChange));
         delete recipe.mirror;
         delete recipe["strict-orientation"];
       }
 
       // reversible「解凍を許可」: workbench/inventory かつ 素材が全て同一のレシピにのみ設定できる。
       // ONで recipe.reversible=true を保存 (TF側が逆レシピ(結果⇄素材)を自動生成する)。
-      const allSame = catalogRecipeIngredientsAllSame(recipe);
-      if (!allSame && recipe.reversible) delete recipe.reversible; // 対象外になったら自動でOFFへ戻す
       const reversibleHint = "ONにすると逆レシピ(完成品→素材)が自動登録され、バニラの鉄ブロックのように元に戻せます。"
         + "素材が全て同一のレシピのみ設定可能。";
-      const reversibleCb = window.checkboxInput(allSame && recipe.reversible === true, (v) => {
+      const reversibleCb = window.checkboxInput(recipe.reversible === true, (v) => {
         if (v) recipe.reversible = true; else delete recipe.reversible;
       });
-      reversibleCb.disabled = !allSame;
-      const reversibleLabel = h("label", {
-        class: "form-field inline-check",
-        title: allSame ? reversibleHint : reversibleHint + " (現在: 素材が同一でないため設定不可)"
-      }, [
+      const reversibleLabel = h("label", { class: "form-field inline-check" }, [
         reversibleCb,
         h("span", { class: "form-label", text: "解凍を許可 (reversible)" })
       ]);
+      const reversibleNote = h("div", { class: "empty-hint", text: "素材が全て同一のレシピのみ「解凍を許可」を設定できます。" });
       box.appendChild(reversibleLabel);
-      if (!allSame) {
-        box.appendChild(h("div", { class: "empty-hint", text: "素材が全て同一のレシピのみ「解凍を許可」を設定できます。" }));
-      }
+      box.appendChild(reversibleNote);
+      refreshReversible = () => {
+        const allSame = catalogRecipeIngredientsAllSame(recipe);
+        if (!allSame && recipe.reversible) delete recipe.reversible; // 対象外になったら自動でOFFへ戻す
+        reversibleCb.disabled = !allSame;
+        reversibleCb.checked = allSame && recipe.reversible === true;
+        reversibleLabel.title = allSame ? reversibleHint : reversibleHint + " (現在: 素材が同一でないため設定不可)";
+        reversibleNote.style.display = allSame ? "none" : "";
+      };
+      refreshReversible();
     }
 
     if (recipe.method === "workbench" || recipe.method === "ritual" || recipe.method === "inventory") {
@@ -2768,12 +3065,8 @@
     const tabBar = h("div", { class: "recipe-tabs" });
     const filterRow = h("div", { class: "item-stats-filter" }, [
       h("span", { class: "mini-label", text: "検索" }),
-      h("input", {
-        class: "field-input", type: "text", spellcheck: "false",
-        placeholder: "ID/表示名で絞り込み",
-        value: filterText,
-        oninput: (e) => { filterText = e.target.value; renderList(); }
-      })
+      window.filterInput("catalog", filterText, (v) => { filterText = v; renderList(); },
+        { placeholder: "ID/表示名で絞り込み" })
     ]);
     // CMD一括割当ボタンはここには置かない。全ファイル横断で「リソースパック管理」画面
     // (respack-view.js の「全アイテムCMD一括採番＆保存」) に集約済み。
@@ -2873,6 +3166,10 @@
       }
       mats.materials[id] = m;
       if (typeof window.appendEditorOrder === "function") window.appendEditorOrder(mats, "material", id);
+      // 移動先(素材タブ)でも必ずどこかのカテゴリへ入れる。入れないと素材画面で「未設定」に落ちる。
+      if (typeof window.ensureItemEditorCategory === "function") {
+        window.ensureItemEditorCategory(mats, "material", id);
+      }
       // カタログ側から除去 (タブピン/ネストカテゴリ/並び順も全タブから掃除)。
       delete working.items[id];
       if (typeof window.removeItemDisplayTab === "function") window.removeItemDisplayTab(working, id);
@@ -2936,7 +3233,10 @@
             while (Object.prototype.hasOwnProperty.call(working.items, name)) name = `new_item_${i++}`;
             const defaultMaterial = {
               weapon: "DIAMOND_SWORD", armor: "DIAMOND_CHESTPLATE", tool: "DIAMOND_PICKAXE",
-              other: "DIAMOND", catalyst: "BLAZE_ROD", spellbook: "BOOK", thread: "STRING"
+              other: "DIAMOND", catalyst: "BLAZE_ROD", spellbook: "BOOK", thread: "STRING",
+              // 2026-08-02 指摘5: 鍵タブの既定 material が無いとフォールバックの DIAMOND_SWORD が
+              // 使われ、「素材」画面の鍵カテゴリから足すと必ずダイヤの剣になってしまっていた。
+              key: "TRIAL_KEY"
             }[activeCat] || "DIAMOND_SWORD";
             working.items[name] = { material: defaultMaterial };
             if (typeof window.setItemDisplayTab === "function") {
@@ -2984,8 +3284,13 @@
         h("span", { class: "entry-key-label", text: "id" }), idInput
       ];
       if (typeof window.renderItemTabSelect === "function") {
-        // materials.yml が読めていれば「素材」への移動先も出す (ファイル跨ぎはハンドラで処理)。
-        const tabOpts = crossFile ? CATALOG_CATEGORIES.concat([["material", "素材"]]) : CATALOG_CATEGORIES;
+        // 「鍵」ピンは常時選べる (実データ移動を伴わないただの表示タブなので crossFile の有無に
+        // 関係ない)。materials.yml が読めていればさらに「素材」への実データ移動先も出す
+        // (ファイル跨ぎはハンドラで処理)。2つの値は絶対に文字列衝突させない
+        // (KEY_TAB_ID = "key" ≠ 実データ移行の "material")。
+        const tabOpts = (crossFile
+          ? CATALOG_CATEGORIES.concat([window.CATALOG_KEY_TAB, ["material", "素材(materials.ymlへ移動)"]])
+          : CATALOG_CATEGORIES.concat([window.CATALOG_KEY_TAB]));
         const external = crossFile ? { material: (itemId) => moveEntryToMaterials(itemId) } : null;
         editChildren.push(window.renderItemTabSelect(working, id, entry.material, tabOpts, () => {
           refreshListPreserveScroll(renderList);
@@ -3010,12 +3315,8 @@
               window.setItemDisplayTab(working, copy, activeCat);
             }
             // 複製元と同じネストカテゴリへ割り当てる (絞り込み中でも見失わない)。
-            if (useEditorMeta && typeof window.getItemEditorCategory === "function"
-                && typeof window.moveItemEditorCategory === "function") {
-              const cat = window.getItemEditorCategory(working, editorCategoryKey, id);
-              if (cat) window.moveItemEditorCategory(working, editorCategoryKey, copy, cat);
-            } else if (useEditorMeta && typeof window.assignItemToActiveEditorCategory === "function") {
-              window.assignItemToActiveEditorCategory(working, editorCategoryKey, copy);
+            if (useEditorMeta && typeof window.duplicateItemEditorCategory === "function") {
+              window.duplicateItemEditorCategory(working, editorCategoryKey, id, copy);
             }
             if (useEditorMeta && typeof window.appendEditorOrder === "function") {
               window.appendEditorOrder(working, editorCategoryKey, copy);
@@ -3048,11 +3349,11 @@
         h("div", { class: "entry-collapse-edit" }, editChildren)
       ];
 
-      const matHint = window.materialHintEl(entry.material);
+      // 2026-08-02: materialHintEl は削除 (materialInput 自身が 2026-07-29 の listSelect 移行で
+      // 既に日本語表示名(primary)を出しているため、隣に並べると同じ名前が2回出て行が潰れる)。
       // material 変更時も現在タブへピン留めし、推論による強制タブ移動を防ぐ。
       const matInput = window.materialInput(entry.material, "material-list", (v) => {
         entry.material = v;
-        matHint.update(v);
         // 革防具以外では color は無効 (Java側も無視)。切替時にキーを落として YAML をきれいに保つ。
         if (typeof window.isLeatherArmorMaterial === "function" && !window.isLeatherArmorMaterial(v)) {
           delete entry.color;
@@ -3087,7 +3388,7 @@
         : null;
 
       const inputChildren = [
-        fieldRow("material", h("span", { class: "input-with-hint" }, [matInput, matHint]), { required: true }),
+        fieldRow("material", h("span", { class: "input-with-hint" }, [matInput]), { required: true }),
         fieldRow("display-name", window.richTextInput(entry["display-name"], "minimessage", (v) => { setOrDelete(entry, "display-name", v); refreshPreview(); })),
         fieldRow("custom-model-data", (() => {
           const wrap = h("span", { class: "cmd-field-row" });

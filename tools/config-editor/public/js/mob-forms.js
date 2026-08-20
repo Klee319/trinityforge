@@ -38,15 +38,6 @@
     Object.assign(map, rebuilt);
   }
 
-  function ensureDatalist(id, values) {
-    let dl = document.getElementById(id);
-    if (!dl) { dl = h("datalist", { id }); document.body.appendChild(dl); }
-    if (dl._filled) return id;
-    dl._filled = true;
-    for (const v of values) dl.appendChild(h("option", { value: v }));
-    return id;
-  }
-
   function ensureObject(parent, key) {
     if (!parent[key] || typeof parent[key] !== "object" || Array.isArray(parent[key])) parent[key] = {};
     return parent[key];
@@ -57,18 +48,115 @@
   // 集約前の37種は全て VANILLA_MOBS に含まれることを確認済み(候補は減らない、むしろ大幅に増える)。
   const ENTITY_TYPE_CANDIDATES = Array.isArray(window.VANILLA_MOBS) ? window.VANILLA_MOBS : [];
 
+  // 2026-08-02: dimensions: のキーは World.Environment 名の4種で固定(MobTypesConfig#parseDimensions
+  // が Enum.valueOf で解決するため、未知の値は警告付きでスキップされ無干渉になる)。EntityType 選択と
+  // 同じ「自由入力+datalist」にすると、サーバ構成依存のワールド名を書いてしまい常に無干渉になる事故を
+  // 誘発するため固定4択にする。
+  const DIMENSION_ENVS = [
+    { key: "NORMAL", label: "オーバーワールド (NORMAL)" },
+    { key: "NETHER", label: "ネザー (NETHER)" },
+    { key: "THE_END", label: "エンド (THE_END)" },
+    { key: "CUSTOM", label: "カスタムワールド (CUSTOM)" }
+  ];
+
   const PHYS_MAGIC_FIELDS = ["defense-rate", "resistance", "damage-reduction", "flat-defense"];
   const ATTACK_FIELDS = [
     "attack-power", "flat-bonus-damage", "percent-bonus-damage", "penetration",
     "crit-chance", "crit-damage", "damage-modifier", "fixed-damage"
   ];
 
+  // 2026-08-13: モブ側の割合フィールドを % 入力にする(ユーザー指示「割合記法のものはすべて
+  // %記法にしてほしい」)。**キーからは割合だと判定できない** ── これらは physical:/magical:/
+  // attack: ブロック内の短縮キーで、`stats/lore.yml` のステ語彙(phys-resistance 等)に存在せず
+  // `isPercentStat` は FLAT を返す。だから語彙ではなくこの表で明示する。
+  // 単位の根拠は DefenseStats / AttackStats の javadoc(いずれも [0,1] の割合。
+  // damage-modifier だけは中立値 1.0 の倍率だが単位は同じ割合で、%表示だと 100% = ×1.0 になる)。
+  // **除外したものと理由**: flat-defense / flat-bonus-damage / fixed-damage / attack-power は
+  // 割合ではなくダメージ量そのもの、max-health / level も実数。ここに入れると 100 倍で表示される。
+  const RATE_FIELDS = new Set([
+    "defense-rate", "resistance", "damage-reduction", "armor-strength",
+    "percent-bonus-damage", "penetration", "crit-chance", "crit-damage", "damage-modifier"
+  ]);
+
+  /**
+   * モブ系フォームの値入力。割合フィールドなら % 入力(表示×100 / 保存÷100)、それ以外は素の数値。
+   * **空欄は 0 ではなく null で返す** ── モブ系は「空欄 = キーを書かず上位スコープを継承」なので、
+   * 0 に潰すと継承が黙って壊れる(呼び出し側は元から null で delete している)。
+   */
+  function mobValueInput(key, value, onSet) {
+    if (RATE_FIELDS.has(key) && typeof window.rateValueControl === "function") {
+      return window.rateValueControl(value, onSet);
+    }
+    return window.numberInput(value, onSet, { int: false });
+  }
+
+  // ------------------------------------------------------------------------------------------
+  // 難易度倍率 (combat/mob-overrides.yml の stats 直下、2026-08-14 新設)
+  // ------------------------------------------------------------------------------------------
+  // 解決後の max-health / attack.attack-power へ掛ける乗数。プレイヤーが選んだレベルに対する
+  // 相対的な強さ差(=難易度)をこの2キーだけで表す。
+  //
+  // 【割合ではなく倍率なので RATE_FIELDS に入れてはいけない】 中立値は 0% ではなく ×1.0。
+  // RATE_FIELDS に入れると画面が 100 倍で表示し、1.0 が「100%」、2.0 が「200%」になる。
+  // (RATE_FIELDS の中身は rate-value-control-2026-08-13.test.js が過不足なしで固定している)
+  //
+  // 【倍率だけは層をまたいで「掛け合わさる」】 他のキーは項目単位マージ(=後勝ち)だが、倍率は
+  // MobStatOverride#applyTo が層ごとに掛けるので、default 1.5 × ダンジョン 2.0 × モブ 2.0 = 6.0 倍。
+  // 上位スコープを「打ち消す」手段は無い(Java 側テスト multipliersCompoundAcrossCascadeLayers が固定)。
+  //
+  // 【既定値は 1.0 ではなく「未設定」】 空欄はキーごと削除する。1.0 は掛け算として完全な no-op
+  // なので設定の意味は変わらないが、「開いて保存しただけ」で全モブに 1.0 が生え、
+  // 意味の無い行で yml が汚れて差分が読めなくなる。だから書かない。
+  const MOB_OVERRIDE_MULTIPLIER_FIELDS = [
+    {
+      key: "max-health-multiplier",
+      label: "最大HP倍率 (省略可)",
+      desc: "解決後の最大HPへ掛ける倍率。1.0で等倍、2.0で2倍。空欄=キーを書かない(倍率なし)。"
+        + "倍率は上位スコープ(ダンジョン単位)のものと【掛け合わさります】(ダンジョン2.0×モブ3.0=6.0倍)。"
+        + "1.0は掛けても何も変わらない完全な無効果値なので、打ち消しには使えません。入れずに空欄のままに。"
+    },
+    {
+      key: "attack-power-multiplier",
+      label: "攻撃力倍率 (省略可)",
+      desc: "解決後の攻撃力(attack.attack-power)へ掛ける倍率。1.0で等倍。空欄=キーを書かない(倍率なし)。"
+        + "最大HP倍率と同じく上位スコープの倍率と掛け合わさり、1.0では打ち消せません。"
+    }
+  ];
+
+  /**
+   * stats 直下の倍率フィールド行を作る。per-mob (mobs.<id>) とスコープ (ダンジョン) の
+   * どちらの host でも同じものを使う — yml のキー体系がまったく同じだから。
+   *
+   * @param host  stats: を持つ側 (mobEntry または scope)。**この時点では stats を作らない**
+   *              (値が入るまで実体化しないのが往復ロスレスの条件)。
+   * @param touch 初めて値が入ったときに host.stats を実体化して返す関数。
+   */
+  function multiplierFieldRows(host, touch) {
+    const stats = (host && host.stats && typeof host.stats === "object" && !Array.isArray(host.stats))
+      ? host.stats : {};
+    return MOB_OVERRIDE_MULTIPLIER_FIELDS.map(({ key, label, desc }) => {
+      const input = window.numberInput(stats[key] == null ? "" : stats[key], (v) => {
+        const target = touch();
+        if (v === null || v === "") {
+          delete target[key];
+          // 倍率だけのために作った stats: を空マップのまま残さない(yml に `stats: {}` が生える)。
+          if (host.stats && typeof host.stats === "object" && Object.keys(host.stats).length === 0) {
+            delete host.stats;
+          }
+          return;
+        }
+        target[key] = v;
+      }, { int: false });
+      return fieldRow(key, input, { label, desc });
+    });
+  }
+
   function buildDefenseBlock(title, obj) {
     const fields = PHYS_MAGIC_FIELDS.map((key) => {
-      const input = window.numberInput(obj[key], (v) => {
+      const input = mobValueInput(key, obj[key], (v) => {
         if (v === null || v === "") { delete obj[key]; return; }
         obj[key] = v;
-      }, { int: false });
+      });
       return fieldRow(key, input);
     });
     return h("div", { class: "mob-defense-block" }, [subTitle(title), gridRow(fields)]);
@@ -77,10 +165,10 @@
   function buildAttackBlock(title, obj) {
     if (!obj || typeof obj !== "object" || Array.isArray(obj)) obj = {};
     const fields = ATTACK_FIELDS.map((key) => {
-      const input = window.numberInput(obj[key], (v) => {
+      const input = mobValueInput(key, obj[key], (v) => {
         if (v === null || v === "") { delete obj[key]; return; }
         obj[key] = v;
-      }, { int: false });
+      });
       return fieldRow(key, input);
     });
     return h("div", { class: "mob-attack-block" }, [subTitle(title), gridRow(fields)]);
@@ -90,10 +178,10 @@
   // キーを書き込まない(未入力=従来どおりの線形)。mob-types.yml は base+per-level+growth を
   // 1つのオブジェクトへまとめず {baseKey}/{baseKey}-growth/{baseKey}-growth-interval の3キーへ
   // 分散配置する既存レイアウトを踏襲するため、rampEditors そのものは再利用せず同じ入力UXだけ倣う。
-  function growthFieldRows(touch, obj, baseKey, labelPrefix) {
+  function growthFieldRows(touch, obj, baseKey, labelPrefix, opts) {
     const growthKey = `${baseKey}-growth`;
     const intervalKey = `${baseKey}-growth-interval`;
-    return [
+    const rows = [
       fieldRow(growthKey, window.numberInput(obj[growthKey] == null ? "" : obj[growthKey], (v) => {
         const target = touch();
         if (v === null || v === "") { delete target[growthKey]; return; }
@@ -111,6 +199,33 @@
         desc: "growth 1回分あたりのレベル幅(省略時1.0)。"
       })
     ];
+    // 2026-08-03(45+難易度修正): {baseKey}-high-level-from/{baseKey}-high-level-per-level。
+    // 現状は max-health だけが呼び出し側(buildLevelCoeffBlock)から opts.showHighLevel:true で
+    // 有効化されている(Java側 MobLevelCoefficients が max-health にしかこの2キーを持たないため。
+    // attack-power 側に同じUIを出すと「入力しても何も効かない」死んだフィールドになるので出さない)。
+    if (opts && opts.showHighLevel) {
+      const fromKey = `${baseKey}-high-level-from`;
+      const perLevelKey = `${baseKey}-high-level-per-level`;
+      rows.push(
+        fieldRow(fromKey, window.numberInput(obj[fromKey] == null ? "" : obj[fromKey], (v) => {
+          const target = touch();
+          if (v === null || v === "") { delete target[fromKey]; return; }
+          target[fromKey] = v;
+        }, { int: false }), {
+          label: `${labelPrefix}高レベル開始`,
+          desc: "このレベル以上だけ追加加算する第2区間の開始レベル。省略=発動しない(従来どおり)。"
+        }),
+        fieldRow(perLevelKey, window.numberInput(obj[perLevelKey] == null ? "" : obj[perLevelKey], (v) => {
+          const target = touch();
+          if (v === null || v === "") { delete target[perLevelKey]; return; }
+          target[perLevelKey] = v;
+        }, { int: false }), {
+          label: `${labelPrefix}高レベル加算/Lv`,
+          desc: "開始レベル以上、1レベルごとに加算する量(乗算ではなく純粋な加算)。開始レベルちょうどでは0(連続)。"
+        })
+      );
+    }
+    return rows;
   }
 
   function buildLevelCoeffBlock(host) {
@@ -154,23 +269,23 @@
         label: "最大HP係数",
         desc: "レベル1あたりの最大HP加算係数。"
       }),
-      ...growthFieldRows(touchCoeffs, coeffs, "max-health", "最大HP"),
-      fieldRow("armor-strength", window.numberInput(coeffs["armor-strength"], (v) => {
+      ...growthFieldRows(touchCoeffs, coeffs, "max-health", "最大HP", { showHighLevel: true }),
+      fieldRow("armor-strength", mobValueInput("armor-strength", coeffs["armor-strength"], (v) => {
         const c = touchCoeffs();
         if (v === null || v === "") { delete c["armor-strength"]; return; }
         c["armor-strength"] = v;
-      }, { int: false }), {
+      }), {
         label: "防具強度係数",
-        desc: "レベル1あたりの防具強度加算。"
+        desc: "レベル1あたりの防具強度加算(割合なので % 表示。0.25% = Lv100 で +25%)。"
       })
     ];
     function buildLazyDefenseBlock(title, obj, touch) {
       const fields = PHYS_MAGIC_FIELDS.map((key) => {
-        const input = window.numberInput(obj[key], (v) => {
+        const input = mobValueInput(key, obj[key], (v) => {
           const target = touch();
           if (v === null || v === "") { delete target[key]; return; }
           target[key] = v;
-        }, { int: false });
+        });
         return fieldRow(key, input);
       });
       return h("div", { class: "mob-defense-block" }, [subTitle(title), gridRow(fields)]);
@@ -191,11 +306,11 @@
 
   function buildAttackCoeffBlock(title, obj, touch) {
     const fields = ATTACK_FIELDS.flatMap((key) => {
-      const input = window.numberInput(obj[key], (v) => {
+      const input = mobValueInput(key, obj[key], (v) => {
         const target = touch();
         if (v === null || v === "") { delete target[key]; return; }
         target[key] = v;
-      }, { int: false });
+      });
       const row = fieldRow(key, input);
       // attack-power のみ growth/growth-interval に対応 (mob-import.yml の attack-power と揃える)。
       // 構造上は他ステも同じ growthFieldRows で後から追加できる。
@@ -205,11 +320,19 @@
   }
 
   function buildDropRow(drop, onRemove) {
-    const matHint = window.materialHintEl(drop.material);
+    // 2026-08-01 U13: material は Material名 または custom:<カタログID>。allowCustom を渡していな
+    // かったため、この画面だけカスタムアイテムが候補に出ず、「＋ 直接入力…」で custom:foo と打っても
+    // normalizeCommitValue が CUSTOMFOO へ潰していた(=入れる経路が1本も無い)。
+    // 候補源は app.js の共通入口 ensureCustomItemCandidates() が積む window.CUSTOM_ITEM_CANDIDATES
+    // をそのまま使う(この画面用に新しく取りに行かない)。
+    // Java 側は MobTypesConfig#parseDrops / MobDropEntry / MobTypeDropListener が custom: を解釈する。
+    // 2026-08-02: materialInput は 2026-07-29 の listSelect 移行で選択後の表示自体が既に日本語名
+    // (primary) になっている。ここに materialHintEl を並べて足すと同じ日本語名が2回出て行が崩れる
+    // (実サーバ報告: レベルテーブルの add-drops 行で「幸運のスレッド / 幸運のスレッド」と重複表示)。
+    // ヒント欄は削除し、materialInput 自身の表示だけに一本化する。
     const matInput = window.materialInput(drop.material, "material-list", (v) => {
       drop.material = v;
-      matHint.update(v);
-    });
+    }, { allowCustom: true });
     const chanceInput = window.numberInput(drop.chance, (v) => { drop.chance = v == null ? 0 : v; }, { int: false });
     const minInput = window.numberInput(drop.min, (v) => { drop.min = v == null ? 0 : v; }, { int: true });
     const maxInput = window.numberInput(drop.max, (v) => { drop.max = v == null ? 0 : v; }, { int: true });
@@ -220,13 +343,18 @@
 
     return h("div", { class: "mob-drop-row" }, [
       h("div", { class: "field-grid" }, [
-        fieldRow("material", h("div", { class: "input-with-hint" }, [matInput, matHint]), {
-          label: "素材(Material)", desc: "ドロップするアイテムの Material 名。"
+        fieldRow("material", matInput, {
+          label: "素材(Material/custom:)",
+          desc: "ドロップするアイテム。Material名 または custom:<カタログID>"
+            + "(items/catalog.yml と ArsPaper materials.yml の両方から選べる)。"
         }),
         fieldRow("chance", chanceInput),
         fieldRow("min", minInput, { label: "個数(最小)", desc: "ドロップ個数の下限。0以上の整数。" }),
         fieldRow("max", maxInput, { label: "個数(最大)", desc: "ドロップ個数の上限。0以上の整数、min以上。" }),
-        fieldRow("quality", qualityInput, { label: "固定品質(省略可)", desc: "省略時はモブレベル駆動で自動決定。" })
+        fieldRow("quality", qualityInput, {
+          label: "固定品質(省略可)",
+          desc: "省略時はモブレベル駆動で自動決定。custom: のアイテムには効かない(生成側が品質を決める)。"
+        })
       ]),
       h("button", { class: "btn-small danger", type: "button", text: "削除", onclick: onRemove })
     ]);
@@ -267,7 +395,6 @@
       working["mob-types"] = {};
     }
     const mobTypes = working["mob-types"];
-    const entityList = ensureDatalist("entity-type-list", ENTITY_TYPE_CANDIDATES);
     const root = h("div", { class: "dedicated-form" });
 
     function renderDefaultsCard() {
@@ -279,10 +406,10 @@
         if (v === null) { delete defaults["coordinate-coefficient"]; return; }
         defaults["coordinate-coefficient"] = v;
       }, { int: false });
-      const armorInput = window.numberInput(defaults["armor-strength"], (v) => {
+      const armorInput = mobValueInput("armor-strength", defaults["armor-strength"], (v) => {
         if (v === null) { delete defaults["armor-strength"]; return; }
         defaults["armor-strength"] = v;
-      }, { int: false });
+      });
       const hpInput = window.numberInput(defaults["max-health"], (v) => {
         if (v === null || v === "") { delete defaults["max-health"]; return; }
         defaults["max-health"] = v;
@@ -338,9 +465,75 @@
       );
     }
 
+    // 2026-08-02: dimensions: (MobTypesConfig#parseDimensions) 専用カード。
+    // キーは World.Environment 名の4種固定(EntityTypeのような自由入力にしない — ネザー/エンドの
+    // ワールド名はサーバ構成依存で一致せず、EliteMobsのインスタンスワールドは毎回名前が変わるため、
+    // ワールド名で引く設計は成立しない。combat.md 参照)。
+    // 未編集でカードを開いただけでは working.dimensions に一切触れない(4環境ぶんの base-level:0 が
+    // 勝手に埋まる事故を避ける)。値を入力した環境だけ実体化し、getData() 時に空エントリを刈る。
+    function renderDimensionsCard() {
+      function touchEnv(envKey) {
+        const dims = ensureObject(working, "dimensions");
+        if (!dims[envKey] || typeof dims[envKey] !== "object" || Array.isArray(dims[envKey])) {
+          dims[envKey] = {};
+        }
+        return dims[envKey];
+      }
+      function readEnv(envKey) {
+        const dims = working.dimensions;
+        return (dims && typeof dims === "object" && dims[envKey] && typeof dims[envKey] === "object")
+          ? dims[envKey] : {};
+      }
+
+      const rows = DIMENSION_ENVS.map(({ key: envKey, label }) => {
+        const current = readEnv(envKey);
+        const baseLevelInput = window.numberInput(current["base-level"], (v) => {
+          if (v === null || v === "") {
+            if (working.dimensions && working.dimensions[envKey]) delete working.dimensions[envKey]["base-level"];
+            return;
+          }
+          touchEnv(envKey)["base-level"] = Math.max(0, Math.floor(Number(v)) || 0);
+        }, { int: true });
+        const coordInput = window.numberInput(current["coordinate-coefficient"], (v) => {
+          if (v === null || v === "") {
+            if (working.dimensions && working.dimensions[envKey]) delete working.dimensions[envKey]["coordinate-coefficient"];
+            return;
+          }
+          touchEnv(envKey)["coordinate-coefficient"] = v;
+        }, { int: false });
+
+        return gridRow([
+          fieldRow(`dimensions.${envKey}.base-level`, baseLevelInput, {
+            label: `${label} — 基準レベル下駄`,
+            desc: "このディメンションの全モブのeffectiveLevelに加算する整数下駄。省略時0(=従来どおり無干渉)。"
+          }),
+          fieldRow(`dimensions.${envKey}.coordinate-coefficient`, coordInput, {
+            label: `${label} — 座標係数上書き (省略可)`,
+            desc: "省略時はモブ側(defaults/mob-types)の座標係数をそのまま使用。指定時だけこの" +
+                "ディメンション全体の座標係数を上書きする。"
+          })
+        ]);
+      });
+
+      return card(
+        [h("span", { class: "entry-key-label", text: "ディメンション別の基準レベル (dimensions)" })],
+        [
+          h("div", {
+            class: "field-desc",
+            style: "font-size:11px;color:var(--muted,#6b7280);margin:0 0 8px;",
+            text: "World.Environment(NORMAL/NETHER/THE_END/CUSTOM)ごとにレベル下駄・座標係数上書きを" +
+                "設定します。ワールド名では引かないため、ネザー/エンドのワールド名を書いても効きません。" +
+                "未設定のディメンションは従来どおり無干渉です。"
+          }),
+          ...rows
+        ]
+      );
+    }
+
     function render() {
       root.innerHTML = "";
       root.appendChild(renderMaxLevelCard());
+      root.appendChild(renderDimensionsCard());
       root.appendChild(renderDefaultsCard());
       const keys = Object.keys(mobTypes);
       if (keys.length === 0) {
@@ -369,20 +562,27 @@
         ? mobTypes[entityType]
         : (mobTypes[entityType] = {});
 
-      const typeInput = h("input", { class: "field-input", list: entityList, value: entityType, spellcheck: "false" });
-      typeInput.addEventListener("change", (ev) => {
-        const nv = ev.target.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
-        if (!nv || nv === entityType) { ev.target.value = entityType; return; }
-        if (Object.prototype.hasOwnProperty.call(mobTypes, nv)) {
-          alert("同じ EntityType が既に存在します");
-          ev.target.value = entityType;
-          return;
+      // 2026-07-29: datalist 付きの素の text 入力を、日本語名で引けるセレクトへ置換。
+      // キー重複は onCommit で却下する (従来の change ハンドラと同じ判定)。
+      const typeInput = window.mobTypeSelect(entityType, null, {
+        onCommit: (raw) => {
+          const nv = String(raw || "").trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
+          if (!nv || nv === entityType) return false;
+          if (Object.prototype.hasOwnProperty.call(mobTypes, nv)) {
+            alert("同じ EntityType が既に存在します");
+            return false;
+          }
+          renameKey(mobTypes, entityType, nv);
+          render();
+          return true;
         }
-        renameKey(mobTypes, entityType, nv);
-        render();
       });
 
+      // 2026-07-28: カードを閉じたときに EntityType の生ID しか見えず、どのモブの定義か
+      // 分からなかったため、先頭に日本語名を出す(オーバーライド側カードと同じ流儀)。
+      const jaName = (window.MOB_LABELS_JA && window.MOB_LABELS_JA[entityType]) || "";
       const head = [
+        h("span", { class: "entry-key-label", text: jaName || entityType }),
         h("span", { class: "entry-key-label", text: "EntityType" }), typeInput,
         mobTypeSummary(entry),
         h("div", { class: "spacer" }),
@@ -410,10 +610,10 @@
         if (v === null || v === "") { delete entry["max-health"]; return; }
         entry["max-health"] = v;
       }, { int: false });
-      const armorInput = window.numberInput(entry["armor-strength"], (v) => {
+      const armorInput = mobValueInput("armor-strength", entry["armor-strength"], (v) => {
         if (v === null) { delete entry["armor-strength"]; return; }
         entry["armor-strength"] = v;
-      }, { int: false });
+      });
 
       const basicBody = gridRow([
         fieldRow("level", levelInput, { label: "基準戦闘レベル", desc: "このモブの基準となる戦闘レベル。0以上の整数。" }),
@@ -488,6 +688,7 @@
           pruneEmptyLevelCoeffs(entry);
           deleteLegacyLevelConstants(entry);
         }
+        pruneEmptyDimensions(working);
         return working;
       }
     };
@@ -509,19 +710,46 @@
     const physEmpty = !phys || typeof phys !== "object" || Object.keys(phys).length === 0;
     const magEmpty = !mag || typeof mag !== "object" || Object.keys(mag).length === 0;
     const atkEmpty = !atk || typeof atk !== "object" || Object.keys(atk).length === 0;
+    // 2026-08-03(45+難易度修正): max-health-high-level-from/per-level をここに足し忘れると、
+    // このフィールドだけ入力して保存したときに「空扱いされてブロックごと消える」事故になる
+    // (現に max-health-growth 系はこの理由で既にチェック対象、同じ罠を踏まないため追加)。
     const topEmpty = coeffs["max-health"] == null && coeffs["armor-strength"] == null
-      && coeffs["max-health-growth"] == null && coeffs["max-health-growth-interval"] == null;
+      && coeffs["max-health-growth"] == null && coeffs["max-health-growth-interval"] == null
+      && coeffs["max-health-high-level-from"] == null && coeffs["max-health-high-level-per-level"] == null;
     if (physEmpty) delete coeffs.physical;
     if (magEmpty) delete coeffs.magical;
     if (atkEmpty) delete coeffs.attack;
     if (topEmpty && !coeffs.physical && !coeffs.magical && !coeffs.attack) delete host[key];
   }
 
+  // 2026-08-02: dimensions.<ENV> が空オブジェクト({})になったエントリを刈る(値を入力→全部消した
+  // ときの掃除)。dimensions 自体が未タッチ(working.dimensions が undefined)なら何もしない —
+  // 「開いて保存しただけで dimensions: {} が4環境ぶんの base-level:0 で埋まる」事故を防ぐのはUI側の
+  // touchEnv 遅延実体化が主だが、掃除側でも空エントリだけは必ず削る(どちらか片方が壊れても事故らない
+  // 二重の安全策)。
+  function pruneEmptyDimensions(host) {
+    if (!host || typeof host !== "object") return;
+    const dims = host.dimensions;
+    if (!dims || typeof dims !== "object" || Array.isArray(dims)) return;
+    for (const key of Object.keys(dims)) {
+      const entry = dims[key];
+      if (!entry || typeof entry !== "object" || Array.isArray(entry) || Object.keys(entry).length === 0) {
+        delete dims[key];
+      }
+    }
+  }
+
   // Node テスト向けに純関数を公開 (tf-lifestyle-forms.js の window.DROP_TABLE_LOGIC と同じ流儀)。
   // ブラウザ実行時の挙動には影響しない (window.buildMobTypesForm は従来どおり別途公開)。
   // expRampValue は下方(mob-overrides の vanilla-exp ブロック)で宣言されるが、関数宣言の巻き上げが
   // 効くのでここで公開できる(pruneEmptyMobSelections と同じ流儀)。
-  window.MOB_FORMS_LOGIC = { pruneEmptyScalingBlock, pruneEmptyMobSelections, expRampValue };
+  // buildLevelCutoffBlock(レベル差による足きり)は 2026-08-09 に撤去した。設定が
+  // combat/mob-overrides.yml から combat/damage.yml へ移り、共通変数タブのスカラー欄
+  // (lib/constants.js の level-cutoff.*)になったため、専用フォームが不要になった。
+  window.MOB_FORMS_LOGIC = {
+    pruneEmptyScalingBlock, pruneEmptyMobSelections, expRampValue,
+    pruneEmptyNoSkillExpMobs, pruneEmptyDimensions
+  };
 
   // --------------------------------------------------------------------------------------------
   // combat/mob-level-table.yml (tf-mob-level-table) 専用フォーム。
@@ -530,17 +758,110 @@
   // mob-types.yml と同じ「往復ロスレス最優先」方針: working を直接編集し、未編集キーは温存する。
   // --------------------------------------------------------------------------------------------
 
-  function buildAddDropRow(drop, onRemove) {
+  // 2026-08-14 フィールドドロップ配線: chance-by-level(レベル比例確率)の編集UI。
+  // Java 側(MobLevelTableConfig#parseChanceCurve)は4項目すべて揃っていないとカーブごと捨てて
+  // 素の chance に戻すので、ONにしたら4項目を必ず実体化する。OFFならキーごと消す —— 既定値を
+  // 書き戻すと「開いて保存しただけ」で全エントリにカーブが生える(normalize 既定値ドリフト)。
+  function buildChanceCurveSection(drop, onRerender) {
+    const curve = drop["chance-by-level"];
+    const enabled = !!curve && typeof curve === "object" && !Array.isArray(curve);
+    const toggle = h("input", { type: "checkbox" });
+    toggle.checked = enabled;
+    toggle.addEventListener("change", () => {
+      if (toggle.checked) {
+        const base = typeof drop.chance === "number" ? drop.chance : 0;
+        drop["chance-by-level"] = {
+          "from-level": 1, "from-chance": base, "to-level": 100, "to-chance": base
+        };
+      } else {
+        delete drop["chance-by-level"];
+      }
+      onRerender();
+    });
+    const children = [
+      window.fieldLabelEl("chance-by-level", {
+        label: "レベル比例の確率 (chance-by-level、省略可)",
+        desc: "ONにすると、倒したモブのレベルで上の確率を線形補間します(範囲外はクランプ)。"
+          + "OFFなら上の確率をそのまま使います(従来どおり)。"
+      }),
+      h("label", { class: "checkbox-row", style: "display:flex;align-items:center;gap:8px;" }, [
+        toggle,
+        h("span", { text: "レベルで確率を変える" })
+      ])
+    ];
+    if (enabled) {
+      const num = (key, opts) => window.numberInput(curve[key], (v) => {
+        curve[key] = v == null ? 0 : v;
+      }, opts);
+      children.push(h("div", { class: "field-grid" }, [
+        fieldRow("from-level", num("from-level", { int: true }), {
+          label: "下端レベル", desc: "このレベル以下は下端の確率で固定(外挿しません)。"
+        }),
+        fieldRow("from-chance", num("from-chance", { int: false }), {
+          label: "下端の確率(0〜1)", desc: "下端レベルでのドロップ確率。"
+        }),
+        fieldRow("to-level", num("to-level", { int: true }), {
+          label: "上端レベル", desc: "下端レベルより大きいこと。このレベル以上は上端の確率で固定。"
+        }),
+        fieldRow("to-chance", num("to-chance", { int: false }), {
+          label: "上端の確率(0〜1)", desc: "上端レベルでのドロップ確率。"
+        })
+      ]));
+    }
+    return h("div", { class: "mob-drops-section" }, children);
+  }
+
+  // 2026-08-14: where(適用する場所) と baby(子供/大人)。どちらも既定値はキーごと削除する。
+  function buildScopeAndAgeSection(drop) {
+    const whereSelect = window.listSelect({
+      value: typeof drop.where === "string" ? drop.where : "any",
+      options: [
+        { value: "any", primary: "どこでも (any)", secondary: "既定。場所を問わない" },
+        { value: "field", primary: "フィールドのみ (field)", secondary: "ダンジョンインスタンス以外の討伐だけ" },
+        { value: "dungeon", primary: "ダンジョンのみ (dungeon)", secondary: "ダンジョンインスタンス内の討伐だけ" }
+      ],
+      onChange: (v) => {
+        if (!v || v === "any") delete drop.where; else drop.where = String(v);
+      }
+    });
+    const babySelect = window.listSelect({
+      value: drop.baby === true ? "baby" : (drop.baby === false ? "adult" : "any"),
+      options: [
+        { value: "any", primary: "区別しない", secondary: "既定" },
+        { value: "baby", primary: "子供のみ (baby: true)", secondary: "子ゾンビなど" },
+        { value: "adult", primary: "大人のみ (baby: false)", secondary: "子供個体には落とさない" }
+      ],
+      onChange: (v) => {
+        if (v === "baby") drop.baby = true;
+        else if (v === "adult") drop.baby = false;
+        else delete drop.baby;
+      }
+    });
+    return h("div", { class: "field-grid" }, [
+      fieldRow("where", whereSelect, {
+        label: "適用する場所 (where、省略可)",
+        desc: "「ダンジョンインスタンスワールドか」で判定します。ダンジョンのモブにも戦闘レベルは"
+          + "刻まれるので、対象モブ(mobs)を絞るだけではフィールド限定にできません。"
+      }),
+      fieldRow("baby", babySelect, {
+        label: "子供/大人 (baby、省略可)",
+        desc: "子ゾンビのように実行時にしか分からない状態で絞ります。年齢の概念が無いモブ"
+          + "(シュルカー等)に指定すると【1個も落ちなくなる】ので注意。"
+      })
+    ]);
+  }
+
+  function buildAddDropRow(drop, onRemove, onRerender) {
     // buildDropRow(mob-types.yml向け)は quality フィールドを持つが、レベルテーブルの add-drops は
     // material/chance/min/max(+2026-07-25で mobs)のみ読む(Javaパーサが quality を見ない)ため、
     // 混乱を避けて専用に組む。
     // 2026-07-25 §2-B: material は Material名 または custom:<items/catalog.ymlのID> を受け付ける
     // (LevelTierDropEntry/MobLevelTableConfig 側で custom: プレフィクスを解釈)。fish-sell.prices や
     // ドロップテーブル entries[].item と同じ window.materialInput({ allowCustom: true }) に統一する。
-    const matHint = window.materialHintEl(drop.material);
+    // 2026-08-02: materialHintEl は削除 (materialInput 自身が既に日本語名を表示するため、
+    // 隣に足すと同じ名前が2回出て行が潰れる。実サーバ報告の直接該当箇所)。
     const matInput = window.materialInput(drop.material, "material-list", (v) => {
       drop.material = v;
-      matHint.update(v);
     }, { allowCustom: true });
     const chanceInput = window.numberInput(drop.chance, (v) => { drop.chance = v == null ? 0 : v; }, { int: false });
     const minInput = window.numberInput(drop.min, (v) => { drop.min = v == null ? 0 : v; }, { int: true });
@@ -550,7 +871,7 @@
       // .field-grid と対象モブブロックは縦に積む(横並びにすると両方が潰れて崩れる)。
       h("div", { class: "mob-drop-body" }, [
         h("div", { class: "field-grid" }, [
-          fieldRow("material", h("div", { class: "input-with-hint" }, [matInput, matHint]), {
+          fieldRow("material", matInput, {
             label: "素材(Material/custom:)",
             desc: "この帯だけで追加ドロップするアイテム。Material名 または custom:<カタログID>。"
           }),
@@ -558,6 +879,10 @@
           fieldRow("min", minInput, { label: "個数(最小)", desc: "ドロップ個数の下限。0以上の整数。" }),
           fieldRow("max", maxInput, { label: "個数(最大)", desc: "ドロップ個数の上限。0以上の整数、min以上。" })
         ]),
+        // 2026-08-14 フィールドドロップ配線。yml に書けるのに GUI に出ないキーがあると、
+        // 「editor で開いて保存したら意味が変わる」ではなく「そもそも編集できない」形で腐る。
+        buildChanceCurveSection(drop, typeof onRerender === "function" ? onRerender : () => {}),
+        buildScopeAndAgeSection(drop),
         buildTargetFilterSection(drop, "このドロップの対象モブ", "省略時はこの帯の全モブに適用。")
       ]),
       h("button", { class: "btn-small danger", type: "button", text: "削除", onclick: onRemove })
@@ -633,7 +958,6 @@
   // buildRemoveDropsBox と同じ「行の配列を add/remove するボックス」の流儀を踏襲し、
   // 候補は window.VANILLA_MOBS(entity-type-list datalist、mob-types.yml と共有)から出す。
   function buildAddDropMobsBox(drop) {
-    const entityList = ensureDatalist("entity-type-list", ENTITY_TYPE_CANDIDATES);
     const box = h("div", { class: "mob-drops-box" });
     function render() {
       box.innerHTML = "";
@@ -642,12 +966,8 @@
         box.appendChild(h("div", { class: "empty-guide-hint", text: "未指定(全モブに適用)。" }));
       }
       list.forEach((mob, idx) => {
-        const mobInput = h("input", {
-          class: "field-input", list: entityList, value: mob == null ? "" : String(mob), spellcheck: "false"
-        });
-        mobInput.addEventListener("change", (ev) => {
-          const nv = ev.target.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
-          list[idx] = nv;
+        const mobInput = window.mobTypeSelect(mob, (v) => {
+          list[idx] = String(v || "").trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
         });
         box.appendChild(h("div", { class: "mob-drop-row" }, [
           h("div", { class: "input-with-hint" }, [mobInput]),
@@ -672,6 +992,45 @@
     return box;
   }
 
+  // 2026-07-27 牧場対策: no-skill-exp-mobs (トップレベル、帯システムとは独立)。バニラEXPオーブは
+  // 対象外(従来どおり落ちる) — 止めるのはTrinityForgeの戦闘スキルEXP(武器命中/防具被弾)のみ。
+  // 魔法(ARS_MAGIC)は対象外: Ars側のEXPは「詠唱したこと」に対して付き、何を撃ったかを見ないため。
+  // buildAddDropMobsBox と同じ「行の配列を add/remove するボックス」の流儀を working 直下に適用する。
+  function buildNoSkillExpMobsBox(working) {
+    const box = h("div", { class: "mob-drops-box" });
+    function render() {
+      box.innerHTML = "";
+      const list = Array.isArray(working["no-skill-exp-mobs"]) ? working["no-skill-exp-mobs"] : [];
+      if (list.length === 0) {
+        box.appendChild(h("div", { class: "empty-guide-hint", text: "未指定(戦闘スキルEXP無効化の対象なし)。" }));
+      }
+      list.forEach((mob, idx) => {
+        const mobInput = window.mobTypeSelect(mob, (v) => {
+          list[idx] = String(v || "").trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
+        });
+        box.appendChild(h("div", { class: "mob-drop-row" }, [
+          h("div", { class: "input-with-hint" }, [mobInput]),
+          h("button", {
+            class: "btn-small danger", type: "button", text: "削除",
+            onclick: () => { list.splice(idx, 1); if (list.length === 0) delete working["no-skill-exp-mobs"]; render(); }
+          })
+        ]));
+      });
+      box.appendChild(h("div", { class: "form-actions" }, [
+        h("button", {
+          class: "btn-small", type: "button", text: "+ 対象モブを追加",
+          onclick: () => {
+            if (!Array.isArray(working["no-skill-exp-mobs"])) working["no-skill-exp-mobs"] = [];
+            working["no-skill-exp-mobs"].push("BEE");
+            render();
+          }
+        })
+      ]));
+    }
+    render();
+    return box;
+  }
+
   function buildRemoveDropsBox(tier) {
     const box = h("div", { class: "mob-drops-box" });
     function render() {
@@ -681,13 +1040,13 @@
         box.appendChild(h("div", { class: "empty-guide-hint", text: "削除対象はまだありません(省略時は何も削除しません)。" }));
       }
       list.forEach((mat, idx) => {
-        const matHint = window.materialHintEl(mat);
+        // 2026-08-02: materialHintEl は削除 (materialInput 自身が listSelect の日本語表示名を
+        // 既に出しているため、隣に足すと同じ名前が2回並んで行が崩れる)。
         const matInput = window.materialInput(mat, "material-list", (v) => {
           list[idx] = v;
-          matHint.update(v);
         });
         box.appendChild(h("div", { class: "mob-drop-row" }, [
-          h("div", { class: "input-with-hint" }, [matInput, matHint]),
+          h("div", { class: "input-with-hint" }, [matInput]),
           h("button", {
             class: "btn-small danger", type: "button", text: "削除",
             onclick: () => { list.splice(idx, 1); if (list.length === 0) delete tier["remove-drops"]; render(); }
@@ -717,24 +1076,56 @@
   // 2026-07-26 改名: 旧名 pruneEmptyAddDropsMobs。2026-07-25 の初版は add-drops[].mobs だけが対象
   // だったが、その後 帯レベルの mobs/mob-ids と mob-ids 全般へ守備範囲が広がったため、名前が実態より
   // 狭いままになっていた(「add-drops の中しか刈らない」と読めてしまう)。
+  /**
+   * 配列の「空要素刈り取り + 正規化」を**同じ配列オブジェクトのまま**行う。
+   *
+   * ここを `arr = arr.map().filter()` で書くと**配列の同一性が壊れる**。行エディタ
+   * (buildAddDropMobsBox / buildNoSkillExpMobsBox 等) は描画時に `working[...]` の配列を
+   * ローカル変数へ掴んでから `list[idx] = v` で書き込むため、getData の中で配列を
+   * 差し替えると掴んでいた方が**孤児**になり、以後その行の編集が working に届かない。
+   * getData は画面を開いた直後 (app.js syncBaseFromEditor) と beforeunload のたびに
+   * 呼ばれるので、「開いてから最初の1回の編集だけが黙って消える」という形で出る
+   * (未保存判定 isEditorDirty も差分を見つけられないので警告すら出ない)。2026-08-05 修正。
+   *
+   * @returns {number} 刈り取り後の要素数
+   */
+  function normalizeStringArrayInPlace(arr) {
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const v = String(arr[i] == null ? "" : arr[i]).trim();
+      if (v === "") arr.splice(i, 1);
+      else arr[i] = v;
+    }
+    return arr.length;
+  }
+
   function pruneEmptyMobSelections(tiers) {
     function pruneHost(host) {
       if (!host || typeof host !== "object") return;
       if (Array.isArray(host.mobs)) {
-        host.mobs = host.mobs.filter((v) => String(v == null ? "" : v).trim() !== "");
-        if (host.mobs.length === 0) delete host.mobs;
+        if (normalizeStringArrayInPlace(host.mobs) === 0) delete host.mobs;
       }
       if (Array.isArray(host["mob-ids"])) {
-        host["mob-ids"] = host["mob-ids"]
-          .map((v) => String(v == null ? "" : v).trim())
-          .filter((v) => v !== "");
-        if (host["mob-ids"].length === 0) delete host["mob-ids"];
+        if (normalizeStringArrayInPlace(host["mob-ids"]) === 0) delete host["mob-ids"];
       }
     }
     for (const tier of Array.isArray(tiers) ? tiers : []) {
       if (!tier || typeof tier !== "object") continue;
       pruneHost(tier);
       for (const drop of Array.isArray(tier["add-drops"]) ? tier["add-drops"] : []) pruneHost(drop);
+    }
+  }
+
+  // 2026-07-27 牧場対策: no-skill-exp-mobs(トップレベル、tiers とは独立)の空文字/空配列刈り取り。
+  // pruneEmptyMobSelections と同じ流儀(未選択行を捨て、結果が空ならキーごと消す)だが、こちらは
+  // working 直下の単一キーが対象なのであえて共通化せず単独の純関数として置く。
+  // 配列の差し替えではなく in-place で刈る理由は normalizeStringArrayInPlace のコメント参照
+  // (差し替えると buildNoSkillExpMobsBox が掴んだ配列が孤児になり、開いた直後の1回目の
+  //  編集が未保存警告も出さずに消える)。
+  function pruneEmptyNoSkillExpMobs(working) {
+    if (!working || typeof working !== "object") return;
+    if (!Array.isArray(working["no-skill-exp-mobs"])) return;
+    if (normalizeStringArrayInPlace(working["no-skill-exp-mobs"]) === 0) {
+      delete working["no-skill-exp-mobs"];
     }
   }
 
@@ -745,12 +1136,50 @@
     const tiers = working.tiers;
     const root = h("div", { class: "dedicated-form" });
 
+    // 2026-07-29: 帯が増えると縦に延々と積まれて全体像が掴めなかったため、全カードを
+    // 折りたたみ式にする。再描画をまたいで開閉状態を保つ (collapsibleCard の推奨パターン)。
+    // 帯カードのキーは配列 index ではなく min-level — 帯を削除/追加すると index がずれて
+    // 別の帯の開閉状態を引き継いでしまうため。
+    const expandedCards = new Set();
+    function collapsible(cardKey, headChildren, bodyChildren, defaultOpen) {
+      if (defaultOpen && !expandedCards.has(cardKey) && !expandedCards.has("!" + cardKey)) {
+        expandedCards.add(cardKey);
+      }
+      return window.collapsibleCard(headChildren, bodyChildren, {
+        expanded: expandedCards.has(cardKey),
+        onToggle: (open) => {
+          if (open) { expandedCards.add(cardKey); expandedCards.delete("!" + cardKey); }
+          else { expandedCards.delete(cardKey); expandedCards.add("!" + cardKey); }
+        }
+      });
+    }
+
+    /** 折りたたみ中でも中身が想像できるよう、ヘッダに要約を出す。 */
+    function tierSummary(tier) {
+      const parts = [];
+      const removes = Array.isArray(tier["remove-drops"]) ? tier["remove-drops"].length : 0;
+      const adds = Array.isArray(tier["add-drops"]) ? tier["add-drops"].length : 0;
+      if (tier["vanilla-exp"] != null) parts.push(`EXP ${tier["vanilla-exp"]}`);
+      if (removes) parts.push(`削除 ${removes}`);
+      if (adds) parts.push(`追加 ${adds}`);
+      const mobs = Array.isArray(tier.mobs) ? tier.mobs.length : 0;
+      if (mobs) parts.push(`対象 ${mobs} 種`);
+      return parts.length ? parts.join(" / ") : "設定なし";
+    }
+
     function renderDungeonOnlyCard() {
       const toggle = h("input", { type: "checkbox" });
       toggle.checked = !!working["dungeon-only"];
       toggle.addEventListener("change", () => { working["dungeon-only"] = toggle.checked; });
-      return card(
-        [h("span", { class: "entry-key-label", text: "適用範囲" })],
+      return collapsible(
+        "dungeon-only",
+        [
+          h("span", { class: "entry-key-label", text: "適用範囲" }),
+          h("span", {
+            class: "entry-summary",
+            text: working["dungeon-only"] ? "ダンジョン内のみ" : "全ワールド"
+          })
+        ],
         [
           h("div", {
             class: "field-desc",
@@ -777,7 +1206,8 @@
       }, { int: true });
 
       const head = [
-        h("span", { class: "entry-key-label", text: `帯 #${idx + 1}` }),
+        h("span", { class: "entry-key-label", text: `帯 #${idx + 1} (Lv${tier["min-level"] == null ? 0 : tier["min-level"]}～)` }),
+        h("span", { class: "entry-summary", text: tierSummary(tier) }),
         h("div", { class: "spacer" }),
         h("button", {
           class: "btn-small danger", type: "button", text: "削除",
@@ -798,7 +1228,7 @@
             tier["add-drops"].splice(dIdx, 1);
             if (tier["add-drops"].length === 0) delete tier["add-drops"];
             renderAddDrops();
-          }));
+          }, renderAddDrops));
         });
         addDropsBox.appendChild(h("div", { class: "form-actions" }, [
           h("button", {
@@ -842,12 +1272,37 @@
           addDropsBox
         ])
       ];
-      return card(head, body);
+      return collapsible(`tier:${tier["min-level"] == null ? idx : tier["min-level"]}`, head, body);
+    }
+
+    function renderNoSkillExpMobsCard() {
+      const list = Array.isArray(working["no-skill-exp-mobs"]) ? working["no-skill-exp-mobs"] : [];
+      return collapsible(
+        "no-skill-exp-mobs",
+        [
+          h("span", { class: "entry-key-label", text: "戦闘スキルEXP無効化 (no-skill-exp-mobs)" }),
+          h("span", { class: "entry-summary", text: list.length ? `${list.length} 種` : "未設定" })
+        ],
+        [
+          h("div", {
+            class: "field-desc",
+            style: "font-size:11px;color:var(--muted,#6b7280);margin:0 0 8px;",
+            text: "このモブを相手にしても、TrinityForgeの戦闘スキルEXP(武器=命中/防具=被弾)は"
+              + "一切加算されないモブの一覧です。バニラのEXPオーブ(討伐時に落ちる経験値)"
+              + "には影響しません(エンチャント等の用途を潰さないよう、従来どおり落ちます)。"
+              + "上のレベル帯(tiers)やdungeon-only設定とは独立に、常に効きます。空なら何もしません。"
+              + "※魔法(ARS_MAGIC)は対象外です — Ars側のEXPは「詠唱したこと」に対して付き、"
+              + "何を撃ったかを見ないため、モブ指定で止める手段が構造的にありません。"
+          }),
+          buildNoSkillExpMobsBox(working)
+        ]
+      );
     }
 
     function render() {
       root.innerHTML = "";
       root.appendChild(renderDungeonOnlyCard());
+      root.appendChild(renderNoSkillExpMobsCard());
       if (tiers.length === 0) {
         root.appendChild(emptyGuide(
           "レベル帯がまだありません。",
@@ -886,6 +1341,7 @@
         // mobs: [] (全削除後の空配列)は back-compat の「未指定」と等価だが、working を直接編集する
         // 方針上ここで明示的に delete しておく(保存YAMLに空配列を残さない)。
         pruneEmptyMobSelections(tiers);
+        pruneEmptyNoSkillExpMobs(working);
         return working;
       }
     };
@@ -939,12 +1395,12 @@
         // 候補が取れないときは自由入力に退避する(選べないより入力できるほうがまし)。
         : window.textInput(currentId, (v) => { drop.item = CUSTOM_PREFIX + String(v || "").trim(); });
     } else {
-      const itemHint = window.materialHintEl(drop.item);
+      // 2026-08-02: materialHintEl は削除 (materialInput 自身が listSelect の日本語表示名を
+      // 既に出しているため、隣に足すと同じ名前が2回並んで行が崩れる)。
       const itemInput = window.materialInput(drop.item, "material-list", (v) => {
         drop.item = v;
-        itemHint.update(v);
       }, { allowCustom: true });
-      valueControl = h("div", { class: "input-with-hint" }, [itemInput, itemHint]);
+      valueControl = h("div", { class: "input-with-hint" }, [itemInput]);
     }
     return h("div", { class: "drop-item-control" }, [kindSelect, valueControl]);
   }
@@ -1042,30 +1498,30 @@
       if (v === null || v === "") { delete s["max-health"]; return; }
       s["max-health"] = v;
     }, { int: false });
-    const armorStrengthInput = window.numberInput(stats["armor-strength"], (v) => {
+    const armorStrengthInput = mobValueInput("armor-strength", stats["armor-strength"], (v) => {
       const s = touchStats();
       if (v === null || v === "") { delete s["armor-strength"]; return; }
       s["armor-strength"] = v;
-    }, { int: false });
+    });
 
     function buildLazyDefenseBlock(title, obj, touch) {
       const fields = PHYS_MAGIC_FIELDS.map((key) => {
-        const input = window.numberInput(obj[key], (v) => {
+        const input = mobValueInput(key, obj[key], (v) => {
           const target = touch();
           if (v === null || v === "") { delete target[key]; return; }
           target[key] = v;
-        }, { int: false });
+        });
         return fieldRow(key, input);
       });
       return h("div", { class: "mob-defense-block" }, [subTitle(title), gridRow(fields)]);
     }
     function buildLazyAttackBlock(title, obj, touch) {
       const fields = ATTACK_FIELDS.map((key) => {
-        const input = window.numberInput(obj[key], (v) => {
+        const input = mobValueInput(key, obj[key], (v) => {
           const target = touch();
           if (v === null || v === "") { delete target[key]; return; }
           target[key] = v;
-        }, { int: false });
+        });
         return fieldRow(key, input);
       });
       return h("div", { class: "mob-attack-block" }, [subTitle(title), gridRow(fields)]);
@@ -1082,7 +1538,10 @@
         fieldRow("max-health", maxHealthInput, { label: "最大HP (省略可)" }),
         fieldRow("armor-strength", armorStrengthInput, {
           label: "防具強度 (省略可)", desc: "physical/magical両方に同じ値が適用されます。"
-        })
+        }),
+        // 難易度倍率 (2026-08-14)。このモブだけを強く/弱くしたいときに使う。
+        // ダンジョン全体の難易度はスコープ側(ダンジョンカード直下)に置くこと。
+        ...multiplierFieldRows(mobEntry, touchStats)
       ]),
       buildLazyDefenseBlock("物理防御 (physical、省略可)", phys, touchPhys),
       buildLazyDefenseBlock("魔法防御 (magical、省略可)", mag, touchMag),
@@ -1193,6 +1652,82 @@
     ]);
   }
 
+  // abilities (特殊攻撃、2026-07-31)。値は combat/mob-abilities.yml のテンプレートID。
+  // 候補は同ファイルから読み込む(window.MOB_ABILITY_IDS)。読めなかったときは自由入力に落として
+  // 「候補が出ないから設定できない」状態を作らない。
+  // window.listSelect は cfg オブジェクト1個を受ける(位置引数で呼ぶと候補が出ない)。
+  // 候補に無いIDも通すのは、mob-abilities.yml をまだ保存していない状態でも書けるようにするため。
+  function abilityIdSelect(current, ids, onChange) {
+    const cur = current == null ? "" : String(current);
+    const CUSTOM = "__custom_ability__";
+    // window.MOB_ABILITY_LABELS_JA(app.js の fetchMobAbilityIds が同時に作る)があれば
+    // 技名(display-name)を主表示にし、テンプレートIDは副表示へ回す。無ければ従来どおり生ID。
+    const labels = window.MOB_ABILITY_LABELS_JA || {};
+    const ja = (id) => labels[id] || id;
+    const options = (ids || []).map((id) => ({ value: id, primary: ja(id), secondary: ja(id) === id ? "" : id, title: id }));
+    if (cur && !(ids || []).includes(cur)) {
+      options.unshift({ value: cur, primary: ja(cur), secondary: "(mob-abilities.yml に無い)", title: cur });
+    }
+    options.push({ value: CUSTOM, primary: "その他(自由入力)…", secondary: "" });
+    return window.listSelect({
+      value: cur,
+      placeholder: "選択…",
+      allowCustom: true,
+      customPlaceholder: "テンプレートIDを直接入力",
+      customValue: CUSTOM,
+      options: options,
+      onCommit: (v) => { onChange(v); return true; }
+    });
+  }
+
+  function buildAbilitiesBlock(host) {
+    const box = h("div", { class: "card-list-body" });
+    function render() {
+      box.innerHTML = "";
+      box.appendChild(h("div", {
+        class: "field-desc",
+        style: "font-size:11px;color:var(--muted,#6b7280);margin:0 0 4px;",
+        text: "このモブが撃つ特殊攻撃。技の中身(ダメージ倍率・クールダウン・演出)は"
+          + "「敵の特殊攻撃 (mob-abilities)」画面のテンプレート側にあります。"
+          + "drops と同じく置換で、ワールドスコープに1件でも書くと default 側は使われません。"
+      }));
+      const list = Array.isArray(host.abilities) ? host.abilities : [];
+      if (!list.length) {
+        box.appendChild(h("div", {
+          class: "field-desc",
+          style: "font-size:11px;color:var(--muted,#6b7280);",
+          text: "未設定(このモブは特殊攻撃を撃ちません)。"
+        }));
+      }
+      const candidates = Array.isArray(window.MOB_ABILITY_IDS) ? window.MOB_ABILITY_IDS : [];
+      list.forEach((value, index) => {
+        const row = h("div", { class: "stat-row" });
+        row.appendChild(abilityIdSelect(String(value), candidates, (nv) => {
+          host.abilities[index] = nv;
+        }));
+        row.appendChild(h("button", {
+          class: "btn-small danger", type: "button", text: "\u00d7",
+          onclick: () => {
+            host.abilities.splice(index, 1);
+            if (!host.abilities.length) delete host.abilities;
+            render();
+          }
+        }));
+        box.appendChild(row);
+      });
+      box.appendChild(h("button", {
+        class: "btn-small", type: "button", text: "+ 特殊攻撃を追加",
+        onclick: () => {
+          if (!Array.isArray(host.abilities)) host.abilities = [];
+          host.abilities.push(candidates.length ? candidates[0] : "");
+          render();
+        }
+      }));
+    }
+    render();
+    return box;
+  }
+
   // 表示名(display-name)欄。ダンジョン(スコープ)とモブで同じ意味・同じ扱いなので共通化する。
   // 空欄で保存するとキーごと消す(未設定 = EliteMobs側の名前をそのまま使う)。
   function buildDisplayNameField(host, opts) {
@@ -1298,6 +1833,8 @@
       buildOverrideStatsBlock(mobEntry),
       subTitle("経験値の式 (vanilla-exp)"),
       buildOverrideExpBlock(mobEntry),
+      subTitle("特殊攻撃 (abilities)"),
+      buildAbilitiesBlock(mobEntry),
       h("div", { class: "mob-drops-section" }, [
         window.fieldLabelEl("drops"),
         h("div", {
@@ -1421,6 +1958,33 @@
         })
       ]));
     }
+    // ダンジョン単位の難易度倍率 (2026-08-14)。scope 直下の stats: は「そのダンジョンの全モブに
+    // 効く既定値」で、mobs: に1件も書いていないモブにも当たる — 難易度の本来の置き場はここ。
+    // ⚠️ scope 直下の stats: に physical/magical(耐性)を書くのは【禁止】。項目単位マージなので
+    // 自前の耐性を持つモブ(このファイルでは 397/404)には一切効かず、丸ごと no-op になる
+    // (2026-08-03 に実際にやった誤り。詳細は mob-overrides.yml のヘッダ)。倍率キーは per-mob 側が
+    // ほぼ書かないので実際に効く、という点で magic-ratio と同じ扱い。
+    // 【スコープの stats: 全体を編集する UI はここには置かない】 上の理由で「置いてよいキー」が
+    // ごく一部に限られるため、編集できるのは倍率だけにしてある。他のキーは per-mob 側で編集する
+    // (このフォームは working を直接編集するので、yml に既にある他のキーは触らずそのまま残る)。
+    body.push(subTitle("難易度倍率 (stats、省略可)"));
+    body.push(h("div", {
+      class: "field-desc",
+      style: "font-size:11px;color:var(--muted,#6b7280);margin:0 0 8px;",
+      text: isDefault
+        ? "全ダンジョン共通の既定倍率。ワールド個別・モブ個別にも同じキーがある場合は【後勝ちではなく"
+          + "掛け合わさります】(他のキーの項目単位マージとはここだけ違う)。ここに書いた倍率は全ダンジョンに"
+          + "乗るので、ダンジョン間の難易度差だけを付けたいならここには書かないこと。"
+          + "空欄のままなら倍率キー自体を書きません。"
+        : "このダンジョンの全モブに掛かる倍率。プレイヤーが選んだレベルに対する相対的な強さ差＝難易度を"
+          + "ここで表します。モブ個別にも同じキーがある場合は【後勝ちではなく掛け合わさります】"
+          + "(スコープ2.0×モブ3.0=6.0倍。他のキーの項目単位マージとはここだけ違う)。"
+          + "空欄のままなら倍率キー自体を書きません。"
+    }));
+    body.push(gridRow(multiplierFieldRows(scope, () => {
+      if (!scope.stats || typeof scope.stats !== "object" || Array.isArray(scope.stats)) scope.stats = {};
+      return scope.stats;
+    })));
     body.push(mobsBox);
     return window.collapsibleCard(head, body, {
       expanded: openOverrideScopes.has(scopeName),

@@ -12,6 +12,9 @@
 const FEATURES = Object.freeze([
   { id: "vein-mining", label: "鉱脈一括破壊", param: "scale" },
   { id: "haste-active-mining", label: "採掘ハステアクティブ", param: "scale" },
+  // 2026-08-18 (W-59): 掘削を採掘から分離。ツルハシ⇔シャベルの持ち替えでCTを
+  // 踏み倒せていたため、CTバケツ(cooldownGroup)は採掘側と共有する。
+  { id: "haste-active-digging", label: "掘削ハステアクティブ", param: "scale" },
   { id: "spawner-silktouch-harvest", label: "スポナーST回収", param: "none" },
   { id: "tree-fell", label: "木一括伐採", param: "scale" },
   { id: "auto-replant", label: "自動再植", param: "none" },
@@ -19,7 +22,8 @@ const FEATURES = Object.freeze([
   { id: "animal-damage-4x", label: "動物特効", param: "none" },
   { id: "bee-no-aggro", label: "蜂非敵対", param: "none" },
   { id: "junkfood-immunity", label: "ゴミ食免疫", param: "none" },
-  { id: "junkfood-inversion", label: "ゴミ食反転", param: "none" },
+  // 2026-07-27 農業「ゴミ食」段階化: none -> level化(Java側 FeatureEffectRegistry と同期必須)。
+  { id: "junkfood-inversion", label: "ゴミ食反転%", param: "level" },
   { id: "satiety-buff", label: "満腹バフ", param: "none" },
   { id: "junk-to-scrap", label: "釣りゴミ→スクラップ", param: "none" },
   // 2026-07-25 経済連携(vault対応)により再導入。Java側 FeatureEffectRegistry と同期必須。
@@ -30,17 +34,24 @@ const FEATURES = Object.freeze([
   { id: "potion-merge", label: "ポーション統合", param: "scale" },
   { id: "wood-repair-unlock", label: "木材修繕", param: "none" },
   { id: "weapon-coating-unlock", label: "武器コーティング解放", param: "none" },
-  // 2026-07-26 (stat-scope 境界引き直し): coating-charges を総合ステからアイテム固有へ降格したのに伴い、
-  // パーク由来のコーティング回数追加はこの feature 経由になった。Java側 FeatureEffectRegistry と同期必須。
-  { id: "coating-stack-increase", label: "武器コーティング上限追加", param: "level" },
+  // 2026-07-28 (数値のギミックyml集約): coating-stack-increase は feature から通常stat
+  // (coating_charges_bonus)へ移設したため削除。Java側 FeatureEffectRegistry と同期必須。
   { id: "source-auto-consume", label: "ソース自動消費", param: "none" },
-  { id: "break-vanilla-exp", label: "破壊時バニラEXP解放", param: "none" },
-  // 2026-07-25 かまど/ゴミ食/シャベル耐久EXP 5件追加。Java側 FeatureEffectRegistry と同期必須。
-  { id: "furnace-smelt-speed", label: "精錬速度短縮%", param: "level" },
-  { id: "furnace-smelt-bonus", label: "精錬ボーナス%", param: "level" },
+  // 2026-08-18 (W-58): 破壊時バニラEXPの解放ゲートを採取スキル別に4分割した。
+  // 旧 break-vanilla-exp は「採掘の木で取ると伐採でも解放される」状態だったため廃止。
+  // Java側 BreakVanillaExpBonusKeys#featureId が生成するidと1対1で対応する。
+  { id: "break-vanilla-exp-mining", label: "採掘の破壊時バニラEXP解放", param: "none" },
+  { id: "break-vanilla-exp-digging", label: "掘削の破壊時バニラEXP解放", param: "none" },
+  { id: "break-vanilla-exp-farming", label: "農業の破壊時バニラEXP解放", param: "none" },
+  { id: "break-vanilla-exp-woodcutting", label: "伐採の破壊時バニラEXP解放", param: "none" },
+  // 2026-07-28 (数値のギミックyml集約): 精錬速度/ボーナスと切削耐久累計2件をlevel(生%直書き) ->
+  // scale(tier番号)化。実値は stats/smithing-gimmick.yml / stats/digging-gimmick.yml のtierテーブルへ
+  // 移設した。Java側 FeatureEffectRegistry と同期必須。
+  { id: "furnace-smelt-speed", label: "精錬速度tier", param: "scale" },
+  { id: "furnace-smelt-bonus", label: "精錬ボーナスtier", param: "scale" },
   { id: "junk-food-restore-boost", label: "ゴミ食回復ボーナス%", param: "level" },
-  { id: "digging-durability-vanilla-exp", label: "耐久累計→バニラEXP上限%", param: "level" },
-  { id: "digging-durability-job-exp", label: "耐久累計→職業EXP上限%", param: "level" }
+  { id: "digging-durability-vanilla-exp", label: "耐久累計→バニラEXP tier", param: "scale" },
+  { id: "digging-durability-job-exp", label: "耐久累計→職業EXP tier", param: "scale" }
 ]);
 
 function isPlainObject(v) {
@@ -82,29 +93,39 @@ function extractTrades(villagerTrades) {
   return Object.keys(professions);
 }
 
+// fishing.groups.<treasure|junk|fish>.categories / fishing.unlock-groups.<同groupId>.categories の
+// 1グループ分を out へ積む共通処理(groups と unlock-groups は完全に同一の Category スキーマ)。
+function collectFishingGroupCategories(profession, groups, out) {
+  if (!isPlainObject(groups)) return;
+  for (const groupId of Object.keys(groups)) {
+    const group = groups[groupId];
+    const categories = group && group.categories;
+    if (!isPlainObject(categories)) continue;
+    for (const catId of Object.keys(categories)) {
+      const cat = categories[catId];
+      out.push({
+        profession,
+        categoryId: `${groupId}:${catId}`,
+        displayName: (isPlainObject(cat) && cat["display-name"]) || catId
+      });
+    }
+  }
+}
+
 // 各ギミックyml drop-tables.categories → { profession, categoryId, displayName }[]
-// 釣りだけ fishing.groups.<treasure|junk>.categories 形式。
+// 釣りだけ fishing.groups.<treasure|junk|fish>.categories 形式。
+// 2026-08-15: 機能解放追加用テーブル fishing.unlock-groups.<同groupId>.categories も同じ
+// categoryId (`${groupId}:${catId}`) で語彙へ追加する ── ノード側の解放IDは
+// drop:fishing:<groupId>:<catId> で groups/unlock-groups どちらのカテゴリも共通形式のため。
 function extractDropCategories(profession, gimmickData) {
   const out = [];
   if (!isPlainObject(gimmickData)) return out;
 
   if (profession === "fishing") {
     const fishing = gimmickData.fishing;
-    const groups = fishing && fishing.groups;
-    if (!isPlainObject(groups)) return out;
-    for (const groupId of Object.keys(groups)) {
-      const group = groups[groupId];
-      const categories = group && group.categories;
-      if (!isPlainObject(categories)) continue;
-      for (const catId of Object.keys(categories)) {
-        const cat = categories[catId];
-        out.push({
-          profession,
-          categoryId: `${groupId}:${catId}`,
-          displayName: (isPlainObject(cat) && cat["display-name"]) || catId
-        });
-      }
-    }
+    if (!isPlainObject(fishing)) return out;
+    collectFishingGroupCategories(profession, fishing.groups, out);
+    collectFishingGroupCategories(profession, fishing["unlock-groups"], out);
     return out;
   }
 
@@ -132,10 +153,15 @@ function extractDrops(gimmicks) {
 }
 
 // progression/special-rewards.yml: titles/particles/particle-seeds キー(和集合)
+const SPECIAL_REWARD_GROUPS = [
+  ["titles", "称号"],
+  ["particles", "パーティクル"],
+  ["particle-seeds", "パーティクルシード"]
+];
 function extractSpecialRewards(specialRewards) {
   if (!isPlainObject(specialRewards)) return [];
   const ids = new Set();
-  for (const group of ["titles", "particles", "particle-seeds"]) {
+  for (const [group] of SPECIAL_REWARD_GROUPS) {
     const map = specialRewards[group];
     if (isPlainObject(map)) {
       for (const k of Object.keys(map)) ids.add(k);
@@ -144,20 +170,119 @@ function extractSpecialRewards(specialRewards) {
   return [...ids].sort();
 }
 
+// 2026-07-29: 特殊報酬IDは new_title / new_particle のような機械名なので、スキルツリーの
+// reward: ゲートのセレクトが読めない ID の羅列になっていた。表示用の日本語ラベルを別キーで
+// 添える (specialRewards の配列そのものは互換のためID配列のまま)。
+// 称号の display は MiniMessage なのでタグを落としたプレーン文字にする。
+function stripMiniMessage(raw) {
+  return String(raw == null ? "" : raw)
+    .replace(/<[^>]+>/g, "")
+    .replace(/[§&][0-9a-fk-or]/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function extractSpecialRewardLabels(specialRewards) {
+  const out = {};
+  if (!isPlainObject(specialRewards)) return out;
+  for (const [group, kind] of SPECIAL_REWARD_GROUPS) {
+    const map = specialRewards[group];
+    if (!isPlainObject(map)) continue;
+    for (const [id, raw] of Object.entries(map)) {
+      if (Object.prototype.hasOwnProperty.call(out, id)) continue;
+      const entry = isPlainObject(raw) ? raw : {};
+      const name = group === "titles"
+        ? stripMiniMessage(entry.display)
+        : String(entry.particle == null ? "" : entry.particle);
+      out[id] = name ? `${kind}: ${name}` : `${kind}: ${id}`;
+    }
+  }
+  return out;
+}
+
 // items/catalog.yml: items.<id>.recipe.method から、実際にゲートできる出力IDを抽出する。
-// method省略は catalog.yml の既定どおり workbench。combine/netherite はこのゲート方式の対象外。
+// method省略は catalog.yml の既定どおり workbench。
+//
+// 2026-08-16: workbench だけを見ていたので method: inventory の10件(短剣8種/広辞苑/someones_eyes)が
+// 候補に1件も出ていなかった。Java 側は RecipeSpec#isBukkitCrafting() = workbench || inventory で、
+// どちらも trinityforge:catalog_<id> として登録される(CatalogRecipeRegistrar#registerAll)。つまり
+// inventory も recipe:<id> で普通にゲートできる ── 候補に出ていなかっただけ。
+//
+// combine/netherite は対象外のままでよい。netherite は catalog_<id>_smithing という別キーで登録され、
+// しかも CatalogCraftGateListener#netheriteGateId がバニラ素材の固定表でしか解決しないため、
+// recipe:<id> ではそもそもゲートできない(候補に出す方が誤解を招く)。
+// TF カタログの method: ritual は ArsPaper の CatalogRitualRegistrar が
+// 儀式レシピID `tf_catalog_<カタログID>` として登録する(2件目以降は `_2`)。ゲートに使うキーは
+// この儀式レシピIDそのもの(UnlockGate#hasRitualPermission ← tfRitualGatePerks)なので、
+// 素のカタログIDでは一致しない。エディタからは推測不能なので語彙側で組み立てる。
+const CATALOG_RITUAL_ID_PREFIX = "tf_catalog_";
+const CATALOG_GATEABLE_METHODS = new Set(["workbench", "inventory"]);
+
 function extractCatalogGateTargets(catalog) {
   const items = catalog && catalog.items;
   const recipes = [];
-  if (!isPlainObject(items)) return { recipes };
+  const rituals = [];
+  if (!isPlainObject(items)) return { recipes, rituals };
   for (const id of Object.keys(items)) {
     const item = items[id];
-    const recipe = item && item.recipe;
-    if (!isPlainObject(recipe)) continue;
-    const method = recipe.method == null ? "workbench" : String(recipe.method).trim().toLowerCase();
-    if (method === "workbench") recipes.push(id);
+    let ritualIndex = 0;
+    let gateable = false;
+    for (const recipe of recipeEntriesOf(item)) {
+      const method = methodOf(recipe);
+      if (method === "ritual") {
+        ritualIndex++;
+        rituals.push(ritualIndex === 1
+          ? CATALOG_RITUAL_ID_PREFIX + id
+          : `${CATALOG_RITUAL_ID_PREFIX}${id}_${ritualIndex}`);
+      } else if (CATALOG_GATEABLE_METHODS.has(method)) {
+        gateable = true;
+      }
+    }
+    if (gateable) recipes.push(id);
   }
-  return { recipes: recipes.sort() };
+  return { recipes: recipes.sort(), rituals: rituals.sort() };
+}
+
+// tf_catalog_<id> は機械名なので、セレクトが読めないIDの羅列になる(2026-08-16)。
+// catalog.yml の display-name(MiniMessage)をプレーン化した表示ラベルを添える。
+function extractCatalogRitualLabels(catalog) {
+  const items = catalog && catalog.items;
+  const out = {};
+  if (!isPlainObject(items)) return out;
+  for (const id of Object.keys(items)) {
+    const item = items[id];
+    let ritualIndex = 0;
+    for (const recipe of recipeEntriesOf(item)) {
+      if (methodOf(recipe) !== "ritual") continue;
+      ritualIndex++;
+      const key = ritualIndex === 1
+        ? CATALOG_RITUAL_ID_PREFIX + id
+        : `${CATALOG_RITUAL_ID_PREFIX}${id}_${ritualIndex}`;
+      const name = stripMiniMessage(item["display-name"]) || id;
+      out[key] = ritualIndex === 1 ? name : `${name} (${ritualIndex}件目のレシピ)`;
+    }
+  }
+  return out;
+}
+
+// catalog.yml の workbench/inventory レシピ(recipe: ゲートの素のカタログID対象)にも
+// 同じくラベルを添える。2026-08-18 (W-52): これが無かったため「解放ゲート > クラフトレシピ」の
+// セレクトが常に `カスタム: <id>` 表示だった(こちらは tf_catalog_ プレフィックスを付けない
+// 素のIDなので、儀式側の extractCatalogRitualLabels とはキーの作り方が違う)。
+function extractCatalogRecipeLabels(catalog) {
+  const items = catalog && catalog.items;
+  const out = {};
+  if (!isPlainObject(items)) return out;
+  for (const id of Object.keys(items)) {
+    const item = items[id];
+    let gateable = false;
+    for (const recipe of recipeEntriesOf(item)) {
+      if (CATALOG_GATEABLE_METHODS.has(methodOf(recipe))) { gateable = true; break; }
+    }
+    if (!gateable) continue;
+    const name = stripMiniMessage(item["display-name"]);
+    if (name) out[id] = name;
+  }
+  return out;
 }
 
 // ArsPaper items.yml: ritual_effects.<id> は完成品を作るレシピではなく、
@@ -165,6 +290,119 @@ function extractCatalogGateTargets(catalog) {
 function extractRitualEffects(itemsData) {
   const effects = itemsData && itemsData.ritual_effects;
   return isPlainObject(effects) ? Object.keys(effects).sort() : [];
+}
+
+// 2026-08-18 (W-52): ritual_effects.<id> は id が機械名(weather_clear 等)なので、
+// エントリの name: (儀式の日本語名)をラベル辞書として添える。
+// これが無かったため「解放ゲート > 儀式エフェクト」のセレクトが常に生ID表示だった。
+function extractRitualEffectLabels(itemsData) {
+  const effects = itemsData && itemsData.ritual_effects;
+  const out = {};
+  if (!isPlainObject(effects)) return out;
+  for (const [id, entry] of Object.entries(effects)) {
+    const label = isPlainObject(entry) ? stripMiniMessage(entry.name) : "";
+    if (label) out[id] = label;
+  }
+  return out;
+}
+
+// 2026-08-14 (実サーバ報告「解放ゲートで機能アイテムカテゴリのアイテムを設定できない」):
+// recipe:/ritual: ゲートの候補が items/catalog.yml のワークベンチレシピだけだったので、
+// ArsPaper 側に定義されたレシピ(機能アイテム/中間素材/儀式アイテム/ジャー/リンク/魔導書)は
+// 1件もセレクトに出ていなかった。
+//
+// 実行時のゲートキーは「登録された Bukkit レシピの NamespacedKey のキー部分」で、それは
+// ArsPaper の UnifiedRecipeLoader が各ymlのエントリIDをそのまま使う(2件目以降だけ `_r2` で
+// 一意化し、RecipeUnlockGate#gateKey が基底IDへ寄せる)。つまり ArsPaper のどのymlに書かれた
+// レシピでも「エントリID」で正しくゲートできる ── 候補に出ていなかっただけ。
+//
+// チャンネルの振り分けは method で決まる。ArsPaper の UnlockGate は
+// hasRecipePermission / hasRitualPermission が【別々のマップ】を引くので、儀式アイテムを
+// recipe: 側に置くと儀式経路はそのマップを一切見ず【無言で常時解放】になる
+// (TrinityForge の RecipeRitualGateChannelDriftTest が固定している事故)。
+// よって method: ritual は rituals へ、それ以外(既定 workbench)は recipes へ入れる。
+const ARS_RECIPE_SOURCES = [
+  // [sources のキー, そのymlでエントリを並べているセクション名]
+  ["functionalItems", "items"],
+  ["items", "items"],
+  ["materials", "materials"],
+  ["sourcejars", "jars"],
+  ["sourcelinks", "items"]
+];
+
+// 1件=recipe: / 2件以上=recipes: の正規形(全config共通)。どちらの綴りでも拾う。
+function recipeEntriesOf(entry) {
+  if (!isPlainObject(entry)) return [];
+  const out = [];
+  if (isPlainObject(entry.recipe)) out.push(entry.recipe);
+  if (Array.isArray(entry.recipes)) {
+    for (const r of entry.recipes) {
+      if (isPlainObject(r)) out.push(r);
+    }
+  }
+  return out;
+}
+
+function methodOf(recipe) {
+  return recipe.method == null ? "workbench" : String(recipe.method).trim().toLowerCase();
+}
+
+// レシピを持つ ArsPaper のエントリIDを method ごとに振り分ける。
+function collectArsGateTargets(sources, recipes, rituals) {
+  for (const [sourceKey, sectionKey] of ARS_RECIPE_SOURCES) {
+    const section = sources[sourceKey] && sources[sourceKey][sectionKey];
+    if (!isPlainObject(section)) continue;
+    for (const id of Object.keys(section)) {
+      for (const recipe of recipeEntriesOf(section[id])) {
+        (methodOf(recipe) === "ritual" ? rituals : recipes).add(id);
+      }
+    }
+  }
+  // spellbooks.yml だけ配列形式 (spell-books[].id)。
+  const books = sources.spellbooks && sources.spellbooks["spell-books"];
+  if (Array.isArray(books)) {
+    for (const book of books) {
+      if (!isPlainObject(book) || !book.id) continue;
+      for (const recipe of recipeEntriesOf(book)) {
+        (methodOf(recipe) === "ritual" ? rituals : recipes).add(String(book.id));
+      }
+    }
+  }
+}
+
+// 2026-08-18 (W-52・機構A): ARS_RECIPE_SOURCES の各エントリIDに表示ラベルを添える。
+// collectArsGateTargets と同じ走査だが、id を集めるのではなく display-name を引く。
+// materials.yml だけ snake_case (display_name) なので両方見る
+// (public/js/catalog-candidates.js#buildCatalogCandidates と同じ二重対応)。
+// このラベル辞書は method に関わらず1つだけ作り、recipeLabels/ritualLabels の両方へ
+// 同じ内容をマージする(1つのIDが workbench/ritual 両方のレシピを持つケースがあり、
+// どちらのチャンネルでも同じ表示名で構わないため)。
+function labelFromArsEntry(entry) {
+  if (!isPlainObject(entry)) return "";
+  const raw = entry["display-name"] != null ? entry["display-name"] : entry.display_name;
+  return stripMiniMessage(raw);
+}
+
+function extractArsEntryLabels(sources) {
+  const out = {};
+  const s = sources || {};
+  for (const [sourceKey, sectionKey] of ARS_RECIPE_SOURCES) {
+    const section = s[sourceKey] && s[sourceKey][sectionKey];
+    if (!isPlainObject(section)) continue;
+    for (const id of Object.keys(section)) {
+      const label = labelFromArsEntry(section[id]);
+      if (label) out[id] = label;
+    }
+  }
+  const books = s.spellbooks && s.spellbooks["spell-books"];
+  if (Array.isArray(books)) {
+    for (const book of books) {
+      if (!isPlainObject(book) || !book.id) continue;
+      const label = labelFromArsEntry(book);
+      if (label) out[String(book.id)] = label;
+    }
+  }
+  return out;
 }
 
 /**
@@ -178,6 +416,19 @@ function extractRitualEffects(itemsData) {
 function buildGateVocabulary(sources) {
   const s = sources || {};
   const catalogTargets = extractCatalogGateTargets(s.catalog);
+  const recipes = new Set(catalogTargets.recipes);
+  const rituals = new Set([...extractRitualEffects(s.items), ...catalogTargets.rituals]);
+  collectArsGateTargets(s, recipes, rituals);
+  // 2026-08-18 (W-52・機構A): recipe:/ritual: ゲートのセレクトが常に生ID(またはカタログ画面を
+  // 開いたことがある場合だけ偶然埋まる `カスタム: <id>`)だった。ArsPaper の各ソース(機能アイテム/
+  // 中間素材/ソースジャー/ソースリンク/魔導書)と catalog.yml/items.yml のラベルを合流させる。
+  const arsEntryLabels = extractArsEntryLabels(s);
+  const recipeLabels = { ...extractCatalogRecipeLabels(s.catalog), ...arsEntryLabels };
+  const ritualLabels = {
+    ...extractCatalogRitualLabels(s.catalog),
+    ...extractRitualEffectLabels(s.items),
+    ...arsEntryLabels
+  };
   return {
     glyphs: extractGlyphs(s.glyphs),
     brews: extractBrews(s.craftingFeatures),
@@ -186,8 +437,11 @@ function buildGateVocabulary(sources) {
     overenchants: extractOverenchants(s.craftingFeatures),
     drops: extractDrops(s.gimmicks),
     specialRewards: extractSpecialRewards(s.specialRewards),
-    recipes: catalogTargets.recipes,
-    rituals: extractRitualEffects(s.items)
+    specialRewardLabels: extractSpecialRewardLabels(s.specialRewards),
+    recipes: [...recipes].sort(),
+    rituals: [...rituals].sort(),
+    recipeLabels,
+    ritualLabels
   };
 }
 

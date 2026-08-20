@@ -23,7 +23,7 @@ import java.util.logging.Logger;
 /**
  * Loader for {@code stats/mining-gimmick.yml}: tuning for the採掘スキルツリーflag系dedicated-effect
  * consumers that have no existing config home ({@code vein-mining}, {@code haste-active-mining} — see
- * {@code skilltree/dedicated-effects.yml}), the {@code mining} drop-table categories (2026-07-23
+ * the {@code dedicated-effects:} field on each node in {@code skilltree/*.yml}), the {@code mining} drop-table categories (2026-07-23
  * stat-gate-overhaul §4 — replaces the old {@code gacha-ticket-drop}/ancient-debris hardcoded consumers),
  * and the {@code fortune:} tuning migrated off the now-removed {@code stats/gathering.yml} (§D廃止).
  */
@@ -35,7 +35,12 @@ public final class MiningGimmickConfig {
     private static final int DEFAULT_HASTE_AMPLIFIER = 1;
     private static final int DEFAULT_HASTE_DURATION_TICKS = 200;
     private static final int DEFAULT_HASTE_COOLDOWN_TICKS = 600;
-    private static final double DEFAULT_FORTUNE_PER_LEVEL = 0.02;
+    /**
+     * MINING Lv 1 あたりの追加ドロップ期待値(割合)。2026-07-28 に
+     * {@code MiningFortuneListener#expectedExtraRate} の {@code × 0.30} を撤去した際、
+     * レベル由来の増加量を従来と同じに保つため 0.02 → 0.006 (= 0.02 × 0.30) へ下げた。
+     */
+    private static final double DEFAULT_FORTUNE_PER_LEVEL = 0.006;
     /** GTH-04 既定値: 怪しげな砂の再湧きに使う考古学ルートテーブル(砂漠ピラミッド相当)。 */
     private static final LootTables DEFAULT_SUSPICIOUS_SAND_LOOT_TABLE = LootTables.DESERT_PYRAMID_ARCHAEOLOGY;
     /** GTH-04 既定値: 怪しげな砂利の再湧きに使う考古学ルートテーブル(遺跡歩道 common相当)。 */

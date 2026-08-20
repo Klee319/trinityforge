@@ -75,9 +75,24 @@ public final class DedicatedEffectsConfig implements LoadableConfig {
      * is normalized to {@code feature:vein-mining} first (後方互換: pre-existing gimmick listeners query by
      * bare feature id — see {@link #normalize}). Fail-safe: a {@code null} player, an unreadable PDC, or
      * any internal exception yields {@code false} rather than propagating into the fork.
+     *
+     * <p>ツリーを問わない判定であることに注意 — 同じ effect id を複数のツリーが置いていて、かつ
+     * どのツリー由来かが意味を持つ経路は {@link #isActive(Player, String, String)} を使うこと。
      */
     public boolean isActive(Player player, String effectId) {
         return isActiveByPerks(heldPerksOf(player), effectId);
+    }
+
+    /**
+     * {@link #isActive(Player, String)} restricted to placements that live in the skill tree
+     * {@code skill} ({@code null}/blank = unrestricted).
+     *
+     * <p>値を持たない機能フラグ({@code param:none})でもツリー限定が要る場合がある。詳細は
+     * {@link com.trinityforge.skilltree.effects.DedicatedEffectGateIndex#isActiveByPerks(Set, String, String)}。
+     * Fail-safe: same as {@link #isActive(Player, String)}.
+     */
+    public boolean isActive(Player player, String effectId, String skill) {
+        return isActiveByPerks(heldPerksOf(player), effectId, skill);
     }
 
     /**
@@ -91,8 +106,21 @@ public final class DedicatedEffectsConfig implements LoadableConfig {
 
     /** The highest {@code value} among {@code player}'s matching placements. Fail-safe: same as {@link #isActive}. */
     public OptionalDouble valueMax(Player player, String effectId) {
+        return valueMax(player, effectId, null);
+    }
+
+    /**
+     * {@link #valueMax(Player, String)} restricted to placements that live in the skill tree
+     * {@code skill} ({@code null}/blank = unrestricted).
+     *
+     * <p>同じ effect id を複数のツリーが置いていて、かつ<b>どのツリー由来で解放したかが意味を持つ</b>
+     * 経路(持ったツールの {@code use-skill} でトリガーするアクティブスキル等)は必ずこちらを使うこと。
+     * 詳細は {@link com.trinityforge.skilltree.effects.DedicatedEffectGateIndex#valueMaxByPerks(Set, String, String)}。
+     * Fail-safe: same as {@link #isActive}.
+     */
+    public OptionalDouble valueMax(Player player, String effectId, String skill) {
         try {
-            return gateIndex.valueMaxByPerks(heldPerksOf(player), normalize(effectId));
+            return gateIndex.valueMaxByPerks(heldPerksOf(player), normalize(effectId), skill);
         } catch (RuntimeException ex) {
             return OptionalDouble.empty();
         }
@@ -100,8 +128,13 @@ public final class DedicatedEffectsConfig implements LoadableConfig {
 
     /** {@link #isActive} without a live {@link Player} (tests, or a caller that already has the perk set). */
     public boolean isActiveByPerks(Set<String> heldPerks, String effectId) {
+        return isActiveByPerks(heldPerks, effectId, null);
+    }
+
+    /** {@link #isActive(Player, String, String)} without a live {@link Player}. */
+    public boolean isActiveByPerks(Set<String> heldPerks, String effectId, String skill) {
         try {
-            return gateIndex.isActiveByPerks(heldPerks, normalize(effectId));
+            return gateIndex.isActiveByPerks(heldPerks, normalize(effectId), skill);
         } catch (RuntimeException ex) {
             return false;
         }

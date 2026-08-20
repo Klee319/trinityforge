@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /** Selects dependency-free item models for the native skill-tree GUI. */
-final class SkillTreeGuiVisuals {
+public final class SkillTreeGuiVisuals {
 
     private static final Map<String, Visual> CONTROLS = Map.of(
             "move-nw", new Visual(Material.ARROW, "gui/skilltree_nw"),
@@ -16,7 +16,14 @@ final class SkillTreeGuiVisuals {
             "move-se", new Visual(Material.ARROW, "gui/skilltree_se"),
             "move-s", new Visual(Material.ARROW, "gui/skilltree_s"),
             "move-sw", new Visual(Material.ARROW, "gui/skilltree_sw"),
-            "move-w", new Visual(Material.ARROW, "gui/skilltree_w"));
+            "move-w", new Visual(Material.ARROW, "gui/skilltree_w"),
+            // 2026-08-04新設: 通常モード⇔一覧モード(スキルアイコンだけの格子表示)の切替ボタン。
+            // 新しいリソースパックCMDは要求しない(itemModel未指定=素のバニラ材質を表示する)。
+            "toggle-view", new Visual(Material.COMPASS, null),
+            // 2026-08-05新設(W-29): 通常モード⇔パーク一覧モード(現ツリーの全パークの格子表示)の
+            // 切替ボタン。ユーザー指定の「時計アイコン」なので材質は CLOCK 固定。
+            // toggle-view と同じくリソースパックCMDは要求しない。
+            "perk-list", new Visual(Material.CLOCK, null));
 
     private static final Map<String, String> CONNECTOR_SHAPES = Map.ofEntries(
             Map.entry("00", "direct_vertical"),
@@ -44,13 +51,15 @@ final class SkillTreeGuiVisuals {
             Map.entry("HEAVY_WEAPONS", "heavyweapons"),
             Map.entry("LIGHT_ARMOR", "lightarmor"),
             Map.entry("HEAVY_ARMOR", "heavyarmor"),
-            Map.entry("WOODCUTTING", "landscaping"),
-            Map.entry("DIGGING", "landscaping"));
+            // 2026-07-28: DIGGING は WOODCUTTING と同じ landscaping モデルに固定されていたため、
+            // スキル選択GUIで伐採と切削が同じアイコンになり、digging.yml の icon: IRON_SHOVEL が
+            // 無視されていた。専用モデルが無いスキルはここに載せず、config のアイコンを使わせる。
+            Map.entry("WOODCUTTING", "landscaping"));
 
     private SkillTreeGuiVisuals() {
     }
 
-    static Visual node(boolean unlocked, boolean unlockable, boolean pending, Material configuredIcon) {
+    public static Visual node(boolean unlocked, boolean unlockable, boolean pending, Material configuredIcon) {
         Objects.requireNonNull(configuredIcon, "configuredIcon");
         if (unlocked) {
             // 解放済みノードは共通モデル(gui/node_unlocked)ではなく、editorで指定されたperkアイコンを
@@ -66,7 +75,7 @@ final class SkillTreeGuiVisuals {
         return new Visual(configuredIcon, null);
     }
 
-    static Visual control(String action) {
+    public static Visual control(String action) {
         Visual visual = CONTROLS.get(action);
         if (visual == null) {
             throw new IllegalArgumentException("unknown skill-tree control: " + action);
@@ -74,7 +83,7 @@ final class SkillTreeGuiVisuals {
         return visual;
     }
 
-    static Visual connector(ConnectorState state, String suffix) {
+    public static Visual connector(ConnectorState state, String suffix) {
         Objects.requireNonNull(state, "state");
         String shape = CONNECTOR_SHAPES.get(suffix);
         if (shape == null) {
@@ -88,14 +97,14 @@ final class SkillTreeGuiVisuals {
         return new Visual(material, "gui/connection/" + state.path + "_" + shape);
     }
 
-    static Visual skill(String skillId, Material fallback) {
+    public static Visual skill(String skillId, Material fallback) {
         Objects.requireNonNull(skillId, "skillId");
         Objects.requireNonNull(fallback, "fallback");
         String model = SKILL_MODELS.get(skillId);
         return new Visual(fallback, model == null ? null : "gui/skill/" + model);
     }
 
-    enum ConnectorState {
+    public enum ConnectorState {
         LOCKED("locked"),
         UNLOCKABLE("unlockable"),
         UNLOCKED("unlocked");
@@ -107,8 +116,8 @@ final class SkillTreeGuiVisuals {
         }
     }
 
-    record Visual(Material material, String itemModel) {
-        Visual {
+    public record Visual(Material material, String itemModel) {
+        public Visual {
             Objects.requireNonNull(material, "material");
         }
     }

@@ -14,6 +14,16 @@ repositories {
     // without needing network access to JitPack.
     mavenLocal()
     maven("https://jitpack.io")
+    // packetevents(任意依存)の配布元。実サーバに入っている packetevents-spigot 2.11.1 と
+    // 同一バージョンをコンパイル時参照する(バージョン差による NoSuchMethodError を避けるため、
+    // ここのバージョンはサーバの jar と必ず一致させること)。
+    maven("https://repo.codemc.io/repository/maven-releases/")
+    // PlaceholderAPI(任意依存)の配布元。
+    // ⚠️ EliteMobs フォークの build.gradle が使っている
+    //    https://repo.extendedclip.com/content/repositories/placeholderapi/ は【既に廃止】で、
+    //    2026-08-03 時点では 404 を返す(2.10.9 自体も配信されておらず、最古が 2.11.5)。
+    //    現行は Reposilite の /releases/。あちらの URL をコピーしてくると必ず解決できない。
+    maven("https://repo.extendedclip.com/releases/")
 }
 
 dependencies {
@@ -33,6 +43,22 @@ dependencies {
     testImplementation("com.github.MilkBowl:VaultAPI:1.7") {
         exclude(group = "org.bukkit", module = "bukkit")
     }
+
+    // packetevents soft-dependency (2026-07-28, damage_indicator パーティクル上限): compile-time only,
+    // never bundled/shaded。バニラの被弾パーティクル個数はどの Bukkit イベントにも乗らないため、
+    // 送信直前のパケットで個数を丸めるにはパケット層が必須。未導入なら
+    // DamageIndicatorParticleLimiter ごと無効化されるだけ(fail-open)。
+    // バージョンは実サーバの packetevents-spigot と一致させること(現在 2.11.1)。
+    compileOnly("com.github.retrooper:packetevents-api:2.11.1")
+
+    // PlaceholderAPI soft-dependency (2026-08-03, ランキングプラグイン向けの値の供給): compile-time only,
+    // never bundled/shaded。未導入なら TrinityForgePlaceholders の登録ごとスキップされるだけ(fail-open)。
+    // ⚠️ paper-plugin.yml の dependencies にも join-classpath: true で書くこと。Paper プラグインは
+    //    クラスローダが分離されており、宣言していない相手のクラスは実行時に見えない。
+    // 2.11.6 は配信中の最古に近い安定版。PlaceholderExpansion の抽象メソッド
+    // (getIdentifier / getAuthor / getVersion / persist / onRequest)は 2.11〜2.12 で変わっていないので、
+    // ここを低めに固定しておけば新しい実サーバ(2.12.x)でもそのまま動く(逆は壊れる)。
+    compileOnly("me.clip:placeholderapi:2.11.6")
 
     // SQLite JDBC — Apache-2.0. Bundled in the shadow JAR (TrinityForge-*-all.jar) because
     // Paper server does not provide a SQLite driver on its classpath.
@@ -75,6 +101,11 @@ tasks.processResources {
 
 tasks.test {
     useJUnitPlatform()
+    // ops/reports/ の書き出しは opt-in。レポートは @TempDir のパスと実測時間を含むので毎回内容が
+    // 変わり、既定で更新すると「テストを走らせただけでワークツリーが汚れる」。実際に 31 本の
+    // worktree 全部で未コミット扱いになり、本物の孤児 WIP が埋もれていた(2026-08-01)。
+    // 成果物を更新したいときだけ ./gradlew test -Dtf.opsReport=true を明示的に叩く。
+    System.getProperty("tf.opsReport")?.let { systemProperty("tf.opsReport", it) }
     testLogging {
         events("skipped", "failed")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
@@ -144,21 +175,51 @@ tasks.register("releaseAssembly") {
         // progression/mobs/hate + TrinityForge main), a surface far wider than apiJar's curated
         // public subset — apiJar is insufficient for compilation. Thin jar has all classes and no
         // deps, so compileOnly(files(...)) never shades anything; TF supplies the classes at runtime.
-        val forkApiTargets = listOf(
-            rootProject.projectDir.resolve("../fork-handoff/arspaper/fork/libs"),
-            rootProject.projectDir.resolve("../fork-handoff/elitemobs/elitemobs-fork/libs"),
-            rootProject.projectDir.resolve("../fork-handoff/dpschecker/fork/libs")
-            // 2026-07-25: ../external/ArsPaper/libs を削除。現行の ArsPaper フォークは
+        val forkRoots = listOf(
+            rootProject.projectDir.resolve("../fork-handoff/arspaper/fork"),
+            rootProject.projectDir.resolve("../fork-handoff/elitemobs/elitemobs-fork"),
+            rootProject.projectDir.resolve("../fork-handoff/dpschecker/fork")
+            // 2026-07-25: ../external/ArsPaper を削除。現行の ArsPaper フォークは
             // fork-handoff/arspaper/fork であり、external/ 側は 7/22 の native 移行以降
             // 誰もビルドしない stale な複製だった(コピー先として残っていたためリポジトリ整理で
             // external/ ごと削除)。ここに再度パスを足すと空ディレクトリが復活する。
         )
-        for (target in forkApiTargets) {
+        // 2026-07-30: フォークが「存在するときだけ」libs/ を作って置く。以前は無条件に
+        // libs/ を mkdirs していたため、フォークが無い環境(クローン直後、git worktree)でも
+        // 空の fork-handoff/*/fork/libs/ を新規作成してそこへ jar を置いていた。
+        // フォークのソースは .gitignore 除外で worktree には存在しないので、
+        // 「本物のフォークには届いていないのにエラーも警告も出ない」という無言の失敗になっていた
+        // (TF の public API を変えた後、フォークが古い ABI でコンパイルされる)。
+        val repoRoot = rootProject.projectDir.resolve("..")
+        // git worktree の判定: リンク worktree ではリポジトリ直下の .git が
+        // ディレクトリではなくファイル(gitdir: へのポインタ)になる。
+        val inLinkedWorktree = repoRoot.resolve(".git").isFile
+        val missingForks = mutableListOf<String>()
+        for (forkRoot in forkRoots) {
+            if (!forkRoot.isDirectory) {
+                // 2 つのフォークはどちらも末尾が fork なので、リポジトリ相対パスで出す。
+                missingForks.add(forkRoot.relativeTo(repoRoot).path.replace('\\', '/'))
+                continue
+            }
+            val target = forkRoot.resolve("libs")
             target.mkdirs()
             copy {
                 from(tasks.jar.get().archiveFile)
                 into(target)
                 rename { "TrinityForge.jar" }
+            }
+        }
+        if (missingForks.isNotEmpty()) {
+            logger.warn(
+                "releaseAssembly: フォークが見つからないので compileOnly 用の TrinityForge.jar を配れませんでした: " +
+                    missingForks.joinToString(", ")
+            )
+            if (inLinkedWorktree) {
+                logger.warn(
+                    "releaseAssembly: ここは git worktree です。フォークのソースは .gitignore で除外されているため " +
+                        "worktree には存在しません。TF の public API を変更した場合は、" +
+                        "メインのワークツリーで releaseAssembly を打ち直してください。"
+                )
             }
         }
         // Guard: thin jar must not be copied into release/

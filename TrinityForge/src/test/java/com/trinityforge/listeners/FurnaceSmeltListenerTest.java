@@ -7,6 +7,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.Furnace;
 import org.bukkit.event.inventory.FurnaceSmeltEvent;
 import org.bukkit.event.inventory.FurnaceStartSmeltEvent;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
@@ -25,6 +26,7 @@ import java.util.OptionalDouble;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -70,16 +72,23 @@ class FurnaceSmeltListenerTest {
     }
 
     private InventoryClickEvent manualInsertEvent(Furnace furnace, PlayerMock player, ItemStack item, int rawSlot) {
+        return manualInsertEvent(furnace, player, null, item, rawSlot, InventoryAction.PLACE_ALL);
+    }
+
+    private InventoryClickEvent manualInsertEvent(Furnace furnace, PlayerMock player, ItemStack currentItem,
+                                                   ItemStack cursor, int rawSlot, InventoryAction action) {
         InventoryClickEvent event = mock(InventoryClickEvent.class);
         InventoryView view = mock(InventoryView.class);
         Inventory top = mock(Inventory.class);
         when(top.getHolder()).thenReturn(furnace);
+        when(top.getSize()).thenReturn(3);
         when(view.getTopInventory()).thenReturn(top);
         when(event.getView()).thenReturn(view);
         when(event.getWhoClicked()).thenReturn(player);
         when(event.getRawSlot()).thenReturn(rawSlot);
-        when(event.getCurrentItem()).thenReturn(item);
-        when(event.getAction()).thenReturn(InventoryAction.PLACE_ALL);
+        when(event.getCurrentItem()).thenReturn(currentItem);
+        when(event.getCursor()).thenReturn(cursor);
+        when(event.getAction()).thenReturn(action);
         return event;
     }
 
@@ -96,11 +105,54 @@ class FurnaceSmeltListenerTest {
     void manualInsertStampsInserterAsOwnerAndAppliesSpeedBonus() {
         listener.onInventoryClick(manualInsertEvent(owner, new ItemStack(Material.IRON_ORE), 0));
 
-        when(dedicatedEffects.valueMax(eq(owner), eq(EFFECT_SPEED))).thenReturn(OptionalDouble.of(30.0));
+        // 2026-07-28: valueMax は tier番号(3)を返し、gimmickConfig.smeltSpeedPercent(tier) が実際の%へ解決する。
+        // 2026-08-19 (W-150): %は「速度が何%増えるか」= 200 / (1 + 170/100) = 74 tick。出荷tier3の値で縛る。
+        when(dedicatedEffects.valueMax(eq(owner), eq(EFFECT_SPEED))).thenReturn(OptionalDouble.of(3.0));
+        when(gimmickConfig.smeltSpeedPercent(3)).thenReturn(170.0);
         FurnaceStartSmeltEvent event = new FurnaceStartSmeltEvent(block, new ItemStack(Material.IRON_ORE), null, 200);
         listener.onStartSmelt(event);
 
-        assertEquals(140, event.getTotalCookTime(), "owner's 30% speed bonus must reduce 200 -> 140 ticks");
+        assertEquals(74, event.getTotalCookTime(), "owner's +170% speed (2.7x) must turn 200 -> 74 ticks");
+    }
+
+    @Test
+    void placingCursorIntoEmptySmeltingSlotStampsInserter() {
+        InventoryClickEvent insert = manualInsertEvent(furnace(), owner, null,
+                new ItemStack(Material.IRON_ORE), 0, InventoryAction.PLACE_ALL);
+        listener.onInventoryClick(insert);
+
+        when(dedicatedEffects.valueMax(eq(owner), eq(EFFECT_SPEED))).thenReturn(OptionalDouble.of(3.0));
+        when(gimmickConfig.smeltSpeedPercent(3)).thenReturn(170.0);
+        FurnaceStartSmeltEvent event =
+                new FurnaceStartSmeltEvent(block, new ItemStack(Material.IRON_ORE), null, 200);
+        listener.onStartSmelt(event);
+
+        assertEquals(74, event.getTotalCookTime(),
+                "an empty destination has no currentItem; the non-empty cursor is the inserted stack");
+    }
+
+    @Test
+    void shiftClickingSmeltableItemFromPlayerInventoryStampsInserter() {
+        Furnace mockFurnace = mock(Furnace.class);
+        FurnaceInventory inventory = mock(FurnaceInventory.class);
+        org.bukkit.persistence.PersistentDataContainer pdc =
+                mock(org.bukkit.persistence.PersistentDataContainer.class);
+        ItemStack ironOre = new ItemStack(Material.IRON_ORE);
+        when(mockFurnace.getInventory()).thenReturn(inventory);
+        when(mockFurnace.getPersistentDataContainer()).thenReturn(pdc);
+        when(inventory.canSmelt(ironOre)).thenReturn(true);
+        when(inventory.getSmelting()).thenReturn(null);
+        int playerInventoryRawSlot = 3;
+        InventoryClickEvent insert = manualInsertEvent(mockFurnace, owner,
+                ironOre, new ItemStack(Material.AIR),
+                playerInventoryRawSlot, InventoryAction.MOVE_TO_OTHER_INVENTORY);
+        when(insert.getClick()).thenReturn(ClickType.SHIFT_LEFT);
+        listener.onInventoryClick(insert);
+
+        org.mockito.Mockito.verify(pdc).set(any(), eq(org.bukkit.persistence.PersistentDataType.STRING),
+                eq(owner.getUniqueId().toString()));
+        org.mockito.Mockito.verify(pdc).set(any(), eq(org.bukkit.persistence.PersistentDataType.STRING), eq("manual"));
+        org.mockito.Mockito.verify(mockFurnace).update();
     }
 
     @Test
@@ -132,14 +184,69 @@ class FurnaceSmeltListenerTest {
     @Test
     void extraDropBonusRollsWithOwnersStat() {
         listener.onInventoryClick(manualInsertEvent(owner, new ItemStack(Material.IRON_ORE), 0));
-        when(dedicatedEffects.valueMax(eq(owner), eq(EFFECT_BONUS))).thenReturn(OptionalDouble.of(1000.0)); // >100% => guaranteed extra
+        // 2026-07-28: tier番号を返し、smeltBonusPercent(tier)側で>100%(保証抽選)を解決する。
+        when(dedicatedEffects.valueMax(eq(owner), eq(EFFECT_BONUS))).thenReturn(OptionalDouble.of(3.0));
+        when(gimmickConfig.smeltBonusPercent(anyInt())).thenReturn(1000.0); // >100% => guaranteed extra
 
-        int before = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
         FurnaceSmeltEvent event = new FurnaceSmeltEvent(block, new ItemStack(Material.IRON_ORE), new ItemStack(Material.IRON_INGOT));
         listener.onSmelt(event);
+
+        // 付与そのものは次tickの depositExtra に回るので、ここではスケジュールされたことだけを見る
+        // (実際の積み先は下の2テストが depositExtra を直接叩いて検証する)。
+        assertEquals(true, server.getScheduler().getPendingTasks().size() > 0,
+                "a guaranteed (>100%) bonus chance must schedule the deposit of at least one extra ingot");
+    }
+
+    /**
+     * 2026-07-30「精錬速度ボーナスで増えた分がかまどから吐き出される」の修正: 結果スロットに
+     * 空きがあるならボーナスは<b>地面へ落とさず結果スロットへ積む</b>。
+     */
+    @Test
+    void bonusGoesIntoResultSlotWhenThereIsRoom() {
+        FurnaceInventory inv = furnace().getInventory();
+        inv.setResult(new ItemStack(Material.IRON_INGOT, 1));
+
+        int before = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
+        listener.depositExtra(block, new ItemStack(Material.IRON_INGOT), 2);
         int after = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
 
-        assertEquals(true, after > before, "a guaranteed (>100%) bonus chance must drop at least one extra ingot");
+        assertEquals(3, furnace().getInventory().getResult().getAmount(),
+                "bonus ingots must be merged into the furnace result slot");
+        assertEquals(before, after, "nothing may be dropped while the result slot still has room");
+    }
+
+    /**
+     * 2026-08-01「かまどが満杯になってもアイテムを吐き出す」の修正: 結果スロットが満杯なら
+     * <b>収まらない分は地面へ落とさない</b>(2026-07-30 の「消滅させない」方針をここで反転)。
+     * バニラは満杯のかまどでは精錬自体を止めるので、破棄されるのは上限到達のその1回だけ。
+     */
+    @Test
+    void bonusOverflowIsDiscardedInsteadOfDroppedWhileTheFurnaceIsIntact() {
+        FurnaceInventory inv = furnace().getInventory();
+        inv.setResult(new ItemStack(Material.IRON_INGOT, 64));
+
+        int before = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
+        listener.depositExtra(block, new ItemStack(Material.IRON_INGOT), 2);
+        int after = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
+
+        assertEquals(before, after, "満杯のかまどからボーナスを吐き出してはならない");
+        assertEquals(64, furnace().getInventory().getResult().getAmount(),
+                "既に入っている精錬結果を書き換えてはならない");
+    }
+
+    /**
+     * 次tickまでにかまどが壊された/別ブロックになった場合だけは、既に付与が確定した分を消さないため
+     * 従来どおり全数を地面へ落とす。
+     */
+    @Test
+    void bonusFallsOnTheGroundWhenTheFurnaceIsGone() {
+        block.setType(Material.AIR);
+
+        int before = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
+        listener.depositExtra(block, new ItemStack(Material.IRON_INGOT), 2);
+        int after = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
+
+        assertEquals(before + 2, after, "かまどが無くなっていたら付与分を消さずに地面へ落とす");
     }
 
     // NOTE: MockBukkit's FurnaceInventoryMock does not round-trip setSmelting() contents back through
@@ -201,11 +308,36 @@ class FurnaceSmeltListenerTest {
         FurnaceInventory inv = furnace().getInventory();
         listener.onInventoryMoveItem(hopperInsertEvent(inv));
 
-        when(dedicatedEffects.valueMax(eq(owner), eq(EFFECT_SPEED))).thenReturn(OptionalDouble.of(40.0));
+        when(dedicatedEffects.valueMax(eq(owner), eq(EFFECT_SPEED))).thenReturn(OptionalDouble.of(4.0));
+        when(gimmickConfig.smeltSpeedPercent(anyInt())).thenReturn(40.0);
         FurnaceStartSmeltEvent event = new FurnaceStartSmeltEvent(block, new ItemStack(Material.IRON_ORE), null, 200);
         listener.onStartSmelt(event);
 
-        // 40% * 0.25 auto-multiplier = 10% effective reduction -> 200 * 0.9 = 180.
-        assertEquals(180, event.getTotalCookTime(), "hopper-fed (auto) mode must decay the bonus by autoModeMultiplier");
+        // 40% * 0.25 auto-multiplier = 実効 +10% 速度 -> 200 / 1.1 = 181.8 -> 182 tick。
+        assertEquals(182, event.getTotalCookTime(), "hopper-fed (auto) mode must decay the bonus by autoModeMultiplier");
+    }
+
+    /**
+     * W-150: 短縮の基準は【レシピのバニラ調理時間】であって「イベントが持ってきた現在値」ではない。
+     * 現在値を基準にすると、既に縮んだ値がもう一度縮んで連続精錬のたびに複利で速くなり、
+     * 最終的に 1 tick へ張り付く(報告の「1スタック3秒」を悪化させる経路)。
+     * レシピが取れる場合は必ずそちらを使うことを縛る。
+     */
+    @Test
+    void speedBonusIsAppliedToRecipeBaseNotToAlreadyReducedCookTime() {
+        listener.onInventoryClick(manualInsertEvent(owner, new ItemStack(Material.IRON_ORE), 0));
+        when(dedicatedEffects.valueMax(eq(owner), eq(EFFECT_SPEED))).thenReturn(OptionalDouble.of(3.0));
+        when(gimmickConfig.smeltSpeedPercent(3)).thenReturn(170.0);
+
+        org.bukkit.inventory.FurnaceRecipe recipe = new org.bukkit.inventory.FurnaceRecipe(
+                org.bukkit.NamespacedKey.minecraft("iron_ingot_from_smelting_iron_ore"),
+                new ItemStack(Material.IRON_INGOT), Material.IRON_ORE, 0.7f, 200);
+        // 第4引数には「前回の精錬で既に 74 まで縮んだ値」を渡す。
+        FurnaceStartSmeltEvent event =
+                new FurnaceStartSmeltEvent(block, new ItemStack(Material.IRON_ORE), recipe, 74);
+        listener.onStartSmelt(event);
+
+        assertEquals(74, event.getTotalCookTime(),
+                "レシピ基準200から74になるだけで、74がさらに縮んで27になってはならない");
     }
 }

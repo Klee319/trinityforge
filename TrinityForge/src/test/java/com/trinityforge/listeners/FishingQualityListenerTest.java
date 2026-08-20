@@ -1,5 +1,6 @@
 package com.trinityforge.listeners;
 
+import com.trinityforge.combat.PlayerCombatAggregate;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.CombatDamageConfig;
 import com.trinityforge.config.domains.FishingGimmickConfig;
@@ -47,8 +48,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * {@link FishingQualityListener} の FISHINGスキルLv駆動品質刻印(装備釣果、2026-07-23 stat-gate-overhaul
- * §2.3で fishing_luck は比率専用化され品質modeから除去済み) + fishing-bonus追加ドロップ(非装備釣果)を検証
+ * {@link FishingQualityListener} の宝運駆動品質刻印(装備釣果、ITEM_ECONOMY_SPEC 5.2d/5.2h) +
+ * fishing-bonus追加ドロップ(非装備釣果)を検証
  * する。{@link ItemFactory}/{@link ItemStatsConfig}/{@link CombatDamageConfig}/{@link QualityConfig}/
  * {@link FishingGimmickConfig} はMockitoでモック、{@link Player}/{@link ItemStack}は
  * MockBukkitの{@code ServerMock}で作る実物(PDC読み書きが本物どおり動く必要があるため)。{@link PlayerFishEvent}/
@@ -64,6 +65,8 @@ class FishingQualityListenerTest {
     private QualityConfig quality;
     private FishingGimmickConfig fishingGimmick;
     private NamespacedKey treasureFlagKey;
+    private ItemCatalogConfig itemCatalog;
+    private PlayerStatAggregator aggregator;
     private FishingQualityListener listener;
 
     @BeforeEach
@@ -87,20 +90,18 @@ class FishingQualityListenerTest {
         when(fishingGimmick.bonusPerLevel()).thenReturn(0.0);
         when(fishingGimmick.treasureMaterials()).thenReturn(java.util.Set.of());
 
-        ItemCatalogConfig itemCatalog = mock(ItemCatalogConfig.class);
+        itemCatalog = mock(ItemCatalogConfig.class);
         when(itemCatalog.all()).thenReturn(Map.of());
 
         PlayerLootLuckSource lootLuck = new PlayerLootLuckSource(
                 java.util.logging.Logger.getLogger("test"), null);
         // 総合ステータス化(2026-07): fishing-bonus は PlayerStatAggregator 経由で防具・パーク等も合算する。
         // テストではロッドのみ装備なので値は従来どおり。
-        PlayerStatAggregator aggregator = new PlayerStatAggregator(
+        aggregator = new PlayerStatAggregator(
                 itemStats, combatDamage,
                 new PerkBuffResolver(SkillPerkStatSource.EMPTY, java.util.List::of),
                 new RoleBuffResolver(new RoleBuffsConfig()));
-        listener = new FishingQualityListener(itemFactory,
-                quality, fishingGimmick, SkillLevelSource.EMPTY, itemCatalog, lootLuck, aggregator,
-                itemStats, treasureFlagKey);
+        listener = newListener(SkillLevelSource.EMPTY, lootLuck);
     }
 
     @AfterEach
@@ -127,6 +128,30 @@ class FishingQualityListenerTest {
         when(event.getPlayer()).thenReturn(player);
         when(event.getCaught()).thenReturn(caught);
         return event;
+    }
+
+    private FishingQualityListener newListener(SkillLevelSource skillLevels, PlayerLootLuckSource lootLuck) {
+        return new FishingQualityListener(itemFactory,
+                quality, fishingGimmick, skillLevels, itemCatalog, lootLuck, aggregator,
+                itemStats, treasureFlagKey);
+    }
+
+    /** W-166: インベントリに入った同素材の総個数。ボーナス分の届き先を数えるのに使う。 */
+    private static int inventoryCount(PlayerMock player, Material material) {
+        int total = 0;
+        for (ItemStack stack : player.getInventory().getContents()) {
+            if (stack != null && stack.getType() == material) {
+                total += stack.getAmount();
+            }
+        }
+        return total;
+    }
+
+    private PlayerLootLuckSource lootLuck(PlayerMock player, double totalLuck) {
+        PlayerStatAggregator luckAggregator = mock(PlayerStatAggregator.class);
+        when(luckAggregator.aggregate(player)).thenReturn(new PlayerCombatAggregate(
+                Map.of("loot_luck", totalLuck), Map.of(), Map.of(), Map.of(), Map.of()));
+        return new PlayerLootLuckSource(java.util.logging.Logger.getLogger("test"), luckAggregator);
     }
 
     @Test
@@ -158,6 +183,49 @@ class FishingQualityListenerTest {
     }
 
     @Test
+    void highFishingSkillAloneDoesNotForceMaximumQuality() {
+        when(quality.fishingBaseQuality()).thenReturn(2);
+        when(quality.spreadUp()).thenReturn(0.0);
+        when(quality.spreadDown()).thenReturn(0.0);
+        when(quality.maxQuality()).thenReturn(15);
+
+        PlayerMock player = server.addPlayer();
+        player.getInventory().setItemInMainHand(new ItemStack(Material.FISHING_ROD));
+        listener = newListener(ignored -> Map.of("FISHING", 100),
+                new PlayerLootLuckSource(java.util.logging.Logger.getLogger("test"), null));
+
+        Item caughtItem = mockCaughtItem(new ItemStack(Material.BOW));
+        listener.onFish(fishEvent(player, caughtItem));
+
+        verify(itemFactory).stamp(any(ItemStack.class), anyLong(),
+                org.mockito.ArgumentMatchers.eq(2));
+    }
+
+    @Test
+    void higherLootLuckRaisesFishingQualityMode() {
+        when(quality.fishingBaseQuality()).thenReturn(1);
+        when(quality.spreadUp()).thenReturn(0.0);
+        when(quality.spreadDown()).thenReturn(0.0);
+        when(quality.maxQuality()).thenReturn(15);
+
+        PlayerMock noLuckPlayer = server.addPlayer();
+        noLuckPlayer.getInventory().setItemInMainHand(new ItemStack(Material.FISHING_ROD));
+        newListener(SkillLevelSource.EMPTY, lootLuck(noLuckPlayer, 0.0))
+                .onFish(fishEvent(noLuckPlayer, mockCaughtItem(new ItemStack(Material.BOW))));
+
+        PlayerMock luckyPlayer = server.addPlayer();
+        luckyPlayer.getInventory().setItemInMainHand(new ItemStack(Material.FISHING_ROD));
+        newListener(SkillLevelSource.EMPTY, lootLuck(luckyPlayer, 4.0))
+                .onFish(fishEvent(luckyPlayer, mockCaughtItem(new ItemStack(Material.BOW))));
+
+        org.mockito.ArgumentCaptor<Integer> qualities =
+                org.mockito.ArgumentCaptor.forClass(Integer.class);
+        verify(itemFactory, times(2)).stamp(any(ItemStack.class), anyLong(), qualities.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(java.util.List.of(1, 5), qualities.getAllValues(),
+                "loot luck 0->4 should raise the fishing quality mode by four tiers");
+    }
+
+    @Test
     void alreadyStampedEquipmentCatchIsNotRestamped() {
         PlayerMock player = server.addPlayer();
         player.getInventory().setItemInMainHand(new ItemStack(Material.FISHING_ROD));
@@ -178,7 +246,7 @@ class FishingQualityListenerTest {
 
     @Test
     void nonEquipmentCatchWithFishingBonusDropsExtraCopies() {
-        // rodにfishing-bonus=3.0(整数)を与える -> 期待値方式で常に+3個追加ドロップ(正規化キーで構成)。
+        // rodにfishing-bonus=3.0(整数)を与える -> 期待値方式で常に+3個追加(正規化キーで構成)。
         when(itemStats.profileFor(any(), any())).thenReturn(
                 Optional.of(new ItemStatProfile(Map.of("fishing_bonus", 3.0), Map.of(), Map.of())));
 
@@ -194,9 +262,45 @@ class FishingQualityListenerTest {
 
         verify(itemFactory, never()).stamp(any(), anyLong(), anyInt());
         verify(caughtItem, never()).setItemStack(any());
+        // W-166(2026-08-20): ボーナス分は釣果本体と同じくインベントリへ入る。
+        // 以前は地面へスポーンしていたので「ダブルドロップがインベントリに入らない」と見えていた。
+        org.junit.jupiter.api.Assertions.assertEquals(3, inventoryCount(player, Material.COD),
+                "fishing-bonus=3.0(整数)は常に+3個(期待値方式、端数なし)がインベントリへ入る");
         int itemsAfter = world.getEntitiesByClass(Item.class).size();
-        org.junit.jupiter.api.Assertions.assertEquals(3, itemsAfter - itemsBefore,
-                "fishing-bonus=3.0(整数)は常に+3個の追加ドロップになる(期待値方式、端数なし)");
+        org.junit.jupiter.api.Assertions.assertEquals(0, itemsAfter - itemsBefore,
+                "インベントリに空きがあるのに地面へこぼれている");
+    }
+
+    /**
+     * W-166: インベントリが埋まっているときだけ地面へこぼす(消滅させない)。
+     * 「必ずインベントリへ」にしてしまうと満杯時にボーナスが黙って消える。
+     */
+    @Test
+    void fishingBonusOverflowsToGroundWhenInventoryIsFull() {
+        // 埋め草(STONE)にステが乗ると fishing-bonus が水増しされて個数が変わるので、
+        // ロッドにだけプロファイルを返す。
+        when(itemStats.profileFor(any(), any())).thenReturn(Optional.empty());
+        when(itemStats.profileFor(org.mockito.ArgumentMatchers.eq(Material.FISHING_ROD), any())).thenReturn(
+                Optional.of(new ItemStatProfile(Map.of("fishing_bonus", 2.0), Map.of(), Map.of())));
+
+        PlayerMock player = server.addPlayer();
+        World world = player.getWorld();
+        // 別素材で全枠を埋めてから、ロッドは手に持たせる。
+        // MockBukkit の addItem は収納枠(0-35)に留まらず防具/オフハンド枠まで使うため、
+        // 「満杯」を作るには getSize() 全部を埋める必要がある。
+        for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
+            player.getInventory().setItem(slot, new ItemStack(Material.STONE, 64));
+        }
+        player.getInventory().setItemInMainHand(new ItemStack(Material.FISHING_ROD));
+        int itemsBefore = world.getEntitiesByClass(Item.class).size();
+
+        listener.onFish(fishEvent(player, mockCaughtItem(new ItemStack(Material.COD))));
+
+        org.junit.jupiter.api.Assertions.assertEquals(0, inventoryCount(player, Material.COD),
+                "満杯のインベントリに入るはずがない");
+        int itemsAfter = world.getEntitiesByClass(Item.class).size();
+        org.junit.jupiter.api.Assertions.assertEquals(2, itemsAfter - itemsBefore,
+                "入り切らなかったボーナスは地面へこぼれること(消滅させない)");
     }
 
     @Test
@@ -306,8 +410,11 @@ class FishingQualityListenerTest {
 
         listener.onFish(fishEvent(player, caughtItem));
 
-        int itemsAfter = world.getEntitiesByClass(Item.class).size();
-        org.junit.jupiter.api.Assertions.assertEquals(2, itemsAfter - itemsBefore,
+        // W-166: 届き先はインベントリ(地面ではない)。
+        org.junit.jupiter.api.Assertions.assertEquals(2, inventoryCount(player, Material.COD),
                 "a non-treasure non-equipment catch must still get its normal fishing-bonus extra copies");
+        int itemsAfter = world.getEntitiesByClass(Item.class).size();
+        org.junit.jupiter.api.Assertions.assertEquals(0, itemsAfter - itemsBefore,
+                "インベントリに空きがあるのに地面へこぼれている");
     }
 }

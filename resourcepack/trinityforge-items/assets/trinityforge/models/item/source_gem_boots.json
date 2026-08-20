@@ -1,5 +1,5 @@
 {
-  "parent": "minecraft:item/generated",
+  "parent": "minecraft:item/diamond_boots",
   "textures": {
     "layer0": "trinityforge:item/source_gem_boots"
   }

@@ -6,6 +6,7 @@ import com.trinityforge.mobs.LevelTierRule;
 import com.trinityforge.mobs.MobLevelBandTable;
 import com.trinityforge.mobs.MobTargetFilter;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -41,6 +42,15 @@ import java.util.logging.Logger;
  * <p>{@link #parse(ConfigurationSection, Logger)} は {@link #load(Plugin)} と分離し、
  * {@code Plugin} 無しでYAMLを直接テストできるようにする({@code MobTypesConfig}/{@code MobImportConfig}
  * と同じ流儀)。
+ *
+ * <p>2026-07-27 {@code no-skill-exp-mobs}(牧場対策): このトップレベルリストに載った
+ * {@link EntityType} は、TrinityForge が独自に付与する戦闘スキルEXP(武器・魔法=討伐、
+ * 弓術=命中、防具=被弾)を一切加算しない({@link #suppressesSkillExp(EntityType)})。バニラの
+ * {@code org.bukkit.event.entity.EntityDeathEvent#setDroppedExp(int)}(EXPオーブ)には一切触れない —
+ * エンチャント等の用途があるバニラEXP自体は従来どおり落ちてよい、という
+ * ユーザー判断による(この config/クラス自身はEXPオーブを一切扱わない)。実際の抑止判定は
+ * {@code CombatListener}(武器・弓術)/{@code NativeSkillExperienceListener}(防具)/
+ * {@code ArsMagicExperienceListener}(魔法)側が呼び出す。
  */
 public final class MobLevelTableConfig implements LoadableConfig {
 
@@ -49,6 +59,7 @@ public final class MobLevelTableConfig implements LoadableConfig {
 
     private volatile boolean dungeonOnly = false;
     private volatile MobLevelBandTable<LevelTierRule> tiers = MobLevelBandTable.empty();
+    private volatile Set<EntityType> noSkillExpMobs = Set.of();
 
     /** true = このテーブルのルール全体を、ダンジョンインスタンスワールド内の討伐でのみ適用する。 */
     public boolean dungeonOnly() {
@@ -58,6 +69,24 @@ public final class MobLevelTableConfig implements LoadableConfig {
     /** レベル帯の floor lookup。{@code tiers:} 未設定/該当帯なしなら常に {@link Optional#empty()}。 */
     public Optional<LevelTierRule> resolve(int level) {
         return tiers.resolve(level);
+    }
+
+    /**
+     * {@code no-skill-exp-mobs}(2026-07-27 牧場対策)。true なら、このEntityTypeを相手にした
+     * TrinityForgeの戦闘スキルEXP(軽・重武器/魔法=討伐、弓術=命中、防具=被弾)を
+     * 一切加算しない。
+     * バニラのEXPオーブ(討伐/エンチャント等)には一切影響しない — {@code MobLevelTableListener} は
+     * この値を読まない。{@code dungeon-only-exp}/{@code outside-dungeon-exp-rate}(stats/skill-exp.yml)
+     * のゲートとは独立に、常に効く(牧場はダンジョン外にあるため、ダンジョン限定にすると意味がない)。
+     * 省略/空リストなら何もしない(完全な後方互換)。
+     */
+    public boolean suppressesSkillExp(EntityType type) {
+        return noSkillExpMobs.contains(type);
+    }
+
+    /** {@code no-skill-exp-mobs} の不変コピー(パース時点で既に不変集合)。 */
+    public Set<EntityType> noSkillExpMobs() {
+        return noSkillExpMobs;
     }
 
     public String resourcePath() {
@@ -86,6 +115,7 @@ public final class MobLevelTableConfig implements LoadableConfig {
         ParseResult result = parse(yaml, log);
         this.dungeonOnly = result.dungeonOnly();
         this.tiers = result.tiers();
+        this.noSkillExpMobs = result.noSkillExpMobs();
         if (result.skipped() > 0) {
             log.warning("[" + PATH + "] loaded " + result.tierCount() + " level band(s), "
                     + result.skipped() + " skipped");
@@ -138,7 +168,44 @@ public final class MobLevelTableConfig implements LoadableConfig {
                 skipped++;
             }
         }
-        return new ParseResult(dungeonOnly, MobLevelBandTable.of(parsed), skipped, parsed.size());
+        NoSkillExpMobsResult noSkillExpResult = parseNoSkillExpMobs(root, log);
+        skipped += noSkillExpResult.skipped();
+        return new ParseResult(dungeonOnly, MobLevelBandTable.of(parsed), skipped, parsed.size(),
+                noSkillExpResult.types());
+    }
+
+    /**
+     * Parses the top-level {@code no-skill-exp-mobs} list (2026-07-27 牧場対策)。省略/未設定なら
+     * 空集合(何もしない、後方互換)。不明な {@link EntityType} は警告してスキップし、他のエントリの
+     * 読み込みは継続する({@code mobs:}/{@code remove-drops} と同じ fail-soft 方針)。大文字小文字は
+     * 正規化して受け付ける。
+     */
+    private static NoSkillExpMobsResult parseNoSkillExpMobs(ConfigurationSection root, Logger log) {
+        Set<EntityType> types = new LinkedHashSet<>();
+        if (root == null) {
+            return new NoSkillExpMobsResult(Set.of(), 0);
+        }
+        List<?> raw = root.getList("no-skill-exp-mobs");
+        if (raw == null) {
+            return new NoSkillExpMobsResult(Set.of(), 0);
+        }
+        int skipped = 0;
+        for (Object entry : raw) {
+            String name = entry == null ? null : String.valueOf(entry).trim();
+            if (name == null || name.isBlank()) {
+                log.warning("[" + PATH + "] no-skill-exp-mobs has a blank entry; skipped");
+                skipped++;
+                continue;
+            }
+            try {
+                types.add(EntityType.valueOf(name.toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException ex) {
+                log.warning("[" + PATH + "] no-skill-exp-mobs entry '" + name
+                        + "' is not a valid EntityType; skipped");
+                skipped++;
+            }
+        }
+        return new NoSkillExpMobsResult(Set.copyOf(types), skipped);
     }
 
     private static RemoveDropsResult parseRemoveDrops(Object raw, int minLevel, Logger log) {
@@ -228,13 +295,25 @@ public final class MobLevelTableConfig implements LoadableConfig {
             MobFilterResult mobFilter = parseTargetFilter(map.get("mobs"), map.get("mob-ids"),
                     "min-level=" + minLevel + " add-drops for " + label, log);
             skipped += mobFilter.skipped();
+            String context = "min-level=" + minLevel + " add-drops for " + label;
+            Set<String> roles = parseRoleFilter(map.get("roles"), context, log);
+            // 2026-08-14 フィールドドロップ配線: レベル比例確率 / 適用場所 / 子供個体の3キー。
+            // どれも fail-soft —— 不正なら警告して「そのキーが無かったこと」にし、エントリ自体は生かす
+            // (素材そのものが落ちなくなるより、絞り込みが緩くなるほうが気づきやすい)。
+            LevelTierDropEntry.ChanceCurve curve = parseChanceCurve(map.get("chance-by-level"), context, log);
+            LevelTierDropEntry.DropScope where = parseDropScope(map.get("where"), context, log);
+            Boolean baby = parseBabyFilter(map.get("baby"), context, log);
+            warnIfBabyFilterCannotMatch(baby, mobFilter.targets(), context, log);
+            Set<World.Environment> environments = parseEnvironmentFilter(map.get("environment"), context, log);
             try {
                 double chance = clamp01(requireDouble(map, "chance", minLevel, label, log));
                 int min = requireInt(map, "min", minLevel, label, log);
                 int max = requireInt(map, "max", minLevel, label, log);
                 drops.add(catalogId != null
-                        ? LevelTierDropEntry.ofCatalog(catalogId, chance, min, max, mobFilter.targets())
-                        : LevelTierDropEntry.ofMaterial(material, chance, min, max, mobFilter.targets()));
+                        ? LevelTierDropEntry.ofCatalog(catalogId, chance, min, max, mobFilter.targets(), roles,
+                                curve, where, baby, environments)
+                        : LevelTierDropEntry.ofMaterial(material, chance, min, max, mobFilter.targets(), roles,
+                                curve, where, baby, environments));
             } catch (IllegalArgumentException ex) {
                 log.warning("[" + PATH + "] min-level=" + minLevel + " add-drops for " + label + " invalid ("
                         + ex.getMessage() + "); skipped");
@@ -242,6 +321,165 @@ public final class MobLevelTableConfig implements LoadableConfig {
             }
         }
         return new AddDropsResult(drops, skipped);
+    }
+
+    /**
+     * {@code roles:} — キルしたプレイヤーの職業でこのエントリを絞る(2026-08-02 柱7)。
+     * 未指定/空なら空集合＝職業を問わない(後方互換)。IDは {@code progression/role-buffs.yml} の
+     * キーと同じ正規化(小文字・前後空白除去)で持つ — 揃えないと「Farmer」と書いた yml が黙って外れる。
+     *
+     * <p>存在しない職業IDかどうかはここでは判定しない。role-buffs.yml は別ドメイン設定で
+     * ロード順が保証されないため、ここで弾くと「順番次第で消える」不安定な挙動になる。
+     */
+    private static Set<String> parseRoleFilter(Object rolesRaw, String context, Logger log) {
+        if (rolesRaw == null) {
+            return Set.of();
+        }
+        if (!(rolesRaw instanceof List<?> list)) {
+            log.warning("[" + PATH + "] " + context + " 'roles' must be a list; ignored");
+            return Set.of();
+        }
+        Set<String> roles = new LinkedHashSet<>();
+        for (Object entry : list) {
+            String name = entry == null ? null : String.valueOf(entry).trim();
+            if (name == null || name.isBlank()) {
+                log.warning("[" + PATH + "] " + context + " has a blank 'roles' entry; skipped");
+                continue;
+            }
+            roles.add(name.toLowerCase(Locale.ROOT));
+        }
+        return Set.copyOf(roles);
+    }
+
+    /**
+     * {@code chance-by-level: { from-level, from-chance, to-level, to-chance }} — 討伐したモブの
+     * レベルで確率を線形補間するカーブ(2026-08-14 フィールドドロップ配線)。
+     *
+     * <p>未指定なら {@code null}(＝素の {@code chance:} をそのまま使う、後方互換)。不正な形・
+     * 不正な値なら警告して {@code null} を返す —— <b>エントリごと落とさない</b>のが重要で、
+     * 「カーブの書き間違いで素材が丸ごと入手不能になる」より「確率が既定値のまま」のほうが安全。
+     */
+    private static LevelTierDropEntry.ChanceCurve parseChanceCurve(Object raw, String context, Logger log) {
+        if (raw == null) {
+            return null;
+        }
+        if (!(raw instanceof Map<?, ?> map)) {
+            log.warning("[" + PATH + "] " + context + " 'chance-by-level' must be a mapping"
+                    + " {from-level, from-chance, to-level, to-chance}; ignored");
+            return null;
+        }
+        Object fromLevel = map.get("from-level");
+        Object fromChance = map.get("from-chance");
+        Object toLevel = map.get("to-level");
+        Object toChance = map.get("to-chance");
+        if (!(fromLevel instanceof Number fl) || !(fromChance instanceof Number fc)
+                || !(toLevel instanceof Number tl) || !(toChance instanceof Number tc)) {
+            log.warning("[" + PATH + "] " + context + " 'chance-by-level' needs numeric from-level/"
+                    + "from-chance/to-level/to-chance; ignored");
+            return null;
+        }
+        try {
+            return new LevelTierDropEntry.ChanceCurve(fl.intValue(), clamp01(fc.doubleValue()),
+                    tl.intValue(), clamp01(tc.doubleValue()));
+        } catch (IllegalArgumentException ex) {
+            log.warning("[" + PATH + "] " + context + " 'chance-by-level' invalid (" + ex.getMessage()
+                    + "); ignored");
+            return null;
+        }
+    }
+
+    /**
+     * {@code where: field | dungeon | any} — このドロップを適用する場所(2026-08-14)。
+     * 未指定/不正なら {@link LevelTierDropEntry.DropScope#ANY}(従来どおり場所を問わない)。
+     * 不正値は必ず警告する —— 黙って ANY になると「フィールド限定のつもりがダンジョンでも落ちる」
+     * という、ログにも出ない形で仕様が壊れるため。
+     */
+    private static LevelTierDropEntry.DropScope parseDropScope(Object raw, String context, Logger log) {
+        if (raw == null) {
+            return LevelTierDropEntry.DropScope.ANY;
+        }
+        LevelTierDropEntry.DropScope parsed = LevelTierDropEntry.DropScope.parse(String.valueOf(raw));
+        if (parsed == null) {
+            log.warning("[" + PATH + "] " + context + " 'where' must be field/dungeon/any (was '" + raw
+                    + "'); treated as 'any'");
+            return LevelTierDropEntry.DropScope.ANY;
+        }
+        return parsed;
+    }
+
+    /**
+     * {@code environment: [NORMAL, NETHER, THE_END]} — 討伐したワールドのディメンションで絞る
+     * (2026-08-19)。未指定なら空集合＝ディメンションを問わない(後方互換)。
+     *
+     * <p>{@code where:} では足りない場面があるので別の軸として足した:  {@code where:} は
+     * 「ダンジョンインスタンスワールドか」しか見ないので、オーバーワールドとジ・エンドは
+     * どちらも {@code field} になり区別できない。エンダードラゴンのように両方に出るモブへ
+     * 「オーバーワールドで倒したときだけ」のドロップを付けるには、この軸が要る。
+     *
+     * <p>不正値は<b>そのエントリを落とさず</b>警告して読み飛ばす(他のキーと同じ fail-soft)。
+     * ただし全要素が不正だったときは空集合＝「問わない」に倒れるので、警告を必ず出す。
+     */
+    private static Set<World.Environment> parseEnvironmentFilter(Object raw, String context, Logger log) {
+        if (raw == null) {
+            return Set.of();
+        }
+        List<?> list = raw instanceof List<?> l ? l : List.of(raw);
+        Set<World.Environment> parsed = new LinkedHashSet<>();
+        for (Object entry : list) {
+            String name = entry == null ? null : String.valueOf(entry).trim();
+            if (name == null || name.isBlank()) {
+                log.warning("[" + PATH + "] " + context + " has a blank 'environment' entry; skipped");
+                continue;
+            }
+            try {
+                parsed.add(World.Environment.valueOf(name.toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException ex) {
+                log.warning("[" + PATH + "] " + context + " 'environment' must be NORMAL/NETHER/THE_END"
+                        + " (was '" + name + "'); skipped");
+            }
+        }
+        return Set.copyOf(parsed);
+    }
+
+    /**
+     * {@code baby: true|false} — 子供個体だけ/大人個体だけに絞る(2026-08-14)。未指定なら
+     * {@code null}(区別しない、後方互換)。Bukkit には {@code BABY_ZOMBIE} のような EntityType が
+     * 存在せず、子供かどうかは実行時プロパティなので {@code mobs:} では表現できない。
+     */
+    private static Boolean parseBabyFilter(Object raw, String context, Logger log) {
+        if (raw == null) {
+            return null;
+        }
+        if (!(raw instanceof Boolean flag)) {
+            log.warning("[" + PATH + "] " + context + " 'baby' must be true/false (was '" + raw
+                    + "'); ignored");
+            return null;
+        }
+        return flag;
+    }
+
+    /**
+     * {@code baby:} を書いたのに、{@code mobs:} に {@link org.bukkit.entity.Ageable} を実装しない
+     * EntityType が混ざっている場合の警告(2026-08-14)。この組み合わせは実行時に<b>常に不一致</b>に
+     * なる = そのモブからは1個も落ちない。例外も出ずログにも残らないので、ロード時にここで言う。
+     */
+    private static void warnIfBabyFilterCannotMatch(Boolean baby, MobTargetFilter targets, String context,
+                                                     Logger log) {
+        if (baby == null || targets == null || targets.entityTypes().isEmpty()) {
+            return;
+        }
+        List<String> unsupported = new ArrayList<>();
+        for (EntityType type : targets.entityTypes()) {
+            Class<?> entityClass = type.getEntityClass();
+            if (entityClass == null || !org.bukkit.entity.Ageable.class.isAssignableFrom(entityClass)) {
+                unsupported.add(type.name());
+            }
+        }
+        if (!unsupported.isEmpty()) {
+            log.warning("[" + PATH + "] " + context + " has 'baby' but these mobs are not Ageable"
+                    + " (they can never be baby/adult, so this entry will NEVER drop for them): "
+                    + unsupported);
+        }
     }
 
     /**
@@ -340,7 +578,8 @@ public final class MobLevelTableConfig implements LoadableConfig {
     }
 
     /** Parse outcome: dungeon-only flag, the immutable band table, and how many bands/drops were skipped. */
-    record ParseResult(boolean dungeonOnly, MobLevelBandTable<LevelTierRule> tiers, int skipped, int tierCount) {
+    record ParseResult(boolean dungeonOnly, MobLevelBandTable<LevelTierRule> tiers, int skipped, int tierCount,
+                        Set<EntityType> noSkillExpMobs) {
     }
 
     private record RemoveDropsResult(List<Material> materials, int skipped) {
@@ -350,5 +589,8 @@ public final class MobLevelTableConfig implements LoadableConfig {
     }
 
     private record MobFilterResult(MobTargetFilter targets, int skipped) {
+    }
+
+    private record NoSkillExpMobsResult(Set<EntityType> types, int skipped) {
     }
 }

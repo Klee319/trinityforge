@@ -116,6 +116,47 @@ class BleedServiceMagicAggregateTest {
         assertEquals(0, bleedService.activeCount(), "bleed-damage=0では絶対にロールしない");
     }
 
+    /**
+     * W-30(2026-08-15): 出血ダメージの割合キー {@code bleed-damage-rate} の合成規則。
+     * 実数(アイテム向け)と率(スキルツリー向け)は<b>合算</b>で、率は「出血させた一撃の最終ダメージ」に掛かる。
+     * ここが崩れると、率だけを持つ軽剣ツリーが無言で 0 ダメージの出血を撒く。
+     */
+    @Test
+    void damagePerTick_addsFlatAndRateOfTheTriggeringHit() {
+        Map<String, Double> stats = new LinkedHashMap<>();
+        stats.put(StatKeys.canonical("bleed-damage"), 4.0);
+        stats.put(StatKeys.canonical("bleed-damage-rate"), 0.25);
+
+        assertEquals(9.0, BleedService.damagePerTick(stats, 20.0), 1e-9,
+                "実数4 + 一撃20の25%(=5) で 9 になるはず(実数と率は合算)");
+        assertEquals(4.0, BleedService.damagePerTick(stats, 0.0), 1e-9,
+                "一撃のダメージが0以下なら率の寄与は0(実数だけが残る)");
+    }
+
+    @Test
+    void damagePerTick_rateAloneIsEnoughToBleed() {
+        Map<String, Double> rateOnly = Map.of(StatKeys.canonical("bleed-damage-rate"), 0.1);
+
+        assertEquals(3.0, BleedService.damagePerTick(rateOnly, 30.0), 1e-9,
+                "率だけでも出血ダメージが出るはず(実数0でロールごと落とすと軽剣ツリーが無言で死ぬ)");
+        assertEquals(0.0, BleedService.damagePerTick(Map.of(), 30.0), 1e-9,
+                "出血ステが1つも無ければ0");
+    }
+
+    @Test
+    void magicHitWithBleedDamageRateStartsBleed(@TempDir File dir) throws IOException {
+        bleedService = bleedService(dir);
+        LivingEntity victim = world.spawn(world.getSpawnLocation(), Zombie.class);
+
+        Map<String, Double> stats = new LinkedHashMap<>();
+        stats.put(StatKeys.canonical("bleed-chance"), 1.0);
+        stats.put(StatKeys.canonical("bleed-damage-rate"), 0.2);
+        bleedService.maybeApplyFromAggregate(stats, victim, ATTACKER, 10.0);
+
+        assertEquals(1, bleedService.activeCount(),
+                "魔法経路でも率だけで出血が開始するはず(実数0でロール前に弾いてはいけない)");
+    }
+
     @Test
     void emptyAggregateNeverRolls(@TempDir File dir) throws IOException {
         // #3全ステ合算のCombatListener#maybeApplyBleedと違い、このAPIは呼び出し側(フォーク)が渡した

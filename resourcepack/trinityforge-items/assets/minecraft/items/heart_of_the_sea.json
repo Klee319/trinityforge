@@ -1,0 +1,26 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/heart_of_the_sea",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 5443,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/source_condenser"
+        }
+      },
+      {
+        "threshold": 5446,
+        "model": {
+          "model": "minecraft:item/heart_of_the_sea",
+          "type": "minecraft:model"
+        }
+      }
+    ]
+  }
+}

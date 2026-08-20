@@ -19,6 +19,7 @@ class DefenseStatBridgeTest {
             "magic-resistance",
             "phys-flat-defense",
             "magic-flat-defense",
+            "defense-rate",
             "damage-reduction",
             "dodge-chance",
             "armor-strength");
@@ -27,6 +28,7 @@ class DefenseStatBridgeTest {
             "phys-resistance", 0.10,
             "magic-resistance", 0.20,
             "flat-defense", 3.0,
+            "defense-rate", 0.12,
             "damage-reduction", 0.05,
             "dodge-chance", 0.08,
             "armor-strength", 0.15);
@@ -37,7 +39,8 @@ class DefenseStatBridgeTest {
         assertEquals(0.10, stats.resistance(), EPS);   // typed: physical
         assertEquals(0.05, stats.damageReduction(), EPS); // common
         assertEquals(3.0, stats.flatDefense(), EPS);      // common (legacy flat-defense fallback)
-        assertEquals(0.0, stats.defenseRate(), EPS);      // from vanilla armor mirror, not here
+        // 2026-08-15: 防具値の廃止で防御率もこのブリッジが直接読む(以前はバニラ防具ミラー経由で常に0だった)。
+        assertEquals(0.12, stats.defenseRate(), EPS);
         assertEquals(0.15, stats.armorStrength(), EPS);   // 防具強度(会心軽減率%): read directly here now
     }
 
@@ -93,12 +96,15 @@ class DefenseStatBridgeTest {
                 "magic_resistance",
                 "phys_flat_defense",
                 "magic_flat_defense",
+                "defense_rate",
                 "damage_reduction",
                 "dodge_chance",
                 "armor_strength");
         DefenseStats stats = DefenseStatBridge.bridge(
-                Map.of("magic-resistance", 0.4, "flat-defense", 2.0), snakeKeys, DamageType.MAGICAL);
+                Map.of("magic-resistance", 0.4, "flat-defense", 2.0, "defense-rate", 0.25),
+                snakeKeys, DamageType.MAGICAL);
         assertEquals(0.4, stats.resistance(), EPS);
         assertEquals(2.0, stats.flatDefense(), EPS);
+        assertEquals(0.25, stats.defenseRate(), EPS);
     }
 }

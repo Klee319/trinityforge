@@ -64,8 +64,12 @@ class VeinMiningListenerTest {
     }
 
     private VeinMiningListener listener() {
+        return listener(null);
+    }
+
+    private VeinMiningListener listener(com.trinityforge.gathering.ChainBreakExpGrant chainBreakExp) {
         return new VeinMiningListener(dedicatedEffects, gimmickConfig, itemResolver, placedBlockTracker,
-                new FeedbackLayer());
+                new FeedbackLayer(), chainBreakExp);
     }
 
     private BlockBreakEvent breakEvent(Block block) {
@@ -181,5 +185,35 @@ class VeinMiningListenerTest {
         listener().onBlockBreak(breakEvent(origin));
 
         assertEquals(Material.AIR, neighbor.getType(), "toggle ON + unlocked must chain-break the neighbor");
+    }
+
+    // --- 2026-07-28 実サーバ報告「一括採掘で経験値が入らない / 耐久も減っていない」 ---
+
+    @Test
+    void chainBrokenOresGrantGatheringExpAndConsumeDurabilityPerBlock() {
+        org.bukkit.inventory.ItemStack pickaxe =
+                new org.bukkit.inventory.ItemStack(Material.IRON_PICKAXE);
+        player.getInventory().setItemInMainHand(pickaxe);
+        when(gimmickConfig.oreBlocks()).thenReturn(Set.of(Material.DIAMOND_ORE));
+        when(dedicatedEffects.valueMax(any(), eq("vein-mining"))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.veinMiningMaxExtraBlocks(1)).thenReturn(8);
+
+        Block origin = player.getWorld().getBlockAt(0, 64, 0);
+        origin.setType(Material.DIAMOND_ORE);
+        for (int x = 1; x <= 3; x++) {
+            player.getWorld().getBlockAt(x, 64, 0).setType(Material.DIAMOND_ORE);
+        }
+
+        java.util.List<Material> granted = new java.util.ArrayList<>();
+        listener((p, block, drops, tool) -> granted.add(block.getType()))
+                .onBlockBreak(breakEvent(origin));
+
+        // 起点はイベント本体が処理するので連鎖分3個ぶんだけがここに来る。
+        assertEquals(3, granted.size(), "連鎖破壊した3ブロックぶんのEXPが入ること(旧実装は0だった)");
+        assertEquals(Material.DIAMOND_ORE, granted.get(0), "破壊前のマテリアルで渡ること");
+
+        org.bukkit.inventory.ItemStack held = player.getInventory().getItemInMainHand();
+        int damage = held.getItemMeta() instanceof org.bukkit.inventory.meta.Damageable d ? d.getDamage() : 0;
+        assertEquals(3, damage, "連鎖破壊した3ブロックぶんの耐久が減ること(旧実装は0のままだった)");
     }
 }

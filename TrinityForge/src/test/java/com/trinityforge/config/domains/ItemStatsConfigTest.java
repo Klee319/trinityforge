@@ -229,6 +229,38 @@ class ItemStatsConfigTest {
     }
 
     @Test
+    void randomSectionDerivesQuantizationStepFromAuthoredDecimals(@TempDir File tempDir) throws IOException {
+        // The roll quantization step (StatRange#step, formerly random-roll-pools' decimal-step) is
+        // derived from the number of decimal places AUTHORED on min/max in the yml, not from
+        // ConfigurationSection#getDouble (which cannot tell `200` from `200.0`).
+        ItemStatsConfig config = config(tempDir, """
+                items:
+                  DIAMOND_SWORD:
+                    random:
+                      attack-power: { min: 200, max: 600 }
+                  GOLDEN_SWORD:
+                    random:
+                      crit-chance: { min: 0.02, max: 0.05 }
+                  IRON_SWORD:
+                    random:
+                      flat-bonus-damage: { min: 0.5, max: 2.0 }
+                """);
+        assertTrue(config.load(fakePlugin(tempDir)));
+
+        StatRange bothIntegers = config.profileFor(Material.DIAMOND_SWORD, null).orElseThrow()
+                .random().get("attack_power");
+        assertEquals(1.0, bothIntegers.step(), 0.0, "both bounds authored as integers -> step=1");
+
+        StatRange twoDecimals = config.profileFor(Material.GOLDEN_SWORD, null).orElseThrow()
+                .random().get("crit_chance");
+        assertEquals(0.01, twoDecimals.step(), 1e-12, "min: 0.02 / max: 0.05 -> step=0.01");
+
+        StatRange oneDecimal = config.profileFor(Material.IRON_SWORD, null).orElseThrow()
+                .random().get("flat_bonus_damage");
+        assertEquals(0.1, oneDecimal.step(), 1e-12, "min: 0.5 / max: 2.0 -> step=0.1");
+    }
+
+    @Test
     void malformedRandomRangeSkipsTheItem(@TempDir File tempDir) throws IOException {
         // A random stat with min > max (or a non-{min,max} shape) is malformed: the whole item is
         // skipped with a warning (load returns false), matching the fixed/per-quality skip contract.
@@ -650,6 +682,69 @@ class ItemStatsConfigTest {
 
         assertEquals(0, config.qualityModeOffsetFor(Material.DIAMOND_SWORD, null));
         assertEquals(3, config.qualityModeOffsetFor(Material.GOLDEN_SWORD, null));
+    }
+
+    @Test
+    void bundledGatheringToolsCarryTierUseLevelAndQualityBaseline(@TempDir File tempDir) throws IOException {
+        File bundled = new File("src/main/resources/" + ItemStatsConfig.PATH);
+        File installed = new File(tempDir, ItemStatsConfig.PATH);
+        Files.createDirectories(installed.getParentFile().toPath());
+        Files.copy(bundled.toPath(), installed.toPath());
+
+        ItemStatsConfig config = new ItemStatsConfig();
+        assertTrue(config.load(fakePlugin(tempDir)));
+
+        assertGatheringTier(config, Material.WOODEN_PICKAXE, null, "MINING", 0, 0);
+        assertGatheringTier(config, Material.STONE_PICKAXE, null, "MINING", 5, 0);
+        assertGatheringTier(config, Material.COPPER_PICKAXE, null, "MINING", 15, -1);
+        assertGatheringTier(config, Material.IRON_PICKAXE, null, "MINING", 25, -2);
+        assertGatheringTier(config, Material.GOLDEN_PICKAXE, null, "MINING", 35, -2);
+        assertGatheringTier(config, Material.DIAMOND_PICKAXE, null, "MINING", 45, -4);
+        assertGatheringTier(config, Material.NETHERITE_PICKAXE, null, "MINING", 60, -6);
+
+        assertGatheringTier(config, Material.WOODEN_SHOVEL, null, "DIGGING", 0, 0);
+        assertGatheringTier(config, Material.STONE_SHOVEL, null, "DIGGING", 5, 0);
+        assertGatheringTier(config, Material.COPPER_SHOVEL, null, "DIGGING", 15, -1);
+        assertGatheringTier(config, Material.IRON_SHOVEL, null, "DIGGING", 25, -2);
+        assertGatheringTier(config, Material.GOLDEN_SHOVEL, null, "DIGGING", 35, -2);
+        assertGatheringTier(config, Material.DIAMOND_SHOVEL, null, "DIGGING", 45, -4);
+        assertGatheringTier(config, Material.NETHERITE_SHOVEL, null, "DIGGING", 60, -6);
+
+        assertGatheringTier(config, Material.WOODEN_HOE, null, "FARMING", 0, 0);
+        assertGatheringTier(config, Material.STONE_HOE, null, "FARMING", 5, 0);
+        assertGatheringTier(config, Material.COPPER_HOE, null, "FARMING", 15, -1);
+        assertGatheringTier(config, Material.IRON_HOE, null, "FARMING", 25, -2);
+        assertGatheringTier(config, Material.GOLDEN_HOE, null, "FARMING", 35, -2);
+        assertGatheringTier(config, Material.DIAMOND_HOE, null, "FARMING", 45, -4);
+        assertGatheringTier(config, Material.NETHERITE_HOE, null, "FARMING", 60, -6);
+
+        assertGatheringTier(config, Material.WOODEN_AXE, 200105, "WOODCUTTING", 0, 0);
+        assertGatheringTier(config, Material.STONE_AXE, 200106, "WOODCUTTING", 5, 0);
+        assertGatheringTier(config, Material.COPPER_AXE, 200107, "WOODCUTTING", 15, -1);
+        assertGatheringTier(config, Material.IRON_AXE, 200108, "WOODCUTTING", 25, -2);
+        assertGatheringTier(config, Material.GOLDEN_AXE, 200109, "WOODCUTTING", 35, -2);
+        assertGatheringTier(config, Material.DIAMOND_AXE, 200110, "WOODCUTTING", 45, -4);
+        assertGatheringTier(config, Material.NETHERITE_AXE, 200111, "WOODCUTTING", 60, -6);
+
+        // Named special tiers follow their catalog identity, not their backing vanilla material.
+        assertGatheringTier(config, Material.DIAMOND_PICKAXE, 73, "MINING", 30, -3);
+        assertGatheringTier(config, Material.NETHERITE_PICKAXE, 185, "MINING", 100, -8);
+        assertGatheringTier(config, Material.DIAMOND_SHOVEL, 74, "DIGGING", 30, -3);
+        assertGatheringTier(config, Material.NETHERITE_SHOVEL, 188, "DIGGING", 100, -8);
+        assertGatheringTier(config, Material.DIAMOND_HOE, 76, "FARMING", 30, -3);
+        assertGatheringTier(config, Material.NETHERITE_HOE, 194, "FARMING", 100, -8);
+        assertGatheringTier(config, Material.DIAMOND_AXE, 75, "WOODCUTTING", 30, -3);
+        assertGatheringTier(config, Material.NETHERITE_AXE, 191, "WOODCUTTING", 100, -8);
+    }
+
+    private static void assertGatheringTier(ItemStatsConfig config, Material material, Integer cmd,
+                                            String skill, int level, int qualityModeOffset) {
+        var requirement = config.useRequirementFor(material, cmd).orElseThrow(
+                () -> new AssertionError("missing use requirement: " + material + "#" + cmd));
+        assertEquals(skill, requirement.skill(), material + "#" + cmd + " skill");
+        assertEquals(level, requirement.level(), material + "#" + cmd + " level");
+        assertEquals(qualityModeOffset, config.qualityModeOffsetFor(material, cmd),
+                material + "#" + cmd + " quality baseline");
     }
 
     @Test

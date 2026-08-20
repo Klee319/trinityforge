@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Loads the SHIPPED {@code skilltree/enchanting.yml} and {@code skilltree/alchemy.yml} through the real
- * {@link SkillTreeConfig} parser and asserts the new {@code enchant_luck}/{@code enchant_exp_gain_bonus}/
+ * {@link SkillTreeConfig} parser and asserts the new {@code enchant_luck}/{@code enchanting_exp_bonus}/
  * {@code potion_quality_bonus}/{@code brew_speed_bonus} buffs on the target nodes parsed cleanly (not
  * silently dropped as an unknown key — see {@link SkillTreeConfig}'s {@code parseBuffs}, which drops and
  * warns on any key {@link com.trinityforge.stats.StatVocabulary#isKnown} rejects).
@@ -65,6 +65,15 @@ class EnchantingAlchemyBuffsWiringTest {
         // 主軸 A/C は運だけを配り、EXP 増減は載せない(下の assertMainAxisLuckOnly が担保)。
         assertMainAxisLuckOnly(tree, "A", 5.0);
         assertMainAxisLuckOnly(tree, "C", 10.0);
+        // 2026-08-14: ノードBは唯一の効果が lapis-cost-reduction(機構ごと廃止)だったので、
+        // 同じ「消費を減らす」性格の enchant-cost-reduction へ差し替えた。ここが null に戻ると
+        // Lv30 の主軸ノードが SP1 を払って何も起きないノードになる。
+        SkillNode nodeB = tree.nodes().get("B");
+        assertTrue(nodeB != null, "node B must exist");
+        assertEquals(0.10, nodeB.buffs().get("enchant_cost_reduction"),
+                "ノードB(エンチャントの使い手)はエンチャント費用軽減を配る");
+        assertTrue(nodeB.buffs().get("lapis_cost_reduction") == null,
+                "廃止した lapis_cost_reduction が復活している(語彙から消えているので黙って捨てられる)");
         assertNodeBuffs(tree, "A-alpha-1", 8.0, -0.05);
         assertNodeBuffs(tree, "A-alpha-2", 8.0, -0.05);
         assertNodeBuffs(tree, "A-beta-1", 4.0, 0.05);
@@ -75,7 +84,7 @@ class EnchantingAlchemyBuffsWiringTest {
         SkillNode node = tree.nodes().get(nodeId);
         assertTrue(node != null, "node " + nodeId + " must exist");
         assertEquals(expectedLuck, node.buffs().get("enchant_luck"), "node " + nodeId + " enchant_luck");
-        assertEquals(expectedExpBonus, node.buffs().get("enchant_exp_gain_bonus"), "node " + nodeId + " enchant_exp_gain_bonus");
+        assertEquals(expectedExpBonus, node.buffs().get("enchanting_exp_bonus"), "node " + nodeId + " enchanting_exp_bonus");
     }
 
     /** 主軸ノード: enchant_luck だけを配り、EXP 増減のトレードオフは載せない。 */
@@ -83,8 +92,8 @@ class EnchantingAlchemyBuffsWiringTest {
         SkillNode node = tree.nodes().get(nodeId);
         assertTrue(node != null, "node " + nodeId + " must exist");
         assertEquals(expectedLuck, node.buffs().get("enchant_luck"), "node " + nodeId + " enchant_luck");
-        assertTrue(node.buffs().get("enchant_exp_gain_bonus") == null,
-                "主軸ノード " + nodeId + " に enchant_exp_gain_bonus を載せない(EXP増減はギリシャ路線の選択要素)");
+        assertTrue(node.buffs().get("enchanting_exp_bonus") == null,
+                "主軸ノード " + nodeId + " に enchanting_exp_bonus を載せない(EXP増減はギリシャ路線の選択要素)");
     }
 
     @Test

@@ -1,0 +1,40 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/string",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 5406,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/stray_cloth"
+        }
+      },
+      {
+        "threshold": 5411,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/husk_cloth"
+        }
+      },
+      {
+        "threshold": 100021,
+        "model": {
+          "model": "minecraft:item/string",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 100022,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/reinforced_fiber"
+        }
+      }
+    ]
+  }
+}

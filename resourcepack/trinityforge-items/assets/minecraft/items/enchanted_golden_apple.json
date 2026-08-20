@@ -1,0 +1,19 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/enchanted_golden_apple",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 5201,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/tf_crystal_apple"
+        }
+      }
+    ]
+  }
+}

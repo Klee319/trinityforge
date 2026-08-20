@@ -11,7 +11,15 @@
 #
 # Fields per gate:
 #   required-combat-level  (optional) minimum combat level (0 / omit = no level gate)
-#   key-material           (optional) Bukkit material consumed on entry
+#   key-item               (optional, 2026-07-27新設) 入場時に消費するアイテムID。
+#                          TFカタログID(items/catalog.yml) / ArsPaper登録ID(materials.yml等) /
+#                          バニラMaterial名のいずれも指定可能(解決はCrossPluginItemResolverに一本化、
+#                          優先順位はTFカタログ→ArsPaper→バニラMaterial)。
+#                          タイポ等でどれにも解決できない場合は、プレイヤーを永久に締め出さないよう
+#                          「鍵ゲート自体を無効化(通過させる)」というfail-open方針で扱われ、サーバー
+#                          ログに1回だけ警告が出る。
+#   key-material           (非推奨・後方互換) 旧フィールド名。key-itemがあればそちらが優先される。
+#                          新規追加時はkey-itemを使うこと。
 #   key-amount             (optional) count consumed (default 1)
 #   aliases / content-package  (optional) EliteMobs content-package name(s)
 #   region                 (optional) 同一ワールド内の区画ダンジョン境界 (D3)。
@@ -20,14 +28,34 @@
 #     world: <ワールド名>   (required) 区画があるワールド
 #     min: [x, y, z]        (required) 対角ブロック座標(順不同、自動正規化)
 #     max: [x, y, z]        (required)
+#   entry-location          (optional, 2026-07-27新設) 鍵アイテム右クリック→潜入確認GUIの「潜入する」
+#                          で確定したときの転送先を明示する。省略時は既定規則にフォールバックする:
+#                            ・aliases/content-packageを1つ以上持つ(EliteMobs連携ダンジョン)ゲートは
+#                              entry-locationの有無に関わらずEliteMobsの参加処理へ委譲するため不要。
+#                            ・region付きゲートは省略時、区画の中心へ転送する。
+#                            ・それ以外は省略時、行き先ワールド(このゲートのID)のスポーン地点へ転送する。
+#     world: <ワールド名>   (optional) 省略時はこのゲートのID(=行き先ワールド名)
+#     x: <数値>              (required, x/y/zの3つが揃っていないentry-locationは無視され警告が出る)
+#     y: <数値>              (required)
+#     z: <数値>              (required)
+#     yaw: <数値>            (optional, 省略時0.0)
+#     pitch: <数値>          (optional, 省略時0.0)
 #
 # Example:
 # gates:
 #   dungeon_crypt_world:
 #     required-combat-level: 40
-#     key-material: TRIPWIRE_HOOK
+#     key-item: TRIPWIRE_HOOK          # バニラMaterial名の例
 #     key-amount: 1
-#     content-package: dungeon_crypt
+#     content-package: dungeon_crypt   # EliteMobs連携ダンジョン: entry-locationは不要(EM側へ委譲)
+#   dungeon_sanctum:
+#     required-combat-level: 60
+#     key-item: tf_crypt_sigil         # TFカタログID/ArsPaper IDの例(カスタムアイテムを鍵にできる)
+#     key-amount: 1
+#     entry-location:                  # TFワールドゲート: 明示した座標へ転送
+#       x: 100.5
+#       y: 64.0
+#       z: -20.5
 #   dungeon_abyss:
 #     required-combat-level: 80
 #     aliases:
@@ -40,4 +68,271 @@
 #       min: [1200, 0, -300]
 #       max: [1350, 128, -150]
 
-gates: {}
+# ============================================================================
+# 2026-08-01 実装 (追加コンテンツ詳細プラン §1 「柱1 — ダンジョンの鍵」)
+#
+# 【なぜ全ダンジョンを列挙してあるのか】
+#   DungeonGateService#checkRequiredEntry は「ゲートが1本も無い」ときだけこの入口ごと無効化し、
+#   1本でも書いた瞬間に fail-close が復活する。つまり **ここに書き漏らしたダンジョンは
+#   一般プレイヤーが二度と入れなくなる**(trinityforge.admin 保持者だけが素通りできる)。
+#   したがって鍵を掛けないダンジョンも「required-combat-level: 0 / 鍵なし」で必ず列挙する。
+#   列挙元は EliteMobs 同梱ダンジョン台帳
+#   tools/config-editor/public/data/elitemobs-dungeons.json (61件・生成物)。
+#   **EliteMobs へ新しいダンジョンを追加DL/インポートしたら、必ずここにも1本足すこと。**
+#   足し忘れは ShippedDungeonGateCoverageTest が落として教える。
+#
+# 【aliases に .yml 付きも併記してある理由】
+#   EliteMobs 側の索引 EMPackage.getEmPackages() のキーは常に .yml 付きファイル名で、
+#   TF の content-package 表記は拡張子なし(EliteMobsDungeonBridge#normalizeContentPackageId が
+#   出口で変換する)。一方 checkRequiredEntry を呼ぶのは EliteMobs フォーク側で、そこが
+#   どちらの綴りを渡すかはフォークのソースが .gitignore 除外のため本ワークツリーからは確認できない。
+#   ゲート0本の間は checkRequiredEntry が常に早期リターンしていたので、この経路は一度も実走していない。
+#   外した場合の被害が「全ダンジョン入場不可」なので、両方の綴りを別名として登録して取りこぼしを消す。
+#   フォークが実際に渡す綴りを確認できたら、片方を消してよい(サジェスト /tf dungeon が短くなる)。
+#
+# 【鍵アイテムIDの表記(重要)】
+#   key-item には **custom: 接頭辞を付けないこと。** GateKeyMatcher#matches は所持品の PDC に
+#   焼かれた素のID(例 key_mines)と key-item を完全一致で比べるだけで、custom: を剥がさない。
+#   "custom:key_mines" と書くと CrossPluginItemResolver#exists は解決できてしまう(=鍵ゲートは
+#   有効のまま)のに所持判定が永久に 0 個になり、**鍵を持っていても入れない**状態になる。
+#   ShippedDungeonGateCoverageTest がこの綴りを禁止して固定している。
+#
+# 【鍵アイテムはまだ存在しない(C1 レーンが追加中)】
+#   下の key_* 群は ArsPaper materials.yml 側へ別レーンが追加する前提のID。
+#   追加されるまでは CrossPluginItemResolver が解決できないため、DungeonGateService の
+#   fail-open により **その鍵ゲートだけが無効化され(素通り)、警告ログが1回出る。**
+#   永久ロックにはならないので、この状態で先に配備しても入場不能事故は起きない。
+#   ※2026-08-08: エンチャント試練の鍵は key_enchant_trial(単一)を廃止し key_enchant_trial_1〜_10
+#   (計10種)へ分割、加えて key_hallosseum/key_north_pole を新規登録した。key_* の総数は19→28。
+#
+# 【required-combat-level を 0 に統一している理由】
+#   EliteMobs 側に「最低レベル未満は入場拒否」が無く、contentLevel: -1 の level-sync が
+#   入場後の強さを合わせるため、レベルで弾く必要が無い。鍵の入手難度が実質のゲート。
+#   例外は世界を繋ぐ者の聖所(contentLevel: 50・level-sync なし)だけで 40 を置く。
+# ============================================================================
+
+gates:
+  em_fireworks:
+    display-name: 花火工房
+    required-combat-level: 0
+    key-item: key_fireworks
+    key-amount: 1
+    content-package: fireworks_lair
+    aliases:
+      - fireworks_lair.yml
+  em_hallosseum:
+    display-name: ハロウィン闘技場
+    required-combat-level: 0
+    key-item: key_hallosseum
+    key-amount: 1
+    content-package: hallosseum_lair
+    aliases:
+      - hallosseum_lair.yml
+  em_id_binder_of_worlds:
+    display-name: 世界を繋ぐ者の聖所
+    required-combat-level: 40
+    key-item: key_binder
+    key-amount: 1
+    content-package: binder_of_worlds_sanctum
+    aliases:
+      - binder_of_worlds_sanctum.yml
+  em_id_enchantment_challenge_1:
+    display-name: エンチャント試練 1
+    required-combat-level: 0
+    key-item: key_enchant_trial_1
+    key-amount: 1
+    content-package: enchantment_challenge_1_sanctum
+    aliases:
+      - enchantment_challenge_1_sanctum.yml
+  em_id_enchantment_challenge_10:
+    display-name: エンチャント試練 10
+    required-combat-level: 0
+    key-item: key_enchant_trial_10
+    key-amount: 1
+    content-package: enchantment_challenge_10_sanctum
+    aliases:
+      - enchantment_challenge_10_sanctum.yml
+  em_id_enchantment_challenge_2:
+    display-name: エンチャント試練 2
+    required-combat-level: 0
+    key-item: key_enchant_trial_2
+    key-amount: 1
+    content-package: enchantment_challenge_2_sanctum
+    aliases:
+      - enchantment_challenge_2_sanctum.yml
+  em_id_enchantment_challenge_3:
+    display-name: エンチャント試練 3
+    required-combat-level: 0
+    key-item: key_enchant_trial_3
+    key-amount: 1
+    content-package: enchantment_challenge_3_sanctum
+    aliases:
+      - enchantment_challenge_3_sanctum.yml
+  em_id_enchantment_challenge_4:
+    display-name: エンチャント試練 4
+    required-combat-level: 0
+    key-item: key_enchant_trial_4
+    key-amount: 1
+    content-package: enchantment_challenge_4_sanctum
+    aliases:
+      - enchantment_challenge_4_sanctum.yml
+  em_id_enchantment_challenge_5:
+    display-name: エンチャント試練 5
+    required-combat-level: 0
+    key-item: key_enchant_trial_5
+    key-amount: 1
+    content-package: enchantment_challenge_5_sanctum
+    aliases:
+      - enchantment_challenge_5_sanctum.yml
+  em_id_enchantment_challenge_6:
+    display-name: エンチャント試練 6
+    required-combat-level: 0
+    key-item: key_enchant_trial_6
+    key-amount: 1
+    content-package: enchantment_challenge_6_sanctum
+    aliases:
+      - enchantment_challenge_6_sanctum.yml
+  em_id_enchantment_challenge_7:
+    display-name: エンチャント試練 7
+    required-combat-level: 0
+    key-item: key_enchant_trial_7
+    key-amount: 1
+    content-package: enchantment_challenge_7_sanctum
+    aliases:
+      - enchantment_challenge_7_sanctum.yml
+  em_id_enchantment_challenge_8:
+    display-name: エンチャント試練 8
+    required-combat-level: 0
+    key-item: key_enchant_trial_8
+    key-amount: 1
+    content-package: enchantment_challenge_8_sanctum
+    aliases:
+      - enchantment_challenge_8_sanctum.yml
+  em_id_enchantment_challenge_9:
+    display-name: エンチャント試練 9
+    required-combat-level: 0
+    key-item: key_enchant_trial_9
+    key-amount: 1
+    content-package: enchantment_challenge_9_sanctum
+    aliases:
+      - enchantment_challenge_9_sanctum.yml
+  em_id_the_bridge:
+    display-name: 古橋の聖所
+    required-combat-level: 0
+    key-item: key_bridge
+    key-amount: 1
+    content-package: the_bridge_sanctum
+    aliases:
+      - the_bridge_sanctum.yml
+  em_id_the_cave:
+    display-name: 灼熱の洞窟
+    required-combat-level: 0
+    key-item: key_cave
+    key-amount: 1
+    content-package: the_cave_sanctum
+    aliases:
+      - the_cave_sanctum.yml
+  em_id_the_city:
+    display-name: ドワーフの地下都市
+    required-combat-level: 0
+    key-item: key_city
+    key-amount: 1
+    content-package: the_city_dungeon
+    aliases:
+      - the_city_dungeon.yml
+  em_id_the_climb:
+    display-name: 登攀路
+    required-combat-level: 0
+    key-item: key_climb
+    key-amount: 1
+    content-package: the_climb_dungeon
+    aliases:
+      - the_climb_dungeon.yml
+  em_id_the_deep_mines:
+    display-name: 深層鉱山
+    required-combat-level: 0
+    key-item: key_deep_mines
+    key-amount: 1
+    content-package: the_deep_mines_dungeon
+    aliases:
+      - the_deep_mines_dungeon.yml
+  em_id_the_mines:
+    display-name: 鉱山
+    required-combat-level: 0
+    key-item: key_mines
+    key-amount: 1
+    content-package: the_mines_dungeon
+    aliases:
+      - the_mines_dungeon.yml
+  em_id_the_nether_bell:
+    display-name: ネザーの鐘
+    required-combat-level: 0
+    key-item: key_nether_bell
+    key-amount: 1
+    content-package: the_nether_bell_sanctum
+    aliases:
+      - the_nether_bell_sanctum.yml
+  em_id_the_nether_wastes:
+    display-name: ネザーの荒野
+    required-combat-level: 0
+    key-item: key_nether_wastes
+    key-amount: 1
+    content-package: the_nether_wastes_dungeon
+    aliases:
+      - the_nether_wastes_dungeon.yml
+  em_id_the_palace:
+    display-name: 宮殿
+    required-combat-level: 0
+    key-item: key_palace
+    key-amount: 1
+    content-package: the_palace_sanctum
+    aliases:
+      - the_palace_sanctum.yml
+  em_id_the_quarry:
+    display-name: 採石場
+    required-combat-level: 0
+    key-item: key_quarry
+    key-amount: 1
+    content-package: the_quarry_dungeon
+    aliases:
+      - the_quarry_dungeon.yml
+  em_knight_castle:
+    display-name: 騎士団の城
+    required-combat-level: 0
+    key-item: key_knight_castle
+    key-amount: 1
+    content-package: knights_castle_lair
+    aliases:
+      - knights_castle_lair.yml
+  em_north_pole:
+    display-name: 北極ミニダンジョン
+    required-combat-level: 0
+    key-item: key_north_pole
+    key-amount: 1
+    content-package: north_pole_minidungeon
+    aliases:
+      - north_pole_minidungeon.yml
+  em_sewer_maze:
+    display-name: 下水道迷宮
+    required-combat-level: 0
+    key-item: key_sewer_maze
+    key-amount: 1
+    content-package: sewers_minidungeon
+    aliases:
+      - sewers_minidungeon.yml
+  em_steamworks_lair:
+    display-name: 蒸気機関工房
+    required-combat-level: 0
+    key-item: key_steamworks
+    key-amount: 1
+    content-package: steamworks_lair
+    aliases:
+      - steamworks_lair.yml
+  em_the_dark_cathedral:
+    display-name: 闇の大聖堂
+    required-combat-level: 0
+    key-item: key_dark_cathedral
+    key-amount: 1
+    content-package: dark_cathedral_lair
+    aliases:
+      - dark_cathedral_lair.yml

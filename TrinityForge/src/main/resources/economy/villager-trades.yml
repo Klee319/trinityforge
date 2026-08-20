@@ -6,47 +6,52 @@ professions:
   WEAPONSMITH:
     block-vanilla-trades: true
     trades:
-      - input: { material: IRON_INGOT, amount: 12 }
-        output: { catalog: tf_scrap, amount: 3 }
+      - input:
+          material: IRON_INGOT
+          amount: 12
+        output:
+          catalog: tf_scrap
+          amount: 3
         max-uses: 12
         villager-xp: 5
-      - input: { material: DIAMOND, amount: 2 }
-        output: { catalog: tf_core_jewelry, amount: 1 }
+      - input:
+          material: DIAMOND
+          amount: 2
+        output:
+          catalog: core_jewelry
+          amount: 1
         max-uses: 4
         villager-xp: 10
   ARMORER:
     block-vanilla-trades: true
     trades:
-      - input: { material: IRON_INGOT, amount: 16 }
-        output: { material: CHAINMAIL_CHESTPLATE, amount: 1 }
+      - input:
+          material: IRON_INGOT
+          amount: 16
+        output:
+          material: CHAINMAIL_CHESTPLATE
+          amount: 1
         max-uses: 8
         villager-xp: 5
   TOOLSMITH:
     block-vanilla-trades: true
     trades:
-      - input: { material: IRON_INGOT, amount: 8 }
-        output: { material: IRON_PICKAXE, amount: 1 }
+      - input:
+          material: IRON_INGOT
+          amount: 8
+        output:
+          material: IRON_PICKAXE
+          amount: 1
         max-uses: 8
         villager-xp: 5
-  CLERIC:
-    block-vanilla-trades: false
-    trades:
-      - input: { material: EMERALD, amount: 3 }
-        output: { material: GOLDEN_APPLE, amount: 1 }
-        max-uses: 6
-        villager-xp: 5
-      - input: { material: ROTTEN_FLESH, amount: 32 }
-        output: { material: EMERALD, amount: 1 }
-        max-uses: 16
-        villager-xp: 2
-  LIBRARIAN:
-    block-vanilla-trades: false
-    trades:
-      - input: { material: EMERALD, amount: 5 }
-        output: { material: BOOK, amount: 3 }
+      - input:
+          catalog: tf_scrap
+          amount: 8
+        output:
+          catalog: iron_ingot_scrap
+          amount: 4
         max-uses: 12
         villager-xp: 3
-      - input: { material: BOOK, amount: 8 }
-        output: { material: ENCHANTED_BOOK, amount: 1 }
-        max-uses: 4
-        villager-xp: 8
+  LIBRARIAN:
+    block-vanilla-trades: true
+    trades: []

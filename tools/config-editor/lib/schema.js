@@ -3,6 +3,15 @@
 // 保存前のスキーマ検証。エラーは配列で返す (空配列=OK)。
 // 汎用(generic)は構造自由なので最小限のチェックのみ。
 
+// lore.yml の宣言語彙。APPLIES_TO は「ステータスの適用対象(PLAYER/MOB)」で、
+// 下の APPLIES_TO(アイテム種別 weapon/armor/...)とは別物なので別名で受ける。
+const {
+  TRIGGER_WHEN,
+  SOURCE_SCOPE,
+  APPLIES_TO: STAT_APPLIES_TO,
+  STACKING,
+} = require("./lore-declaration-vocabulary");
+
 const BIND_TYPES = ["SOULBOUND", "TRADEABLE", "OWNER_BOUND"];
 const APPLIES_TO = ["weapon", "armor", "tool", "other"];
 
@@ -20,6 +29,11 @@ function isNumber(value) {
 
 function isNonNegInteger(value) {
   return isInteger(value) && value >= 0;
+}
+
+/** 1以上の整数（抽選の weight 用。0 を許すと「候補にあるのに絶対に出ない」設定が黙って通る）。 */
+function isPositiveInt(value) {
+  return Number.isInteger(value) && value >= 1;
 }
 
 // item-stats のキーは Material名 (英大文字/数字/アンダースコア) + 任意の整数CMD。
@@ -91,29 +105,10 @@ function validateItemStats(data, errors) {
         }
       }
     }
-    if (entry["set-effects"] !== undefined && entry["set-effects"] !== null) {
-      if (!isPlainObject(entry["set-effects"])) {
-        errors.push(`items.${key}.set-effects: マップである必要があります`);
-      } else if (entry["set-effects"].thresholds !== undefined && entry["set-effects"].thresholds !== null) {
-        const thr = entry["set-effects"].thresholds;
-        if (!isPlainObject(thr)) {
-          errors.push(`items.${key}.set-effects.thresholds: マップである必要があります`);
-        } else {
-          for (const [tk, stats] of Object.entries(thr)) {
-            if (!/^\d+$/.test(tk) || Number(tk) < 1) {
-              errors.push(`items.${key}.set-effects.thresholds.${tk}: 閾値キーは1以上の整数である必要があります`);
-            }
-            if (!isPlainObject(stats)) {
-              errors.push(`items.${key}.set-effects.thresholds.${tk}: ステータスマップである必要があります`);
-            } else {
-              for (const [stat, val] of Object.entries(stats)) {
-                if (!isNumber(val)) errors.push(`items.${key}.set-effects.thresholds.${tk}.${stat}: 数値である必要があります`);
-              }
-            }
-          }
-        }
-      }
-    }
+    // item-stats.yml の entry["set-effects"] は 2026-08-09 に撤去(editor にしか存在しない飾りで、
+    // TF本体・ArsPaperフォークとも読むコードが無く、出荷 item-stats.yml にも実データ0件だった)。
+    // 実際にスレッドのセット効果を持つのは thread-sets.yml 側(validateArsThreadSets が検証、
+    // キーはスレッドID=threads.yml と共通)。新しい yml にこのキーを書かせない(=検証しない)。
     // 乗算モード (multipliers.<layer>.{fixed,per-quality,random})。
     // 未選択レイヤ (__unset__) は保存前に必ずレイヤを割り当てる。
     if (entry.multipliers !== undefined && entry.multipliers !== null) {
@@ -213,17 +208,51 @@ function validateCatalog(data, errors) {
         errors.push(`items.${id}.bind-type: ${BIND_TYPES.join(" / ")} のいずれかである必要があります`);
       }
     }
-    validateCatalogRecipe(entry.recipe, `items.${id}.recipe`, errors);
-    if (entry.recipes !== undefined && entry.recipes !== null) {
-      if (!Array.isArray(entry.recipes)) {
-        errors.push(`items.${id}.recipes: レシピマップの配列である必要があります`);
-      } else {
-        entry.recipes.forEach((r, i) => {
-          validateCatalogRecipe(r, `items.${id}.recipes[${i}]`, errors);
-        });
-      }
+    // 敵対的レビュー指摘6(2026-08-02): draft は真偽値しか意味を持たない
+    // (Java側 ConfigurationSection#getBoolean は非boolean値をfalse=出荷扱いに読む)。
+    // "yes"/1 のような手書き値をエディタが素通りさせると、運用者は「準備中」のつもりで
+    // 実際には出荷されるという事故になる。
+    if (entry.draft !== undefined && entry.draft !== null && typeof entry.draft !== "boolean") {
+      errors.push(`items.${id}.draft: 真偽値(true/false)である必要があります`);
+    }
+    validateRecipeForms(entry, `items.${id}`, errors, validateCatalogRecipe);
+  }
+  validateCatalogThreadTabIds(data, errors);
+}
+
+// 2026-08-15: 「スレッド」タブ(_editor.itemTabs.<id> === "thread")に分類したカタログidは
+// ArsPaper の UnifiedRecipeLoader が recipeKey("thread_" + threads.ymlのid), ...) で
+// 生成する規約に合わせて必ず thread_<id> の形でなければならない。この規則から外れた id は
+// threads.yml / thread-sets.yml のどのエントリにも対応せず、GUI(スレッド固有欄)だけでなく
+// ゲーム内でもスレッドとして機能しない(実サーバ報告: thred_translate のタイプミス)。
+// _editor / _editor.itemTabs が無い catalog(旧来・後方互換)は素通りする。
+function validateCatalogThreadTabIds(data, errors) {
+  const editorMeta = data && data._editor;
+  if (!isPlainObject(editorMeta)) return;
+  const itemTabs = editorMeta.itemTabs;
+  if (!isPlainObject(itemTabs)) return;
+  for (const [id, tab] of Object.entries(itemTabs)) {
+    if (tab !== "thread") continue;
+    if (typeof id !== "string" || !id.startsWith("thread_") || id.length <= "thread_".length) {
+      errors.push(`_editor.itemTabs.${id}: スレッドタブのカタログidは thread_<id> 形式である必要があります`
+        + `(threads.yml / thread-sets.yml に対応せずゲーム内でも機能しません)`);
     }
   }
+}
+
+// レシピの正規形は「0件=キーなし / 1件=recipe:(マップ) / 2件以上=recipes:(マップの配列)」で、
+// これは catalog.yml だけでなく ArsPaper 側の materials / threads / spell-books / jars でも同じ
+// (2026-08-13 に UnifiedRecipeLoader を両形対応にして統合した)。どの config でも同じ検証を
+// 掛けられるよう、1件分の検証器 (validateOne) を受け取る共通ヘルパにしてある。
+function validateRecipeForms(entry, prefix, errors, validateOne) {
+  if (!isPlainObject(entry)) return;
+  validateOne(entry.recipe, `${prefix}.recipe`, errors);
+  if (entry.recipes === undefined || entry.recipes === null) return;
+  if (!Array.isArray(entry.recipes)) {
+    errors.push(`${prefix}.recipes: レシピマップの配列である必要があります`);
+    return;
+  }
+  entry.recipes.forEach((r, i) => validateOne(r, `${prefix}.recipes[${i}]`, errors));
 }
 
 // reversible (解凍を許可) の付与条件判定: shaped は shape上の全非空スロットの参照値、
@@ -349,11 +378,18 @@ function validateCatalogRecipe(recipe, prefix, errors) {
 const CATALOG_RECIPE_METHODS = ["workbench", "ritual", "combine", "netherite", "inventory"];
 const RECIPE_METHODS = ["workbench", "ritual"];
 const RECIPE_TYPES = ["shaped", "shapeless"];
-const EFFECT_TYPES = ["craft", "weather", "thread", "flight", "moonfall", "sunrise", "repair", "animal_summon", "mob_summon", "enchant_book"];
+// Java 側 RitualEffectRegistry の登録キーと1対1で対応させる(ArsPaper#onEnable)。ここに無い値は
+// 保存時に弾かれるので、Java へ新しい効果を追加したらこの配列にも足すこと。
+// 2026-07-31 修正: thread_slot_expand が抜けていて「実装済みの効果を書くと保存できない」状態だった。
+// 廃止済みの "thread"(スレッド付与の儀式)は 2026-07-25 に Java から消えているので外した。
+const EFFECT_TYPES = ["craft", "weather", "flight", "moonfall", "sunrise", "repair",
+  "animal_summon", "mob_summon", "enchant_book", "thread_slot_expand", "thread_reroll"];
 const PEDESTAL_RE = /^(custom:)?[A-Za-z_][A-Za-z0-9_]*( x[1-9]\d*)?$/;
-// 儀式コア周囲の台座リング(チェビシェフ距離2の外周)は物理16台。
+// 儀式コア周囲の台座リング(チェビシェフ距離2の外周)は Y±1 の3段に置けるため物理48台
+// (2026-08-02 訂正: フォークの RitualManager#findNearbyPedestals は外周16マスを Y±1 の
+// 3段ぶん走査する。1段だけの16を上限にしていたため19台のレシピが保存できなかった)。
 // "NAME xN" は台座N台分に展開されるため、合計台数で判定する。
-const MAX_PEDESTAL_TOTAL = 16;
+const MAX_PEDESTAL_TOTAL = 48;
 
 function validatePedestalItems(items, prefix, errors) {
   if (items === undefined || items === null) return;
@@ -445,14 +481,15 @@ function validateArsRecipes(data, errors) {
 
 // ---- ArsPaper materials.yml / threads.yml (ars-materials / ars-threads) ----
 // 儀式レシピ (core-item / pedestal-items / source) の共有検証。result は扱わない。
+// prefix はレシピマップ自身のフルパス (例: materials.foo.recipe / materials.foo.recipes[1])。
 function validateRitualRecipe(recipe, prefix, errors) {
   if (recipe === undefined || recipe === null) return;
-  if (!isPlainObject(recipe)) { errors.push(`${prefix}.recipe: マップである必要があります`); return; }
+  if (!isPlainObject(recipe)) { errors.push(`${prefix}: マップである必要があります`); return; }
   if (recipe["core-item"] !== undefined && typeof recipe["core-item"] !== "string") {
-    errors.push(`${prefix}.recipe.core-item: 文字列である必要があります`);
+    errors.push(`${prefix}.core-item: 文字列である必要があります`);
   }
-  validatePedestalItems(recipe["pedestal-items"], `${prefix}.recipe`, errors);
-  validateSource(recipe.source, `${prefix}.recipe`, errors);
+  validatePedestalItems(recipe["pedestal-items"], prefix, errors);
+  validateSource(recipe.source, prefix, errors);
 }
 
 function validateArsMaterials(data, errors) {
@@ -483,11 +520,30 @@ function validateArsMaterials(data, errors) {
     if (entry.enchant_glow !== undefined && entry.enchant_glow !== null && typeof entry.enchant_glow !== "boolean") {
       errors.push(`${prefix}.enchant_glow: 真偽値である必要があります`);
     }
-    validateRitualRecipe(entry.recipe, prefix, errors);
+    // edible: 圧縮食料を「食べてよい素材」として通す旗(2026-08-19 W-131/W-149)。
+    // UI の既知キー(ars-forms.js の MATERIAL_KNOWN)には【意図的に入れていない】——
+    // 入れると serializeMaterialEntry に対応する case が無いぶん保存時に黙って落ちる。
+    // 未知キーとして _extra へ verbatim 保存される現状のままでよく、ここでは型だけ見る。
+    if (entry.edible !== undefined && entry.edible !== null && typeof entry.edible !== "boolean") {
+      errors.push(`${prefix}.edible: 真偽値である必要があります`);
+    }
+    validateRecipeForms(entry, prefix, errors, validateRitualRecipe);
   }
 }
 
-const THREAD_EFFECT_KEYS = ["regen-bonus", "mana-bonus", "recovery", "cost-reduction", "slots"];
+// mana-max-percent / regen-percent は出荷 threads.yml (mana_amplify / mana_circulate) が
+// 既に使っているキーで、以前はこのリストに無いまま型検証されずに素通りしていた(2026-08-08 修正)。
+const THREAD_EFFECT_KEYS = ["regen-bonus", "mana-bonus", "recovery", "cost-reduction", "slots", "mana-max-percent", "regen-percent"];
+
+// スレッドの特殊効果(装備しているだけで常時付与されるポーション効果)候補。有益効果18種のみ
+// (有害効果は常時付与すると事故になるため候補から外す)。
+// ⚠ public/js/ars-forms.js の THREAD_POTION_EFFECTS と同じ id 集合を保つこと(検証側とUI側のミラー)。
+const THREAD_POTION_EFFECTS = [
+  "speed", "haste", "strength", "jump_boost", "regeneration", "resistance",
+  "fire_resistance", "water_breathing", "invisibility", "night_vision",
+  "health_boost", "absorption", "saturation", "luck", "slow_falling",
+  "conduit_power", "dolphins_grace", "hero_of_the_village"
+];
 
 function validateArsThreads(data, errors) {
   if (data === null) return;
@@ -512,7 +568,19 @@ function validateArsThreads(data, errors) {
     if (entry.max !== undefined && entry.max !== null && !isNonNegInteger(entry.max)) {
       errors.push(`${prefix}.max: 0以上の整数である必要があります`);
     }
-    validateRitualRecipe(entry.recipe, prefix, errors);
+    if (entry["potion-effect"] !== undefined && entry["potion-effect"] !== null) {
+      const pe = entry["potion-effect"];
+      if (typeof pe !== "string" || (pe !== "none" && !THREAD_POTION_EFFECTS.includes(pe))) {
+        errors.push(`${prefix}.potion-effect: 有益効果18種のid、または "none" である必要があります`);
+      }
+    }
+    if (entry["potion-level"] !== undefined && entry["potion-level"] !== null && !isPositiveInt(entry["potion-level"])) {
+      errors.push(`${prefix}.potion-level: 1以上の整数である必要があります`);
+    }
+    if (entry.flight !== undefined && entry.flight !== null && typeof entry.flight !== "boolean") {
+      errors.push(`${prefix}.flight: 真偽値である必要があります`);
+    }
+    validateRecipeForms(entry, prefix, errors, validateRitualRecipe);
   }
 }
 
@@ -633,7 +701,92 @@ function validateTfLore(data, errors) {
       if (entry.unit !== undefined && entry.unit !== null && typeof entry.unit !== "string") {
         errors.push(`stats.${key}.unit: 文字列である必要があります`);
       }
+      validateLoreTrigger(entry.trigger, `stats.${key}.trigger`, errors);
+      validateLoreLimits(entry.limits, `stats.${key}.limits`, errors);
     }
+  }
+}
+
+// 段階1宣言 (trigger:/limits:)。両方とも任意(optional) — 未宣言のstatは引き続き許可される
+// (Java側 LoreConfigDeclarationTest の許可リストがラチェットを管理する)。
+function validateLoreTrigger(trigger, prefix, errors) {
+  if (trigger === undefined || trigger === null) return;
+  if (!isPlainObject(trigger)) { errors.push(`${prefix}: マップである必要があります`); return; }
+  if (trigger.when !== undefined && trigger.when !== null && !TRIGGER_WHEN.includes(trigger.when)) {
+    errors.push(`${prefix}.when: ${TRIGGER_WHEN.join(" / ")} のいずれかである必要があります`);
+  }
+  if (trigger.sources !== undefined && trigger.sources !== null && !SOURCE_SCOPE.includes(trigger.sources)) {
+    errors.push(`${prefix}.sources: ${SOURCE_SCOPE.join(" / ")} のいずれかである必要があります`);
+  }
+  const applies = trigger["applies-to"];
+  if (applies !== undefined && applies !== null) {
+    if (!Array.isArray(applies) || applies.length === 0) {
+      errors.push(`${prefix}.applies-to: 1個以上の配列である必要があります`);
+    } else {
+      for (const a of applies) {
+        if (!STAT_APPLIES_TO.includes(a)) {
+          errors.push(`${prefix}.applies-to: 不正な値 "${a}" (許可: ${STAT_APPLIES_TO.join(" / ")})`);
+        }
+      }
+    }
+  }
+}
+
+// limits: の閉じた語彙。数値上限フィールドは全て「X」+ 任意の「X-ref」の対で構成される
+// (Java側 StatLimits.declaredBounds() と同じ規則)。stacking のみ非数値フィールド。
+const LORE_LIMITS_NUMERIC_FIELDS = ["cap", "floor", "min-pieces", "max-distance", "max-duration-ticks"];
+const LORE_LIMITS_KNOWN_FIELDS = new Set([
+  ...LORE_LIMITS_NUMERIC_FIELDS,
+  ...LORE_LIMITS_NUMERIC_FIELDS.map((f) => `${f}-ref`),
+  "stacking",
+]);
+
+function validateLoreLimits(limits, prefix, errors) {
+  if (limits === undefined || limits === null) return;
+  if (!isPlainObject(limits)) { errors.push(`${prefix}: マップである必要があります`); return; }
+
+  for (const key of Object.keys(limits)) {
+    if (!LORE_LIMITS_KNOWN_FIELDS.has(key)) {
+      errors.push(`${prefix}.${key}: 不明なフィールドです (許可: ${[...LORE_LIMITS_KNOWN_FIELDS].join(" / ")})`);
+    }
+  }
+
+  for (const numKey of LORE_LIMITS_NUMERIC_FIELDS) {
+    const value = limits[numKey];
+    if (value === undefined || value === null) continue;
+    if (numKey === "min-pieces") {
+      if (!isNonNegInteger(value)) {
+        errors.push(`${prefix}.min-pieces: 0以上の整数である必要があります`);
+      }
+    } else if (!isNumber(value)) {
+      errors.push(`${prefix}.${numKey}: 数値である必要があります`);
+    }
+  }
+
+  for (const numKey of LORE_LIMITS_NUMERIC_FIELDS) {
+    const refKey = `${numKey}-ref`;
+    const ref = limits[refKey];
+    if (ref === undefined || ref === null) continue;
+    // X-ref があって X が無いのはエラー(比較対象が無い)。Java側 LoreConfig#parseLimits と同じ規則。
+    if (limits[numKey] === undefined || limits[numKey] === null) {
+      errors.push(`${prefix}.${refKey}: ${prefix}.${numKey} が無いと宣言できません(比較対象が必要です)`);
+      continue;
+    }
+    if (typeof ref !== "string" || !ref) {
+      errors.push(`${prefix}.${refKey}: 文字列である必要があります`);
+      continue;
+    }
+    // 書式のみ検証する ("<相対path>#<keypath>" または "java:<FQCN>#<CONST>")。実解決は
+    // Java側 CapRefResolver + LoreConfigDeclarationTest が担当する(editorはJVMを起動できない)。
+    const isJava = ref.startsWith("java:");
+    const body = isJava ? ref.slice("java:".length) : ref;
+    if (!body.includes("#") || body.split("#")[0] === "" || body.split("#").slice(1).join("#") === "") {
+      errors.push(`${prefix}.${refKey}: "${isJava ? "java:<FQCN>" : "<相対path>"}#<${isJava ? "CONST" : "key.path"}>" 形式である必要があります`);
+    }
+  }
+
+  if (limits.stacking !== undefined && limits.stacking !== null && !STACKING.includes(limits.stacking)) {
+    errors.push(`${prefix}.stacking: ${STACKING.join(" / ")} のいずれかである必要があります`);
   }
 }
 
@@ -658,17 +811,145 @@ function validateTfCraftQuality(data, errors) {
       }
     }
   }
+  // 2026-08-01 分離: 品質抽選のばらつき補正を作業台/儀式で別々に持つ節。
+  // 既定値は Java 側 CraftQualityConfig.SpreadTuning.IDENTITY と厳密に一致させること
+  // (scale=1.0 / flat=0.0)。ズレると「開いて保存しただけで yml の意味が変わる」。
+  for (const section of ["workbench", "ritual"]) {
+    const spread = data[section];
+    if (spread === undefined || spread === null) continue;
+    if (!isPlainObject(spread)) {
+      errors.push(`${section} はマップである必要があります`);
+      continue;
+    }
+    for (const k of ["upswing-scale", "downswing-reduction-scale"]) {
+      const v = spread[k];
+      if (v === undefined || v === null) continue;
+      if (!isNumber(v) || v < 0) errors.push(`${section}.${k}: 0以上の数値である必要があります`);
+    }
+    for (const k of ["upswing-flat", "downswing-reduction-flat"]) {
+      const v = spread[k];
+      if (v === undefined || v === null) continue;
+      if (!isNumber(v)) errors.push(`${section}.${k}: 数値である必要があります`);
+    }
+    for (const k of Object.keys(spread)) {
+      if (!TF_CRAFT_QUALITY_SPREAD_FIELDS.has(k)) {
+        errors.push(`${section}.${k}: 不明なフィールドです (許可: ${[...TF_CRAFT_QUALITY_SPREAD_FIELDS].join(" / ")})`);
+      }
+    }
+  }
 }
+
+// craft-quality.yml の workbench/ritual 節で許可するフィールド。
+// Java: CraftQualityConfig#readSpread と 1:1。
+const TF_CRAFT_QUALITY_SPREAD_FIELDS = new Set([
+  "upswing-scale", "upswing-flat", "downswing-reduction-scale", "downswing-reduction-flat"
+]);
+
+// craft-quality.yml の workbench/ritual 節の既定値。
+// Java: CraftQualityConfig.SpreadTuning.IDENTITY と厳密に一致(scale=1.0 / flat=0.0)。
+// ここがズレると editor で「開いて保存しただけ」でバランスが動くので、片方だけ変えないこと。
+const TF_CRAFT_QUALITY_SPREAD_DEFAULTS = Object.freeze({
+  "upswing-scale": 1.0,
+  "upswing-flat": 0.0,
+  "downswing-reduction-scale": 1.0,
+  "downswing-reduction-flat": 0.0
+});
 
 // ---- skill-exp.yml (tf-skill-exp) ----
 // スキルEXP獲得設定。各セクション(ars-smithing 等)はスカラー値のマップ。
 // exp-per-craft は 0以上の数値。将来のスキル追加に備え未知セクションは緩く許容する。
+function validateNonNegativeExpNumber(value, path, errors) {
+  if (value !== undefined && value !== null && (!isNumber(value) || value < 0)) {
+    errors.push(`${path}: 0以上の数値である必要があります`);
+  }
+}
+
+function validateNonNegativeExpMap(value, path, errors) {
+  if (value === undefined || value === null) return;
+  if (!isPlainObject(value)) {
+    errors.push(`${path}: マップである必要があります`);
+    return;
+  }
+  for (const [key, amount] of Object.entries(value)) {
+    validateNonNegativeExpNumber(amount, `${path}.${key}`, errors);
+  }
+}
+
+function validateKillExp(section, path, baseIsMap, errors) {
+  if (section === undefined || section === null) return;
+  if (!isPlainObject(section)) {
+    errors.push(`${path}: マップである必要があります`);
+    return;
+  }
+  if (section.enabled !== undefined && section.enabled !== null
+      && typeof section.enabled !== "boolean") {
+    errors.push(`${path}.enabled: 真偽値である必要があります`);
+  }
+  if (baseIsMap) validateNonNegativeExpMap(section.base, `${path}.base`, errors);
+  else validateNonNegativeExpNumber(section.base, `${path}.base`, errors);
+  validateNonNegativeExpNumber(section["per-mob-level"], `${path}.per-mob-level`, errors);
+  validateNonNegativeExpNumber(section["per-max-health"], `${path}.per-max-health`, errors);
+  validateNonNegativeExpMap(
+    section["entity-type-multipliers"],
+    `${path}.entity-type-multipliers`,
+    errors
+  );
+}
+
 function validateTfSkillExp(data, errors) {
   if (data === null) return;
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
+  const removedKeys = {
+    "ars-magic": ["exp-per-cast", "exp-per-mana"],
+    combat: [
+      "exp-per-hit", "mode", "damage-scale", "mob-level-scale",
+      "same-target-cooldown-seconds", "by-skill"
+    ]
+  };
   for (const [skill, section] of Object.entries(data)) {
     if (section === undefined || section === null) continue;
+    // skill-exp.yml 直下にはスキル別マップだけでなく、戦闘EXP全体へ適用する
+    // スカラー設定もある。マップ判定より先に既知スカラーを検証しないと、
+    // エディタで正しい実ファイルをそのまま保存しても拒否してしまう。
+    if (skill === "dungeon-only-exp") {
+      if (typeof section !== "boolean") {
+        errors.push("dungeon-only-exp: 真偽値(true/false)である必要があります");
+      }
+      continue;
+    }
+    if (skill === "outside-dungeon-exp-rate") {
+      if (!isNumber(section) || section < 0) {
+        errors.push("outside-dungeon-exp-rate: 0以上の数値である必要があります");
+      }
+      continue;
+    }
     if (!isPlainObject(section)) { errors.push(`${skill}: マップである必要があります`); continue; }
+    // 2026-08-18: 破壊時バニラEXPのベース量。0以上の数値のみ(負値はEXPが減る向きの寄与になる)。
+    // 明示的に検証しないと base-exp のスペルミスが黙って無視され、「設定したのに効かない」になる。
+    if (skill === "break-vanilla-exp") {
+      const baseExp = section["base-exp"];
+      if (baseExp !== undefined && baseExp !== null && (!isNumber(baseExp) || baseExp < 0)) {
+        errors.push("break-vanilla-exp.base-exp: 0以上の数値である必要があります");
+      }
+      validateNonNegativeExpMap(
+        section["per-skill-base-exp"],
+        "break-vanilla-exp.per-skill-base-exp",
+        errors
+      );
+      continue;
+    }
+    if (skill === "gathering") {
+      const mode = section["exp-mode"];
+      if (mode !== undefined && mode !== null
+          && !["drop_sum", "block_value", "max"].includes(mode)) {
+        errors.push("gathering.exp-mode: ドロップ合計・破壊ブロック基準・大きい方を採用から選択してください");
+      }
+    }
+    for (const key of removedKeys[skill] || []) {
+      if (Object.prototype.hasOwnProperty.call(section, key)) {
+        errors.push(`${skill}.${key}: 廃止された設定キーです。現行のEXP設定へ移行してください`);
+      }
+    }
     if (skill === "exp-display") {
       if (section.mode !== undefined && section.mode !== null && typeof section.mode !== "string") {
         errors.push("exp-display.mode: 文字列である必要があります");
@@ -680,6 +961,25 @@ function validateTfSkillExp(data, errors) {
       const mcb = section["max-concurrent-bossbars"];
       if (mcb !== undefined && mcb !== null && (!isInteger(mcb) || mcb <= 0)) {
         errors.push("exp-display.max-concurrent-bossbars: 正の整数である必要があります");
+      }
+      continue;
+    }
+    if (skill === "use-level-scaling") {
+      if (section.enabled !== undefined && section.enabled !== null && typeof section.enabled !== "boolean") {
+        errors.push("use-level-scaling.enabled: 真偽値である必要があります");
+      }
+      const maxMult = section["max-multiplier"];
+      if (maxMult !== undefined && maxMult !== null && (!isNumber(maxMult) || maxMult < 1)) {
+        errors.push("use-level-scaling.max-multiplier: 1以上の数値である必要があります");
+      }
+      const perLevel = section["per-level"];
+      if (perLevel !== undefined && perLevel !== null) {
+        if (!isPlainObject(perLevel)) { errors.push("use-level-scaling.per-level: マップである必要があります"); }
+        else for (const [k, v] of Object.entries(perLevel)) {
+          if (v !== undefined && v !== null && !isNumber(v)) {
+            errors.push(`use-level-scaling.per-level.${k}: 数値である必要があります`);
+          }
+        }
       }
       continue;
     }
@@ -699,28 +999,61 @@ function validateTfSkillExp(data, errors) {
       }
       continue;
     }
+    // 2026-08-04: power.levels-per-skill-point。総合(POWER)を何レベルごとに1スキルポイント
+    // 与えるかの整数設定。Java (SkillExpConfig) は 0以下を1へ丸めるだけで例外は投げないが、
+    // エディタ上では誤解を招くので0以下・小数を明示的にエラーにする。
+    if (skill === "power") {
+      const lpsp = section["levels-per-skill-point"];
+      if (lpsp !== undefined && lpsp !== null && (!isInteger(lpsp) || lpsp < 1)) {
+        errors.push("power.levels-per-skill-point: 1以上の整数である必要があります");
+      }
+      continue;
+    }
     const exp = section["exp-per-craft"];
     if (exp !== undefined && exp !== null && (!isNumber(exp) || exp < 0)) {
       errors.push(`${skill}.exp-per-craft: 0以上の数値である必要があります`);
     }
-    if (skill === "combat") {
-      if (section["exp-per-hit"] !== undefined && section["exp-per-hit"] !== null
-        && (!isNumber(section["exp-per-hit"]) || section["exp-per-hit"] < 0)) {
-        errors.push("combat.exp-per-hit: 0以上の数値である必要があります");
-      }
-      if (section["same-target-cooldown-seconds"] !== undefined && section["same-target-cooldown-seconds"] !== null
-        && (!isNumber(section["same-target-cooldown-seconds"]) || section["same-target-cooldown-seconds"] < 0)) {
-        errors.push("combat.same-target-cooldown-seconds: 0以上の数値である必要があります");
-      }
-      const bySkill = section["by-skill"];
-      if (bySkill !== undefined && bySkill !== null) {
-        if (!isPlainObject(bySkill)) errors.push("combat.by-skill: マップである必要があります");
-        else for (const [k, v] of Object.entries(bySkill)) {
-          if (v !== undefined && v !== null && (!isNumber(v) || v < 0)) {
-            errors.push(`combat.by-skill.${k}: 0以上の数値である必要があります`);
+    // 2026-08-04: 儀式で実際に消費したソース量に比例する追加EXP (ars-smithing.exp-per-source)。
+    // 0以上の数値。専用分岐は作らず、他スキルに同名キーが増えても同じ検証で構わない汎用扱いにする。
+    const expPerSource = section["exp-per-source"];
+    validateNonNegativeExpNumber(expPerSource, `${skill}.exp-per-source`, errors);
+    // 2026-07-30: 素材別クラフトEXP。キーは Material 名 または custom:<カタログID>、値は 0 以上の数値。
+    // ⚠️ 2026-08-17: 表は2本ある(作業台の smithing.exp-per-material と儀式/Ars専用の
+    // ars-smithing.exp-per-material)。それまで共用だったので editor で通常鍛冶の素材リストを
+    // 編集すると Ars 側のEXPまで動いていた。検証規則は同じなのでスキル別分岐は作らない。
+    const perMaterial = section["exp-per-material"];
+    if (perMaterial !== undefined && perMaterial !== null) {
+      if (!isPlainObject(perMaterial)) {
+        errors.push(`${skill}.exp-per-material: マップである必要があります`);
+      } else {
+        for (const [material, value] of Object.entries(perMaterial)) {
+          if (!isNumber(value) || value < 0) {
+            errors.push(`${skill}.exp-per-material.${material}: 0以上の数値である必要があります`);
           }
         }
       }
+    }
+    if (skill === "ars-magic") {
+      validateKillExp(section["kill-exp"], "ars-magic.kill-exp", false, errors);
+      const blockBreak = section["block-break-exp"];
+      if (blockBreak !== undefined && blockBreak !== null) {
+        if (!isPlainObject(blockBreak)) {
+          errors.push("ars-magic.block-break-exp: マップである必要があります");
+        } else {
+          if (blockBreak.enabled !== undefined && blockBreak.enabled !== null
+              && typeof blockBreak.enabled !== "boolean") {
+            errors.push("ars-magic.block-break-exp.enabled: 真偽値である必要があります");
+          }
+          validateNonNegativeExpNumber(
+            blockBreak["source-multiplier"],
+            "ars-magic.block-break-exp.source-multiplier",
+            errors
+          );
+        }
+      }
+    }
+    if (skill === "combat") {
+      validateKillExp(section["kill-exp"], "combat.kill-exp", true, errors);
     }
   }
 }
@@ -858,6 +1191,14 @@ function validateTfGacha(data, errors) {
     }
   }
 }
+
+// ---- thread-rolls.yml (ars-thread-rolls) ----
+// 2026-08-02: スレッド厳選(主ステ1つ + サブステ0〜4つの抽選テーブル)は ArsPaper 独自の
+// thread-rolls.yml から TrinityForge item-stats.yml へ全面移設した。専用の random-roll-pools
+// レイヤーと editor 専用GUIは同日中に撤去し、スレッドも他アイテムと同じ items.<key> の
+// fixed/per-quality/random/advanced で個別にステータス定義する(validateItemStats がそのまま
+// 検証する。専用スキーマは不要)。このファイル・スキーマ id は廃止(fork 側も
+// thread-rolls.yml 自体を削除済み)。
 
 // ---- thread-sets.yml (ars-thread-sets) ----
 function validateArsThreadSets(data, errors) {
@@ -1066,9 +1407,7 @@ function validateArsSpellbooks(data, errors) {
     if (b.cooldown !== undefined && b.cooldown !== null && !isNumber(b.cooldown)) {
       errors.push(`spell-books[${i}].cooldown: 数値である必要があります`);
     }
-    if (b.recipe !== undefined && b.recipe !== null) {
-      validateCatalogRecipe(b.recipe, `spell-books[${i}]`, errors);
-    }
+    validateRecipeForms(b, `spell-books[${i}]`, errors, validateCatalogRecipe);
   });
 
   const catalysts = data.catalysts;
@@ -1205,6 +1544,9 @@ function validateTfCombatDamage(data, errors) {
 // ---- combat/mob-types.yml (tf-mob-types) ----
 const MOB_ENTITY_TYPE_RE = /^[A-Z0-9_]+$/;
 const MOB_DEFENSE_FIELDS_01 = ["defense-rate", "resistance", "damage-reduction"];
+// dimensions: のキーは World.Environment#values() の4種で固定 (MobTypesConfig#parseDimensions が
+// Enum.valueOf で解決するため、これ以外は Java 側でも常に警告付きスキップ = 無干渉)。
+const TF_MOB_TYPES_ENVIRONMENTS = new Set(["NORMAL", "NETHER", "THE_END", "CUSTOM"]);
 
 function validateMobDefenseBlock(block, prefix, errors) {
   if (block === undefined || block === null) return;
@@ -1219,13 +1561,36 @@ function validateMobDefenseBlock(block, prefix, errors) {
   }
 }
 
+/**
+ * mob-types.yml drops[].material が受け付ける2書式の判定 (2026-08-01 U13)。
+ *
+ * Java 側 (`MobTypesConfig#parseDrops`) の受理集合をそのまま写す:
+ *   - `custom:` 始まり(大小無視・前後空白は trim) → ID が空でなければ OK
+ *   - それ以外 → `toUpperCase()` してから `Material.valueOf` なので小文字の Material名 も通る
+ * ここを Java より狭くすると「Java では動くのにエディタでは必ず検証エラー」というドリフトになる
+ * (docs/agent-context/config-editor.md の「Java 側の loader を先に読んで突き合わせる」)。
+ */
+function isValidMobDropItemToken(raw) {
+  if (typeof raw !== "string") return false;
+  const token = raw.trim();
+  if (!token) return false;
+  if (/^custom:/i.test(token)) {
+    return token.slice("custom:".length).trim().length > 0;
+  }
+  return /^[A-Za-z0-9_]+$/.test(token);
+}
+
 function validateMobDrops(drops, prefix, errors) {
   if (drops === undefined || drops === null) return;
   if (!Array.isArray(drops)) { errors.push(`${prefix}.drops: 配列である必要があります`); return; }
   drops.forEach((d, i) => {
     const p = `${prefix}.drops[${i}]`;
     if (!isPlainObject(d)) { errors.push(`${p}: マップである必要があります`); return; }
-    if (typeof d.material !== "string" || !d.material) errors.push(`${p}.material: 必須の文字列(Material名)です`);
+    // それまでは「非空文字列なら何でも OK」だったので、custom: が Java に届かない状態
+    // (MobTypesConfig が custom: を知らず WARNING で捨てていた)をエディタ側でも検知できなかった。
+    if (!isValidMobDropItemToken(d.material)) {
+      errors.push(`${p}.material: Material名または custom:<カタログID> である必要があります`);
+    }
     if (!isNumber(d.chance) || d.chance < 0 || d.chance > 1) errors.push(`${p}.chance: 0.0〜1.0の数値である必要があります`);
     if (!isNonNegInteger(d.min)) errors.push(`${p}.min: 0以上の整数である必要があります`);
     if (!isNonNegInteger(d.max)) errors.push(`${p}.max: 0以上の整数である必要があります`);
@@ -1286,9 +1651,7 @@ function validateArsItemLookEntry(entry, prefix, errors) {
       });
     }
   }
-  if (entry.recipe !== undefined && entry.recipe !== null) {
-    validateCatalogRecipe(entry.recipe, prefix, errors);
-  }
+  validateRecipeForms(entry, prefix, errors, validateCatalogRecipe);
 }
 
 function validateArsSourceJars(data, errors) {
@@ -1323,17 +1686,103 @@ function validateArsMaterialValueMap(block, prefix, errors) {
   }
 }
 
+// 2026-08-02: sourcelinks.yml transfer: 節 (fork の SourceTransferConfig#parse) と同じ範囲。
+// Java側はクランプ+警告(致命的にしない)だが、editor側は明確な範囲外・型違反を保存前に弾く
+// (config-editor.md の「Java側loaderを先に読んで既定値・省略時挙動を突き合わせる」)。
+function validateRangedNumber(value, prefix, min, max, isIntCheck, errors) {
+  if (value === undefined || value === null) return;
+  const ok = isIntCheck ? isNumber(value) && Number.isInteger(value) : isNumber(value);
+  if (!ok || value < min || value > max) {
+    errors.push(`${prefix}: ${min}〜${max}の${isIntCheck ? "整数" : "数値"}である必要があります`);
+  }
+}
+
+function validateArsTransferConfig(transfer, errors) {
+  if (transfer === undefined || transfer === null) return;
+  if (!isPlainObject(transfer)) { errors.push("transfer: マップである必要があります"); return; }
+
+  const link = transfer.sourcelink;
+  if (link !== undefined && link !== null) {
+    if (!isPlainObject(link)) {
+      errors.push("transfer.sourcelink: マップである必要があります");
+    } else {
+      validateRangedNumber(link["interval-ticks"], "transfer.sourcelink.interval-ticks", 1, 72000, true, errors);
+      validateRangedNumber(link["max-per-transfer"], "transfer.sourcelink.max-per-transfer", 1, 2147483647, true, errors);
+      validateRangedNumber(link["buffer-cap"], "transfer.sourcelink.buffer-cap", 1, 2147483647, true, errors);
+      const detect = link["detection-radius"];
+      if (detect !== undefined && detect !== null) {
+        if (!isPlainObject(detect)) {
+          errors.push("transfer.sourcelink.detection-radius: マップである必要があります");
+        } else {
+          validateRangedNumber(detect.vitalic, "transfer.sourcelink.detection-radius.vitalic", 0, 256, true, errors);
+          validateRangedNumber(detect.botanical, "transfer.sourcelink.detection-radius.botanical", 0, 256, true, errors);
+        }
+      }
+    }
+  }
+
+  const net = transfer.network;
+  if (net !== undefined && net !== null) {
+    if (!isPlainObject(net)) {
+      errors.push("transfer.network: マップである必要があります");
+    } else {
+      validateRangedNumber(net["interval-ticks"], "transfer.network.interval-ticks", 1, 72000, true, errors);
+      validateRangedNumber(net["max-per-transfer"], "transfer.network.max-per-transfer", 1, 2147483647, true, errors);
+      validateRangedNumber(net["max-link-range"], "transfer.network.max-link-range", 1, 256, true, errors);
+      const fx = net["path-particles"];
+      if (fx !== undefined && fx !== null) {
+        if (!isPlainObject(fx)) {
+          errors.push("transfer.network.path-particles: マップである必要があります");
+        } else {
+          if (fx.enabled !== undefined && fx.enabled !== null && typeof fx.enabled !== "boolean") {
+            errors.push("transfer.network.path-particles.enabled: 真偽値である必要があります");
+          }
+          validateRangedNumber(fx["interval-ticks"], "transfer.network.path-particles.interval-ticks", 1, 1200, true, errors);
+          validateRangedNumber(fx.spacing, "transfer.network.path-particles.spacing", 0.1, 16.0, false, errors);
+          validateRangedNumber(fx["view-distance"], "transfer.network.path-particles.view-distance", 1, 256, true, errors);
+          validateRangedNumber(fx["max-paths"], "transfer.network.path-particles.max-paths", 1, 4096, true, errors);
+        }
+      }
+    }
+  }
+
+  const core = transfer["infinity-core"];
+  if (core !== undefined && core !== null) {
+    if (!isPlainObject(core)) {
+      errors.push("transfer.infinity-core: マップである必要があります");
+    } else {
+      validateRangedNumber(core.radius, "transfer.infinity-core.radius", 0, 256, true, errors);
+      validateRangedNumber(core["transfer-multiplier"], "transfer.infinity-core.transfer-multiplier", 0, 1000, false, errors);
+      validateRangedNumber(core["buffer-multiplier"], "transfer.infinity-core.buffer-multiplier", 0, 1000, false, errors);
+    }
+  }
+}
+
 function validateArsSourceLinks(data, errors) {
   if (data === null) return;
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
   for (const key of ["volcanic", "mycelial", "alchemical"]) {
     validateArsMaterialValueMap(data[key], key, errors);
   }
+  validateArsTransferConfig(data.transfer, errors);
   const items = data.items;
   if (items === undefined || items === null) return;
   if (!isPlainObject(items)) { errors.push("items はマップである必要があります"); return; }
   for (const [id, entry] of Object.entries(items)) {
     validateArsItemLookEntry(entry, `items.${id}`, errors);
+    // K-16 (2026-08-02): items.<id>.transfer-multiplier (SourcelinkConfig#readTransferMultiplier)。
+    // Java側は raw<=0 を1.0へフォールバック(警告のみ)だが、editor側は保存前に0以下を弾く。
+    if (isPlainObject(entry) && entry["transfer-multiplier"] !== undefined && entry["transfer-multiplier"] !== null
+        && (!isNumber(entry["transfer-multiplier"]) || entry["transfer-multiplier"] <= 0)) {
+      errors.push(`items.${id}.transfer-multiplier: 0より大きい数値である必要があります`);
+    }
+    // 2026-08-03: items.<id>.yield-multiplier (SourcelinkConfig#readYieldMultiplier)。
+    // 転送レートとは別枠の「生成量」倍率。Java側と同じく0以下は無効(あちらは警告+1.0、
+    // editor側は保存前に弾く)。
+    if (isPlainObject(entry) && entry["yield-multiplier"] !== undefined && entry["yield-multiplier"] !== null
+        && (!isNumber(entry["yield-multiplier"]) || entry["yield-multiplier"] <= 0)) {
+      errors.push(`items.${id}.yield-multiplier: 0より大きい数値である必要があります`);
+    }
   }
 }
 
@@ -1363,6 +1812,31 @@ function validateTfMobTypes(data, errors) {
       validateMobDefenseBlock(d.physical, "defaults.physical", errors);
       validateMobDefenseBlock(d.magical, "defaults.magical", errors);
       validateMobLevelCoefficients(d["level-coefficients"], "defaults.level-coefficients", errors);
+    }
+  }
+  // 2026-08-02: dimensions: (MobTypesConfig#parseDimensions)。キーは World.Environment 名の4種
+  // (NORMAL/NETHER/THE_END/CUSTOM、大小無視)固定。未知キーは Java 側では警告のみでスキップされ
+  // 致命的にはならないため、ここも同じ寛容さで警告相当のエラーにする(既存 yml を弾かない)。
+  // base-level は 0以上の整数(Java は Math.max(0, getInt(...)) で負は0にクランプするので、editor側は
+  // 明確な不正のみ弾く)。coordinate-coefficient は明示指定時のみ許可され、有限数値である必要がある。
+  if (data.dimensions !== undefined && data.dimensions !== null) {
+    if (!isPlainObject(data.dimensions)) {
+      errors.push("dimensions: マップである必要があります");
+    } else {
+      for (const [envKey, entry] of Object.entries(data.dimensions)) {
+        const prefix = `dimensions.${envKey}`;
+        if (!TF_MOB_TYPES_ENVIRONMENTS.has(String(envKey).toUpperCase())) {
+          errors.push(`${prefix}: キーは World.Environment 名 (NORMAL/NETHER/THE_END/CUSTOM) である必要があります`);
+        }
+        if (!isPlainObject(entry)) { errors.push(`${prefix}: マップである必要があります`); continue; }
+        if (entry["base-level"] !== undefined && entry["base-level"] !== null && !isNonNegInteger(entry["base-level"])) {
+          errors.push(`${prefix}.base-level: 0以上の整数である必要があります`);
+        }
+        if (entry["coordinate-coefficient"] !== undefined && entry["coordinate-coefficient"] !== null
+            && !isNumber(entry["coordinate-coefficient"])) {
+          errors.push(`${prefix}.coordinate-coefficient: 数値である必要があります`);
+        }
+      }
     }
   }
   const mobTypes = data["mob-types"];
@@ -1423,11 +1897,53 @@ function validateMobTargetFilter(host, prefix, errors) {
   }
 }
 
+/**
+ * add-drops[].chance-by-level: { from-level, from-chance, to-level, to-chance } の検査
+ * (2026-08-14 フィールドドロップ配線)。
+ *
+ * 4項目すべて必須にしているのは Java 側と揃えるため —— 1つでも欠けると
+ * MobLevelTableConfig#parseChanceCurve がカーブごと捨てて素の chance に戻る。
+ * editor で「3項目だけ入れて保存できた」を許すと、ゲーム内では確率が変わらないのに
+ * 設定画面上は変わったように見える(最悪の食い違い方)。
+ * to-level > from-level も同じ理由(等しいと傾きが定義できず Java 側が捨てる)。
+ */
+function validateLevelDropChanceCurve(curve, prefix, errors) {
+  if (curve === undefined || curve === null) return;
+  const p = `${prefix}.chance-by-level`;
+  if (!isPlainObject(curve)) { errors.push(`${p}: マップである必要があります`); return; }
+  if (!isNonNegInteger(curve["from-level"])) errors.push(`${p}.from-level: 0以上の整数である必要があります`);
+  if (!isNonNegInteger(curve["to-level"])) errors.push(`${p}.to-level: 0以上の整数である必要があります`);
+  if (!isNumber(curve["from-chance"]) || curve["from-chance"] < 0 || curve["from-chance"] > 1) {
+    errors.push(`${p}.from-chance: 0.0〜1.0の数値である必要があります`);
+  }
+  if (!isNumber(curve["to-chance"]) || curve["to-chance"] < 0 || curve["to-chance"] > 1) {
+    errors.push(`${p}.to-chance: 0.0〜1.0の数値である必要があります`);
+  }
+  if (isNonNegInteger(curve["from-level"]) && isNonNegInteger(curve["to-level"])
+      && curve["to-level"] <= curve["from-level"]) {
+    errors.push(`${p}: to-level(${curve["to-level"]}) > from-level(${curve["from-level"]}) が必要です`);
+  }
+}
+
 function validateTfMobLevelTable(data, errors) {
   if (data === null) return;
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
   if (data["dungeon-only"] !== undefined && data["dungeon-only"] !== null && typeof data["dungeon-only"] !== "boolean") {
     errors.push("dungeon-only: 真偽値である必要があります");
+  }
+  // 2026-07-27 牧場対策: 帯(tiers)とは独立したトップレベルの EntityType 一覧。
+  // TrinityForgeの戦闘スキルEXP(武器命中/防具被弾)だけを止める — バニラEXPオーブと魔法は対象外。
+  // mobs:/mob-ids: と同じ「EntityType名(大文字英数字/アンダースコア)」語彙を使う。
+  if (data["no-skill-exp-mobs"] !== undefined && data["no-skill-exp-mobs"] !== null) {
+    if (!Array.isArray(data["no-skill-exp-mobs"])) {
+      errors.push("no-skill-exp-mobs: 配列である必要があります");
+    } else {
+      data["no-skill-exp-mobs"].forEach((mob, k) => {
+        if (typeof mob !== "string" || !/^[A-Z0-9_]+$/.test(mob)) {
+          errors.push(`no-skill-exp-mobs[${k}]: EntityType名(大文字英数字/アンダースコア)である必要があります`);
+        }
+      });
+    }
   }
   const tiers = data.tiers;
   if (tiers === undefined || tiers === null) return;
@@ -1473,6 +1989,18 @@ function validateTfMobLevelTable(data, errors) {
           }
           // 2026-07-25 §2-A: mobs は省略可。2026-07-26: mob-ids も同様(両方指定で AND)。
           validateMobTargetFilter(d, p, errors);
+          // 2026-08-14 フィールドドロップ配線: chance-by-level / where / baby。
+          // Java 側(MobLevelTableConfig#parseChanceCurve/parseDropScope/parseBabyFilter)は
+          // どれも fail-soft(不正なら警告して無視)だが、editor 側は保存前に弾く —— 「保存できたのに
+          // ゲーム内では無視される」を作らないため、受理範囲は Java と一致させる。
+          validateLevelDropChanceCurve(d["chance-by-level"], p, errors);
+          if (d.where !== undefined && d.where !== null
+              && !["field", "dungeon", "any"].includes(d.where)) {
+            errors.push(`${p}.where: field / dungeon / any のいずれかである必要があります`);
+          }
+          if (d.baby !== undefined && d.baby !== null && typeof d.baby !== "boolean") {
+            errors.push(`${p}.baby: 真偽値である必要があります`);
+          }
         });
       }
     }
@@ -1491,6 +2019,23 @@ const MOB_OVERRIDE_ATTACK_FIELDS = [
   "attack-power", "flat-bonus-damage", "percent-bonus-damage",
   "crit-chance", "crit-damage", "penetration", "damage-modifier", "fixed-damage"
 ];
+// 難易度倍率 (2026-08-14 新設)。stats 直下に置く「解決後の max-health / attack.attack-power へ
+// 掛ける乗数」で、プレイヤーが選んだレベルに対する相対的な強さ差(=難易度)を表す。
+//
+// 【倍率だけは層をまたいで「掛け合わさる」】 このファイルの他の数値キーは項目単位マージ(=後勝ち)
+// だが、倍率は Java 側 MobStatOverride#applyTo が層ごとに掛けるので
+// default 1.5 × ダンジョン 2.0 × モブ 2.0 = 6.0 倍になる(MobOverridesMultiplierTest の
+// multipliersCompoundAcrossCascadeLayers が固定)。上位スコープの倍率を「打ち消す」書き方は存在しない。
+//
+// 【既定値は 1.0 ではなく「未設定」】 省略された行を 1.0 で実体化して書き戻さないこと。
+// 掛け算としては 1.0 は完全な no-op なので設定の意味は変わらないが、「開いて保存しただけ」で
+// 全モブに意味の無い 1.0 が生え、yml の差分が読めなくなる(normalize 既定値ドリフトの再発防止)。
+//
+// 【数値のみ。クォートされた "2.5" は弾く】 下の isNumber は typeof value === "number" なので
+// 文字列を通さない。Java 側(MobOverridesConfig#nullablePositiveMultiplier)も 2026-08-14 に
+// 数値のみへ寄せてあり、両者の受理範囲は一致している。片方だけ広いと「手書きの yml を editor で
+// 開くとファイルごと保存できない」/「editor で保存できたのにゲーム内では無視される」になる。
+const MOB_OVERRIDE_MULTIPLIER_FIELDS = ["max-health-multiplier", "attack-power-multiplier"];
 function validateMobOverrideStats(stats, prefix, errors) {
   if (stats === undefined || stats === null) return;
   if (!isPlainObject(stats)) { errors.push(`${prefix}.stats: マップである必要があります`); return; }
@@ -1502,6 +2047,17 @@ function validateMobOverrideStats(stats, prefix, errors) {
   }
   if (stats["armor-strength"] !== undefined && stats["armor-strength"] !== null && !isNumber(stats["armor-strength"])) {
     errors.push(`${prefix}.stats.armor-strength: 数値である必要があります`);
+  }
+  // 難易度倍率。省略可(未設定なら倍率そのものが無い = 何も掛けない)。
+  // 0以下を弾くのは、0でHP/攻撃力が消え、負で符号が反転して「保存はできたのに戦闘が成立しない」
+  // 個体を作れてしまうため。Java 側 (MobOverridesConfig) が別の範囲でクランプするなら、
+  // 「editor では保存できたのにゲーム内では無視される」を作らないよう、そちらへ合わせ直すこと。
+  for (const key of MOB_OVERRIDE_MULTIPLIER_FIELDS) {
+    const v = stats[key];
+    if (v === undefined || v === null) continue;
+    if (!isNumber(v) || v <= 0) {
+      errors.push(`${prefix}.stats.${key}: 0より大きい数値である必要があります`);
+    }
   }
   for (const comp of ["physical", "magical"]) {
     const block = stats[comp];
@@ -1521,6 +2077,14 @@ function validateMobOverrideStats(stats, prefix, errors) {
         if (attack[field] !== undefined && attack[field] !== null && !isNumber(attack[field])) {
           errors.push(`${prefix}.stats.attack.${field}: 数値である必要があります`);
         }
+      }
+      // magic-ratio (2026-08-02) は他の attack フィールドと違い割合。Java 側(MobOverridesConfig の
+      // nullableValidatedRate)が [0,1] 外を警告のうえ無視するので、editor でも同じ範囲で弾く
+      // ——「保存できたのにゲーム内では無視されている」を作らないため。
+      const magicRatio = attack["magic-ratio"];
+      if (magicRatio !== undefined && magicRatio !== null
+          && (!isNumber(magicRatio) || magicRatio < 0 || magicRatio > 1)) {
+        errors.push(`${prefix}.stats.attack.magic-ratio: 0.0〜1.0の数値である必要があります`);
       }
     }
   }
@@ -1582,6 +2146,9 @@ function validateDisplayName(host, prefix, errors) {
     errors.push(`${prefix}.display-name: 空でない文字列である必要があります(未設定なら行ごと削除)`);
   }
 }
+// level-cutoff(レベル差による足きり)の検証は 2026-08-09 に撤去した。設定が
+// combat/mob-overrides.yml から combat/damage.yml へ移り、共通変数タブのスカラー
+// (lib/constants.js の level-cutoff.*)として min/max で検証されるようになったため。
 function validateTfMobOverrides(data, errors) {
   if (data === null) return;
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
@@ -1594,6 +2161,9 @@ function validateTfMobOverrides(data, errors) {
     const scopePrefix = `overrides.${scopeName}`;
     if (!isPlainObject(scope)) { errors.push(`${scopePrefix}: マップである必要があります`); continue; }
     validateDisplayName(scope, scopePrefix, errors);
+    // scope 直下の stats:(そのダンジョン全体の既定ステータス、2026-08-03「ダンジョンごとに物魔の
+    // コンセプトを割り当てる」)。mobs.<mobId>.stats とキー体系も検証も完全に同一。
+    validateMobOverrideStats(scope.stats, scopePrefix, errors);
     const mobs = scope.mobs;
     if (mobs === undefined || mobs === null) continue;
     if (!isPlainObject(mobs)) { errors.push(`${scopePrefix}.mobs: マップである必要があります`); continue; }
@@ -1606,7 +2176,189 @@ function validateTfMobOverrides(data, errors) {
       validateMobOverrideStats(entry.stats, prefix, errors);
       validateMobOverrideDrops(entry.drops, prefix, errors);
       validateMobOverrideVanillaExp(entry["vanilla-exp"], prefix, errors);
+      validateMobAbilityRefs(entry.abilities, prefix, errors);
     }
+  }
+}
+
+/**
+ * mob-overrides の abilities: は combat/mob-abilities.yml のテンプレートID列。
+ * ここでは「文字列の配列で、IDの形が正しいか」だけを見る -- 実在チェックをしないのは、
+ * Java 側もロード順に依存しない作りにしてあり(未定義IDは発動時に読み飛ばす)、
+ * editor が別ファイルの内容に依存すると片方だけ保存したときに保存できなくなるため。
+ */
+function validateMobAbilityRefs(abilities, prefix, errors) {
+  if (abilities === undefined || abilities === null) return;
+  if (!Array.isArray(abilities)) {
+    errors.push(`${prefix}.abilities: 配列である必要があります`);
+    return;
+  }
+  abilities.forEach((v, i) => {
+    if (typeof v !== "string" || !v.trim()) {
+      errors.push(`${prefix}.abilities[${i}]: 特殊攻撃テンプレートID(文字列)である必要があります`);
+    } else if (!/^[a-z0-9_]+$/.test(v.trim().toLowerCase())) {
+      errors.push(`${prefix}.abilities[${i}]: '${v}' はIDとして不正です (半角英小文字・数字・アンダースコアのみ)`);
+    }
+  });
+}
+
+// ---- combat/mob-abilities.yml (tf-mob-abilities) 2026-07-31新設 ----
+// Java の MobAbility.Type と 1:1。増やすときは public/js/mob-abilities-form.js の TYPES と
+// public/js/labels.js の ENUM_LABELS["mob-ability-type"] も同時に更新する(ミラー3本)。
+const MOB_ABILITY_TYPES = ["ground_slam", "projectile_volley", "charge", "aura",
+  "teleport_strike", "beam", "summon",
+  // 2026-08-16 追加
+  "repulse", "vortex_pull", "delayed_zone"];
+
+/** Java の MobAbility が clamp する範囲。editor だけ広いと「保存できたのに実挙動が違う」になる。 */
+const MOB_ABILITY_RANGES = {
+  "damage-percent": [0, 100],
+  "cooldown-seconds": [0.5, 600],
+  "chance": [0, 1],
+  "range": [1, 64],
+  "radius": [0, 32],
+  "count": [0, 64],
+  "spread-degrees": [0, 360],
+  "duration-seconds": [0, 60],
+  "knockback": [0, 5],
+  "particle-count": [0, 500]
+};
+
+function validateTfMobAbilities(data, errors) {
+  if (data === null) return;
+  if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
+  if (data.enabled !== undefined && typeof data.enabled !== "boolean") {
+    errors.push("enabled: 真偽値である必要があります");
+  }
+  if (data["check-interval-ticks"] !== undefined) {
+    const interval = data["check-interval-ticks"];
+    if (!Number.isInteger(interval) || interval < 5 || interval > 200) {
+      errors.push("check-interval-ticks: 5〜200 の整数である必要があります (Java 側もこの範囲に丸めます)");
+    }
+  }
+  const abilities = data.abilities;
+  if (abilities === undefined || abilities === null) return;
+  if (!isPlainObject(abilities)) { errors.push("abilities: マップである必要があります"); return; }
+  for (const [id, entry] of Object.entries(abilities)) {
+    const prefix = `abilities.${id}`;
+    if (!/^[a-zA-Z0-9_]+$/.test(id)) {
+      errors.push(`${prefix}: IDは半角英数字とアンダースコアのみ使用できます`);
+    }
+    if (!isPlainObject(entry)) { errors.push(`${prefix}: マップである必要があります`); continue; }
+    if (!MOB_ABILITY_TYPES.includes(entry.type)) {
+      errors.push(`${prefix}.type: ${MOB_ABILITY_TYPES.join(" / ")} のいずれかである必要があります`);
+    }
+    if (entry["damage-type"] !== undefined
+        && !["physical", "magical"].includes(String(entry["damage-type"]).toLowerCase())) {
+      errors.push(`${prefix}.damage-type: physical / magical のいずれかである必要があります`);
+    }
+    for (const [key, bounds] of Object.entries(MOB_ABILITY_RANGES)) {
+      const value = entry[key];
+      if (value === undefined || value === null) continue;
+      if (typeof value !== "number" || !Number.isFinite(value) || value < bounds[0] || value > bounds[1]) {
+        errors.push(`${prefix}.${key}: ${bounds[0]}〜${bounds[1]} の数値である必要があります`);
+      }
+    }
+    for (const key of ["display-name", "projectile", "summon-type", "particle", "sound"]) {
+      if (entry[key] !== undefined && entry[key] !== null && typeof entry[key] !== "string") {
+        errors.push(`${prefix}.${key}: 文字列である必要があります`);
+      }
+    }
+    // 型ごとの必須項目。空欄のまま保存すると Java 側は「発動しなかった」扱いで黙って何もしない。
+    if (entry.type === "projectile_volley" && !String(entry.projectile || "").trim()) {
+      errors.push(`${prefix}.projectile: projectile_volley では投射物(EntityType)の指定が必須です`);
+    }
+    if (entry.type === "summon" && !String(entry["summon-type"] || "").trim()) {
+      errors.push(`${prefix}.summon-type: summon では召喚するモブ(EntityType)の指定が必須です`);
+    }
+    const effects = entry.effects;
+    if (effects !== undefined && effects !== null) {
+      if (!Array.isArray(effects)) {
+        errors.push(`${prefix}.effects: 配列である必要があります`);
+      } else {
+        effects.forEach((effect, i) => {
+          if (!isPlainObject(effect)) {
+            errors.push(`${prefix}.effects[${i}]: マップである必要があります`);
+            return;
+          }
+          if (typeof effect.type !== "string" || !effect.type.trim()) {
+            errors.push(`${prefix}.effects[${i}].type: PotionEffectType名(文字列)である必要があります`);
+          }
+          if (effect["duration-seconds"] !== undefined
+              && (typeof effect["duration-seconds"] !== "number" || effect["duration-seconds"] < 0)) {
+            errors.push(`${prefix}.effects[${i}].duration-seconds: 0以上の数値である必要があります`);
+          }
+          if (effect.amplifier !== undefined && (!Number.isInteger(effect.amplifier) || effect.amplifier < 0)) {
+            errors.push(`${prefix}.effects[${i}].amplifier: 0以上の整数である必要があります`);
+          }
+        });
+      }
+    }
+  }
+}
+
+// ---- loot-tables.yml (ars-loot-tables) ----
+// 構造物ルートチェストへの追加抽選。Java 側(LootTableConfig)の丸めと同じ範囲を張る。
+const LOOT_ENTRY_TYPES = ["item", "enchant-book"];
+
+function validateArsLootTables(data, errors) {
+  if (data === null) return;
+  if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
+  if (data.enabled !== undefined && typeof data.enabled !== "boolean") {
+    errors.push("enabled: 真偽値である必要があります");
+  }
+  const pools = data.pools;
+  if (pools === undefined || pools === null) return;
+  if (!isPlainObject(pools)) { errors.push("pools: マップである必要があります"); return; }
+  for (const [id, pool] of Object.entries(pools)) {
+    const prefix = `pools.${id}`;
+    if (!/^[a-zA-Z0-9_]+$/.test(id)) {
+      errors.push(`${prefix}: IDは半角英数字とアンダースコアのみ使用できます`);
+    }
+    if (!isPlainObject(pool)) { errors.push(`${prefix}: マップである必要があります`); continue; }
+    // tables: が空だと「書いたのに永久に出ない」プールになる。Java 側は警告するだけなので
+    // ここでエラーにして保存前に気づけるようにする。
+    if (!Array.isArray(pool.tables) || !pool.tables.length) {
+      errors.push(`${prefix}.tables: 対象ルートテーブルを1件以上指定してください (空だと永久に発動しません)`);
+    } else {
+      pool.tables.forEach((table, i) => {
+        if (typeof table !== "string" || !table.trim()) {
+          errors.push(`${prefix}.tables[${i}]: 文字列である必要があります`);
+        }
+      });
+    }
+    if (pool.rolls !== undefined && pool.rolls !== null
+        && (!Number.isInteger(pool.rolls) || pool.rolls < 1 || pool.rolls > 16)) {
+      errors.push(`${prefix}.rolls: 1〜16 の整数である必要があります (Java 側もこの範囲に丸めます)`);
+    }
+    if (!Array.isArray(pool.entries) || !pool.entries.length) {
+      errors.push(`${prefix}.entries: 候補を1件以上指定してください`);
+      continue;
+    }
+    pool.entries.forEach((entry, i) => {
+      const ep = `${prefix}.entries[${i}]`;
+      if (!isPlainObject(entry)) { errors.push(`${ep}: マップである必要があります`); return; }
+      const type = entry.type === undefined || entry.type === null ? "item" : String(entry.type);
+      if (!LOOT_ENTRY_TYPES.includes(type)) {
+        errors.push(`${ep}.type: ${LOOT_ENTRY_TYPES.join(" / ")} のいずれかである必要があります`);
+      }
+      if (type !== "enchant-book" && !String(entry.item || "").trim()) {
+        errors.push(`${ep}.item: Material名 または custom:<ID> の指定が必須です`);
+      }
+      if (entry.chance !== undefined && entry.chance !== null
+          && (typeof entry.chance !== "number" || !(entry.chance >= 0) || entry.chance > 1)) {
+        errors.push(`${ep}.chance: 0〜1 の数値である必要があります`);
+      }
+      for (const key of ["min", "max"]) {
+        if (entry[key] !== undefined && entry[key] !== null
+            && (!Number.isInteger(entry[key]) || entry[key] < 1 || entry[key] > 64)) {
+          errors.push(`${ep}.${key}: 1〜64 の整数である必要があります`);
+        }
+      }
+      if (Number.isInteger(entry.min) && Number.isInteger(entry.max) && entry.min > entry.max) {
+        errors.push(`${ep}: min が max を超えています`);
+      }
+    });
   }
 }
 
@@ -1619,9 +2371,31 @@ function validateGeneric(data, errors) {
 }
 
 // ---- crafting-features.yml (tf-crafting-features) ----
+// brew-unlocks の (base, ingredient) 正規化キー。Java 側 BrewRecipeSupport#pairKey と同じ規約
+// (base 空欄は「任意のビン」= *、custom:<id> は小文字化、材質名は大文字化)。
+function brewPairKey(base, ingredient) {
+  const b = typeof base === "string" && base.trim() ? base.trim().toUpperCase() : "*";
+  const raw = typeof ingredient === "string" ? ingredient.trim() : "";
+  const i = raw.toLowerCase().startsWith("custom:")
+    ? raw.toLowerCase()
+    : raw.replace(/^minecraft:/i, "").toUpperCase();
+  return `${b} + ${i}`;
+}
+
 function validateTfCraftingFeatures(data, errors) {
   if (data === null) return;
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
+  // xp-bottle-store (2026-08-15 に stats/fishing-gimmick.yml から移設。検証規則は移設前と同一)。
+  const xp = data["xp-bottle-store"];
+  if (xp !== undefined && xp !== null) {
+    if (!isPlainObject(xp)) { errors.push("xp-bottle-store はマップである必要があります"); }
+    else {
+      const rate = xp["return-rate"];
+      if (rate !== undefined && rate !== null && !(isNumber(rate) && rate >= 0 && rate <= 1)) {
+        errors.push("xp-bottle-store.return-rate: 0.0〜1.0 の数値である必要があります");
+      }
+    }
+  }
   const gated = data["gated-catalog-recipes"];
   if (gated !== undefined && gated !== null) {
     if (!isPlainObject(gated)) errors.push("gated-catalog-recipes はマップである必要があります");
@@ -1648,6 +2422,48 @@ function validateTfCraftingFeatures(data, errors) {
           }
         }
       }
+    }
+  }
+  // D7 (2026-07-31): レシピ本へのTF/Arsレシピ開示。既定値は Java 側
+  // CraftingFeaturesConfig#loadRecipeBook と一致(どちらも true)。
+  const recipeBook = data["recipe-book"];
+  if (recipeBook !== undefined && recipeBook !== null) {
+    if (!isPlainObject(recipeBook)) {
+      errors.push("recipe-book はマップである必要があります");
+    } else {
+      for (const key of ["reveal-plugin-recipes", "hide-locked-recipes"]) {
+        const v = recipeBook[key];
+        if (v !== undefined && v !== null && typeof v !== "boolean") {
+          errors.push(`recipe-book.${key}: true / false である必要があります`);
+        }
+      }
+      for (const key of Object.keys(recipeBook)) {
+        if (key !== "reveal-plugin-recipes" && key !== "hide-locked-recipes") {
+          errors.push(`recipe-book.${key}: 未知のキーです (reveal-plugin-recipes / hide-locked-recipes のみ)`);
+        }
+      }
+    }
+  }
+  // D10 レビュー指摘#2 (2026-07-31): 同じ (base, ingredient) を複数グループが宣言すると、
+  // Paper の customMixes も BrewUnlockListener も「先に一致した1件」で確定するため、
+  // 片方のグループのポーションが永久に作れなくなる(Java 側は要求レベルの高い方を残して
+  // 起動ログに WARNING を出すが、起動ログを見ないと気づけない)。保存時点でエラーにする。
+  const brewUnlocks = data["brew-unlocks"];
+  if (isPlainObject(brewUnlocks)) {
+    const seen = new Map();
+    for (const [gid, group] of Object.entries(brewUnlocks)) {
+      if (!isPlainObject(group) || !Array.isArray(group.potions)) continue;
+      group.potions.forEach((potion, i) => {
+        if (!isPlainObject(potion)) return;
+        const pair = brewPairKey(potion.base, potion.ingredient);
+        const first = seen.get(pair);
+        if (first) {
+          errors.push(`brew-unlocks.${gid}.potions[${i}]: (${pair}) は ${first} が既に宣言しています。`
+            + "同じ組を2つ書くと片方のポーションは永久に作れません(段を分けるならベースを変えてください)");
+        } else {
+          seen.set(pair, `${gid}.potions[${i}]`);
+        }
+      });
     }
   }
   const removed = data["removed-vanilla-recipes"];
@@ -1747,6 +2563,38 @@ function validateTfCraftingFeatures(data, errors) {
       }
     }
   }
+  // scrap-conversion (2026-08-08新設): CraftingFeaturesConfig#loadScrapConversion /
+  // parseDisassemblyRule と同じ受理条件をここで先取りチェックする(base-amount は正の数値必須。
+  // 無い/0以下だと Java 側が黒警告で行ごと skip するだけなので、保存前にここで気付けるようにする)。
+  const scrapConv = data["scrap-conversion"];
+  if (scrapConv !== undefined && scrapConv !== null) {
+    if (!isPlainObject(scrapConv)) errors.push("scrap-conversion はマップである必要があります");
+    else {
+      for (const [id, rule] of Object.entries(scrapConv)) {
+        if (!isPlainObject(rule)) { errors.push(`scrap-conversion.${id}: マップである必要があります`); continue; }
+        const baseAmount = rule["base-amount"];
+        if (!isNumber(baseAmount) || baseAmount <= 0) {
+          errors.push(`scrap-conversion.${id}.base-amount: 0より大きい数値である必要があります(消費個数の唯一の指定手段)`);
+        }
+        if (rule.multiplier !== undefined && rule.multiplier !== null && (!isNumber(rule.multiplier) || rule.multiplier <= 0)) {
+          errors.push(`scrap-conversion.${id}.multiplier: 0より大きい数値である必要があります`);
+        }
+        const outputs = rule.outputs;
+        if (!Array.isArray(outputs) || outputs.length === 0) {
+          errors.push(`scrap-conversion.${id}.outputs: 1件以上の配列(重み抽選の候補)が必要です`);
+        } else {
+          outputs.forEach((o, i) => {
+            if (!isPlainObject(o) || typeof o.item !== "string" || !o.item.trim()) {
+              errors.push(`scrap-conversion.${id}.outputs[${i}].item: 空でない文字列が必要です`);
+            }
+            if (o && o.weight !== undefined && o.weight !== null && (!isNumber(o.weight) || o.weight <= 0)) {
+              errors.push(`scrap-conversion.${id}.outputs[${i}].weight: 0より大きい数値である必要があります`);
+            }
+          });
+        }
+      }
+    }
+  }
   const bp = data["enchant-bookshelf-power"];
   if (bp !== undefined && bp !== null) {
     if (!isPlainObject(bp)) errors.push("enchant-bookshelf-power はマップである必要があります");
@@ -1808,6 +2656,77 @@ function validateTfUseRequirements(data, errors) {
   }
 }
 
+// ---- afk.yml (tf-afk) ----
+// AFK(離席)判定(TrinityForge/src/main/resources/afk.yml が正)。「使用制限スイッチ」タブ内へ
+// コンパニオン表示する(2026-07-27新設)。Java側(AfkConfig)は不正値を黙って丸めるが、editor側は
+// 保存時点でエラーにする(丸め後の実挙動と editor に保存した値がずれる事故を防ぐ、
+// このプロジェクトで繰り返し踏んでいる問題への対策)。
+function validateTfAfk(data, errors) {
+  if (data === null) return;
+  if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
+  if (data.enabled !== undefined && data.enabled !== null && typeof data.enabled !== "boolean") {
+    errors.push("enabled: 真偽値(true/false)である必要があります");
+  }
+  const idleSeconds = data["idle-seconds"];
+  if (idleSeconds !== undefined && idleSeconds !== null && !(isInteger(idleSeconds) && idleSeconds >= 1)) {
+    errors.push("idle-seconds: 1以上の整数である必要があります");
+  }
+  const kickAfterSeconds = data["kick-after-seconds"];
+  if (kickAfterSeconds !== undefined && kickAfterSeconds !== null && !(isInteger(kickAfterSeconds) && kickAfterSeconds >= 0)) {
+    errors.push("kick-after-seconds: 0以上の整数である必要があります");
+  }
+  // Java側は「0以外かつ idle-seconds 未満」を idle-seconds へ黙って引き上げる。editor は
+  // 保存値と実挙動のずれを防ぐため、この組み合わせを保存時点でエラーにする。
+  if (isInteger(kickAfterSeconds) && isInteger(idleSeconds) && kickAfterSeconds !== 0 && kickAfterSeconds < idleSeconds) {
+    errors.push("kick-after-seconds: 0(キックしない)以外にする場合は idle-seconds 以上である必要があります");
+  }
+  if (data["kick-message"] !== undefined && data["kick-message"] !== null && typeof data["kick-message"] !== "string") {
+    errors.push("kick-message: 文字列である必要があります");
+  }
+  if (data.notify !== undefined && data.notify !== null && typeof data.notify !== "boolean") {
+    errors.push("notify: 真偽値(true/false)である必要があります");
+  }
+  if (data["tab-suffix"] !== undefined && data["tab-suffix"] !== null && typeof data["tab-suffix"] !== "boolean") {
+    errors.push("tab-suffix: 真偽値(true/false)である必要があります");
+  }
+  if (data["tab-suffix-text"] !== undefined && data["tab-suffix-text"] !== null && typeof data["tab-suffix-text"] !== "string") {
+    errors.push("tab-suffix-text: 文字列である必要があります");
+  }
+  // exempt-permission: 空文字は「免除無効」という意味のある値なので既定へ寄せず、型のみ検証する。
+  if (data["exempt-permission"] !== undefined && data["exempt-permission"] !== null && typeof data["exempt-permission"] !== "string") {
+    errors.push("exempt-permission: 文字列である必要があります");
+  }
+  const checkIntervalTicks = data["check-interval-ticks"];
+  if (checkIntervalTicks !== undefined && checkIntervalTicks !== null && !(isInteger(checkIntervalTicks) && checkIntervalTicks >= 20)) {
+    errors.push("check-interval-ticks: 20以上の整数である必要があります(20未満はJava側で20へ丸められるため)");
+  }
+  const warnBeforeSeconds = data["warn-before-seconds"];
+  if (warnBeforeSeconds !== undefined && warnBeforeSeconds !== null && !(isInteger(warnBeforeSeconds) && warnBeforeSeconds >= 0)) {
+    errors.push("warn-before-seconds: 0以上の整数である必要があります");
+  }
+  // Java側は idle-seconds 以上の予告を idle-seconds-1 へ黙って引き下げる(そのままだとログインした
+  // 瞬間から常時カウントダウンが出る)。editor は保存値と実挙動のずれを防ぐため保存時点で弾く。
+  if (isInteger(warnBeforeSeconds) && isInteger(idleSeconds) && warnBeforeSeconds >= idleSeconds) {
+    errors.push("warn-before-seconds: idle-seconds 未満である必要があります(以上にすると常時カウントダウンが出るため、Java側は idle-seconds-1 へ引き下げます)");
+  }
+  if (data["warn-title"] !== undefined && data["warn-title"] !== null && typeof data["warn-title"] !== "boolean") {
+    errors.push("warn-title: 真偽値(true/false)である必要があります");
+  }
+  const suppress = data.suppress;
+  if (suppress !== undefined && suppress !== null) {
+    if (!isPlainObject(suppress)) {
+      errors.push("suppress: マップである必要があります");
+    } else {
+      for (const key of ["skill-exp", "vanilla-exp", "mob-drops", "fishing-sell"]) {
+        const value = suppress[key];
+        if (value !== undefined && value !== null && typeof value !== "boolean") {
+          errors.push(`suppress.${key}: 真偽値(true/false)である必要があります`);
+        }
+      }
+    }
+  }
+}
+
 // ---- skilltree/*.yml (tf-skilltree) ----
 function validateTfSkillTree(data, errors) {
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
@@ -1861,6 +2780,27 @@ function validateSkillBuffOwner(owner, prefix, errors) {
       }
     }
   }
+  // set-buffs(装備部位数条件バフ、armor-set-buffs全面移行§1): 段キーは3・4のみ。値はstat→数値。
+  // light_armor/heavy_armor以外のツリーでの使用可否はJava側(SkillTreeConfig)が警告して無視するので、
+  // ここではデータ形状だけを検証する(ツリー種別のスコープ判定はしない)。
+  if (owner["set-buffs"] !== undefined && owner["set-buffs"] !== null) {
+    if (!isPlainObject(owner["set-buffs"])) {
+      errors.push(`${prefix}.set-buffs: 段(3/4)→ステータス→数値のマップである必要があります`);
+    } else {
+      for (const [tier, stats] of Object.entries(owner["set-buffs"])) {
+        if (tier !== "3" && tier !== "4") {
+          errors.push(`${prefix}.set-buffs.${tier}: 段は3または4である必要があります`);
+        }
+        if (!isPlainObject(stats)) {
+          errors.push(`${prefix}.set-buffs.${tier}: ステータス→数値のマップである必要があります`);
+          continue;
+        }
+        for (const [stat, value] of Object.entries(stats)) {
+          if (!isNumber(value)) errors.push(`${prefix}.set-buffs.${tier}.${stat}: 数値である必要があります`);
+        }
+      }
+    }
+  }
 }
 
 // ---- items/material-lists.yml (tf-material-lists) ----
@@ -1910,12 +2850,91 @@ function validateExternalItems(data, errors) {
   }
 }
 
+// ---- progression/level-broadcast.yml (tf-level-broadcast) ----
+// 2026-08-17 新設。それまで schema: "generic" だったので「型が壊れていても保存できる」状態だった。
+// Java 側(LevelBroadcastConfig)は不正値を警告つきで既定へ戻すが、
+// message の差し込み欠落だけは「誰が何レベルになったのか分からない行」が流れる事故になるので、
+// 保存時に落とす(Java 側の警告と同じ条件)。
+function validateTfLevelBroadcast(data, errors) {
+  if (data === null) return;
+  if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
+
+  if (data.enabled !== undefined && data.enabled !== null && typeof data.enabled !== "boolean") {
+    errors.push("enabled: 真偽値である必要があります");
+  }
+  if (data["include-power"] !== undefined && data["include-power"] !== null
+      && typeof data["include-power"] !== "boolean") {
+    errors.push("include-power: 真偽値である必要があります");
+  }
+  if (data["multiple-of"] !== undefined && data["multiple-of"] !== null) {
+    if (!isNonNegInteger(data["multiple-of"]) || data["multiple-of"] < 1) {
+      errors.push("multiple-of: 1以上の整数である必要があります");
+    }
+  }
+  if (data["max-announcements-per-batch"] !== undefined && data["max-announcements-per-batch"] !== null) {
+    if (!isNonNegInteger(data["max-announcements-per-batch"]) || data["max-announcements-per-batch"] < 1) {
+      errors.push("max-announcements-per-batch: 1以上の整数である必要があります");
+    }
+  }
+  if (data.message !== undefined && data.message !== null) {
+    if (typeof data.message !== "string") {
+      errors.push("message: 文字列(MiniMessage)である必要があります");
+    } else {
+      // %player% と %level% は必須。欠けると「誰が何レベルか分からない行」になる。
+      if (!data.message.includes("%player%")) errors.push("message: %player% が含まれていません");
+      if (!data.message.includes("%level%")) errors.push("message: %level% が含まれていません");
+    }
+  }
+
+  const sound = data.sound;
+  if (sound !== undefined && sound !== null) {
+    if (!isPlainObject(sound)) {
+      errors.push("sound はマップである必要があります");
+    } else {
+      if (sound.enabled !== undefined && sound.enabled !== null && typeof sound.enabled !== "boolean") {
+        errors.push("sound.enabled: 真偽値である必要があります");
+      }
+      if (sound.key !== undefined && sound.key !== null && typeof sound.key !== "string") {
+        errors.push("sound.key: 文字列(音名)である必要があります");
+      }
+      if (sound.volume !== undefined && sound.volume !== null
+          && (!isNumber(sound.volume) || sound.volume < 0)) {
+        errors.push("sound.volume: 0以上の数値である必要があります");
+      }
+      if (sound.pitch !== undefined && sound.pitch !== null && !isNumber(sound.pitch)) {
+        errors.push("sound.pitch: 数値である必要があります");
+      }
+    }
+  }
+
+  const skills = data["excluded-skills"];
+  if (skills !== undefined && skills !== null) {
+    if (!Array.isArray(skills)) errors.push("excluded-skills: リストである必要があります");
+    else skills.forEach((v, i) => {
+      if (typeof v !== "string") errors.push(`excluded-skills[${i}]: 文字列(スキルID)である必要があります`);
+    });
+  }
+
+  const levels = data["excluded-levels"];
+  if (levels !== undefined && levels !== null) {
+    if (!Array.isArray(levels)) errors.push("excluded-levels: リストである必要があります");
+    else levels.forEach((v, i) => {
+      if (!isNonNegInteger(v)) errors.push(`excluded-levels[${i}]: 0以上の整数である必要があります`);
+    });
+  }
+}
+
 // ---- progression/special-rewards.yml (tf-special-rewards) ----
 const PARTICLE_SHAPES = ["circle", "aura"];
 
 function validateTfSpecialRewards(data, errors) {
   if (data === null) return;
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
+
+  if (data["prune-orphaned-grants"] !== undefined && data["prune-orphaned-grants"] !== null
+      && typeof data["prune-orphaned-grants"] !== "boolean") {
+    errors.push("prune-orphaned-grants: 真偽値である必要があります");
+  }
 
   const titles = data.titles;
   if (titles !== undefined && titles !== null) {
@@ -2027,11 +3046,62 @@ function validateRewardExtras(rewards, prefix, errors) {
 }
 
 // ---- progression/achievements.yml (tf-achievements) ----
-const ACHIEVEMENT_TRIGGER_TYPES = ["statistic", "advancement", "static"];
+// 2026-07-31: counter を追加(AchievementsConfig.TriggerType と 1:1)。累計カウンタ型は
+// バニラ統計に無い総量(儀式で消費した累計ソース等)をしきい値判定する。
+// 2026-08-16: gear-use(その装備で実際にダメージを与えた) / skill-level(任意のスキルをLv◯まで)を追加。
+// yml 側はケバブケースで書き、Java 側 parseTriggerType が '-' を '_' へ直してから valueOf する。
+const ACHIEVEMENT_TRIGGER_TYPES = [
+  "statistic", "advancement", "static", "counter", "gear-use", "skill-level"
+];
+
+/** trigger.type: counter で選べる累計カウンタID。Java/フォーク側が実際に加算しているものだけ。 */
+// ShippedAchievementTreeTest の IMPLEMENTED_COUNTERS と同じ集合を保つこと。
+const ACHIEVEMENT_COUNTER_IDS = [
+  "source_spent", "glyph_unlocked", "glyph_harm", "glyph_break", "glyph_exchange",
+  "glyph_grow", "ritual_performed", "ritual_effect_used", "spell_augment_used",
+  "catalyst_cast", "enchant_book_shared"
+];
+
+/** trigger.type: gear-use の対象部位。Java 側 AchievementsConfig.GearSlot と 1:1。 */
+const ACHIEVEMENT_GEAR_SLOTS = ["weapon", "armor"];
+
+/** trigger.type: skill-level で選べるスキルID。COMBAT は「総合戦闘レベル」の擬似ID。 */
+const ACHIEVEMENT_SKILL_LEVEL_IDS = [...REWARD_JOB_SKILLS, "COMBAT"];
+// 2026-07-30: Bukkit の Statistic.Type が UNTYPED でないもの = 修飾子(Material/EntityType)必須。
+// public/js/tf-rewards-forms.js の QUALIFIED_STATISTIC_OPTIONS と同じ集合を保つこと。
+const QUALIFIED_STATISTICS = [
+  "MINE_BLOCK", "CRAFT_ITEM", "USE_ITEM", "BREAK_ITEM", "PICKUP", "DROP",
+  "KILL_ENTITY", "ENTITY_KILLED_BY"
+];
 
 function validateTfAchievements(data, errors) {
   if (data === null) return;
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
+
+  const vanillaAdv = data["vanilla-advancements"];
+  if (vanillaAdv !== undefined && vanillaAdv !== null) {
+    if (!isPlainObject(vanillaAdv)) {
+      errors.push("vanilla-advancements: マップである必要があります");
+    } else {
+      if (vanillaAdv.disabled !== undefined && vanillaAdv.disabled !== null && typeof vanillaAdv.disabled !== "boolean") {
+        errors.push("vanilla-advancements.disabled: 真偽値である必要があります");
+      }
+      if (vanillaAdv["keep-recipe-advancements"] !== undefined && vanillaAdv["keep-recipe-advancements"] !== null
+          && typeof vanillaAdv["keep-recipe-advancements"] !== "boolean") {
+        errors.push("vanilla-advancements.keep-recipe-advancements: 真偽値である必要があります");
+      }
+      if (vanillaAdv.keep !== undefined && vanillaAdv.keep !== null) {
+        if (!Array.isArray(vanillaAdv.keep)) {
+          errors.push("vanilla-advancements.keep: 配列である必要があります");
+        } else {
+          vanillaAdv.keep.forEach((v, i) => {
+            if (typeof v !== "string") errors.push(`vanilla-advancements.keep[${i}]: 文字列である必要があります`);
+          });
+        }
+      }
+    }
+  }
+
   const achievements = data.achievements;
   if (achievements === undefined || achievements === null) return;
   if (!isPlainObject(achievements)) { errors.push("achievements はマップである必要があります"); return; }
@@ -2043,6 +3113,67 @@ function validateTfAchievements(data, errors) {
     }
     if (entry.broadcast !== undefined && entry.broadcast !== null && typeof entry.broadcast !== "boolean") {
       errors.push(`${prefix}.broadcast: 真偽値である必要があります`);
+    }
+    // 2026-08-16: 裏アチーブメント。true だと達成するまで GUI に現れず、系統の母数からも外れる。
+    if (entry.hidden !== undefined && entry.hidden !== null && typeof entry.hidden !== "boolean") {
+      errors.push(`${prefix}.hidden: 真偽値である必要があります`);
+    }
+    // アイコン/説明Lore/前提・配置 (2026-07-29)。前提は「達成そのものを縛る」ので、
+    // 不明IDや自己参照をここで止めないと「条件を満たしても永久に取れない」定義が通ってしまう。
+    if (entry.icon !== undefined && entry.icon !== null && typeof entry.icon !== "string") {
+      errors.push(`${prefix}.icon: 文字列(カタログID / custom:ID / Material名)である必要があります`);
+    }
+    if (entry.lore !== undefined && entry.lore !== null) {
+      if (!Array.isArray(entry.lore)) errors.push(`${prefix}.lore: 配列である必要があります`);
+      else entry.lore.forEach((v, i) => {
+        if (typeof v !== "string") errors.push(`${prefix}.lore[${i}]: 文字列である必要があります`);
+      });
+    }
+    if (entry.coords !== undefined && entry.coords !== null) {
+      if (typeof entry.coords !== "string") {
+        errors.push(`${prefix}.coords: "x,y" 形式の文字列である必要があります`);
+      } else if (entry.coords.trim() !== "" && !/^-?\d+\s*,\s*-?\d+$/.test(entry.coords.trim())) {
+        errors.push(`${prefix}.coords: "x,y" 形式(整数2つ)である必要があります: ${entry.coords}`);
+      }
+    }
+    if (entry.parent !== undefined && entry.parent !== null) {
+      if (typeof entry.parent !== "string") {
+        errors.push(`${prefix}.parent: アチーブメントID(文字列)である必要があります`);
+      } else if (entry.parent.trim() !== "") {
+        const parent = entry.parent.trim();
+        if (parent === id) errors.push(`${prefix}.parent: 自分自身を前提にはできません`);
+        else if (!Object.prototype.hasOwnProperty.call(achievements, parent)) {
+          errors.push(`${prefix}.parent: 存在しないアチーブメントIDです: ${parent}`);
+        }
+      }
+    }
+    const parentsAny = entry["parents-any"];
+    if (parentsAny !== undefined && parentsAny !== null) {
+      if (!Array.isArray(parentsAny)) {
+        errors.push(`${prefix}.parents-any: 配列である必要があります`);
+      } else {
+        parentsAny.forEach((v, i) => {
+          if (typeof v !== "string" || !v.trim()) {
+            errors.push(`${prefix}.parents-any[${i}]: アチーブメントID(文字列)である必要があります`);
+            return;
+          }
+          const ref = v.trim();
+          if (ref === id) errors.push(`${prefix}.parents-any[${i}]: 自分自身を前提にはできません`);
+          else if (!Object.prototype.hasOwnProperty.call(achievements, ref)) {
+            errors.push(`${prefix}.parents-any[${i}]: 存在しないアチーブメントIDです: ${ref}`);
+          }
+        });
+      }
+    }
+    // 起点(親なし)を hidden にすると、その系統がまるごと GUI から消えて誰も入口を見つけられない。
+    if (entry.hidden === true) {
+      const hasParent = typeof entry.parent === "string" && entry.parent.trim();
+      const hasAnyParent = Array.isArray(parentsAny)
+        && parentsAny.some((v) => typeof v === "string" && v.trim());
+      if (!hasParent && !hasAnyParent) {
+        errors.push(`${prefix}.hidden: 起点(前提なし)を hidden にはできません`
+          + `(その系統がまるごと GUI から消え、入口が無くなります)`);
+      }
     }
     const trigger = entry.trigger;
     if (trigger === undefined || trigger === null) {
@@ -2056,6 +3187,16 @@ function validateTfAchievements(data, errors) {
         if (typeof trigger.statistic !== "string" || !trigger.statistic) {
           errors.push(`${prefix}.trigger.statistic: 必須の文字列(Bukkit Statistic名)です`);
         }
+        // 2026-07-30: 修飾子(Material/EntityType)が必要な統計。Java 側は空欄だと
+        // そのアチーブメントごと skip する(AchievementsConfig#parseStatisticQualifier)ので、
+        // 保存前にここで落として「無言で消える定義」を作らせない。
+        if (QUALIFIED_STATISTICS.includes(trigger.statistic)
+            && (typeof trigger["statistic-qualifier"] !== "string" || !trigger["statistic-qualifier"].trim())) {
+          errors.push(`${prefix}.trigger.statistic-qualifier: ${trigger.statistic} は対象(Material/EntityType)の指定が必須です`);
+        }
+        if (trigger["statistic-qualifier"] !== undefined && typeof trigger["statistic-qualifier"] !== "string") {
+          errors.push(`${prefix}.trigger.statistic-qualifier: 文字列である必要があります`);
+        }
         if (!isNonNegInteger(trigger.threshold)) {
           errors.push(`${prefix}.trigger.threshold: 0以上の整数である必要があります`);
         }
@@ -2063,13 +3204,89 @@ function validateTfAchievements(data, errors) {
         if (typeof trigger.advancement !== "string" || !trigger.advancement) {
           errors.push(`${prefix}.trigger.advancement: 必須の文字列(進捗キー)です`);
         }
+      } else if (trigger.type === "counter") {
+        // カウンタIDは自由文字列だと「誰も達成できない定義」を静かに作れてしまうので、
+        // 実際に加算されている既知のIDだけを通す(増やすときは Java 側の加算実装と同時に)。
+        if (!ACHIEVEMENT_COUNTER_IDS.includes(trigger.counter)) {
+          errors.push(`${prefix}.trigger.counter: ${ACHIEVEMENT_COUNTER_IDS.join(" / ")} のいずれかである必要があります`);
+        }
+        if (!isPositiveInt(trigger.threshold)) {
+          errors.push(`${prefix}.trigger.threshold: 1以上の整数である必要があります`);
+        }
+      } else if (trigger.type === "gear-use") {
+        // 記録側は GearUseListener が「実ダメージを与えた瞬間」だけ書く。items が空だと
+        // 到達不能な定義になるので、ここで必ず1件以上を要求する。
+        const g = trigger["gear-use"];
+        if (!isPlainObject(g)) {
+          errors.push(`${prefix}.trigger.gear-use: マップである必要があります`);
+        } else {
+          if (!ACHIEVEMENT_GEAR_SLOTS.includes(g.slot)) {
+            errors.push(`${prefix}.trigger.gear-use.slot: ${ACHIEVEMENT_GEAR_SLOTS.join(" / ")} のいずれかである必要があります`);
+          }
+          if (!Array.isArray(g.items) || !g.items.length
+              || g.items.some((v) => typeof v !== "string" || !v.trim())) {
+            errors.push(`${prefix}.trigger.gear-use.items: 空でない文字列の配列(カタログID または Material名)である必要があります`);
+          }
+        }
+      } else if (trigger.type === "skill-level") {
+        // count は「skills のうち何種類が level に達したら達成か」。skills の件数を超えると
+        // 永久に達成できない定義になるので、その場で落とす。
+        const s = trigger["skill-level"];
+        if (!isPlainObject(s)) {
+          errors.push(`${prefix}.trigger.skill-level: マップである必要があります`);
+        } else {
+          const skills = s.skills;
+          if (!Array.isArray(skills) || !skills.length) {
+            errors.push(`${prefix}.trigger.skill-level.skills: 空でない配列である必要があります`);
+          } else {
+            skills.forEach((v, i) => {
+              if (typeof v !== "string" || !ACHIEVEMENT_SKILL_LEVEL_IDS.includes(v.trim().toUpperCase())) {
+                errors.push(`${prefix}.trigger.skill-level.skills[${i}]: 未知のスキルIDです: ${v}`);
+              }
+            });
+          }
+          if (!isPositiveInt(s.level) || s.level > 100) {
+            errors.push(`${prefix}.trigger.skill-level.level: 1〜100 の整数である必要があります`);
+          }
+          if (s.count !== undefined && s.count !== null) {
+            if (!isPositiveInt(s.count)) {
+              errors.push(`${prefix}.trigger.skill-level.count: 1以上の整数である必要があります`);
+            } else if (Array.isArray(skills) && s.count > skills.length) {
+              errors.push(`${prefix}.trigger.skill-level.count: skills の件数(${skills.length})を超えています`
+                + `(どうやっても達成できない定義になります)`);
+            }
+          }
+        }
       } else if (trigger.type === "static") {
         const c = trigger.collection;
         if (!isPlainObject(c)) errors.push(`${prefix}.trigger.collection: マップである必要があります`);
         else {
           if (!["all", "category", "item", "mob"].includes(c.scope)) errors.push(`${prefix}.trigger.collection.scope: all / category / item / mob のいずれかである必要があります`);
-          if (c.scope !== "all" && (typeof c.target !== "string" || !c.target)) errors.push(`${prefix}.trigger.collection.target: scopeがall以外では必須です`);
-          if (!isNonNegInteger(c.threshold) || c.threshold < 1) errors.push(`${prefix}.trigger.collection.threshold: 1以上の整数である必要があります`);
+          // 2026-07-31: 複数対象 targets を通す。Java 側は 2026-07-27 に単数 target から
+          // 複数 targets へ拡張済みだったのに、ここは単数キー必須のままだった ── そのため
+          // 「Java では正しく動く定義」がエディタでは保存できず、複数対象アチーブメントを
+          // GUI で作れなかった(手書き yml を開くと必ず検証エラーになる状態)。
+          const targets = c.targets;
+          if (targets !== undefined && targets !== null) {
+            if (!Array.isArray(targets) || targets.some((t) => typeof t !== "string" || !t.trim())) {
+              errors.push(`${prefix}.trigger.collection.targets: 空でない文字列の配列である必要があります`);
+            }
+          }
+          const hasTarget = typeof c.target === "string" && c.target;
+          const hasTargets = Array.isArray(targets) && targets.some((t) => typeof t === "string" && t.trim());
+          if (c.scope !== "all" && !hasTarget && !hasTargets) {
+            errors.push(`${prefix}.trigger.collection.target / targets: scopeがall以外ではどちらかが必須です`);
+          }
+          // scope=item/mob かつ percent でないときは threshold 省略可(既定=列挙した件数)。
+          // Java 側 AchievementsConfig.parseTrigger と同じ既定値規則。category/all は候補数と
+          // 列挙数が一致しないので従来どおり必須。
+          const thresholdOptional = hasTargets && c.percent !== true
+            && (c.scope === "item" || c.scope === "mob");
+          if (!(thresholdOptional && (c.threshold === undefined || c.threshold === null))
+              && (!isNonNegInteger(c.threshold) || c.threshold < 1)) {
+            errors.push(`${prefix}.trigger.collection.threshold: 1以上の整数である必要があります`
+              + `(scope=item/mob で targets を列挙した場合のみ省略可)`);
+          }
           if (c.percent !== undefined && typeof c.percent !== "boolean") errors.push(`${prefix}.trigger.collection.percent: 真偽値である必要があります`);
         }
       }
@@ -2196,25 +3413,80 @@ function validateTfFoodGimmick(data, errors) {
       errors.push(`${prefix}.saturation: 0以上の数値である必要があります`);
     }
   }
+  // unregistered-custom-food-ban: 2026-08-09新設。判定基準は「custom-foodsへの登録の有無」そのもの
+  // なので個別ID除外(excluded-ids)は無い。excluded-materialsのみユーザー指定の明示除外を持つ。
+  const ban = data["unregistered-custom-food-ban"];
+  if (ban === undefined || ban === null) return;
+  if (!isPlainObject(ban)) { errors.push("unregistered-custom-food-ban はマップである必要があります"); return; }
+  if (ban.enabled !== undefined && ban.enabled !== null && typeof ban.enabled !== "boolean") {
+    errors.push("unregistered-custom-food-ban.enabled: 真偽値である必要があります");
+  }
+  if (ban["excluded-materials"] !== undefined && ban["excluded-materials"] !== null) {
+    if (!Array.isArray(ban["excluded-materials"])) {
+      errors.push("unregistered-custom-food-ban.excluded-materials: 配列である必要があります");
+    } else {
+      ban["excluded-materials"].forEach((v, i) => {
+        if (typeof v !== "string" || !v.trim()) {
+          errors.push(`unregistered-custom-food-ban.excluded-materials[${i}]: 空でない文字列である必要があります`);
+        }
+      });
+    }
+  }
+  if (ban.message !== undefined && ban.message !== null && typeof ban.message !== "string") {
+    errors.push("unregistered-custom-food-ban.message: 文字列である必要があります");
+  }
+}
+
+// fishing.groups / fishing.unlock-groups (機能解放追加用テーブル、任意キー) 共通の最小検証。
+// 両者は完全に同一の Category スキーマ ({ <groupId>: { categories: { <catId>: {
+// "display-name", entries:[{item,weight,amount}], "trigger-chance-percent"? } } } })
+// なので同じ関数で検証する(unlock-groups だけ緩くしない)。entries[].weight/amount は
+// public/js/tf-lifestyle-forms.js の clampMinInt(v,1) と同じ「1以上の整数」規則。
+function validateFishingDropGroupsMap(map, label, errors) {
+  if (map === undefined || map === null) return;
+  if (!isPlainObject(map)) { errors.push(`${label} はマップである必要があります`); return; }
+  for (const [groupId, group] of Object.entries(map)) {
+    if (!isPlainObject(group)) { errors.push(`${label}.${groupId}: マップである必要があります`); continue; }
+    const categories = group.categories;
+    if (categories === undefined || categories === null) continue;
+    if (!isPlainObject(categories)) { errors.push(`${label}.${groupId}.categories: マップである必要があります`); continue; }
+    for (const [catId, cat] of Object.entries(categories)) {
+      if (!isPlainObject(cat)) { errors.push(`${label}.${groupId}.categories.${catId}: マップである必要があります`); continue; }
+      if (cat["display-name"] !== undefined && cat["display-name"] !== null && typeof cat["display-name"] !== "string") {
+        errors.push(`${label}.${groupId}.categories.${catId}.display-name: 文字列である必要があります`);
+      }
+      const chance = cat["trigger-chance-percent"];
+      if (chance !== undefined && chance !== null && !isNumber(chance)) {
+        errors.push(`${label}.${groupId}.categories.${catId}.trigger-chance-percent: 数値である必要があります`);
+      }
+      const entries = cat.entries;
+      if (entries === undefined || entries === null) continue;
+      if (!Array.isArray(entries)) { errors.push(`${label}.${groupId}.categories.${catId}.entries: 配列である必要があります`); continue; }
+      entries.forEach((entry, i) => {
+        if (!isPlainObject(entry)) { errors.push(`${label}.${groupId}.categories.${catId}.entries[${i}]: マップである必要があります`); return; }
+        if (entry.item !== undefined && entry.item !== null && typeof entry.item !== "string") {
+          errors.push(`${label}.${groupId}.categories.${catId}.entries[${i}].item: 文字列である必要があります`);
+        }
+        if (entry.weight !== undefined && entry.weight !== null && (!isInteger(entry.weight) || entry.weight < 1)) {
+          errors.push(`${label}.${groupId}.categories.${catId}.entries[${i}].weight: 1以上の整数である必要があります`);
+        }
+        if (entry.amount !== undefined && entry.amount !== null && (!isInteger(entry.amount) || entry.amount < 1)) {
+          errors.push(`${label}.${groupId}.categories.${catId}.entries[${i}].amount: 1以上の整数である必要があります`);
+        }
+      });
+    }
+  }
 }
 
 // ---- fishing-gimmick.yml (tf-fishing-gimmick) ----
-// xp-bottle-store.return-rate: 取り出し時に返る割合(0.0〜1.0)
 // fish-sell.prices: Material -> 基準売却額(0以上)。fish-sell.max-sells-per-minute: 0以上の整数。
 // fishing.ocean-biomes: バイオームidの文字列配列(namespace無し小文字。ハードコード列挙はしない)。
+// fishing.groups / fishing.unlock-groups: 上の validateFishingDropGroupsMap を同じ規則で適用する。
+// xp-bottle-store の検証は2026-08-15に validateTfCraftingFeatures へ移設した
+// (crafting-features.yml へ移設したのに合わせた。fishing-gimmick.yml側はもう読まれない)。
 function validateTfFishingGimmick(data, errors) {
   if (data === null) return;
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
-  const xp = data["xp-bottle-store"];
-  if (xp !== undefined && xp !== null) {
-    if (!isPlainObject(xp)) { errors.push("xp-bottle-store はマップである必要があります"); }
-    else {
-      const rate = xp["return-rate"];
-      if (rate !== undefined && rate !== null && !(isNumber(rate) && rate >= 0 && rate <= 1)) {
-        errors.push("xp-bottle-store.return-rate: 0.0〜1.0 の数値である必要があります");
-      }
-    }
-  }
   const fishSell = data["fish-sell"];
   if (fishSell !== undefined && fishSell !== null) {
     if (!isPlainObject(fishSell)) { errors.push("fish-sell はマップである必要があります"); }
@@ -2254,6 +3526,8 @@ function validateTfFishingGimmick(data, errors) {
           });
         }
       }
+      validateFishingDropGroupsMap(fishing.groups, "fishing.groups", errors);
+      validateFishingDropGroupsMap(fishing["unlock-groups"], "fishing.unlock-groups", errors);
     }
   }
 }
@@ -2282,18 +3556,67 @@ function validateArsConfig(data, errors) {
   const mana = data.mana;
   if (mana === undefined || mana === null) return;
   if (!isPlainObject(mana)) { errors.push("mana はマップである必要があります"); return; }
+  // 2026-08-16: マナ基礎3キー(default-max / default-regen-rate / regen-interval-ticks)の検証。
+  // **必ず source-auto-consume の早期 return より前に置くこと。** 下の `if (sac == null) return;` の
+  // 後ろへ書くと、source-auto-consume を持たない config.yml では一度も走らない(不正値がそのまま
+  // 保存できてしまうのに、fixture が常に sac を持つ既存テストでは緑のまま)。
+  //
+  // 未設定(キー無し)は「ArsPaper の既定値 100 / 5 / 20 に委ねる」正当な状態なので必須にしない。
+  // ここで既定値を補わないのも意図的(開いて保存しただけで yml にキーが増える往復差分を作らない)。
+  //
+  // 下限を 0 ではなく 1 にしているキーがある理由:
+  //   default-max 0         → 最大マナ0で魔法が一切撃てない
+  //   regen-interval-ticks 0 → 回復タスクの period=0 で毎tick実行(実質暴走)
+  // どちらも「設定できてしまうと無言でサーバが壊れる」値なので editor 側で弾く。
+  // default-regen-rate だけは 0 =「自然回復しない」という意味のある設定なので通す。
+  const MANA_BASE_MINIMUMS = [
+    ["default-max", 1],
+    ["default-regen-rate", 0],
+    ["regen-interval-ticks", 1]
+  ];
+  for (const [key, min] of MANA_BASE_MINIMUMS) {
+    const v = mana[key];
+    if (v === undefined || v === null) continue;
+    if (!(isInteger(v) && v >= min)) {
+      errors.push(`mana.${key}: ${min}以上の整数である必要があります`);
+    }
+  }
   const sac = mana["source-auto-consume"];
   if (sac === undefined || sac === null) return;
   if (!isPlainObject(sac)) { errors.push("mana.source-auto-consume はマップである必要があります"); return; }
+  // 2026-08-14 追加: 自動消費のクールタイム(秒)。0以下でCT無し(ArsPaper 側で Math.max(0, …) される)。
+  // 未設定は「キー無し」= ArsPaper の既定値10秒。ここで既定値を補わないのは、開いて保存しただけで
+  // yml にキーが増えるのを避けるため(往復差分を作らない)。
+  const cooldown = sac["cooldown-seconds"];
+  if (cooldown !== undefined && cooldown !== null && !(isInteger(cooldown) && cooldown >= 0)) {
+    errors.push("mana.source-auto-consume.cooldown-seconds: 0以上の整数である必要があります");
+  }
   const items = sac.items;
   if (items === undefined || items === null) return;
   if (!isPlainObject(items)) { errors.push("mana.source-auto-consume.items はマップである必要があります"); return; }
-  for (const [id, amount] of Object.entries(items)) {
+  // 2026-08-14: 値は「数値のみ(=マナ変換量。CTは全体既定)」と
+  // 「{mana, cooldown-seconds}(=アイテムごとのCT)」の2記法を許す。
+  // 旧記法を弾くと既存 config.yml が保存できなくなるので、両方通す。
+  for (const [id, value] of Object.entries(items)) {
     if (!id || !id.trim()) {
       errors.push("mana.source-auto-consume.items: キー(アイテムID)は空でない文字列である必要があります");
     }
-    if (!(isInteger(amount) && amount > 0)) {
-      errors.push(`mana.source-auto-consume.items.${id}: 1以上の整数である必要があります`);
+    if (isPlainObject(value)) {
+      if (!(isInteger(value.mana) && value.mana > 0)) {
+        errors.push(`mana.source-auto-consume.items.${id}.mana: 1以上の整数である必要があります`);
+      }
+      const cd = value["cooldown-seconds"];
+      // キー無し = 全体既定に従う。0 は「CT無し」で別の意味なので、どちらも許す。
+      if (cd !== undefined && cd !== null && !(isInteger(cd) && cd >= 0)) {
+        errors.push(`mana.source-auto-consume.items.${id}.cooldown-seconds: 0以上の整数である必要があります`);
+      }
+      for (const key of Object.keys(value)) {
+        if (key !== "mana" && key !== "cooldown-seconds") {
+          errors.push(`mana.source-auto-consume.items.${id}: 未知のキー '${key}' (mana / cooldown-seconds のみ)`);
+        }
+      }
+    } else if (!(isInteger(value) && value > 0)) {
+      errors.push(`mana.source-auto-consume.items.${id}: 1以上の整数、または {mana, cooldown-seconds} である必要があります`);
     }
   }
 }
@@ -2322,7 +3645,10 @@ function validateTfBaseStats(data, errors) {
 // base-stats とは逆の規約で「キーが無い」ことに意味があるため、ここでは値の型だけ検証し、
 // 「キーが無ければOK」という base-stats と同じ緩さを保つ(キーの許可リスト検証はしない = 将来
 // Java側で効くキーが増えても editor 側の追随なしに保存できるようにするため)。
-// gathering-efficiency-max-enchant-level はルート直下の独立キー(整数。0以下=無制限)。
+// 2026-08-05: ルート直下の独立キー gathering-efficiency-max-enchant-level(効率強化エンチャントの
+// 上限)はユーザー決定で廃止した(stats/gathering-efficiency.yml の max-enchant-level 一本へ戻した)。
+// Java 側も同日にこのキーを読まなくなったので、検証も外す。現場のファイルに残っていても
+// 「未知のルートキー」として素通りする(このスキーマはキー許可リスト検証をしない)。
 function validateTfStatCaps(data, errors) {
   if (data == null || typeof data !== "object" || Array.isArray(data)) {
     errors.push("ルートはオブジェクトである必要があります");
@@ -2339,10 +3665,6 @@ function validateTfStatCaps(data, errors) {
         }
       }
     }
-  }
-  const bookshelfLevel = data["gathering-efficiency-max-enchant-level"];
-  if (bookshelfLevel !== undefined && bookshelfLevel !== null && !isInteger(bookshelfLevel)) {
-    errors.push("gathering-efficiency-max-enchant-level: 整数である必要があります(0以下=無制限)");
   }
 }
 
@@ -2418,11 +3740,17 @@ function validate(schemaType, data) {
     case "tf-mob-level-table":
       validateTfMobLevelTable(data, errors);
       break;
+    case "tf-mob-abilities":
+      validateTfMobAbilities(data, errors);
+      break;
     case "tf-mob-overrides":
       validateTfMobOverrides(data, errors);
       break;
     case "ars-sourcejars":
       validateArsSourceJars(data, errors);
+      break;
+    case "ars-loot-tables":
+      validateArsLootTables(data, errors);
       break;
     case "ars-sourcelinks":
       validateArsSourceLinks(data, errors);
@@ -2439,6 +3767,9 @@ function validate(schemaType, data) {
     case "tf-use-requirements":
       validateTfUseRequirements(data, errors);
       break;
+    case "tf-afk":
+      validateTfAfk(data, errors);
+      break;
     case "tf-material-lists":
       validateTfMaterialLists(data, errors);
       break;
@@ -2447,6 +3778,9 @@ function validate(schemaType, data) {
       break;
     case "tf-special-rewards":
       validateTfSpecialRewards(data, errors);
+      break;
+    case "tf-level-broadcast":
+      validateTfLevelBroadcast(data, errors);
       break;
     case "tf-achievements":
       validateTfAchievements(data, errors);
@@ -2566,5 +3900,6 @@ module.exports = {
   validateItemStatsLayerRefs,
   validateSkillTreeLayerRefs,
   BIND_TYPES,
-  APPLIES_TO
+  APPLIES_TO,
+  TF_CRAFT_QUALITY_SPREAD_DEFAULTS
 };

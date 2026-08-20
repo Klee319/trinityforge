@@ -19,6 +19,7 @@ const { SPELL_FORMS } = require("./lib/spell-form-vocabulary");
 const { buildMaterialLabels, JA_ITEMS_FILENAME } = require("./lib/materialLabels");
 const CmdRegistry = require("./lib/cmd-registry");
 const { registerCmdRoutes, computeCmdWarnings, syncCmdRegistryAfterSave } = require("./lib/cmd-routes");
+const { computeEditorMetaWarnings } = require("./lib/editor-meta-integrity");
 
 const ROOT = __dirname;
 const CONFIG_PATH = path.join(ROOT, "tool-config.json");
@@ -545,9 +546,47 @@ app.get("/api/gate-vocabulary", (req, res) => {
       },
       specialRewards: readEntryById("special-rewards"), // registry未登録/ファイル未実装なら null
       catalog: readEntryById("catalog"),
-      items: readEntryById("items")
+      items: readEntryById("items"),
+      // 2026-08-14: recipe:/ritual: ゲートの候補に ArsPaper 側のレシピ定義を全部入れる。
+      // 機能アイテム(ワンド/ウェイストーン等)が1件もセレクトに出ていなかったのが発端。
+      // どれか欠けても buildGateVocabulary は空として扱うので落ちない。
+      functionalItems: readEntryById("functional-items"),
+      materials: readEntryById("materials"),
+      sourcejars: readEntryById("sourcejars"),
+      sourcelinks: readEntryById("sourcelinks"),
+      spellbooks: readEntryById("spellbooks")
     };
     res.json(buildGateVocabulary(sources));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 全スキルツリーの解放効果(dedicated-effects)配置一覧。ツリーをまたぐ「一回性の解放効果の重複」を
+// editor 側で検出するために使う(2026-08-16)。
+//
+// Java 側の DedicatedEffectGateIndex は全16ツリー横断で重複を警告するが、editor は開いている
+// 1ファイルの nodes しか見ていなかったため、ツリーまたぎの重複を構造的に表示できなかった
+// (glyph:snare が alchemy と ars_magic に同時に置かれていた実例がある)。
+app.get("/api/gate-placements", (req, res) => {
+  try {
+    const trees = {};
+    for (const entry of REGISTRY.filter((e) => e.schema === "tf-skilltree")) {
+      const data = readEntry(entry);
+      const nodes = (data && data.nodes) || {};
+      const placements = [];
+      for (const nodeId of Object.keys(nodes)) {
+        const list = nodes[nodeId] && nodes[nodeId]["dedicated-effects"];
+        if (!Array.isArray(list)) continue;
+        for (const placement of list) {
+          if (placement && placement.id != null) {
+            placements.push({ id: placement.id, value: placement.value, node: nodeId });
+          }
+        }
+      }
+      trees[entry.id] = { label: entry.label, skill: data && data.skill, placements };
+    }
+    res.json({ ok: true, trees });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -557,7 +596,9 @@ app.get("/api/gate-vocabulary", (req, res) => {
 // 語彙供給。gate-vocabulary とは別エンドポイント(lib/gate-vocabulary.js は他作業者が編集中のため
 // 変更しない方針)。対象は vein-mining / haste-active-mining / tree-fell / area-harvest の4件に加え、
 // 2026-07-26 tier-expand で xp-bottle-store-unlock(fishing-gimmick) / potion-merge(crafting-features)
-// をSCALE化したのに伴い fishing / craftingFeatures バケットを追加。
+// をSCALE化したのに伴い fishing / craftingFeatures バケットを追加。2026-07-28 (数値のギミックyml集約)
+// で furnace-smelt-speed/bonus と digging-durability-vanilla-exp/job-exp をSCALE化したため
+// smithing / digging バケットを追加。
 app.get("/api/tier-vocabulary", (req, res) => {
   try {
     const gimmicks = {
@@ -565,7 +606,9 @@ app.get("/api/tier-vocabulary", (req, res) => {
       woodcutting: readEntryById("woodcutting-gimmick"),
       farming: readEntryById("farming-gimmick"),
       fishing: readEntryById("fishing-gimmick"),
-      craftingFeatures: readEntryById("crafting-features")
+      craftingFeatures: readEntryById("crafting-features"),
+      smithing: readEntryById("smithing-gimmick"),
+      digging: readEntryById("digging-gimmick")
     };
     res.json({ ok: true, tiers: buildTierVocabulary(gimmicks) });
   } catch (err) {
@@ -704,13 +747,26 @@ app.put("/api/config/:id", (req, res) => {
       if (syncWarning) cmdWarnings = [...(cmdWarnings || []), syncWarning];
     }
 
+    // `_editor.categories[*].itemIds` / `_editor.itemTabs` / `_editor.orders` が実在しない id を
+    // 指していないかの検査(2026-08-16、ブロックしない警告。手編集・改名・別ツールでの削除は
+    // 保存経路の孤児掃除(pruneOrphanItemTabs)を経由しないため検出できず残り続ける)。
+    // 対応外のconfigはeditorMetaItemIdSetがnullを返しcomputeEditorMetaWarningsが[]を返す。
+    let editorMetaWarnings;
+    try {
+      editorMetaWarnings = computeEditorMetaWarnings(cmdCtx, entry.id, data);
+    } catch (err) {
+      editorMetaWarnings = [`宙ぶらりんカテゴリ検査でエラーが発生しました: ${err.message}`];
+    }
+    if (!editorMetaWarnings.length) editorMetaWarnings = undefined;
+
     res.json({
       ok: true,
       backup: backup ? path.basename(backup) : null,
       path: abs,
       revision: fileRevision(abs),
       deploy,
-      cmdWarnings
+      cmdWarnings,
+      editorMetaWarnings
     });
   } catch (err) {
     res.status(500).json({ error: `保存に失敗しました: ${err.message}` });

@@ -276,6 +276,456 @@
           "property": "minecraft:trim_material",
           "type": "minecraft:select"
         }
+      },
+      {
+        "threshold": 5611,
+        "model": {
+          "cases": [
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_quartz_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:quartz"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_iron_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:iron"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_netherite_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:netherite"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_redstone_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:redstone"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_copper_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:copper"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_gold_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:gold"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_emerald_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:emerald"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_diamond_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:diamond"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_lapis_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:lapis"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_amethyst_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:amethyst"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_resin_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:resin"
+            }
+          ],
+          "fallback": {
+            "model": "minecraft:item/netherite_chestplate",
+            "type": "minecraft:model"
+          },
+          "property": "minecraft:trim_material",
+          "type": "minecraft:select"
+        }
+      },
+      {
+        "threshold": 5720,
+        "model": {
+          "cases": [
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_quartz_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:quartz"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_iron_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:iron"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_netherite_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:netherite"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_redstone_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:redstone"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_copper_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:copper"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_gold_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:gold"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_emerald_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:emerald"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_diamond_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:diamond"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_lapis_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:lapis"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_amethyst_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:amethyst"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_resin_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:resin"
+            }
+          ],
+          "fallback": {
+            "model": "minecraft:item/netherite_chestplate",
+            "type": "minecraft:model"
+          },
+          "property": "minecraft:trim_material",
+          "type": "minecraft:select"
+        }
+      },
+      {
+        "threshold": 5740,
+        "model": {
+          "cases": [
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_quartz_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:quartz"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_iron_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:iron"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_netherite_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:netherite"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_redstone_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:redstone"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_copper_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:copper"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_gold_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:gold"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_emerald_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:emerald"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_diamond_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:diamond"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_lapis_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:lapis"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_amethyst_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:amethyst"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_resin_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:resin"
+            }
+          ],
+          "fallback": {
+            "model": "minecraft:item/netherite_chestplate",
+            "type": "minecraft:model"
+          },
+          "property": "minecraft:trim_material",
+          "type": "minecraft:select"
+        }
+      },
+      {
+        "threshold": 5741,
+        "model": {
+          "cases": [
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_quartz_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:quartz"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_iron_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:iron"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_netherite_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:netherite"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_redstone_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:redstone"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_copper_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:copper"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_gold_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:gold"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_emerald_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:emerald"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_diamond_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:diamond"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_lapis_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:lapis"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_amethyst_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:amethyst"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_resin_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:resin"
+            }
+          ],
+          "fallback": {
+            "model": "minecraft:item/netherite_chestplate",
+            "type": "minecraft:model"
+          },
+          "property": "minecraft:trim_material",
+          "type": "minecraft:select"
+        }
+      },
+      {
+        "threshold": 5760,
+        "model": {
+          "cases": [
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_quartz_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:quartz"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_iron_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:iron"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_netherite_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:netherite"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_redstone_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:redstone"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_copper_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:copper"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_gold_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:gold"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_emerald_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:emerald"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_diamond_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:diamond"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_lapis_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:lapis"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_amethyst_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:amethyst"
+            },
+            {
+              "model": {
+                "model": "minecraft:item/netherite_chestplate_resin_trim",
+                "type": "minecraft:model"
+              },
+              "when": "minecraft:resin"
+            }
+          ],
+          "fallback": {
+            "model": "minecraft:item/netherite_chestplate",
+            "type": "minecraft:model"
+          },
+          "property": "minecraft:trim_material",
+          "type": "minecraft:select"
+        }
       }
     ]
   }

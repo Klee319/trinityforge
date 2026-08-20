@@ -23,23 +23,40 @@ import java.util.List;
  *                    raw EliteMobs id (2026-07-26 「モブの表示名もGUI/簡易モードで設定可能に」), or
  *                    {@code null}/blank when none is set. Presentation metadata only — nothing in the
  *                    combat pipeline reads it, and it never affects how a mob is matched or resolved.
+ * @param abilities  このモブが撃つ特殊攻撃テンプレートID(2026-07-31、{@code combat/mob-abilities.yml} の
+ *                   キー)。空リストはこのスコープが何も設定していないことを意味し、{@code drops} と同じく
+ *                   下位スコープへフォールスルーする(「特殊攻撃なし」を意味しない)。
+ *                   <b>ここに書けるのはIDだけ</b>で、数値はテンプレート側にある — モブは396体あるので、
+ *                   個別に数値を書き下すとバランス調整のたびに396箇所を直すことになる。
+ *
+ * <p><b>「レベル差による足きり」({@code levelCutoff}) は 2026-08-09 に撤去した。</b> ダンジョン×モブ単位で
+ * 持つ意味が無い設定だった — この足きりは EliteMobs のスタンプがあるモブにしか効かず、フィールドの
+ * 野良モブを素通りさせていた。全モブ共通の {@code combat/damage.yml} の {@code level-cutoff:} へ移し、
+ * 適用は {@code com.trinityforge.listeners.KillRewardAdjuster} が一手に引き受ける。
  */
 public record MobOverrideEntry(MobStatOverride stats, List<MobOverrideDropEntry> drops, Ramp vanillaExp,
-                                String displayName) {
+                                String displayName, List<String> abilities) {
 
     public MobOverrideEntry {
         stats = stats == null ? MobStatOverride.EMPTY : stats;
         drops = drops == null ? List.of() : List.copyOf(drops);
         displayName = displayName == null || displayName.isBlank() ? null : displayName;
+        abilities = abilities == null ? List.of() : List.copyOf(abilities);
+    }
+
+    /** Back-compat: an entry carrying no ability list (the pre-2026-07-31 shape). */
+    public MobOverrideEntry(MobStatOverride stats, List<MobOverrideDropEntry> drops, Ramp vanillaExp,
+                             String displayName) {
+        this(stats, drops, vanillaExp, displayName, null);
     }
 
     /** Back-compat: an entry carrying no display name (the pre-2026-07-26 three-field shape). */
     public MobOverrideEntry(MobStatOverride stats, List<MobOverrideDropEntry> drops, Ramp vanillaExp) {
-        this(stats, drops, vanillaExp, null);
+        this(stats, drops, vanillaExp, null, null);
     }
 
     /** Back-compat: an entry carrying no EXP ramp and no display name (the original two-field shape). */
     public MobOverrideEntry(MobStatOverride stats, List<MobOverrideDropEntry> drops) {
-        this(stats, drops, null, null);
+        this(stats, drops, null, null, null);
     }
 }

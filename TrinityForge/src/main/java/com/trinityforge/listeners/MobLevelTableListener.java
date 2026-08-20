@@ -9,6 +9,7 @@ import com.trinityforge.pdc.MobData;
 import com.trinityforge.stats.CrossPluginItemResolver;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -18,6 +19,7 @@ import org.bukkit.inventory.ItemStack;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -61,6 +63,20 @@ import java.util.logging.Logger;
  * (mob infighting, lava, fall damage, …) still fully applied the resolved band's drop/EXP rules,
  * effectively turning any AFK/automated non-player kill loop into a free drop+EXP farm — the exact same
  * class of bug {@link MobOverrideExpListener}/{@link MobOverrideDropListener} had.
+ *
+ * <p><b>{@code no-skill-exp-mobs} 牧場対策 (2026-07-27):</b> this listener does NOT implement that
+ * feature — {@code no-skill-exp-mobs} gates TrinityForge's own combat SKILL EXP (weapon-hit/
+ * armor-hit/spell-cast, an entirely separate pipeline), never the vanilla {@link EntityDeathEvent
+ * #setDroppedExp(int)} orb this class writes. This class intentionally never calls {@code
+ * setDroppedExp(0)} for {@code no-skill-exp-mobs} — see {@code MobLevelTableConfig#suppressesSkillExp}
+ * and its callers in {@code CombatListener}/{@code NativeSkillExperienceListener} instead.
+ *
+ * <p><b>複数人ダンジョンでの分配(2026-08-09):</b> {@code add-drops} の当選スタックは
+ * {@code event.getDrops()} へ直接積まず {@link com.trinityforge.mobs.EliteMobsSharedLootBridge#deliver}
+ * を通す。エリートモブ・ダメージ寄与者2人以上・インスタンス化ダンジョンの3条件がそろったときだけ
+ * EliteMobs の共有戦利品テーブル(emloot、need/greed)が引き取る。それ以外は橋の中で従来どおり
+ * {@code event.getDrops()} へ積まれる。{@code remove-drops} 側は<b>この分岐の対象外</b> —
+ * あちらはモブ本来のバニラドロップを削る処理で、TF が追加したものではないため。
  */
 public final class MobLevelTableListener implements Listener {
 
@@ -70,6 +86,20 @@ public final class MobLevelTableListener implements Listener {
     private final DungeonWorldRegistry dungeonWorldRegistry;
     private final CrossPluginItemResolver itemResolver;
     private final SplittableRandom random;
+
+    /**
+     * {@code custom:} ドロップの品質を決める層(2026-08-19 / W-130)。{@code null} = 未配線で、
+     * そのときは従来どおり品質0(劣悪)固定になる。
+     *
+     * <p>コンストラクタ引数ではなくセッターにしているのは {@link #setKillRewardAdjuster} と同じ理由
+     * (このクラスの公開コンストラクタを一斉に壊さないため)。
+     */
+    private com.trinityforge.mobs.MobDropQualityResolver qualityResolver;
+
+    /** @see #qualityResolver */
+    public void setQualityResolver(com.trinityforge.mobs.MobDropQualityResolver resolver) {
+        this.qualityResolver = resolver;
+    }
 
     /**
      * @param itemResolver resolves {@code custom:<catalogId>} add-drops (2026-07-25 レベルテーブルの
@@ -92,6 +122,42 @@ public final class MobLevelTableListener implements Listener {
         this.random = Objects.requireNonNull(random, "random");
     }
 
+    /**
+     * 追加ドロップ(add-drops)を止める述語 (2026-07-27、AFK対策)。未配線(null)なら抑止なし。
+     * 削除(remove-drops)とバニラEXPには効かない — 理由は onDeath 内のコメント参照。
+     */
+    private volatile java.util.function.Predicate<org.bukkit.entity.Player> dropGate;
+
+    /** 追加ドロップの抑止述語を設定する(2026-07-27、AFK対策)。null で無効化。 */
+    public void setDropGate(java.util.function.Predicate<org.bukkit.entity.Player> gate) {
+        this.dropGate = gate;
+    }
+
+    /** レベル差の足きり + ドロップ増加ステ(2026-08-09)。null可 = 未配線なら素の抽選結果のまま。 */
+    private volatile KillRewardAdjuster killRewardAdjuster;
+
+    /**
+     * add-drops へレベル差の足きり(combat/damage.yml の level-cutoff)とドロップ増加ステ
+     * (mob_drop_bonus)を掛ける(2026-08-09)。null で無効化。{@link #setDropGate} と同じく
+     * 「後から挿す任意の層」なので、コンストラクタ引数ではなくセッターにしている。
+     */
+    public void setKillRewardAdjuster(KillRewardAdjuster adjuster) {
+        this.killRewardAdjuster = adjuster;
+    }
+
+    /** 述語の例外でドロップ処理を落とさない(失敗したら従来どおり付与する)。 */
+    private boolean isGated(org.bukkit.entity.Player killer) {
+        java.util.function.Predicate<org.bukkit.entity.Player> gate = this.dropGate;
+        if (gate == null || killer == null) {
+            return false;
+        }
+        try {
+            return gate.test(killer);
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onDeath(EntityDeathEvent event) {
         LivingEntity entity = event.getEntity();
@@ -105,7 +171,10 @@ public final class MobLevelTableListener implements Listener {
             // のどちらの由来でもない = このモブに「レベル帯」という概念が存在しない)。
             return;
         }
-        if (config.dungeonOnly() && !dungeonWorldRegistry.isDungeonWorld(entity.getWorld().getUID())) {
+        // 2026-08-14: ファイル全体の dungeon-only トグルと、add-drops 各エントリの where: が
+        // 同じ判定(ダンジョンインスタンスワールドか)を見るので、1回だけ引いて使い回す。
+        boolean inDungeonWorld = dungeonWorldRegistry.isDungeonWorld(entity.getWorld().getUID());
+        if (config.dungeonOnly() && !inDungeonWorld) {
             return;
         }
         Optional<LevelTierRule> maybeRule = config.resolve(mobData.level());
@@ -126,23 +195,91 @@ public final class MobLevelTableListener implements Listener {
             event.getDrops().removeIf(stack -> rule.removeDrops().contains(stack.getType()));
         }
 
-        List<LevelTierDropEntry> addDrops = rule.addDrops();
+        // 2026-07-27 AFK対策: 抑止対象なら「追加ドロップ」だけ飛ばす。remove-drops(削除)と
+        // vanilla-exp は通す — 削除は報酬ではないし、バニラEXPはオーブ回収時の
+        // PlayerExpChangeEvent 側(AfkSuppressionListener)で 0 にされるので、ここで二重に止めない。
+        List<LevelTierDropEntry> addDrops = isGated(entity.getKiller()) ? List.of() : rule.addDrops();
+        // 2026-08-09: レベル差の足きり + ドロップ増加ステ。add-drops にだけ掛ける
+        // (remove-drops と vanilla-exp は上の AFK 対策と同じ理由でここでは触らない)。
+        KillRewardAdjuster adjuster = this.killRewardAdjuster;
+        double chanceMultiplier = 1.0;
+        double dropBonus = 0.0;
+        if (adjuster != null && !addDrops.isEmpty()) {
+            if (adjuster.blocksItems(entity.getKiller(), entity)) {
+                addDrops = List.of();
+            } else {
+                chanceMultiplier = adjuster.chanceMultiplier(entity.getKiller(), entity);
+                dropBonus = adjuster.dropBonus(entity.getKiller());
+            }
+        }
+        // 2026-08-02 柱7: roles: 指定のあるエントリはキルしたプレイヤーの職業で絞る。
+        // 未指定(空)のエントリしか無いときは PDC を一切読まない(既存の挙動と同じコストに保つ)。
+        Set<String> killerRoles = addDrops.stream().anyMatch(d -> !d.roles().isEmpty())
+                ? rolesOf(entity.getKiller())
+                : Set.of();
+        // 2026-08-19 W-130: mob_drop_quality による品質の底上げは【1キルにつき1回】引く
+        // (同じキルで複数個落ちたときに個体差が出ないよう、mob-types 側の実装と揃える)。
+        int bonusMode = qualityResolver == null ? 0
+                : qualityResolver.bonusMode(entity.getKiller(), random);
         for (LevelTierDropEntry drop : addDrops) {
+            if (!drop.allowsRoles(killerRoles)) {
+                continue;
+            }
             // 2026-07-25 レベルテーブルのモブ別ドロップ指定拡張(§2-A) + 2026-07-26 mob-ids 追加:
             // 未指定(空)なら従来どおり全モブに適用、指定時はそのEntityType/モブidのキルだけに絞り込む。
             if (!drop.appliesTo(mobType, profileId)) {
                 continue;
             }
-            if (!MobDropRoller.rolls(drop.chance(), random.nextDouble())) {
+            // 2026-08-14 フィールドドロップ配線: where: field/dungeon。
+            // 【MOB_TYPE_STAMPED や MOB_PROFILE_ID では判定しない】——
+            // combat/mob-import.yml の unknown-mobs.synthesize: true により EM ダンジョンモブにも
+            // MOB_LEVEL が合成付与されるので、mobs: [RAVAGER] と書いてもダンジョン内の見た目替え
+            // RAVAGER に当たってしまう。ワールドで切るのが構造的に保証できる唯一の手段。
+            if (!drop.appliesInWorld(inDungeonWorld)) {
+                continue;
+            }
+            // 2026-08-14: baby: true/false(子ゾンビ限定など)。Ageable でないモブは判定不能(null)で、
+            // baby: を書いたエントリは一致しない。yml ロード時に警告済み。
+            if (!drop.appliesToAge(babyStateOf(entity))) {
+                continue;
+            }
+            // 2026-08-19 ディメンション絞り込み: environment: [NORMAL] など。
+            // where: では「ダンジョンか否か」しか見ないのでオーバーワールドとジ・エンドを分けられない
+            // (エンダードラゴンのように両方に出るモブで必要になる)。
+            if (!drop.appliesInEnvironment(entity.getWorld().getEnvironment())) {
+                continue;
+            }
+            // 2026-08-13: ドロップ増加ステの効かせ方はドロップの形で分かれる。
+            // 1個固定(=レアドロップ)は抽選確率を上げ、それ以外は個数を足す。
+            boolean singleFixed = MobDropRoller.isSingleFixed(drop.min(), drop.max());
+            // 2026-08-14: chance-by-level があればモブのレベルで補間した確率を使う(無ければ素の chance)。
+            double chance = drop.chanceAt(mobData.level()) * chanceMultiplier;
+            if (singleFixed) {
+                chance = MobDropRoller.boostedChance(chance, dropBonus);
+            }
+            if (!MobDropRoller.rolls(chance, random.nextDouble())) {
                 continue;
             }
             int count = MobDropRoller.rollCount(drop.min(), drop.max(), random.nextInt());
             if (count <= 0) {
                 continue;
             }
-            ItemStack stack = buildDropStack(drop, count, profileId != null ? profileId : mobType.name());
+            ItemStack stack = buildDropStack(drop, count,
+                    profileId != null ? profileId : mobType.name(), mobData.level(), bonusMode);
             if (stack != null) {
-                event.getDrops().add(stack);
+                if (!singleFixed && dropBonus > 0.0) {
+                    stack.setAmount(MobDropRoller.cappedCount(
+                            stack.getAmount() + MobDropRoller.extraCount(dropBonus, random.nextDouble()),
+                            stack.getMaxStackSize()));
+                }
+                // 2026-08-09: 複数人でインスタンス化ダンジョンに潜っているときだけ、地面へ落とさず
+                // EliteMobs の共有戦利品テーブル(emloot、need/greed)へ回す。対象外なら
+                // deliver() の中で従来どおり event.getDrops() へ積まれる。
+                // 2026-08-18: 【この表には「全員に1個ずつ」経路を通さない】。確定ドロップを進行
+                // アイテムとみなす規約は combat/mob-overrides.yml(ダンジョンボス表)限定で、こちらの
+                // add-drops は帯ごとのフィールド報酬。実際 dragon_scale は chance 1.0 / min 0 max 2 /
+                // where: field で、「確定＝全員に配ってよいもの」ではない。
+                com.trinityforge.mobs.EliteMobsSharedLootBridge.deliver(event, stack);
             }
         }
 
@@ -166,11 +303,38 @@ public final class MobLevelTableListener implements Listener {
      *                 持たないので日本語表示名までは出せない — 名前が要る警告は
      *                 {@code MobOverrideDropListener} 側が日本語名付きで出す。
      */
-    private ItemStack buildDropStack(LevelTierDropEntry drop, int count, String mobLabel) {
+    /**
+     * 討伐した個体が子供か(2026-08-14 {@code baby:} フィルタ用)。判定できないモブ
+     * ({@link org.bukkit.entity.Ageable} を実装しない = 子供という状態を持たない) は {@code null}。
+     *
+     * <p>{@code Zombie} は {@code Ageable} を継承しているので子ゾンビもここで拾える
+     * ({@code Zombie#isBaby()} を別扱いする必要はない)。
+     */
+    private static Boolean babyStateOf(LivingEntity entity) {
+        return entity instanceof org.bukkit.entity.Ageable ageable ? !ageable.isAdult() : null;
+    }
+
+    /** キルしたプレイヤーの戦闘職・補助職。プレイヤー以外/未選択なら空。 */
+    private static Set<String> rolesOf(Player killer) {
+        if (killer == null) {
+            return Set.of();
+        }
+        com.trinityforge.pdc.PlayerData data = com.trinityforge.pdc.PlayerData.of(killer);
+        Set<String> roles = new java.util.LinkedHashSet<>();
+        data.rolePrimary().ifPresent(roles::add);
+        data.roleSupport().ifPresent(roles::add);
+        return roles;
+    }
+
+    private ItemStack buildDropStack(LevelTierDropEntry drop, int count, String mobLabel,
+                                     int mobLevel, int bonusMode) {
         if (!drop.isCustom()) {
             return new ItemStack(drop.material(), count);
         }
-        Optional<ItemStack> resolved = itemResolver.create(drop.catalogId());
+        // 2026-08-19 W-130: 品質を決めずに 1 引数版 create(id) を呼んでいたため、スレッドのような
+        // 品質付きカスタム品が【必ず品質0(劣悪)】で落ちていた。ここで実際に決める。
+        long seed = random.nextLong();
+        Optional<ItemStack> resolved = itemResolver.create(drop.catalogId(), seed, 0);
         if (resolved.isEmpty()) {
             LOG.log(Level.WARNING, "[mob-level-table] " + mobLabel + " の add-drops custom item '"
                     + drop.catalogId() + "' could not be resolved (unknown catalog/Ars id?);"
@@ -178,6 +342,8 @@ public final class MobLevelTableListener implements Listener {
             return null;
         }
         ItemStack stack = resolved.get();
+        stack = com.trinityforge.mobs.MobDropQualityResolver.stamped(qualityResolver, itemResolver,
+                drop.catalogId(), seed, stack, mobLevel, bonusMode, random);
         stack.setAmount(count);
         return stack;
     }

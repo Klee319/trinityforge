@@ -48,6 +48,41 @@
           "model": "minecraft:item/netherite_hoe",
           "type": "minecraft:model"
         }
+      },
+      {
+        "threshold": 5602,
+        "model": {
+          "model": "minecraft:item/netherite_hoe",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5608,
+        "model": {
+          "model": "minecraft:item/netherite_hoe",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5700,
+        "model": {
+          "model": "minecraft:item/netherite_hoe",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5720,
+        "model": {
+          "model": "minecraft:item/netherite_hoe",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5740,
+        "model": {
+          "model": "minecraft:item/netherite_hoe",
+          "type": "minecraft:model"
+        }
       }
     ]
   }

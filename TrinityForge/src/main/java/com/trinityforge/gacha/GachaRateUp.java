@@ -12,7 +12,7 @@ import java.util.Objects;
  *
  * <p><strong>Approximation</strong>: "rare slot" is approximated as every entry tied for the pool's
  * MINIMUM weight (the least-likely prize(s)); their weight is scaled by
- * {@code (1 + percentBonus / 100)}, rounded to the nearest integer and floored at 1 (a
+ * {@code (1 + fractionBonus)}, rounded to the nearest integer and floored at 1 (a
  * {@link GachaEntry} weight must stay {@code > 0}). Every other entry's weight is unchanged. This
  * shifts relative odds toward the rarest row(s) without needing a config-declared "rarity tier"
  * concept that does not otherwise exist in the gacha schema.
@@ -23,13 +23,20 @@ public final class GachaRateUp {
     }
 
     /**
-     * Returns {@code pool} unchanged when {@code percentBonus <= 0} or the pool has no entries;
+     * Returns {@code pool} unchanged when {@code fractionBonus <= 0} or the pool has no entries;
      * otherwise returns a new {@link GachaPool} (same id, same entry order) with the minimum-weight
      * entries' weight boosted.
+     *
+     * <p>{@code fractionBonus} is a <b>fraction</b>, not a percent-point value (e.g. {@code 0.2} means
+     * "+20%", not {@code 20}). The caller ({@code GachaListener}) reads this from
+     * {@code PlayerStatAggregator#totalOf(gacha-rate-bonus)}, whose value has already been coerced to
+     * {@code [0, 1]} by {@link com.trinityforge.stats.PercentStatNormalize} (RATE_KEYS includes
+     * {@code gacha-rate-bonus}). Dividing this value by 100 again here would silently shrink a
+     * configured {@code 20} (intended +20%) into an effective +0.2%.
      */
-    public static GachaPool applyRateUp(GachaPool pool, double percentBonus) {
+    public static GachaPool applyRateUp(GachaPool pool, double fractionBonus) {
         Objects.requireNonNull(pool, "pool");
-        if (!Double.isFinite(percentBonus) || percentBonus <= 0.0 || pool.entries().isEmpty()) {
+        if (!Double.isFinite(fractionBonus) || fractionBonus <= 0.0 || pool.entries().isEmpty()) {
             return pool;
         }
 
@@ -38,7 +45,7 @@ public final class GachaRateUp {
             minWeight = Math.min(minWeight, entry.weight());
         }
 
-        double multiplier = 1.0 + (percentBonus / 100.0);
+        double multiplier = 1.0 + fractionBonus;
         List<GachaEntry> boosted = new ArrayList<>(pool.entries().size());
         for (GachaEntry entry : pool.entries()) {
             if (entry.weight() == minWeight) {

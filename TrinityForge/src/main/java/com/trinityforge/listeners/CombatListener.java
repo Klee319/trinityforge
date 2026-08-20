@@ -9,7 +9,9 @@ import com.trinityforge.combat.AttackStats;
 import com.trinityforge.combat.BleedService;
 import com.trinityforge.combat.CombatHitResult;
 import com.trinityforge.combat.CritFlash;
+import com.trinityforge.combat.FinalDamageScaling;
 import com.trinityforge.combat.MaceSmashDamage;
+import com.trinityforge.combat.MagicPipelineDamage;
 import com.trinityforge.combat.MeleeChargeMultiplier;
 import com.trinityforge.combat.MeleeChargeTracker;
 import com.trinityforge.combat.PvpDamagePolicy;
@@ -21,21 +23,27 @@ import com.trinityforge.combat.SymmetricCombatService;
 import com.trinityforge.config.domains.CombatDamageConfig;
 import com.trinityforge.config.domains.CraftingFeaturesConfig;
 import com.trinityforge.config.domains.ItemStatsConfig;
+import com.trinityforge.config.domains.MobLevelTableConfig;
 import com.trinityforge.config.domains.SkillExpConfig;
 import com.trinityforge.config.domains.UseRequirementsConfig;
 import com.trinityforge.pdc.ItemData;
 import com.trinityforge.pdc.MobData;
+import com.trinityforge.pdc.PdcKeys;
 import com.trinityforge.progression.RoleBuffResolver;
 import com.trinityforge.progression.SkillLevelSource;
 import com.trinityforge.progression.UseRequirementPolicy;
 import com.trinityforge.progression.UseRequirementResolver;
+import com.trinityforge.progression.catalog.NativeSkillCatalog;
+import com.trinityforge.progression.core.SkillId;
 import com.trinityforge.skilltree.runtime.PerkBuffResolver;
 import com.trinityforge.stats.DerivedItemStats;
 import com.trinityforge.stats.StatKeys;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import com.trinityforge.TrinityForge;
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
@@ -50,7 +58,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntityRemoveEvent;
 import org.bukkit.event.entity.EntityShootBowEvent;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.event.player.PlayerAnimationEvent;
@@ -59,6 +70,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffectType;
 
@@ -111,6 +123,15 @@ public final class CombatListener implements Listener {
      * Every other modifier (shield {@code BLOCKING}, {@code ABSORPTION}, {@code HARD_HAT},
      * {@code FREEZING}, {@code INVULNERABILITY_REDUCTION}, ...) has no pipeline equivalent and must
      * survive untouched, or shield blocking and absorption hearts silently stop working.
+     *
+     * <p><b>2026-08-01 の唯一の例外</b>: player→player で {@link PvpDamagePolicy} が発動したときだけ、
+     * 生き残った modifier に {@code BASE} と<b>同じ抑制係数</b>を掛ける
+     * ({@link com.trinityforge.combat.FinalDamageScaling#scaleModifiersExceptBase})。
+     * これは「0化して効果を消す」のとは逆で、割合としての軽減を保ったまま絶対値のスケールだけを
+     * {@code BASE} に揃える処置である。掛けないと、抑制で {@code BASE} が数点まで縮む帯で
+     * 抑制前のバニラ値のまま残った {@code ABSORPTION}/{@code BLOCKING} が
+     * {@code getFinalDamage()}(全modifierの単純和・0クランプ無し)を負値へ潰し、
+     * 盾や金リンゴを持った相手に物理が一切通らなくなる。
      */
     @SuppressWarnings("deprecation")
     private static final Set<EntityDamageEvent.DamageModifier> FOLDED_MODIFIERS = EnumSet.of(
@@ -134,6 +155,23 @@ public final class CombatListener implements Listener {
     private final CraftingFeaturesConfig craftingFeatures;
     private final RoleBuffResolver roleBuffResolver;
     private final Plugin plugin;
+    /**
+     * {@code combat/mob-level-table.yml} の {@code no-skill-exp-mobs}(2026-07-27 牧場対策)。
+     * null許容 — 未配線(旧12引数コンストラクタ経由、既存テスト互換)なら武器スキルEXP抑止は無効。
+     */
+    private final MobLevelTableConfig mobLevelTable;
+    private final CombatKillCreditTracker combatKillCredits = new CombatKillCreditTracker();
+
+    /**
+     * レベル差による足きり(2026-08-09、{@code combat/damage.yml} の {@code level-cutoff})。
+     * このクラスでは討伐時の<b>戦闘スキルEXP</b>にだけ使う。null可 = 未配線なら倍率1.0で従来どおり。
+     */
+    private volatile KillRewardAdjuster killRewardAdjuster;
+
+    /** 討伐時の戦闘スキルEXPへレベル差の足きりを掛ける(2026-08-09)。null で無効化。 */
+    public void setKillRewardAdjuster(KillRewardAdjuster adjuster) {
+        this.killRewardAdjuster = adjuster;
+    }
 
     /**
      * #2 AoE の再入ガード。AoEスプラッシュの {@code target.damage()} が同ハンドラを同期再入した際に true で
@@ -150,17 +188,65 @@ public final class CombatListener implements Listener {
     private boolean reflecting = false;
 
     /**
+     * 反射の抽選に使う一様乱数 [0,1)。既定は {@link ThreadLocalRandom}。仕様が「確率で発動」になった
+     * (2026-08-05)ため、テストから発動/不発動を決め打ちできるようにここだけ差し替え可能にしている
+     * (本番コードからは差し替えない)。
+     */
+    private java.util.function.DoubleSupplier reflectRoll = () -> ThreadLocalRandom.current().nextDouble();
+
+    /** テスト専用: 反射の抽選値を固定する(テストが別パッケージにあるため public)。 */
+    public void reflectRollForTest(java.util.function.DoubleSupplier roll) {
+        this.reflectRoll = java.util.Objects.requireNonNull(roll, "roll");
+    }
+
+    /**
      * B2 レビュー修正(HIGH指摘1): {@code Player#getAttackCooldown()} に依存しない自前チャージトラッカー
      * (詳細は {@link MeleeChargeMultiplier} javadoc)。{@link #onPlayerQuit} でログアウト時に破棄する。
      */
     private final MeleeChargeTracker meleeChargeTracker = new MeleeChargeTracker();
 
+    /** 後方互換コンストラクタ(既存呼び出し/テスト向け)。{@code no-skill-exp-mobs} 抑止は無効(null)。 */
     public CombatListener(Plugin plugin, SymmetricCombatService combatService,
                           ItemStatsConfig itemStats, CombatDamageConfig damageConfig,
                           SkillLevelSource skillLevelSource, BleedService bleedService,
                           PerkBuffResolver perkBuffResolver, PlayerStatAggregator aggregator,
                           UseRequirementsConfig useRequirements, SkillExpConfig skillExp,
                           CraftingFeaturesConfig craftingFeatures, RoleBuffResolver roleBuffResolver) {
+        this(plugin, combatService, itemStats, damageConfig, skillLevelSource, bleedService, perkBuffResolver,
+                aggregator, useRequirements, skillExp, craftingFeatures, roleBuffResolver, null, null);
+    }
+
+    /**
+     * @param mobLevelTable {@code combat/mob-level-table.yml} の {@code no-skill-exp-mobs}(2026-07-27
+     *                      牧場対策)。武器スキルEXP付与時に victim の EntityType がここに載っていれば
+     *                      付与しない。null可(その場合は抑止しない、旧挙動)。
+     */
+    public CombatListener(Plugin plugin, SymmetricCombatService combatService,
+                          ItemStatsConfig itemStats, CombatDamageConfig damageConfig,
+                          SkillLevelSource skillLevelSource, BleedService bleedService,
+                          PerkBuffResolver perkBuffResolver, PlayerStatAggregator aggregator,
+                          UseRequirementsConfig useRequirements, SkillExpConfig skillExp,
+                          CraftingFeaturesConfig craftingFeatures, RoleBuffResolver roleBuffResolver,
+                          MobLevelTableConfig mobLevelTable) {
+        this(plugin, combatService, itemStats, damageConfig, skillLevelSource, bleedService, perkBuffResolver,
+                aggregator, useRequirements, skillExp, craftingFeatures, roleBuffResolver, mobLevelTable, null);
+    }
+
+    /**
+     * @param progressionCatalog <b>このリスナーはもう参照しない。</b>N5(2026-07-31)で弓術EXPを
+     *                           討伐時ベースへ統一し、{@code skills/base/archery_progression.yml}
+     *                           の per-hit 係数を読む唯一の経路({@code archeryExpAmount})を削除した
+     *                           ため。引数を残しているのは {@code TrinityForge.java} の配線を
+     *                           「1波に1人しか触らない」運用規約のせいで、次にそこを触る担当が
+     *                           この引数ごと落として構わない。null 可。
+     */
+    public CombatListener(Plugin plugin, SymmetricCombatService combatService,
+                          ItemStatsConfig itemStats, CombatDamageConfig damageConfig,
+                          SkillLevelSource skillLevelSource, BleedService bleedService,
+                          PerkBuffResolver perkBuffResolver, PlayerStatAggregator aggregator,
+                          UseRequirementsConfig useRequirements, SkillExpConfig skillExp,
+                          CraftingFeaturesConfig craftingFeatures, RoleBuffResolver roleBuffResolver,
+                          MobLevelTableConfig mobLevelTable, NativeSkillCatalog progressionCatalog) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.combatService = Objects.requireNonNull(combatService, "combatService");
         this.itemStats = Objects.requireNonNull(itemStats, "itemStats");
@@ -173,6 +259,7 @@ public final class CombatListener implements Listener {
         this.skillExp = Objects.requireNonNull(skillExp, "skillExp");
         this.craftingFeatures = Objects.requireNonNull(craftingFeatures, "craftingFeatures");
         this.roleBuffResolver = Objects.requireNonNull(roleBuffResolver, "roleBuffResolver");
+        this.mobLevelTable = mobLevelTable;
     }
 
     @SuppressWarnings("deprecation") // DamageModifier folding; see DAMAGE_MODIFIERS TODO (M2+).
@@ -231,7 +318,11 @@ public final class CombatListener implements Listener {
         // アドオンを PlayerStatAggregator で一括集計する。攻撃武器の寄与は近接ならメインハンド、飛び道具
         // なら発射時に retain された武器そのもの(High bug: 着弾時のメインハンドではない)。
         ItemStack mainhandContributor = resolveMainhandContributor(event, attacker);
-        PlayerCombatAggregate agg = aggregator.aggregate(attacker, mainhandContributor);
+        // 2026-08-13バグ修正: 飛び道具(弓/クロスボウ)がオフハンドから撃たれていた場合、寄与アイテムの
+        // 実際の所在(offhand-stats-apply の門)を PDC に retain された値から読む(近接/トライデントは常に
+        // false — resolveContributorIsOffhand のjavadoc参照)。
+        boolean contributorIsOffhand = resolveContributorIsOffhand(event);
+        PlayerCombatAggregate agg = aggregator.aggregate(attacker, mainhandContributor, contributorIsOffhand);
         // LD-9 skill-tree perk addend + アドオン契約は従来通り: item(防具+武器(+offhand)) → perk →
         // addon の順に加算し、攻撃ブリッジ/出血判定へ渡す。attack-power は下で個別に扱う(ベース置換規則)。
         Map<String, Double> itemAndPerk = mergeStats(agg.item(), agg.perkAttack());
@@ -403,19 +494,44 @@ public final class CombatListener implements Listener {
         // 上書きするため、距離ボーナスは毎回消えていた。BOW は attack-power:69、CROSSBOW は 270.5 を
         // 持つので常に該当し、archery.yml のα路線が丸ごと無効だった。
         // power-attack-damage と同じ「total 算出後に一度だけ掛ける」位置に統一する。
+        //
+        // 2026-08-04 バグ修正(悪用): 旧実装は「着弾時点の射手の現在地」を使っていたため、矢を
+        // トラップドア等に刺して停止させ、射手だけ遠方へ移動してから第三者に矢を再度落下・命中させると
+        // 実際には矢が飛んでいないのに距離ボーナスが乗る悪用が成立していた。距離は「発射地点(launch time
+        // に onProjectileLaunch が retain した座標) ↔ 着弾地点」で測る — 射手が後から動いても値は伸びない。
+        // 記録が無い矢(プラグイン生成/ディスペンサー発射/サーバ再起動を跨いだ矢)や別ワールド着弾は
+        // 距離ボーナス0(ボーナス無し)にフォールバックする。旧挙動(射手の現在地)へは絶対に戻さないこと
+        // (それでは同じ悪用が残る)。
         if (projectileHit) {
-            total = distanceDamage(total, agg.totalOf(DISTANCE_DAMAGE_BONUS_KEY),
-                    attacker.getLocation().distance(victim.getLocation()));
+            double distanceBlocks = 0.0;
+            if (event.getDamager() instanceof Projectile firedProjectile) {
+                distanceBlocks = ProjectileWeapon.readLaunchLocation(firedProjectile)
+                        .map(launch -> launchDistanceBlocks(launch, victim.getLocation()))
+                        .orElse(0.0);
+            }
+            total = distanceDamage(total, agg.totalOf(DISTANCE_DAMAGE_BONUS_KEY), distanceBlocks);
         }
         // 2026-07-27 PvP抑制: モブ向けに調整された値がそのまま player→player に乗っていたため、
         // Lv100帯(攻撃力 約1052)対 プレイヤー最大体力 約33 で「先に当てた方が確定で即死」だった。
         // 位置は「total を出し切った後・setDamage の直前」——ここより後ろの出血/AoEも同じ total を
         // 読むので、抑制後の値が自動的に引き継がれる。モブ→プレイヤーは別経路
         // (handleMobToPlayerDamage)なので影響しない。
+        //
+        // 2026-08-01 バグ修正(魔法経路 487e84a と同型。魔法だけ直して物理が残っていた):
+        // 抑制は total(= 下で BASE へ書く値)しか縮めないが、盾の BLOCKING と吸収ハートの ABSORPTION は
+        // 「縮める前のバニラダメージから算出された絶対値」のまま event に残っている
+        // (Paper の setDamage(DamageModifier,double) は modifiers.put しかせず他modifierを再計算しない)。
+        // getFinalDamage() は全modifierの単純和で0クランプも無いので、抑制で total が 3.0 まで縮む帯では
+        // 吸収ハート2個(-4.0)だけで最終ダメージが -1.0 へ潰れ、「盾や金リンゴを持った相手には物理が
+        // 一切通らない」状態になっていた。縮めた係数を控えておき、BASE を書いた直後に
+        // BASE 以外の生き残りmodifierへ同じ係数を掛ける(根拠は FinalDamageScaling の javadoc に一本化)。
+        double pvpSuppressionScale = 1.0;
         if (livingVictim != null && PvpDamagePolicy.isPvp(victim)) {
+            double beforePvpSuppression = total;
             total = PvpDamagePolicy.apply(total, PvpDamagePolicy.maxHealthOf(livingVictim),
                     damageConfig.pvpEnabled(), damageConfig.pvpDamageMultiplier(),
                     damageConfig.pvpMaxDamagePercentOfMaxHealth());
+            pvpSuppressionScale = FinalDamageScaling.scaleFactor(beforePvpSuppression, total);
         }
         if (hit.crit() && livingVictim != null) {
             CritFlash.play(livingVictim);
@@ -425,7 +541,8 @@ public final class CombatListener implements Listener {
         // (COMBAT_SYSTEM_SPEC 5, 課題1), so only the engine's own ARMOR/RESISTANCE/MAGIC modifiers are
         // zeroed to avoid double-mitigation (the service re-injects armor from attributes, resistance
         // from the potion effect, and Protection/Projectile Protection via DefenseEnchantmentBridge);
-        // every other modifier (shield BLOCKING, ABSORPTION, ...) is left for the engine to apply as-is.
+        // every other modifier (shield BLOCKING, ABSORPTION, ...) is left for the engine to apply as-is
+        // (the only touch-up is the PvP suppression rescale a few lines below — see FOLDED_MODIFIERS).
         for (EntityDamageEvent.DamageModifier modifier : DAMAGE_MODIFIERS) {
             if (FOLDED_MODIFIERS.contains(modifier) && event.isApplicable(modifier)) {
                 event.setDamage(modifier, 0.0);
@@ -439,6 +556,12 @@ public final class CombatListener implements Listener {
         } else {
             event.setDamage(EntityDamageEvent.DamageModifier.BASE, Math.max(0.0, total));
         }
+        // 上の PvP 抑制で BASE を縮めたのと同じ係数で、BASE 以外の生き残り modifier
+        // (盾 BLOCKING / 吸収 ABSORPTION / HARD_HAT ...)も縮める。BASE は既に抑制後の値なので
+        // 含めてはいけない(二重適用になる) — その理由は FinalDamageScaling#scaleModifiersExceptBase の
+        // javadoc に書いてある。抑制が掛からなかったとき(対モブ / pvp.enabled=false / 上限に届かない /
+        // total<=0 の回復側)は係数がちょうど 1.0 なので event を一切触らない = 従来挙動そのまま。
+        FinalDamageScaling.scaleModifiersExceptBase(event, pvpSuppressionScale);
 
         // Bleed proc (Q3 = (c), melee only): #3 全ステ合算により bleed-chance/bleed-damage は攻撃集約
         // (防具 + メインハンド + (設定により)オフハンド + パーク + アドオン)から読む。アイテムCT(メインハンド専用)
@@ -446,7 +569,7 @@ public final class CombatListener implements Listener {
         // 一撃では出血させない(回復と同時に出血DoTを付けるのは矛盾するため total>0 に限定)。Projectile bleed
         // は対象外(着弾時のメインハンドが発射武器とは限らない)。
         if (total > 0 && MELEE_CAUSES.contains(event.getCause()) && victim instanceof LivingEntity living) {
-            maybeApplyBleed(attacker, living, attackerStats);
+            maybeApplyBleed(attacker, living, attackerStats, total);
         }
 
         // 訓練用ダミー(DPSChecker-TF)を殴ってもスキルEXPは付与しない(ダミー叩きでのEXP稼ぎ防止)。
@@ -455,8 +578,8 @@ public final class CombatListener implements Listener {
         if (total > 0 && !TrainingDummies.isTrainingDummy(victim)) {
             double worldRate = worldExpRate(victim.getWorld());
             if (worldRate > 0.0) {
-                maybeGrantCombatSkillExp(attacker, mainhandContributor, victim.getUniqueId(), total,
-                        victim, worldRate);
+                maybeRecordCombatSkillDamage(attacker, mainhandContributor, victim.getUniqueId(),
+                        total, victim);
             }
         }
 
@@ -476,13 +599,88 @@ public final class CombatListener implements Listener {
                     AOE_RADIUS_KEY, agg.totalOf(AOE_RADIUS_KEY),
                     AOE_DAMAGE_RATE_KEY, agg.totalOf(AOE_DAMAGE_RATE_KEY),
                     AOE_MAX_TARGETS_KEY, agg.totalOf(AOE_MAX_TARGETS_KEY));
-            maybeApplyAreaDamage(attacker, victim, aoeStats, total);
+            maybeApplyAreaDamage(attacker, mainhandContributor, victim, aoeStats, total);
             if (powerAttackRadius > 0.0) {
-                maybeApplyAreaDamage(attacker, victim, Map.of(
+                maybeApplyAreaDamage(attacker, mainhandContributor, victim, Map.of(
                         AOE_RADIUS_KEY, powerAttackRadius,
                         AOE_DAMAGE_RATE_KEY, 0.35), total);
             }
         }
+    }
+
+    /**
+     * 魔法ダメージ(ArsPaperフォークがTF対称パイプライン経由で撃つヒット)に<b>PvP抑制だけ</b>を掛ける
+     * (2026-07-31 F4 指摘2)。
+     *
+     * <p><b>なぜ別ハンドラが必要か</b>: {@link #onEntityDamageByEntity} の
+     * {@link #resolveAttacker} は {@link #MELEE_CAUSES} と {@code PROJECTILE} しか受け付けないので、
+     * フォークの {@code applyMagicDamage}({@code DamageType.MAGIC})は必ず早期returnしていた。
+     * つまり {@link PvpDamagePolicy} が<b>構造的に魔法へ届かず</b>、
+     * 「攻撃カーブがどれだけ伸びても対人は最低◯発かかる」という既存の安全弁が魔法だけ無効だった
+     * (Lv100帯の基礎21222が pvp.damage-multiplier も pvp.max-damage-percent-of-max-health も
+     * 通らずに飛んでいた)。{@code magical.attack-power-scale} を下げるとPvEも同時に下がるため、
+     * この一点だけを塞ぐ手段が他に無い。
+     *
+     * <p><b>意図的にPvP抑制"だけ"を掛ける(他のステ処理は一切通さない)</b>: 会心・貫通・守備力・
+     * 耐性・出血・レベル倍率はフォークの {@code TrinityForgeBridge#magicalFinalDamage} が
+     * <b>すでに</b> {@code SymmetricCombatService} を通して算出済みで、その最終値が BASE に載っている。
+     * ここで再びパイプラインへ流すと同じステが二重計上になる。
+     *
+     * <p><b>ゲートに {@link MagicPipelineDamage} を要求する理由</b>は
+     * {@link MagicResistanceFoldListener} と同じ: {@code DamageCause.MAGIC} はTF/Arsの専有ではなく
+     * バニラの負傷ポーションや {@code /damage} も同じcauseで届くため、causeだけを見るとTFパイプライン
+     * 外のダメージまで書き換えてしまう。
+     *
+     * <p><b>⚠️ なぜ BASE を縮めるのではなく「最終ダメージ」へ抑制を掛けるのか(2026-07-31 F5 指摘1、
+     * dev に入った実害リグレッションの修正)</b>: 初版は {@code setDamage(BASE, suppressed)} だけを
+     * 呼んでいたが、Paper の {@code setDamage(DamageModifier, double)} は {@code modifiers.put} しか
+     * 行わない(バイトコードで確認済み)。バニラの各軽減 modifier —— {@code MAGIC}(防護エンチャント) /
+     * {@code ABSORPTION}(吸収ハート) / {@code BLOCKING}(盾) —— は<b>縮める前の BASE から算出された
+     * 絶対値のまま残る</b>ため、{@code getFinalDamage()}(= 全 modifier の単純和・0クランプなし)が
+     * 負値へ潰れ、<b>魔法が当たっても常に0ダメージ</b>になっていた
+     * (BASE 21222 → 3.0 に対し 防護IV の MAGIC が -13582 のまま／吸収ハート4だけでも 3.0-4 = -1)。
+     * 現在は {@link FinalDamageScaling} で<b>適用中の全 modifier を同一係数で縮める</b>ので、
+     * 最終ダメージが抑制値と一致し、0以下へ潰れることが構造的に起こらない。詳細と根拠は
+     * {@link FinalDamageScaling} の javadoc に一本化してある。
+     *
+     * <p><b>バニラ {@code MAGIC} modifier を(物理経路のように)0化してはいけない</b>: 魔法経路の
+     * {@code SymmetricCombatService#magicalFinalDamage} は {@code componentResult} へ
+     * {@code vanillaProtectionDefense} を<b>渡していない</b>(同クラスの {@code extraDefense} 引数の
+     * javadoc に「magical/DoT 経路は MAGIC modifier を0化しないので二重適用してはならない」と明記)。
+     * つまり魔法に対する防護エンチャントの軽減は<b>バニラ modifier だけが担っている</b>ので、
+     * 0化すると防護が魔法に対して丸ごと消える(B1型の無言削除)。ここで係数スケールを選んでいるのは
+     * 「割合としての軽減を保ったまま最終値だけ上限に収める」ためでもある。
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onMagicPipelineDamageByEntity(EntityDamageByEntityEvent event) {
+        if (!magicPvpSuppressionApplies(event.getCause(), MagicPipelineDamage.isActive(),
+                event.getDamager(), event.getEntity())) {
+            return;
+        }
+        LivingEntity victim = (LivingEntity) event.getEntity();
+        double finalBefore = event.getFinalDamage();
+        if (finalBefore <= 0.0) {
+            return; // 盾で完全ブロック等。既に0以下なので抑制する余地がない。
+        }
+        double suppressed = PvpDamagePolicy.apply(finalBefore, PvpDamagePolicy.maxHealthOf(victim),
+                damageConfig.pvpEnabled(), damageConfig.pvpDamageMultiplier(),
+                damageConfig.pvpMaxDamagePercentOfMaxHealth());
+        FinalDamageScaling.scaleAllModifiers(event,
+                FinalDamageScaling.scaleFactor(finalBefore, suppressed));
+    }
+
+    /**
+     * 魔法ヒットへPvP抑制を掛ける対象かの純粋判定(Bukkit実体を要求しないので単体テスト可能)。
+     * TFパイプラインを通った {@code MAGIC} で、かつ<b>攻撃者も被害者もプレイヤー</b>のときだけ真。
+     * モブへの魔法(PvEの大多数)と、TFパイプライン外の {@code MAGIC}(バニラ負傷ポーション等)は対象外。
+     */
+    static boolean magicPvpSuppressionApplies(EntityDamageEvent.DamageCause cause,
+                                              boolean magicPipelineActive,
+                                              Entity damager, Entity victim) {
+        return cause == EntityDamageEvent.DamageCause.MAGIC
+                && magicPipelineActive
+                && damager instanceof Player
+                && PvpDamagePolicy.isPvp(victim);
     }
 
     /**
@@ -520,7 +718,81 @@ public final class CombatListener implements Listener {
     /** ログアウトしたプレイヤーの近接チャージ記録を破棄する(メモリリーク防止, B2レビュー修正)。 */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(PlayerQuitEvent event) {
-        meleeChargeTracker.forget(event.getPlayer().getUniqueId());
+        UUID playerId = event.getPlayer().getUniqueId();
+        meleeChargeTracker.forget(playerId);
+        combatKillCredits.forgetAttacker(playerId);
+    }
+
+    /**
+     * スポナー由来のモブへ「スポナー産」の印を一度だけ押す。
+     *
+     * <p>2026-07-29: キーを {@link PdcKeys#MOB_SPAWNER_SPAWNED} へ移した(値は同一 —
+     * プラグイン名由来の namespace が {@code trinityforge} なので完全に互換)。
+     * {@code MobTransformCarryOver} が変身時にこの印を引き継ぐためで、
+     * 以前はスポナーのゾンビを水没させるだけでスポナーEXP抑制を回避できた。
+     *
+     * <p><b>N5(2026-07-31) 以降、この印を読んでEXPを減額する経路は無い。</b>読んでいたのは弓術の
+     * per-hit EXP 式(スポナー産 0.7 倍)だけで、弓術を討伐時ベースへ統一した際に式ごと削除した。
+     * 近接は元からスポナー減額を持たないので、これで3スキルが対称になっている。
+     * 印そのものは「スポナー産かどうか」を後から判定できる唯一の手段(変身を跨いで引き継がれる)
+     * なので、減額を再導入する余地を残して押し続ける。
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onCreatureSpawn(CreatureSpawnEvent event) {
+        if (event.getSpawnReason() == CreatureSpawnEvent.SpawnReason.SPAWNER) {
+            event.getEntity().getPersistentDataContainer()
+                    .set(PdcKeys.MOB_SPAWNER_SPAWNED, PersistentDataType.BYTE, (byte) 1);
+        }
+    }
+
+    /**
+     * HEAVY_WEAPONS / LIGHT_WEAPONS / ARCHERY はいずれも、討伐が確定した時点で各攻撃者の
+     * ダメージ寄与比に応じた分だけEXPを受け取る(N5 で弓術もこの経路へ統一)。
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onCombatKill(EntityDeathEvent event) {
+        LivingEntity dead = event.getEntity();
+        double maxHealth = maxHealth(dead);
+        var credits = combatKillCredits.consume(dead.getUniqueId(), maxHealth);
+        if (credits.isEmpty()) return;
+        // getKiller() は直前のプレイヤー攻撃を保持する場合があり、溶岩・落下などで止めを
+        // 刺したEXPファームを確実には除外できない。死亡イベント自身のDamageSourceで、
+        // 致死ダメージの起因者がプレイヤーだった場合だけ比例配分する。
+        if (!(event.getDamageSource().getCausingEntity() instanceof Player)) return;
+        if (mobLevelTable != null && mobLevelTable.suppressesSkillExp(dead.getType())) return;
+        double worldRate = worldExpRate(dead.getWorld());
+        if (worldRate <= 0.0) return;
+        TrinityForge tf = TrinityForge.getInstance();
+        for (CombatKillCreditTracker.Credit credit : credits) {
+            Player contributor = Bukkit.getPlayer(credit.attackerId());
+            if (contributor == null || !contributor.isOnline()) continue;
+            String skill = credit.skill();
+            double amount = skillExp.combatKillExp(
+                    skill, dead.getType().name(), Math.max(0, MobData.of(dead).level()), maxHealth);
+            if (amount <= 0.0) continue;
+            double role = roleBuffResolver.expMultiplierForSkill(contributor, skill).orElse(1.0);
+            double spot = tf == null ? 1.0
+                    : tf.locationExpDiminishing().multiplierForKillSpot(contributor, dead, skillExp,
+                            tf.dungeonWorldRegistry().isDungeonWorld(dead.getWorld().getUID()));
+            // レベル差による足きり(2026-08-09、combat/damage.yml の level-cutoff)。
+            // 「止めを刺した1人」ではなく寄与のあった各プレイヤーへ配る仕組みなので、
+            // 受取人ごとにその人自身の戦闘レベルで判定する(全員が同じ倍率になるわけではない)。
+            KillRewardAdjuster adjuster = this.killRewardAdjuster;
+            double cutoff = adjuster == null ? 1.0 : adjuster.expMultiplier(contributor, dead);
+            if (cutoff <= 0.0) continue;
+            ArsProgressionBridge.grantSkillExp(plugin, contributor, skill,
+                    amount * credit.share() * role * worldRate * spot * cutoff);
+        }
+    }
+
+    /** Drops contribution state when an entity unloads, despawns, or is otherwise invalidated. */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onCombatTrackedEntityRemoved(EntityRemoveEvent event) {
+        // EntityDeathEvent owns death consumption; do not depend on the relative dispatch order of
+        // the two events. Every non-death removal can only invalidate the pending ledger.
+        if (event.getCause() != EntityRemoveEvent.Cause.DEATH) {
+            combatKillCredits.clear(event.getEntity().getUniqueId());
+        }
     }
 
     private static final String REFLECT_FLAT_KEY = StatKeys.canonical("reflect-flat");
@@ -550,14 +822,26 @@ public final class CombatListener implements Listener {
     }
 
     /**
-     * 課題2 (2026-07-25): 棘の鎧の再設計 — プレイヤーが被弾した際、守備カテゴリの {@code reflect-flat}
-     * (反射率（実）) + {@code reflect-percent}(反射率（割）、被ダメージ割合)ぶんのダメージを実際の攻撃者
-     * (近接/投射物の発射者)へ跳ね返す。{@code reflect-percent} には棘の鎧レベル(装備4部位合計)×10%も
-     * {@link ReflectDamageBridge} 経由で加算される(ユーザー決定)。バニラ自身の棘プロックは
-     * {@link #onVanillaThornsProc} で無効化済みなのでここが反射の単一経路。
+     * 棘の鎧の再設計(課題2, 2026-07-25) → <b>仕様変更(2026-08-05)</b>。
+     *
+     * <p>実サーバ報告「反射の仕様がおかしい(すごい量のダメージが出る)」を受け、ユーザー確定仕様
+     * 「<b>反射率：被弾時にこの確率で相手にダメージを与える。ダメージは武器の通常攻撃ダメージ(素殴り)</b>」
+     * へ置き換えた。旧仕様は {@code reflect-percent × 被ダメージ} を<b>毎回</b>跳ね返しており、
+     * 被ダメージが大きいほど反射も青天井に伸びる(エリート/ボスの一撃を受けるとそのまま巨大な反射になる)
+     * のが「すごい量」の機構的な原因。新仕様では反射量が被ダメージから完全に切り離される。
+     *
+     * <ul>
+     *   <li>{@code reflect-percent}(反射率) = <b>発動確率</b>。棘の鎧レベル(装備4部位合計)×10% も
+     *       {@link ReflectDamageBridge} 経由で確率へ加算される(旧仕様からの引き継ぎ)。</li>
+     *   <li>発動時のダメージ = <b>被弾者自身の素殴りダメージ</b>({@link #plainMeleeDamage})
+     *       + {@code reflect-flat}。{@code reflect-flat} は新仕様の文面に無いが、既存装備
+     *       (skilltree/power.yml のパーク等)が {@code reflect-percent} と対で配っているため、
+     *       「発動したときの上乗せ実数」として残している(毎回発動する別経路にはしない)。</li>
+     * </ul>
      *
      * <p>MONITOR優先度: 他プラグイン(シールドブロック等)によるダメージ軽減が確定した後の
-     * {@link EntityDamageEvent#getFinalDamage()} を使う(被ダメージ割合はブロック等で0になった一撃を反射しない)。
+     * {@link EntityDamageEvent#getFinalDamage()} を「被弾が成立したか」の判定にだけ使う
+     * (ブロック等で0になった一撃では反射しない。<b>量には使わない</b>)。
      * ダメージを与える相手は {@code EntityDamageByEntityEvent} の damager(近接ならその実体、投射物なら
      * {@link Projectile#getShooter()})。{@link #reflecting} ガードにより、反射で与えたダメージが再度
      * このハンドラを同期再入しても即returnし、無限ループ(反射→反射→…)を1ホップで断ち切る
@@ -580,10 +864,15 @@ public final class CombatListener implements Listener {
             return;
         }
         PlayerCombatAggregate agg = aggregator.aggregate(victim);
-        double flat = Math.max(0.0, agg.totalOf(REFLECT_FLAT_KEY));
-        double percent = Math.max(0.0,
-                agg.totalOf(REFLECT_PERCENT_KEY) + ReflectDamageBridge.thornsPercentContribution(victim));
-        double reflectAmount = flat + percent * finalDamage;
+        double chance = agg.totalOf(REFLECT_PERCENT_KEY)
+                + ReflectDamageBridge.thornsPercentContribution(victim);
+        if (!Double.isFinite(chance) || chance <= 0.0) {
+            return;
+        }
+        if (chance < 1.0 && reflectRoll.getAsDouble() >= chance) {
+            return;
+        }
+        double reflectAmount = plainMeleeDamage(victim, agg) + Math.max(0.0, agg.totalOf(REFLECT_FLAT_KEY));
         if (!Double.isFinite(reflectAmount) || reflectAmount <= 0.0) {
             return;
         }
@@ -593,6 +882,34 @@ public final class CombatListener implements Listener {
         } finally {
             reflecting = false;
         }
+    }
+
+    /**
+     * 被弾者の「素殴り」ダメージ — その場でメインハンドの武器を一振りしたときの<b>基礎</b>ダメージ。
+     *
+     * <p>会心・{@code flat/percent-bonus-damage}・パワーアタック・チャージ減衰といった
+     * {@link #onEntityDamageByEntity} の後段パイプラインは<b>一切通さない</b>(反射が本命の攻撃より
+     * 強くなるのを防ぐ)。基礎の選び方だけは通常攻撃と同じ規則に揃える:
+     * アイテム側に {@code attack-power} が定義されていれば TF値が基礎を置き換え、無ければ
+     * バニラの {@link Attribute#ATTACK_DAMAGE}(手持ち武器の攻撃力修飾を含んだ値)を基礎とし、
+     * どちらの場合もパーク/アドオンの {@code attack-power} を加算する。
+     */
+    private double plainMeleeDamage(Player victim, PlayerCombatAggregate agg) {
+        String attackPowerKey = StatKeys.canonical("attack-power");
+        double multiplier = agg.multiplierFor(attackPowerKey);
+        double item = agg.item().getOrDefault(attackPowerKey, 0.0) * multiplier;
+        double perk = agg.perkAttack().getOrDefault(attackPowerKey, 0.0) * multiplier;
+        double addon = agg.addon().getOrDefault(attackPowerKey, 0.0) * multiplier;
+        if (agg.item().containsKey(attackPowerKey)) {
+            return Math.max(0.0, agg.clamp(attackPowerKey, item + perk + addon));
+        }
+        return Math.max(0.0, vanillaAttackDamage(victim) + agg.clamp(attackPowerKey, perk + addon));
+    }
+
+    /** バニラの攻撃力属性(手持ち武器の修飾込み)。属性が取れない環境では素手相当の 1.0。 */
+    private static double vanillaAttackDamage(Player player) {
+        AttributeInstance instance = player.getAttribute(Attribute.ATTACK_DAMAGE);
+        return instance == null ? 1.0 : instance.getValue();
     }
 
     /**
@@ -610,17 +927,22 @@ public final class CombatListener implements Listener {
     }
 
     /**
-     * Empty-swing アイテムCT: left-click air/block starts CT when the client sends an interact packet.
-     * Looking into void/sky often does <em>not</em> fire {@link PlayerInteractEvent} — that path is
-     * covered by {@link #onArmSwing} ({@link PlayerAnimationEvent}).
+     * Empty-swing アイテムCT: left-click block starts CT when the client sends an interact packet.
+     *
+     * <p>2026-08-03(棚卸し指摘): {@code LEFT_CLICK_AIR} は届かない。{@link PlayerInteractEvent} は
+     * コンストラクタで {@code blockClicked == null} なら無条件に {@code useClickedBlock = DENY} を刻み、
+     * {@code isCancelled()} はその値だけを見る（{@code RIGHT_CLICK_AIR} と全く同じ仕組み）。つまり
+     * 空中クリックは生成された瞬間から cancelled 済みで、{@code ignoreCancelled = true} のこのリスナーには
+     * 最初から配送されない。以前の分岐は到達不能な死にコードだったので削除した。
+     * 空中/void への空振りは {@link #onArmSwing} ({@link PlayerAnimationEvent}) が無条件に拾うため、
+     * 検知漏れは無い。
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onMissSwing(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) {
             return;
         }
-        Action action = event.getAction();
-        if (action != Action.LEFT_CLICK_AIR && action != Action.LEFT_CLICK_BLOCK) {
+        if (event.getAction() != Action.LEFT_CLICK_BLOCK) {
             return;
         }
         maybeStartSwingCooldown(event.getPlayer());
@@ -648,20 +970,25 @@ public final class CombatListener implements Listener {
      * してからスイングで殴っても、後続の呼び出しは既に始まっているCTを見て即return するため二重に短縮
      * 計算が走ったりCTがリセットされたりしない。
      *
-     * <p>優先度はMONITOR、{@code ignoreCancelled = true}: このリスナーはCTを開始するだけで他の判断に
-     * 一切影響を与えないため、他プラグイン/TF内の別リスナーが最終的に何を決めた後でも安全に動ける
-     * MONITORを選んだ(onMissSwing/onArmSwingと同じ位置付け)。ignoreCancelled=trueにより、
-     * アドベンチャーモードで {@code useInteractedBlock()} がDENYになりイベント全体がキャンセルされた
-     * ケースを含め、キャンセル済みイベントでは発火しない — これは同ファイル内の他の
-     * {@code PlayerInteractEvent} 購読者({@link com.trinityforge.active.ActivationDispatcher}含む)と
-     * 揃えた既存の書き方であり、新しい判定方式を発明していない。
+     * <p>優先度はMONITOR。このリスナーはCTを開始するだけで他の判断に一切影響を与えないため、
+     * 他プラグイン/TF内の別リスナーが最終的に何を決めた後でも安全に動けるMONITORを選んだ
+     * (onMissSwing/onArmSwingと同じ位置付け)。
+     *
+     * <p><b>{@code ignoreCancelled} は付けない(2026-08-03 修正)。</b>
+     * {@link PlayerInteractEvent#isCancelled()} は {@code useInteractedBlock() == DENY} と等価で、
+     * クリックしたブロックが {@code null}(= {@code RIGHT_CLICK_AIR})だとコンストラクタが
+     * {@code useClickedBlock = DENY} と初期化するため、<b>空クリックは誰もキャンセルしていなくても
+     * 生成時点から「キャンセル済み」</b>になる。以前はここに {@code ignoreCancelled = true} が付いており、
+     * 「右クリックで使うアイテムのCT」という本来の目的にも関わらず<b>ブロックに向けた右クリックでしか
+     * CTが始まらなかった</b>。キャンセル判定は下の {@code useItemInHand()} で行う(こちらが本来見るべき
+     * フィールド)。詳細は {@link GachaListener#onInteract} の javadoc。
      *
      * <p>オフハンドは対象外({@code event.getHand() == EquipmentSlot.HAND} でゲート) —
      * {@link #startItemCooldown} 自体がメインハンド専用の実装であるため、オフハンドの右クリックで
      * 呼び出すと {@code attacker.getInventory().getItemInMainHand()} を読んでメインハンドのCTを誤って
      * 開始してしまう(オフハンドにアイテムCTを掛けたい訳ではない操作でも発動する)。
      */
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onRightClickItem(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) {
             return;
@@ -712,10 +1039,19 @@ public final class CombatListener implements Listener {
         lv.setHealth(Math.max(0.0, newHealth));
     }
 
+    private static double maxHealth(LivingEntity entity) {
+        AttributeInstance maxHealth = entity.getAttribute(Attribute.MAX_HEALTH);
+        return maxHealth == null ? Math.max(0.0, entity.getHealth()) : Math.max(0.0, maxHealth.getValue());
+    }
+
     private static final String ITEM_COOLDOWN_KEY = StatKeys.canonical("item-cooldown");
 
-    /** Longest cooldown TF will set (1 hour), so an absurd rolled value can't overflow the int tick count. */
-    private static final long ITEM_COOLDOWN_MAX_TICKS = 72_000L;
+    /**
+     * Longest cooldown TF will set (1 hour), so an absurd rolled value can't overflow the int tick count.
+     * 段階1宣言(2026-07-27): {@code stats/lore.yml} の {@code item-cooldown.limits.max-duration-ticks-ref}
+     * が参照する昇格済み定数(可視性のみpublicへ変更、値・挙動は不変)。
+     */
+    public static final long ITEM_COOLDOWN_MAX_TICKS = 72_000L;
 
     /**
      * アイテムCT applies to the PRIMARY melee hit only ({@code ENTITY_ATTACK}), never the sweep
@@ -855,6 +1191,10 @@ public final class CombatListener implements Listener {
             // retain し、着弾時に tfBaseReplaces のitem attack-power へ乗率として掛け戻す(CombatListener
             // 本体側)。ここで捕捉しないと着弾時点ではもう force を取得する手段がない。
             ProjectileWeapon.storeDrawForce(projectile, event.getForce());
+            // 2026-08-13バグ修正(オフハンド発射のステ門迂回防止): どちらの手から撃ったかも同じ projectile
+            // へ retain する。event.getHand() の実装差(null を返し得る)は ProjectileWeapon.isOffhand の
+            // == 比較で null 安全に吸収する。
+            ProjectileWeapon.storeFiredFromOffhand(projectile, ProjectileWeapon.isOffhand(event.getHand()));
         }
     }
 
@@ -893,9 +1233,21 @@ public final class CombatListener implements Listener {
      * the mainhand no longer holds it — this makes the fix safe even if a future Paper version changes the
      * consume/event ordering: if the hand still has the trident (never actually consumed), nothing is
      * added and no duplicate is created.
+     *
+     * <p><b>2026-08-04 バグ修正(distance-damage-bonus 悪用防止):</b> このハンドラは全 projectile 種別で
+     * 発火する唯一の生成イベントなので、Trident 固有の処理より前に「射手がプレイヤーの projectile」だけ
+     * 発射地点を {@link ProjectileWeapon#storeLaunchLocation} で retain する。矢(弓/クロスボウ)は
+     * {@code EntityShootBowEvent} が先に発火してから同じ矢に対しこの {@code ProjectileLaunchEvent} も
+     * 発火する(vanilla の生成順)ため、矢もここ一箇所で拾える — 専用の新規リスナーを重ねる必要はない。
+     * 記録に使うのは {@code projectile.getLocation()}(この時点で既に world にスポーン済みの、実際の
+     * 発射座標そのもの)であり、射手の座標ではない(射手はスニーク/引き絞り中に僅かにズレることがある)。
      */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onProjectileLaunch(ProjectileLaunchEvent event) {
+        if (event.getEntity() instanceof Projectile firedProjectile
+                && firedProjectile.getShooter() instanceof Player) {
+            ProjectileWeapon.storeLaunchLocation(firedProjectile, firedProjectile.getLocation());
+        }
         if (!(event.getEntity() instanceof Trident trident)
                 || !(trident.getShooter() instanceof Player shooter)) {
             return;
@@ -962,9 +1314,10 @@ public final class CombatListener implements Listener {
      * "armor's offensive stats boost attacks" intent (アイテムCT だけが agg.mainhand() 専用の例外)。No bleed roll
      * (chance or damage 0) never procs. Keys are read canonically to match the aggregate map.
      */
-    private void maybeApplyBleed(Player attacker, LivingEntity victim, Map<String, Double> weaponDerived) {
+    private void maybeApplyBleed(Player attacker, LivingEntity victim, Map<String, Double> weaponDerived,
+                                 double hitDamage) {
         double chance = weaponDerived.getOrDefault(StatKeys.canonical("bleed-chance"), 0.0);
-        double damage = weaponDerived.getOrDefault(StatKeys.canonical("bleed-damage"), 0.0);
+        double damage = BleedService.damagePerTick(weaponDerived, hitDamage);
         if (chance <= 0.0 || damage <= 0.0) {
             return;
         }
@@ -981,15 +1334,43 @@ public final class CombatListener implements Listener {
     private static final String DISTANCE_DAMAGE_BONUS_KEY = StatKeys.canonical("distance-damage-bonus");
 
     /**
-     * 弓術の距離ダメージ: 16ブロックで係数1.0倍分、64ブロックで頭打ち(4.0倍分)。
-     * {@code bonus=0.2} なら 64ブロック地点で最終ダメージ×1.8。
+     * 距離ダメージ(distance-damage-bonus)の効果対象ブロック距離の絶対上限。stats/lore.yml
+     * {@code stats.distance-damage-bonus.limits} から {@code java:} cap-ref で参照される
+     * (CapRefResolver 拘束テスト対象)。{@code public static final} でないと cap-ref から参照できない。
+     */
+    public static final double MAX_DISTANCE_DAMAGE_BLOCKS = 64.0;
+
+    /**
+     * 弓術の距離ダメージ: 16ブロックで係数1.0倍分、{@link #MAX_DISTANCE_DAMAGE_BLOCKS}ブロックで頭打ち
+     * (4.0倍分)。{@code bonus=0.2} なら 64ブロック地点で最終ダメージ×1.8。
      * 純粋関数(Bukkit非依存)なのでユニットテストから直接呼べる — {@link #powerAttackDamage} と同じ流儀。
      */
     static double distanceDamage(double finalDamage, double bonus, double blocks) {
         if (bonus <= 0.0 || !Double.isFinite(bonus) || !Double.isFinite(blocks) || blocks <= 0.0) {
             return finalDamage;
         }
-        return finalDamage * (1.0 + bonus * Math.min(64.0, blocks) / 16.0);
+        return finalDamage * (1.0 + bonus * Math.min(MAX_DISTANCE_DAMAGE_BLOCKS, blocks) / 16.0);
+    }
+
+    /**
+     * 発射地点({@code launch}, {@link ProjectileWeapon#storeLaunchLocation} が retain した座標)から
+     * 着弾地点({@code impact})までのブロック距離。純粋関数(Bukkit の {@link Location#distance} を呼ぶだけ
+     * だが副作用なし)なので {@link #distanceDamage} と同じくユニットテストから直接呼べる。
+     *
+     * <p>{@link Location#distance} は異なる {@link World} 間で {@link IllegalArgumentException} を投げるため、
+     * ワールドが一致しない場合(通常は起こらないが、記録後にワールドがアンロードされた等)は例外を伝播させず
+     * 0(距離ボーナス無し)にフォールバックする。{@code null} 引数・{@code null} World も同様に0を返す。
+     */
+    static double launchDistanceBlocks(Location launch, Location impact) {
+        if (launch == null || impact == null) {
+            return 0.0;
+        }
+        World launchWorld = launch.getWorld();
+        World impactWorld = impact.getWorld();
+        if (launchWorld == null || impactWorld == null || !launchWorld.equals(impactWorld)) {
+            return 0.0;
+        }
+        return launch.distance(impact);
     }
 
     static double powerAttackDamage(double finalDamage, double bonus, boolean airborne) {
@@ -1005,7 +1386,7 @@ public final class CombatListener implements Listener {
      * 対象数を制限する。スプラッシュは {@code target.damage(splash, attacker)} で与えるため、{@link #applyingAoe}
      * ガードにより二次被弾はTF処理を通さずバニラ(各対象自身の防具)で軽減される。負値/0の主命中では発生しない。
      */
-    private void maybeApplyAreaDamage(Player attacker, Entity primaryVictim,
+    private void maybeApplyAreaDamage(Player attacker, ItemStack weapon, Entity primaryVictim,
                                       Map<String, Double> aggregateStats, double primaryDamage) {
         if (primaryDamage <= 0.0 || !(primaryVictim instanceof LivingEntity primary)) {
             return;
@@ -1043,6 +1424,9 @@ public final class CombatListener implements Listener {
         }
         // 再入ガードを立ててから同期的に各対象へダメージ。スプラッシュ由来の被弾イベントは
         // onEntityDamageByEntity 冒頭で早期returnされる(AoEの連鎖防止 + splash量の再計算上書き防止)。
+        // 2026-08-19 W-136: スプラッシュ被弾も戦闘EXP台帳へ記録するので、主命中と同じワールド倍率
+        // ゲートをここで1回だけ引く(対象ごとに引き直すとワールドは同じなのに無駄が増える)。
+        double worldRate = worldExpRate(primary.getWorld());
         applyingAoe = true;
         try {
             for (LivingEntity target : targets) {
@@ -1054,6 +1438,17 @@ public final class CombatListener implements Listener {
                                 damageConfig.pvpEnabled(), damageConfig.pvpDamageMultiplier(),
                                 damageConfig.pvpMaxDamagePercentOfMaxHealth())
                         : splash;
+                // 2026-08-19 W-136「軽武器・重武器だけ討伐EXPが少ない」の真因。
+                // 【同じ applyingAoe ガードが戦闘EXP台帳への記録ごと飛ばしていた】。武器スキルEXPは
+                // 討伐時に台帳の寄与ぶんだけ支払う方式(onCombatKill)なので、記録が無いスプラッシュは
+                //   ・スプラッシュで止めを刺したモブ → 台帳が空 = EXPが【まるごと0】
+                //   ・主命中と併殺したモブ         → 主命中ぶんの share しか立たず目減り
+                // という形で消えていた。AoEを持つのは大剣(重武器)と鎌(軽武器)、および
+                // パーク由来のパワーアタック範囲(近接全般)だけで、弓術には無い。
+                // 記録は必ずダメージ適用より前に行う(台帳は被弾前HPでクランプするため)。
+                if (amount > 0.0 && worldRate > 0.0 && !TrainingDummies.isTrainingDummy(target)) {
+                    maybeRecordCombatSkillDamage(attacker, weapon, target.getUniqueId(), amount, target);
+                }
                 target.damage(amount, attacker);
             }
         } finally {
@@ -1096,11 +1491,28 @@ public final class CombatListener implements Listener {
         return null;
     }
 
-    private static LivingEntity resolveMobAttacker(EntityDamageByEntityEvent event) {
+    /**
+     * モブ側の攻撃者を解決する。近接({@link #MELEE_CAUSES})はダメージャー自身、
+     * 飛び道具({@code PROJECTILE})は<b>その発射者</b>。
+     *
+     * <p><b>2026-07-30 バグ修正</b>: 以前は近接だけを見ていたため、スケルトンの矢・ブレイズの
+     * 火球・ウィッチの瓶など<b>モブの飛び道具ダメージにTFスケール(モブレベル・attack-power・
+     * プレイヤーの守備/回避)が一切乗っていなかった</b>(このリスナーは
+     * {@code resolveMobAttacker}=null → {@code resolveAttacker}=null(発射者がプレイヤーでない)で
+     * 素通りし、バニラのダメージがそのまま通っていた)。ディスペンサー等の非生物発射源
+     * ({@code BlockProjectileSource})は {@link LivingEntity} でないので従来どおり対象外。
+     */
+    static LivingEntity resolveMobAttacker(EntityDamageByEntityEvent event) {
         Entity damager = event.getDamager();
         if (damager instanceof LivingEntity living && !(damager instanceof Player)
                 && MELEE_CAUSES.contains(event.getCause())) {
             return living;
+        }
+        if (event.getCause() == EntityDamageEvent.DamageCause.PROJECTILE
+                && damager instanceof Projectile projectile
+                && projectile.getShooter() instanceof LivingEntity shooter
+                && !(shooter instanceof Player)) {
+            return shooter;
         }
         return null;
     }
@@ -1121,8 +1533,11 @@ public final class CombatListener implements Listener {
             return;
         }
         AttackStats attack = MobData.of(mob).attackStats();
+        // 2026-07-30: 飛び道具なら被害者の飛び道具耐性(Projectile Protection)も再導出させる
+        // (TFは MAGIC modifier を常時0化するため、渡さないとバニラのエンチャ軽減が消える)。
+        boolean projectileHit = event.getCause() == EntityDamageEvent.DamageCause.PROJECTILE;
         CombatHitResult hit = combatService.physicalFinalDamageFromMobResult(
-                mob, victim, vanillaBaseDamage, attack);
+                mob, victim, vanillaBaseDamage, attack, projectileHit);
         double total = hit.damage();
         if (hit.crit()) {
             CritFlash.play(victim);
@@ -1182,17 +1597,22 @@ public final class CombatListener implements Listener {
     }
 
     /**
-     * Exploit fix (武器スキルEXP無限farm): per-(attacker,target) cooldown gating the combat skill EXP
-     * grant below. Shared pure-Java tracker ({@link AttackerTargetCooldown}) — see its Javadoc.
+     * この一撃の攻撃寄与アイテム({@link #resolveMainhandContributor})がオフハンドから来ているかどうか
+     * (2026-08-13バグ修正、offhand-stats-apply 門迂回防止)。飛び道具(弓/クロスボウ)のみ発射時に
+     * retain された値を読む — 近接は常にメインハンドなので既定 {@code false} のまま返る。
+     *
+     * <p>トライデントが発射時にこのキーを retain する経路({@code EntityShootBowEvent})を通るかどうかは
+     * 未検証。ただしこのフラグは「オフハンドスロットを二重計上しないための除外判定」にしか使われず、
+     * 寄与アイテム自体はどちらの手にあっても常に合算される設計契約のため、経路の有無に関わらず
+     * 結果は正しい({@link ProjectileWeapon#storeFiredFromOffhand} のjavadoc参照)。
      */
-    private final AttackerTargetCooldown combatExpCooldown = new AttackerTargetCooldown();
+    private static boolean resolveContributorIsOffhand(EntityDamageByEntityEvent event) {
+        if (event.getDamager() instanceof Projectile projectile) {
+            return ProjectileWeapon.readFiredFromOffhand(projectile);
+        }
+        return false;
+    }
 
-    /**
-     * Grants Valhalla EXP to the weapon's use-skill after a landed hit (stats/skill-exp.yml combat.*).
-     * Exploit fix: hitting the SAME {@code targetId} again within {@link SkillExpConfig
-     * #combatSameTargetCooldownSeconds()} grants no EXP (a mob that doesn't die, or arrows fired at the
-     * same target repeatedly, previously farmed unbounded EXP); a fresh target is never blocked.
-     */
     /**
      * true = 武器スキルEXPを付与してよいワールド(dungeon-only-exp=falseなら常にtrue、trueなら
      * ダンジョンワールド({@link com.trinityforge.dungeon.DungeonWorldRegistry})限定)。
@@ -1208,59 +1628,103 @@ public final class CombatListener implements Listener {
     }
 
     /**
-     * タスク2(2026-07-26 EXP調整): {@code weapon} を落とした一撃に対する武器スキルEXPを付与する。
-     * {@code damage} はこの一撃の最終ダメージ(=呼び出し元の {@code total})、{@code victim} はこの
-     * 一撃を受けたEntity(モブレベルの参照に使う)。
+     * {@code weapon} を落とした一撃のダメージを、武器スキルEXPの討伐時按分台帳
+     * ({@link CombatKillCreditTracker})へ記録する。<b>この経路はEXPを付与しない</b> — 支払いは
+     * {@link #onCombatKill} が討伐確定時に一度だけ行う。{@code damage} はこの一撃の最終ダメージ
+     * (=呼び出し元の {@code total})、{@code victim} はこの一撃を受けたEntity。
+     *
+     * <p>N5(2026-07-31): 以前は弓術だけがここで per-hit にEXPを付与しており(与ダメージ比例・CT無し)、
+     * 「倒さずに撃ち続けるだけで無制限に稼げる」状態だった。3スキルすべてを台帳経由へ寄せたので、
+     * このメソッドから {@code grantSkillExp} を呼ぶ経路は存在しない。
+     *
+     * <p>2026-07-27 牧場対策: {@code victim} の EntityType が {@code combat/mob-level-table.yml} の
+     * {@code no-skill-exp-mobs} に載っていれば、台帳へ記録せず既存の記録も破棄する(バニラEXPオーブは
+     * このメソッドの管轄外なので影響を受けない)。{@code mobLevelTable} が null(旧コンストラクタ経由)
+     * のときは従来どおり抑止しない。
      */
-    private void maybeGrantCombatSkillExp(Player attacker, ItemStack weapon, UUID targetId,
-                                          double damage, Entity victim, double worldRate) {
+    private void maybeRecordCombatSkillDamage(Player attacker, ItemStack weapon, UUID targetId,
+                                              double damage, Entity victim) {
+        if (mobLevelTable != null && victim != null && mobLevelTable.suppressesSkillExp(victim.getType())) {
+            combatKillCredits.clear(targetId);
+            return;
+        }
+        // バグ2修正(2026-07-28): メインハンドの use-skill が何であれ、この経路(近接/投射物ダメージ確定
+        // 直後の戦闘EXP)へそのまま渡していたため、採取用ツール(斧/ツルハシ/シャベル/クワ/釣竿)で敵を
+        // 殴ると WOODCUTTING 等の採取スキルへ「殴った」だけでEXPが入っていた(stats/item-stats.yml で
+        // ツールにも use-skill: <採取スキル> が付いているため)。この経路は「戦闘で武器スキルEXPを
+        // 付与する」専用であるべきで、isCombatWeaponSkill で HEAVY_WEAPONS/LIGHT_WEAPONS/ARCHERY の
+        // 3つだけに絞る。ARS_MAGIC は ArsMagicExperienceListener の別経路で付与されるため
+        // ここには含めない(含めると魔法攻撃でも二重に武器EXPが入る)。防具スキルも別経路。
+        // 「代わりにHEAVY_WEAPONSへ与える」等のフォールバックはしない — 採取用の斧/ツルハシ等は道具で
+        // あって武器ではなく、TFには戦斧(別マテリアル、use-skill: HEAVY_WEAPONS)が武器として別に存在
+        // する。道具で殴っても戦闘EXPが入らないのが正しい挙動であり、道具スキル側のEXPは
+        // NativeSkillExperienceListener 側の採取専用経路が担う。
         UseRequirementResolver.resolve(weapon, itemStats)
                 .filter(UseRequirementResolver.Resolved::hasSkill)
+                .filter(req -> isCombatWeaponSkill(req.skill()))
                 .ifPresent(req -> {
-                    boolean onCooldown = combatExpCooldown.isOnCooldownAndRefresh(
-                            attacker.getUniqueId(), targetId, skillExp.combatSameTargetCooldownSeconds(),
-                            System.currentTimeMillis());
-                    if (onCooldown) {
+                    // N5(2026-07-31): 戦闘の武器スキル3つは**すべて討伐時ベース**。命中では台帳へ
+                    // ダメージを記録するだけで、支払いは onCombatKill(EntityDeathEvent) が行う。
+                    // ここで per-hit 付与を行う分岐は存在しない(弓術だけが per-hit だった経路は削除)。
+                    // isKillBasedCombatWeaponSkill が false を返すのは「isCombatWeaponSkill には
+                    // 通したが討伐時ベースの宣言を忘れた新スキルを足した」場合だけで、そのときは
+                    // 何も付与せずに落とす(fail-closed)。per-hit へ暗黙にフォールバックさせない。
+                    if (!isKillBasedCombatWeaponSkill(req.skill())) {
                         return;
                     }
-                    double exp = combatSkillExpAmount(req.skill(), damage, victim);
-                    double mult = roleBuffResolver.expMultiplierForSkill(attacker, req.skill()).orElse(1.0);
-                    // TT/放置対策(同一地点の逓減)はワールド倍率とは独立に掛かる。両者とも [0,1] の
-                    // 縮小係数なので順序に依存しない。
-                    var tf = TrinityForge.getInstance();
-                    double spot = tf == null || victim.getWorld() == null ? 1.0
-                            : tf.locationExpDiminishing().multiplierForKillSpot(attacker, victim,
-                                    skillExp,
-                                    tf.dungeonWorldRegistry().isDungeonWorld(victim.getWorld().getUID()));
-                    ArsProgressionBridge.grantSkillExp(plugin, attacker, req.skill(),
-                            exp * mult * worldRate * spot);
+                    if (victim instanceof LivingEntity living) {
+                        combatKillCredits.record(targetId, attacker.getUniqueId(), req.skill(),
+                                damage, living.getHealth());
+                    }
                 });
     }
 
     /**
-     * タスク2: モブレベルを{@link MobData#level()}(EliteMobs/dungeon連携と同じ手段)で読み、
-     * PDCにレベルが無い/{@code victim}がnullの場合は0として扱う。実際の金額計算は
-     * {@link #combatSkillExpAmount(SkillExpConfig, String, double, int)}(純粋関数・パッケージ非公開
-     * テスト対象)へ委譲する。
+     * バグ2修正(2026-07-28): {@link #maybeRecordCombatSkillDamage} が武器スキルEXPを付与してよいスキルか
+     * どうかを判定する純粋関数(テストから直接叩ける package-private static)。
+     *
+     * <p>true を返すのは戦闘の武器スキル3つ({@link SkillId#HEAVY_WEAPONS} / {@link SkillId#LIGHT_WEAPONS} /
+     * {@link SkillId#ARCHERY})だけ。{@link SkillId#ARS_MAGIC} は魔法攻撃の別経路
+     * ({@link ArsMagicExperienceListener})で付与されるためここには含めない。防具スキル
+     * ({@code HEAVY_ARMOR}/{@code LIGHT_ARMOR})や採取スキル({@code WOODCUTTING}/{@code MINING}/
+     * {@code DIGGING}/{@code FARMING}/{@code FISHING})、{@code SMITHING} 等も含めない —
+     * 採取用ツール(斧/ツルハシ/シャベル/クワ/釣竿)は {@code stats/item-stats.yml} で
+     * {@code use-skill: <採取スキル>} を持つが、それらで敵を殴っても武器スキルEXPは入らないのが正しい
+     * 挙動である(採取用の斧は道具であって武器ではなく、TFには戦斧という別マテリアルの武器が存在する)。
+     * 「代わりにHEAVY_WEAPONSへ与える」等のフォールバックは意図的に行わない。
      */
-    private double combatSkillExpAmount(String skill, double damage, Entity victim) {
-        int mobLevel = victim == null ? 0 : Math.max(0, MobData.of(victim).level());
-        return combatSkillExpAmount(skillExp, skill, damage, mobLevel);
+    static boolean isCombatWeaponSkill(String skill) {
+        if (skill == null || skill.isEmpty()) {
+            return false;
+        }
+        return skill.equals(SkillId.HEAVY_WEAPONS)
+                || skill.equals(SkillId.LIGHT_WEAPONS)
+                || skill.equals(SkillId.ARCHERY);
     }
 
     /**
-     * タスク2(2026-07-26 EXP調整): {@code skillExp.combatDamageScaledMode()} が既定のfalseなら、
-     * 従来どおり{@link SkillExpConfig#combatExpForSkill(String)}の固定値をそのまま返す
-     * (現行挙動と完全一致)。trueのときだけ「与ダメージ×damage-scale」に
-     * 「1 + モブレベル×mob-level-scale」を掛けた値になる。
+     * N5(2026-07-31 ユーザー報告「弓術のスキルだけ経験値が討伐時ベースではなくダメージベース」):
+     * その武器スキルEXPを「討伐確定時に一括で払う」かどうか。{@link #isCombatWeaponSkill} が通す
+     * 3スキル({@link SkillId#HEAVY_WEAPONS} / {@link SkillId#LIGHT_WEAPONS} /
+     * {@link SkillId#ARCHERY})はすべて討伐時ベースなので、常に {@code true} になる。
+     *
+     * <p>以前は {@link SkillId#ARCHERY} だけがここから漏れており、弓術だけが
+     * {@code EntityDamageByEntityEvent}(命中)の中で与ダメージ比例のEXPを即時付与していた。
+     * per-(攻撃者,対象)のクールダウンが 2026-07-29 の近接討伐時ベース化で削除された際に弓術へ
+     * 代替ゲートが入らなかったため、<b>倒さずに矢を撃ち続けるだけで弓術EXPが無制限に入る</b>状態に
+     * なっていた。討伐時ベースへ寄せると「キル1回分をダメージ寄与比で按分」という近接と同じ
+     * 上限が効く。
+     *
+     * <p>{@link #isCombatWeaponSkill} と集合が一致していること(=per-hit の武器スキルEXP経路が
+     * 存在しないこと)は {@code CombatListenerCombatWeaponSkillTest} が固定している。
+     * 新しい戦闘武器スキルを {@link #isCombatWeaponSkill} へ足すときは、ここへも足すか、
+     * 討伐時ベース以外の付与経路を別リスナーとして用意すること(ここへ足さないと
+     * {@link #maybeRecordCombatSkillDamage} が fail-closed で何も付与しない)。
      */
-    static double combatSkillExpAmount(SkillExpConfig skillExp, String skill, double damage, int mobLevel) {
-        if (!skillExp.combatDamageScaledMode()) {
-            return skillExp.combatExpForSkill(skill);
-        }
-        double base = Math.max(0.0, damage) * Math.max(0.0, skillExp.combatDamageScale());
-        double levelMultiplier = 1.0 + Math.max(0, mobLevel) * Math.max(0.0, skillExp.combatMobLevelScale());
-        return base * levelMultiplier;
+    static boolean isKillBasedCombatWeaponSkill(String skill) {
+        return SkillId.HEAVY_WEAPONS.equals(skill)
+                || SkillId.LIGHT_WEAPONS.equals(skill)
+                || SkillId.ARCHERY.equals(skill);
     }
 
 }
