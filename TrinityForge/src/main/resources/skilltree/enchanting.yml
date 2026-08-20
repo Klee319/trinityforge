@@ -185,16 +185,22 @@ nodes:
     group: A-greek
     icon: GLOWSTONE_DUST
     cost: 1
+    # 2026-08-20 ユーザー報告「表示と実体が違う」の修正。表示は「運+8・スキルEXP-5%」なのに
+    # buffs は enchant-luck: 5 と enchant-cost-reduction: -0.1 で、【運の量が違ううえ EXP の増減が
+    # 存在しなかった】(効率の増減が EXP の代役として書かれていた。ノードB と同じ代役パターン)。
+    # 一次仕様(skilltree/職業別草案_生産.md)と EnchantingAlchemyBuffsWiringTest の pin はどちらも
+    # 「運+8・EXP-5%」なので、そちらへ実体を合わせ、代役だった効率の増減は取り除く
+    # (残すと「運を取る代わりに EXP が減る」というこの枝の対価が二重に掛かる)。
     effect-text: エンチャント運+8・エンチャント時のスキルEXP獲得-5%（運を求める代わりにEXPが減る）
     effects:
       - エンチャント運+8
       - エンチャント時のスキルEXP獲得-5%
     buffs:
-      enchant-luck: 5
-      enchant-cost-reduction: -0.1
+      enchant-luck: 8
+      enchanting-exp-bonus: -0.05
     description: |-
-      エンチャント運+5
-      エンチャント効率-10%
+      エンチャント運+8
+      エンチャント時のスキルEXP獲得-5%
   A-alpha-2:
     name: 増幅の理II
     level: 40
@@ -203,16 +209,17 @@ nodes:
     group: A-greek
     icon: GLOWSTONE_DUST
     cost: 1
+    # 2026-08-20: I と同じ修正(実値は +10 だった)。α路線は I と II で同額(+8)というのが一次仕様。
     effect-text: エンチャント運+8・エンチャント時のスキルEXP獲得-5%
     effects:
       - エンチャント運+8
       - エンチャント時のスキルEXP獲得-5%
     buffs:
-      enchant-luck: 10
-      enchant-cost-reduction: -0.15
+      enchant-luck: 8
+      enchanting-exp-bonus: -0.05
     description: |-
-      エンチャント運+10
-      エンチャント効率-15%
+      エンチャント運+8
+      エンチャント時のスキルEXP獲得-5%
   A-beta-1:
     name: 抑制の理I
     level: 20
@@ -221,12 +228,20 @@ nodes:
     group: A-greek
     icon: REDSTONE
     cost: 1
+    # 2026-08-20: このノードは【effect-text が無く、buffs に運も EXP も無かった】ので、
+    # 一次仕様と pin が定める「運+4・EXP+5%」が丸ごと存在せず、GUI にも何も出ていなかった
+    # (実際に効いていたのは代役の enchant-cost-reduction だけ)。α と対になる枝なので、
+    # α と同じく代役を外して本来の2効果を載せる。
+    effect-text: エンチャント運+4・エンチャント時のスキルEXP獲得+5%（運を抑える代わりにEXPが増える）
     effects:
       - エンチャント運+4
       - エンチャント時のスキルEXP獲得+5%
     buffs:
-      enchant-cost-reduction: 0.1
-    description: エンチャント効率+10%
+      enchant-luck: 4
+      enchanting-exp-bonus: 0.05
+    description: |-
+      エンチャント運+4
+      エンチャント時のスキルEXP獲得+5%
   A-beta-2:
     name: 抑制の理II
     level: 40
@@ -235,12 +250,17 @@ nodes:
     group: A-greek
     icon: REDSTONE
     cost: 1
+    # 2026-08-20: I と同じ(効果が丸ごと存在しなかった)。
+    effect-text: エンチャント運+4・エンチャント時のスキルEXP獲得+5%
     effects:
       - エンチャント運+4
       - エンチャント時のスキルEXP獲得+5%
     buffs:
-      enchant-cost-reduction: 0.2
-    description: エンチャント効率+20%
+      enchant-luck: 4
+      enchanting-exp-bonus: 0.05
+    description: |-
+      エンチャント運+4
+      エンチャント時のスキルEXP獲得+5%
   C-alpha-1:
     name: 武力突破
     level: 60

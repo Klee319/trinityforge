@@ -183,6 +183,34 @@
 # レベル追随を壊さない。
 # ============================================================================
 
+# ============================================================================
+# 【2026-08-20 ダンジョン攻撃力の再圧縮】ユーザー報告「EMのダンジョンがオーバーワールドに比べて
+# 強すぎる。オーバーワールドの同レベルのモブより少し強いくらいに抑えてほしい」への対処。
+#
+# 何が起きていたか(出荷 yml から計算した実測。検算は tmp/em-vs-field.js):
+#   ダンジョンモブの攻撃力 = 共通ランプ(combat/mob-import.yml、フィールドの約1.27倍)
+#     × ここのダンジョン単位 attack-power-multiplier(2026-08-14 に入った 2.3〜4.8)
+#   の積なので、同レベルのフィールドモブの【5.4〜7.8倍】を殴っていた。品質9の帯最良装備でも
+#   Lv30/60/100 のどこでも【雑魚1発で即死】(耐えられる発数 0.8/1.0/0.9)。
+#   一方フィールドは同じ装備で 5.8/7.9/5.0 発耐える。HP はむしろダンジョンの方が低く、
+#   「硬い」のではなく「一方的に殴り殺される」状態だった。
+#   原因は順序: 2026-08-12 に火力カーブを寝かせ(プレイヤー最大HPを50ハートへ固定)、その【後で】
+#   2026-08-14 の難易度設計がこの倍率を載せたため、較正後の数値と突き合わされていない。
+#
+# どう直したか: 難易度1〜10の【順序は保ったまま】倍率を 2.3〜4.8 → 1.0〜1.4 へ線形圧縮した。
+#   2.3→1.0 / 2.5→1.03 / 2.7→1.06 / 2.9→1.10 / 3.2→1.14 / 3.4→1.18 / 3.7→1.22 /
+#   4.1→1.29 / 4.4→1.34 / 4.8→1.40
+#   結果、同レベルのフィールド比は【難易度1で約1.25倍・難易度10で約2.3倍】、耐えられる発数は
+#   難易度1で4〜6発・難易度10で2〜3発になる(フィールドは5〜8発)。
+#   ※ エンチャント試練10本はもともとこの倍率を持たず 1.0 相当で動いていた。今回の圧縮後の
+#     難易度1と同じ水準なので、28ダンジョンが初めて1本の尺度に載ったことになる。
+# ⚠️ HP側(踏破ボスの max-health / max-health-multiplier)は【意図的に触っていない】。
+#    報告は「強すぎる=即死する」であって「硬すぎる」ではなく、TTK は元からフィールドより
+#    短い(0.24〜0.64倍)。ここを削ると踏破ボスが一瞬で溶ける。
+# ⚠️ 倍率を動かすときは、束縛者の絶対値7体も同じ比で直すこと(下の該当コメント参照)。
+#    畳み込み忘れは ShippedBossStrengthDriftTest が検出する。
+# ============================================================================
+
 overrides:
   # 全ダンジョン共通のフォールバック(ワールド個別指定が無いモブに使われる)
   default:
@@ -1007,7 +1035,7 @@ overrides:
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 3.4
+      attack-power-multiplier: 1.18
       attack: { magic-ratio: 0.10 }
     mobs:
       fireworks_level_50_boss_phase_1:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
@@ -1076,7 +1104,7 @@ overrides:
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 2.5
+      attack-power-multiplier: 1.03
       attack: { magic-ratio: 0.45 }
     mobs:
       halloween_event_boss_mount:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
@@ -1141,17 +1169,17 @@ overrides:
   #     設計書が倍率で書いている値は上記ランプ実値との積へ展開してある(割り戻せば倍率に戻る)。
   #
   #
-  # ▼【2026-08-14】攻撃力はさらにスコープ直下の attack-power-multiplier: 4.8 を畳み込んだ値へ更新した。
-  #   理由は下の attack-power-multiplier: 4.8 のコメントを参照(絶対値を持つ個体では倍率が捨てられるため)。
+  # ▼【2026-08-14】攻撃力はさらにスコープ直下の attack-power-multiplier: 1.4 を畳み込んだ値へ更新した。
+  #   理由は下の attack-power-multiplier: 1.4 のコメントを参照(絶対値を持つ個体では倍率が捨てられるため)。
   #   HP はスコープ倍率が無いので畳み込みは無い。phase_4 の HP だけは踏破ボスの実HP基準へ差し替えてある。
   #
   #   段階            max-health              attack-power                     意図
-  #   第2段階 phase_1  4850.99×2.5 = 12127     21.26×1.3=27.64 ×4.8 = 132.67    「ここから別格」を最初の一撃で伝える
-  #   第3段階 phase_2  4850.99×3.0 = 14553     21.26×1.4=29.77 ×4.8 = 142.90    魔法寄り(既存の耐性配分を維持)
-  #   第4段階 phase_3  4850.99×3.5 = 16978     21.26×1.5=31.89 ×4.8 = 153.07
-  #   最終    phase_4  578100(踏破ボスの実HP基準) 21.26×1.8=38.27 ×4.8 = 183.70  「ソロで頑張ればぎりぎり行ける」の上限
-  #   ミニボス×3       4850.99×1.8 =  8732     21.26×1.2=25.52 ×4.8 = 122.50
-  #   増援×11          変更しない               絶対値は書かない(スコープ倍率 4.8 だけが効く。9.99 → 47.952)
+  #   第2段階 phase_1  4850.99×2.5 = 12127     21.26×1.3=27.64 ×1.4 = 38.7    「ここから別格」を最初の一撃で伝える
+  #   第3段階 phase_2  4850.99×3.0 = 14553     21.26×1.4=29.77 ×1.4 = 41.68    魔法寄り(既存の耐性配分を維持)
+  #   第4段階 phase_3  4850.99×3.5 = 16978     21.26×1.5=31.89 ×1.4 = 44.65
+  #   最終    phase_4  578100(踏破ボスの実HP基準) 21.26×1.8=38.27 ×1.4 = 53.58  「ソロで頑張ればぎりぎり行ける」の上限
+  #   ミニボス×3       4850.99×1.8 =  8732     21.26×1.2=25.52 ×1.4 = 35.73
+  #   増援×11          変更しない               絶対値は書かない(スコープ倍率 1.4 だけが効く。9.99 → 13.986)
   #                                                                  増援は数で圧をかける役。個体を強くすると事故る
   #
   #   ・すべて初期値。実機校正で詰める前提(設計書 §10-4)。
@@ -1173,12 +1201,12 @@ overrides:
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
       #
       # 【重要】この倍率が「倍率のまま」効くのは、mobs: 側に attack.attack-power の絶対値を持たない
-      # 増援 11 体だけ(9.99 → 47.952)。ボス 4 体 + ミニボス 3 体の計 7 体は絶対値を持っており、
+      # 増援 11 体だけ(9.99 → 13.986)。ボス 4 体 + ミニボス 3 体の計 7 体は絶対値を持っており、
       # MobStatOverride#applyTo が「scope 層の倍率 → mob 層の絶対値で置換」の順に走るので、
-      # 4.8 を掛けた結果が丸ごと捨てられる。そのため 7 体には 4.8 を掛けた値を絶対値として
+      # 1.4 を掛けた結果が丸ごと捨てられる。そのため 7 体には 1.4 を掛けた値を絶対値として
       # 畳み込んである。この倍率を動かすときは 7 体の attack-power も同じ比で直すこと
       # (畳み込み忘れは ShippedBossStrengthDriftTest の束縛者 pin が検出する)。
-      attack-power-multiplier: 4.8
+      attack-power-multiplier: 1.4
       attack: { magic-ratio: 0.45 }
     mobs:
       binder_of_worlds_phase_1_endermite_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
@@ -1196,9 +1224,9 @@ overrides:
           magical:  { defense-rate: 0.15, resistance: 0.12 }
           # 2026-08-01 柱2: 共通ランプLv50実値 ×2.5 / 攻撃 ×1.3(段階表は上のダンジョン見出しを参照)
           max-health: 12127
-          # 2026-08-14: 27.64 → 132.67(= 27.64 × 4.8)。スコープ倍率 4.8 は絶対値を持つ個体では
+          # 2026-08-14: 27.64 → 38.7(= 27.64 × 1.4)。スコープ倍率 1.4 は絶対値を持つ個体では
           # 捨てられるため、ここに畳み込んである(理由はスコープ直下 attack-power-multiplier のコメント)。
-          attack: { attack-power: 132.67 }
+          attack: { attack-power: 38.7 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
         # 2026-07-31 特殊攻撃: 第2段階は物理の壁。近接で張り付かせて剣闘士の貫通に価値を持たせる
@@ -1211,9 +1239,9 @@ overrides:
           magical:  { defense-rate: 0.286, resistance: 0.234 }
           # 2026-08-01 柱2: ミニボス3種は共通ランプLv50実値 ×1.8 / 攻撃 ×1.2
           max-health: 8732
-          # 2026-08-14: 25.52 → 122.5(= 25.52 × 4.8)。スコープ倍率 4.8 は絶対値を持つ個体では
+          # 2026-08-14: 25.52 → 35.73(= 25.52 × 1.4)。スコープ倍率 1.4 は絶対値を持つ個体では
           # 捨てられるため、ここに畳み込んである(理由はスコープ直下 attack-power-multiplier のコメント)。
-          attack: { attack-power: 122.5 }
+          attack: { attack-power: 35.73 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # ミニボス3種はスレッド厳選の触媒(現実の芯)を落とす。再抽選の回数がここで決まる。
         # 2026-07-31 特殊攻撃: 足を止めさせる係
@@ -1240,9 +1268,9 @@ overrides:
           magical:  { defense-rate: 0.286, resistance: 0.234 }
           # 2026-08-01 柱2: ミニボス3種は共通ランプLv50実値 ×1.8 / 攻撃 ×1.2
           max-health: 8732
-          # 2026-08-14: 25.52 → 122.5(= 25.52 × 4.8)。スコープ倍率 4.8 は絶対値を持つ個体では
+          # 2026-08-14: 25.52 → 35.73(= 25.52 × 1.4)。スコープ倍率 1.4 は絶対値を持つ個体では
           # 捨てられるため、ここに畳み込んである(理由はスコープ直下 attack-power-multiplier のコメント)。
-          attack: { attack-power: 122.5 }
+          attack: { attack-power: 35.73 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # ミニボス3種はスレッド厳選の触媒(現実の芯)を落とす。再抽選の回数がここで決まる。
         # 2026-07-31 特殊攻撃: 遮蔽を使わせる係
@@ -1262,9 +1290,9 @@ overrides:
           magical:  { defense-rate: 0.286, resistance: 0.234 }
           # 2026-08-01 柱2: ミニボス3種は共通ランプLv50実値 ×1.8 / 攻撃 ×1.2
           max-health: 8732
-          # 2026-08-14: 25.52 → 122.5(= 25.52 × 4.8)。スコープ倍率 4.8 は絶対値を持つ個体では
+          # 2026-08-14: 25.52 → 35.73(= 25.52 × 1.4)。スコープ倍率 1.4 は絶対値を持つ個体では
           # 捨てられるため、ここに畳み込んである(理由はスコープ直下 attack-power-multiplier のコメント)。
-          attack: { attack-power: 122.5 }
+          attack: { attack-power: 35.73 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # ミニボス3種はスレッド厳選の触媒(現実の芯)を落とす。再抽選の回数がここで決まる。
         # 2026-07-31 特殊攻撃: 立ち位置を強制する係
@@ -1285,9 +1313,9 @@ overrides:
           magical:  { defense-rate: 0.2, resistance: 0.45 }
           # 2026-08-01 柱2: 共通ランプLv50実値 ×3.0 / 攻撃 ×1.4
           max-health: 14553
-          # 2026-08-14: 29.77 → 142.9(= 29.77 × 4.8)。スコープ倍率 4.8 は絶対値を持つ個体では
+          # 2026-08-14: 29.77 → 41.68(= 29.77 × 1.4)。スコープ倍率 1.4 は絶対値を持つ個体では
           # 捨てられるため、ここに畳み込んである(理由はスコープ直下 attack-power-multiplier のコメント)。
-          attack: { attack-power: 142.9 }
+          attack: { attack-power: 41.68 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
         # 2026-07-31 特殊攻撃: 第3段階は魔法の壁。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
@@ -1301,9 +1329,9 @@ overrides:
           magical:  { defense-rate: 0.3, resistance: 0.18 }
           # 2026-08-01 柱2: 共通ランプLv50実値 ×3.5 / 攻撃 ×1.5
           max-health: 16978
-          # 2026-08-14: 31.89 → 153.07(= 31.89 × 4.8)。スコープ倍率 4.8 は絶対値を持つ個体では
+          # 2026-08-14: 31.89 → 44.65(= 31.89 × 1.4)。スコープ倍率 1.4 は絶対値を持つ個体では
           # 捨てられるため、ここに畳み込んである(理由はスコープ直下 attack-power-multiplier のコメント)。
-          attack: { attack-power: 153.07 }
+          attack: { attack-power: 44.65 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
         # 2026-07-31 特殊攻撃: 第4段階は総攻撃。増援を呼ぶので守衛のヘイトと軽減が効く
@@ -1364,9 +1392,9 @@ overrides:
           # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
           # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
           max-health: 578100
-          # 2026-08-14: 38.27 → 183.7(= 38.27 × 4.8)。スコープ倍率 4.8 は絶対値を持つ個体では
+          # 2026-08-14: 38.27 → 53.58(= 38.27 × 1.4)。スコープ倍率 1.4 は絶対値を持つ個体では
           # 捨てられるため、ここに畳み込んである(理由はスコープ直下 attack-power-multiplier のコメント)。
-          attack: { attack-power: 183.7 }
+          attack: { attack-power: 53.58 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
         # 2026-07-31 特殊攻撃: 最終段階は全部入り。3職のどれか1つでは足りず、装備と立ち回りの両方を要求する
@@ -1794,7 +1822,7 @@ overrides:
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 2.7
+      attack-power-multiplier: 1.06
       attack: { magic-ratio: 0.25 }
     mobs:
       the_bridge_ancient_guardian_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
@@ -1877,7 +1905,7 @@ overrides:
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 4.4
+      attack-power-multiplier: 1.34
       attack: { magic-ratio: 0.45 }
     mobs:
       the_cave_boiled_bones_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
@@ -1946,7 +1974,7 @@ overrides:
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 3.4
+      attack-power-multiplier: 1.18
       attack: { magic-ratio: 0.10 }
     mobs:
       em_id_the_city_ancient_dwarf:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
@@ -2081,7 +2109,7 @@ overrides:
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 4.1
+      attack-power-multiplier: 1.29
       attack: { magic-ratio: 0.25 }
     mobs:
       the_climb_bone_champion:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
@@ -2304,7 +2332,7 @@ overrides:
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 2.5
+      attack-power-multiplier: 1.03
       attack: { magic-ratio: 0.10 }
     mobs:
       em_id_the_deep_mines_boom_surprise_ancient_husk:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
@@ -2477,7 +2505,7 @@ overrides:
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 3.2
+      attack-power-multiplier: 1.14
       attack: { magic-ratio: 0.10 }
     mobs:
       the_mines_arachnidian_construct:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
@@ -2794,7 +2822,7 @@ overrides:
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 3.2
+      attack-power-multiplier: 1.14
       attack: { magic-ratio: 0.45 }
     mobs:
       em_id_the_nether_bell_beam_boss_green_1_speed:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
@@ -3044,7 +3072,7 @@ overrides:
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 3.4
+      attack-power-multiplier: 1.18
       attack: { magic-ratio: 0.25 }
     mobs:
       em_id_the_nether_wastes_lesser_nether_fiend:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
@@ -3245,7 +3273,7 @@ overrides:
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 2.9
+      attack-power-multiplier: 1.1
       attack: { magic-ratio: 0.25 }
     mobs:
       the_palace_old_stone_king_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
@@ -3314,7 +3342,7 @@ overrides:
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 4.1
+      attack-power-multiplier: 1.29
       attack: { magic-ratio: 0.10 }
     mobs:
       LiftAirFiller:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
@@ -3554,7 +3582,7 @@ overrides:
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 2.7
+      attack-power-multiplier: 1.06
       attack: { magic-ratio: 0.10 }
     mobs:
       the_castle_arcane_knight:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
@@ -3677,7 +3705,7 @@ overrides:
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 3.7
+      attack-power-multiplier: 1.22
       attack: { magic-ratio: 0.45 }
     mobs:
       northpole_elf:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
@@ -3768,7 +3796,7 @@ overrides:
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 3.7
+      attack-power-multiplier: 1.22
       attack: { magic-ratio: 0.25 }
     mobs:
       sewer_tier_10:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
@@ -4040,7 +4068,7 @@ overrides:
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 2.9
+      attack-power-multiplier: 1.1
       attack: { magic-ratio: 0.10 }
     mobs:
       the_steamworks_clk_wrx702_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
@@ -4155,7 +4183,7 @@ overrides:
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 2.3
+      attack-power-multiplier: 1
       attack: { magic-ratio: 0.45 }
     mobs:
       dark_cathedral_tier_75_area_folk:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
