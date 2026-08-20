@@ -803,3 +803,41 @@ CraftEventFactory.callEntityDeathEvent(...)   <- EntityDeathEvent はここで�
 - [./forks-and-mobs.md](./forks-and-mobs.md)
 - [./ops-build-deploy.md](./ops-build-deploy.md)
 - [./config-editor.md](./config-editor.md)
+
+## ⚠️⚠️ 設定エディタの保存は「行ごと」消すことがある（2026-08-20）
+
+`git diff` を**値の差分として読むと気付けない**壊れ方がある。エディタで保存した yml から
+**キーそのものが消える**ことがあり、消えたキーは差分の `-` 側にしか出ないので、
+値の書き換えが大量に並ぶ中に紛れる。実際に配備の直前まで気付かれず残っていた。
+
+- 実例: `stats/skill-exp.yml` の `smithing` / `ars-smithing` の `exp-per-material` から
+  **`custom:` 系 約85行 × 2表**（魔導装備の全シリーズ・魔導書・圧縮素材）と
+  **バニラ防具12行 × 2表**が消滅。**HEAD に 122 件あった `mage_*` が 0 件**になり、
+  儀式・Ars鍛冶で魔導装備を作っても EXP が積まれない状態に戻っていた
+  （2026-08-03 / 08-09 に直した不具合の再発）。
+- 同じ保存で `farming_progression.yml` は `block_drops` の POTATO/CARROT/BEETROOT など 8 行と
+  `block_interact` の PUMPKIN/KELP/ツタ4種、`mining_progression.yml` は SANDSTONE/RED_SANDSTONE が消えた。
+
+**検出は「HEAD と working tree のキー集合の差」で取る。** 値の diff を眺めるのでは足りない。
+
+```bash
+# 消えたキーだけを出す（親パスまで含めて比較すること）
+git show HEAD:<path> > /tmp/head.yml && python - <<'PY'
+...  # キー -> 親パス を作って集合差を取る
+PY
+```
+
+**⚠️ `custom:xxx` はキー中にコロンを含む。** `^\s*([^:]+):` のような素朴な走査は
+`custom` までしか取らないので、**`custom:` 系の消滅を丸ごと取りこぼす**
+（最初の走査で 190 行を見落とし、「消えたのは 24 行」と誤って報告しかけた）。
+`^(\s*)((?:custom:)?[A-Za-z0-9_"'.-]+):` の形で明示的に拾う。
+
+**戻すときは HEAD で上書きしない。** ユーザーが同じ保存で変えた値・足した行が一緒に消える。
+「HEAD にしか居ないキーだけを、HEAD の値と直前コメントごと、同じ親セクションへ挿し戻す」
+形にして、**復元前後でキーと値を突き合わせて改変 0 件を確認する**
+（実装例: `tmp/restore-dropped-exp-rows.py`）。
+
+**出荷 yml のカバレッジ検査は実際にこれを捕まえた。** `ShippedRitualMaterialExpCoverageTest` /
+`MiningProgressionBadlandsDriftTest` / `NativeSkillCatalogTest` が RED になっていたが、
+**フルテストの失敗件数だけを見ていると「他セッションの WIP 由来」に紛れて見落とす**。
+配備前は失敗の**中身**を1件ずつ見る。
