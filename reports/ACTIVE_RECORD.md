@@ -2957,6 +2957,7 @@ max-augments:
 | ID | 内容 | 状態 |
 |---|---|---|
 | W-172 | 精錬魔法で圧縮ジャガイモを焼いたら、ただのベイクドポテトになった。**類似の不具合が他にもたくさんあるはず** | ✅ 修正済み（**未配備**。ArsPaper jar と TF jar の両方が要る） |
+| W-173 | **壊れないはずの道具が連鎖破壊（一括伐採／鉱脈採掘）で消える** | ✅ 修正済み（**未配備**。TF jar 要再ビルド） |
 
 #### W-172 「Material だけを見た変換」がカスタムアイテムの身元を消す — 5 経路を修正
 
@@ -3016,6 +3017,32 @@ max-augments:
 - 圧縮素材を「圧縮のまま焼く/切る」機能は作っていない。欲しければ別途仕様の判断が要る。
 
 ---
+
+#### W-173 壊れないはずの道具が連鎖破壊で消える — `isUnbreakable()` を見ていない damage 経路が1本だけ残っていた
+
+**真因**: `ItemAssembler` は**耐久ステが設定されていないカタログ品を全部 `setUnbreakable(true)`** にする
+（`meta.setUnbreakable(effectiveDurability == null)`）。一方 `ChainBreakSupport#damageHeldTool` は
+**`isUnbreakable()` を一切見ずに** `damageable.setDamage(damage + 1)` を積み、上限に達すると
+`inventory.setItemInMainHand(null)` で**アイテムごと消していた**。
+壊れない品は耐久バーが出ないので、**消えるまで誰も気づけない**。
+
+- **なぜここだけ落ちたか**: 手で耐久を減らしている箇所は 3 本あり
+  （`HumanEntity#damageItemStack` は MockBukkit 未実装でテストが SKIPPED に化けるため、
+  どれも `Damageable` を直接操作している）。うち
+  `EquipmentDurabilityService#damageSlot` と ArsPaper の `SpellCaster#consumeCastDurability` は
+  **両方 `isUnbreakable()` を見ている**。`isUnbreakable` の出現箇所を TF 本体全体で数えると
+  修正前は **1 箇所だけ**だった。
+- **修正**: `damageHeldTool` の `Damageable` 判定へ `|| meta.isUnbreakable()` を足し、
+  壊れない品は減らさず**連鎖もそのまま続ける**（`return true`）。
+- **回帰テスト**: `ChainBreakSupportSingleRollTest` に 2 件追加（**8 件・失敗 0・skip 0**）。
+  残り耐久 1 の斧を `unbreakable` にして 2 ブロック連鎖 → 手に残り damage も進まないこと。
+  逆側として、普通の斧は従来どおり 1 ブロックで壊れて連鎖もそこで止まることも固定した
+  （保護を広げすぎていないことの確認）。**`isUnbreakable()` を外すと該当 1 件が落ちる**ことを実走確認。
+- **検証**: TF フルテスト **4449 件・失敗 26・skip 2**（失敗数は着手前と同じ 26。すべて他セッションの
+  未コミット yml 由来で、触った領域は 1 件も含まない）。
+
+---
+
 
 ## 4. 既知の未修正の問題・弱点
 

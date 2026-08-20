@@ -40,6 +40,26 @@
   例外の型で判別して意図しない SKIPPED をビルド失敗にしている（`@Disabled` や通常の
   `Assumptions` は巻き込まれない）。**skipped 件数が増えたら事故と疑うこと。**
 
+### ⚠️ 手で耐久を減らす経路は `isUnbreakable()` を必ず見る（2026-08-20 W-173）
+
+`HumanEntity#damageItemStack` は MockBukkit 未実装で、呼ぶとテストが**失敗ではなく SKIPPED に化ける**。
+そのため耐久を減らす箇所は**どれも `Damageable` を直接操作する手書き**になっている。
+手書きなので、バニラなら勝手に効く `isUnbreakable()` の分岐が**書き忘れられる**。
+
+`ItemAssembler` は **`durability` ステが設定されていないカタログ品を全部
+`setUnbreakable(true)`** にする（`meta.setUnbreakable(effectiveDurability == null)`）ので、
+**TF の道具の多くが「壊れないはずの品」**になっている。そこへ手書きの damage 加算が乗ると、
+上限で `setItemInMainHand(null)` して**アイテムごと消える**。
+**壊れない品は耐久バーが出ないので、消えるまで誰も気づけない。**
+
+手書きで耐久を減らしている現在の3本（増やすときはここに足す）:
+
+| 場所 | 用途 |
+|---|---|
+| `EquipmentDurabilityService#damageSlot`（TF） | 死亡ペナルティ等の装備劣化 |
+| `ChainBreakSupport#damageHeldTool`（TF） | 一括伐採／鉱脈採掘の連鎖分 |
+| `SpellCaster#consumeCastDurability`（ArsPaper） | 詠唱ごとの杖の消耗 |
+
 ### ⚠️ `Block#breakNaturally` は `BlockBreakEvent` を発火しない
 一括伐採/一括採掘/範囲収穫などで連鎖ブロックを `breakNaturally` で割ると、
 そのブロック分については「採取EXPが入らない」「道具の耐久も減らない」が**必ずセットで**起きる

@@ -205,4 +205,61 @@ class ChainBreakSupportSingleRollTest {
         verify(block).setType(Material.AIR);
         verify(world, never()).dropItemNaturally(any(Location.class), any(ItemStack.class));
     }
+
+    // --- 2026-08-20 W-173: 壊れないはずの道具が連鎖破壊で消える ---
+
+    /** 残り耐久1の道具を作る。{@code unbreakable} なら「壊れないはずの品」。 */
+    private static ItemStack axeOnItsLastPoint(boolean unbreakable) {
+        ItemStack axe = new ItemStack(Material.IRON_AXE);
+        axe.editMeta(meta -> {
+            meta.setUnbreakable(unbreakable);
+            ((org.bukkit.inventory.meta.Damageable) meta)
+                    .setDamage(Material.IRON_AXE.getMaxDurability() - 1);
+        });
+        return axe;
+    }
+
+    /**
+     * <b>実バグ</b>: {@code ItemAssembler} は耐久ステが設定されていないカタログ品を全部
+     * {@code setUnbreakable(true)} にする。ところが {@code damageHeldTool} は
+     * {@code isUnbreakable()} を見ずに damage を加算し、上限に達すると
+     * {@code setItemInMainHand(null)} で<b>アイテムごと消して</b>いた。
+     * 壊れない品は耐久バーが出ないので、<b>消えるまで誰も気づけない</b>。
+     */
+    @Test
+    void unbreakableToolIsNeverDamagedNorConsumedByChainBreaking() {
+        ItemStack axe = axeOnItsLastPoint(true);
+        player.getInventory().setItemInMainHand(axe);
+        shippedLogWithDrops(0, 64, 0, List.of(new ItemStack(Material.OAK_LOG)));
+        shippedLogWithDrops(0, 65, 0, List.of(new ItemStack(Material.OAK_LOG)));
+
+        int broken = ChainBreakSupport.breakChain(player, player.getWorld(),
+                List.of(new BlockPos(0, 64, 0), new BlockPos(0, 65, 0)),
+                material -> material == Material.OAK_LOG, axe, null, true);
+
+        ItemStack held = player.getInventory().getItemInMainHand();
+        assertEquals(Material.IRON_AXE, held.getType(),
+                "壊れないはずの道具が連鎖破壊で消えている(W-173)");
+        assertEquals(Material.IRON_AXE.getMaxDurability() - 1,
+                ((org.bukkit.inventory.meta.Damageable) held.getItemMeta()).getDamage(),
+                "壊れない品の damage を進めてはいけない");
+        assertEquals(2, broken, "耐久を減らさないので連鎖は最後まで走ること");
+    }
+
+    /** 逆側の固定: 普通の道具は今までどおり減り、上限に達したら壊れて連鎖もそこで止まる。 */
+    @Test
+    void breakableToolStillBreaksAndStopsTheChain() {
+        ItemStack axe = axeOnItsLastPoint(false);
+        player.getInventory().setItemInMainHand(axe);
+        shippedLogWithDrops(0, 64, 0, List.of(new ItemStack(Material.OAK_LOG)));
+        shippedLogWithDrops(0, 65, 0, List.of(new ItemStack(Material.OAK_LOG)));
+
+        int broken = ChainBreakSupport.breakChain(player, player.getWorld(),
+                List.of(new BlockPos(0, 64, 0), new BlockPos(0, 65, 0)),
+                material -> material == Material.OAK_LOG, axe, null, true);
+
+        assertEquals(1, broken, "残り耐久1なら1ブロックで壊れ、連鎖はそこで止まること");
+        assertEquals(Material.AIR, player.getInventory().getItemInMainHand().getType(),
+                "普通の道具は従来どおり壊れること(保護を広げすぎていないことの確認)");
+    }
 }

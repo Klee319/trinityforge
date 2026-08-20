@@ -212,6 +212,16 @@ public final class ChainBreakSupport {
      * 呼ぶとテストが <strong>失敗ではなく SKIPPED</strong> になり(既知の罠)、耐久が減ることを
      * 誰も検証できなくなるため。挙動はここで明示する。
      *
+     * <p><b>2026-08-20 W-173: {@code isUnbreakable()} を見ていなかった。</b>
+     * {@code ItemAssembler} は<b>耐久ステが設定されていないカタログ品を全部
+     * {@code setUnbreakable(true)} にする</b>ので、TF の道具の多くが「壊れないはず」の品になる。
+     * ところがここは自前で damage を加算していて、上限に達すると
+     * {@code setItemInMainHand(null)} で<b>アイテムごと消して</b>いた。
+     * しかも壊れない品は耐久バーが出ないので、<b>消えるまで誰も気づけない</b>。
+     * 同じことを手でやっている {@code EquipmentDurabilityService#damageSlot} と
+     * ArsPaper の {@code SpellCaster#consumeCastDurability} は両方 {@code isUnbreakable()} を見ている
+     * ── ここだけが落ちていた。
+     *
      * @return 破壊を続けてよければ true(道具が壊れたら false)
      */
     private static boolean damageHeldTool(Player player) {
@@ -225,7 +235,8 @@ public final class ChainBreakSupport {
             return true; // 耐久力エンチャントで今回は減らなかった
         }
         ItemMeta meta = held.getItemMeta();
-        if (!(meta instanceof Damageable damageable)) {
+        if (!(meta instanceof Damageable damageable) || meta.isUnbreakable()) {
+            // 壊れない品は減らさず、連鎖もそのまま続ける(W-173)。
             return true;
         }
         int maxDurability = damageable.hasMaxDamage()
