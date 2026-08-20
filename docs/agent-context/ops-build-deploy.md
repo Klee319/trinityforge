@@ -72,6 +72,24 @@ git diff --cached --numstat -- <path>   # 追加行数だけ / 削除0 を必ず
 - 作業ツリー側は他人の変更を乗せたまま残る（`git status` で `MM` になる）。**これが正しい状態**で、
   持ち主のセッションが処理する。
 
+#### ⚠️⚠️ pathspec なし commit は「index にあるもの全部」を取る — 直前に必ず index を掃除する（2026-08-20）
+
+上の手順は `git commit -F <msgfile>`（pathspec なし）を使うが、**共有ワークツリーでは index も共有**なので、
+**別セッションが `git add` した分がそこに乗っている**。2026-08-20 に実際に踏んだ:
+自分の 2 ファイルを add してから commit するまでの短い間に、別セッションが
+`stats/item-stats.yml`・`WeaponTierParityTest.java`・`ACTIVE_RECORD.md` を stage しており、
+**その 3 つが自分の commit に丸ごと入って push された**（内容は失われないが、他人の作業が
+自分のコミットとして dev に載り、未完成の config が出荷対象になる）。
+
+```bash
+git diff --cached --name-only          # ← 自分のパスだけか確認する
+git restore --staged <他人のパス>       # ← 乗っていたら降ろす（作業ツリーは触らない）
+```
+
+- **確認と commit を `&&` で 1 行に繋がない。** 繋ぐと一覧は出るが、見て止める余地が無い
+  （実際にこれで通してしまった）。**別々のコマンドとして実行し、目で見てから commit する。**
+- `git restore --staged` は index だけを戻すのでフックも通す（`git restore <path>` は deny）。
+
 ### ⚠️ `.gitattributes`（`text eol=lf`）を消さない
 Windows 上の編集ツールがファイル全体を CRLF で書き戻すことがあり、実質数行の変更が「全行変更」の差分になって
 レビュー不能かつ並行セッションと衝突しやすくなる。`*.java` / `*.js` / `*.yml` / `*.py` に `text eol=lf` を
