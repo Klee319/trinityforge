@@ -2445,8 +2445,8 @@ EliteMobs の `PreventUpgradeDiamondToNetherite`（エリート装備のネザ�
 
 | ID | 内容 | 状態 |
 |---|---|---|
-| W-158（続報） | 統合版でカスタムアイテムを材料にしたクラフトが**軒並み**通らず、TF の「◯◯ はこのレシピの材料にできません（見た目が同じでも別のアイテムです）」が出る。ソースジャー／TF 圧縮素材／TF 装備の3系統すべてで発生 | 🔍 機構は特定。**レシピ帳（自動クラフト）経由なら必ずこうなる**ことを Geyser のソースで確認。手詰めでも落ちるかは未確認 |
-| W-161 | 鍛冶台・作業台の GUI を開いている状態で shift クリック／ドラッグするとアイテムがちらつく | 🔍 **原因は TF ではなく GeyserExtra**。修正は保留（ユーザー判断: まず調査結果だけ） |
+| W-158（続報） | 統合版でカスタムアイテムを材料にしたクラフトが**軒並み**通らない（手置きでも同じ／Java は通り通知も出ない）。ソースジャー／TF 圧縮素材／TF 装備の3系統すべてで発生 | ✅ **真因確定（2026-08-20）**。Geyser が結果枠の取り出しを「クライアント予測の個数 ≠ サーバの結果の個数」で `rejectRequest` する。**W-161 と同一原因・サーバ側は無罪**。下記「W-158 / W-161 の真因が確定」参照。修正方針は未着手 |
+| W-161 | 鍛冶台・作業台の GUI を開いている状態で shift クリック／ドラッグするとアイテムがちらつく | ✅ **真因確定（2026-08-20）**。GeyserExtra の `updateInventory()` 3 箇所＋ Geyser の `rejectRequest` によるインベントリ再同期。**W-158 と同一の根**。修正は保留（ユーザー判断: まず調査結果だけ） |
 
 #### W-158 続報 — 「誰がマス目にアイテムを入れるか」が Java と統合版で違う
 
@@ -2517,6 +2517,66 @@ Bedrock ではクライアントの予測状態が毎回上書きされる＝ち
   `onPrepareSmithing` は空ループ。このクラスが実際にやっているのは `updateInventory()` を撃つことだけ。
 
 **未修正**（2026-08-20 ユーザー判断「まず調査結果だけ」）。直す場合は GeyserExtra 側のビルドと配備が要る。
+
+#### W-158 / W-161 の真因が確定 — **Geyser は結果枠の取り出しを「個数が一致しないと reject」する**（2026-08-20）
+
+実サーバ報告で決定的な観測が出た: **Java はクラフト可能・通知も出ない**（以前は通知が出てクラフト不可、それは修正済み）。
+**統合版はリザルトも表示されない**。ただし **ソースジェムの圧縮はリザルトが出ず、解凍はリザルトが出た。いずれもクラフト不可**。
+この非対称から、Geyser 本体のソースまで降りて機構が確定した。**W-158 と W-161 は同一原因**。
+
+証拠の鎖（すべて一次ソース）:
+
+1. **統合版はクラフト結果をクライアント側で計算する** — `geyserExtraα` の
+   `paper/.../recipe/CraftingRecipeHandler.java` クラス javadoc の明言
+   (*"Bedrock Edition calculates crafting results client-side"*)。だから GeyserExtra は
+   **サーバ側の結果を 1 tick 後に押し込む**回避策を持っている（`result != null` のときだけ動く）。
+2. **Geyser はクラフトの「レシピ実行」要求を黙って捨てている** — `InventoryTranslator#translateRequest` は
+   `CRAFT_RECIPE` / `CRAFT_RECIPE_AUTO` / `CRAFT_RESULTS_DEPRECATED` を `break` で素通しする。
+3. **よって統合版の「結果枠から取り出す」は普通のスロット移動として翻訳され、出力スロット専用の拒否条件に当たる**:
+
+   ```java
+   if (pendingOutput == 0 && !isSourceCursor && getSlotType(sourceSlot) == SlotType.OUTPUT
+       && transferAction.getCount() < plan.getItem(sourceSlot).getAmount()) {
+       if (isDestCursor) return rejectRequest(request);
+   ```
+
+   `transferAction.getCount()` は**クライアントが自前の予測で決めた個数**、
+   `plan.getItem(0).getAmount()` は**サーバの実際の結果の個数**。
+   食い違うと**要求ごと reject され、サーバにはパケットが1つも届かない**。
+4. **作業台の Java スロット0 は Geyser で `SlotType.OUTPUT`** —
+   `CraftingInventoryTranslator#getSlotType` が `javaSlot == 0 → SlotType.OUTPUT` を返す。
+   つまり 3 の拒否条件は作業台の結果枠に**必ず**当たる。
+
+症状との対応:
+
+| 症状 | 機構 |
+|---|---|
+| リザルトが出ない | 素材が独自 Bedrock アイテムとして登録されているのに、クライアントのレシピ表は**バニラ素材**で書かれている（Bukkit は素材の identity をクライアントへ送れない）ので照合できない |
+| リザルトは出るのにクラフト不可 | 表示はサーバ側の結果（GeyserExtra の押し込み）。取り出しの個数判定は**クライアント側の予測**なので食い違い、Geyser が `rejectRequest` |
+| Java は通る | Java はクライアントが盤面を送りサーバが判定する。予測も照合もクライアントに無い |
+| ちらつき（W-161） | `rejectRequest` はインベントリ再同期を伴う。GeyserExtra の `updateInventory()` と合わせて二重に撃たれる |
+
+**サーバ側（TF / ArsPaper）は無罪。** 直すなら**クライアントのレシピ表をサーバと一致させる**しかない
+＝ TF → GeyserExtra へレシピ表を渡し、**実際の Bedrock アイテム id で Bedrock 側レシピを注入する**。
+
+未観測なのは「解凍で実際に count がいくつ食い違ったか」だけで、**修正方針はこれに依存しない**。
+
+#### 併発（実データ）: 統合版で別物が同じアイテムに見える CMD 衝突
+
+配備中の `plugins/Geyser-Velocity/extensions/geyserextra/custom_items.json`（**再生成できない永続台帳**）と
+ArsPaper の `materials.yml` を突き合わせて発見。
+
+- **`source_gem_block` / `source_gem_block_1x` / `source_gem_block_2x` が `AMETHYST_BLOCK` + CMD `100012` を共有**
+  （`materials.yml` の 38 / 3429 / 3448 行）。registry には `amethyst_block` の 100012 として
+  **`source_gem_block_2x` だけ**が登録され、`source_gem_block` は**古い `PRISMARINE` ベースの残骸**として残っている。
+  → **統合版では3種とも「81倍圧縮ソースジェムブロック」という同一アイテムに見える。**
+- **`gacha_ticket_5` / `gacha_ticket_fishing` / `gacha_ticket_digging` が `PAPER` + CMD `5015` を共有。**
+- CMD を分離する場合、**既存の所持アイテムは CMD が焼き付いている**ので移行の検討が要る。
+
+**誤診しないための記録**: 起動ログの `[GeyserExtra] Geyser-Spigot not found. Some features may not work.` は
+**Geyser が Velocity 側にいるため出る正常な警告**。クラフト同期（`CraftingRecipeHandler`）の有効判定は
+**Floodgate の有無**なので、この警告があっても無効化されていない。
+
 
 #### 併発: 毎ログインで出ているログ ERROR（`catalog_key_quarry`）
 
