@@ -35,6 +35,15 @@ class BedrockRecipeExporterTest {
     private static final Integer STONE_1X_CMD = 100_001;
     private static final Integer STONE_2X_CMD = 100_002;
 
+    /**
+     * 作業台レシピだけを渡す短縮形。スミス台側は {@link BedrockRecipeExporterSmithingTest} が見る。
+     */
+    private static BedrockRecipeTable.Table buildCrafting(
+            List<CatalogRecipeRegistrar.RegisteredRecipe> registered,
+            BedrockRecipeExporter.CustomItemResolver resolver) {
+        return BedrockRecipeExporter.build(registered, List.of(), resolver);
+    }
+
     /** テスト用の解決器。catalog.yml を用意せずに {@code custom:<id>} を解ける。 */
     private static BedrockRecipeExporter.CustomItemResolver resolver(
             Map<String, BedrockRecipeTable.ItemRef> known) {
@@ -65,7 +74,7 @@ class BedrockRecipeExporterTest {
      */
     @Test
     void keepsCustomModelDataOfIngredients() {
-        BedrockRecipeTable.Table table = BedrockRecipeExporter.build(
+        BedrockRecipeTable.Table table = buildCrafting(
                 List.of(entry("stone_2x", template("stone_2x", Material.STONE, STONE_2X_CMD),
                         compression("stone_1x"))),
                 resolver(Map.of("stone_1x", BedrockRecipeTable.ItemRef.of(Material.STONE, STONE_1X_CMD))));
@@ -94,7 +103,7 @@ class BedrockRecipeExporterTest {
                 Map.of('i', RecipeIngredient.ofMaterial(Material.STONE)),
                 1);
 
-        BedrockRecipeTable.Table table = BedrockRecipeExporter.build(
+        BedrockRecipeTable.Table table = buildCrafting(
                 List.of(entry("plain", template("plain", Material.STONE, 999), vanillaOnly)),
                 resolver(Map.of()));
 
@@ -112,7 +121,7 @@ class BedrockRecipeExporterTest {
     void emitsTheDecompressRecipeForReversibleEntries() {
         RecipeSpec reversible = compression("stone_1x").withReversible(true);
 
-        BedrockRecipeTable.Table table = BedrockRecipeExporter.build(
+        BedrockRecipeTable.Table table = buildCrafting(
                 List.of(entry("stone_2x", template("stone_2x", Material.STONE, STONE_2X_CMD), reversible)),
                 resolver(Map.of("stone_1x", BedrockRecipeTable.ItemRef.of(Material.STONE, STONE_1X_CMD))));
 
@@ -140,7 +149,7 @@ class BedrockRecipeExporterTest {
                     List.of(RecipeIngredient.ofList("test_metals"), RecipeIngredient.ofCatalog("stone_1x")),
                     1);
 
-            BedrockRecipeTable.Table table = BedrockRecipeExporter.build(
+            BedrockRecipeTable.Table table = buildCrafting(
                     List.of(entry("alloy", template("alloy", Material.IRON_BLOCK, 500), spec)),
                     resolver(Map.of(
                             "hard_metal", BedrockRecipeTable.ItemRef.of(Material.IRON_INGOT, 5001),
@@ -166,7 +175,7 @@ class BedrockRecipeExporterTest {
      */
     @Test
     void dropsAndReportsRecipesWithUnresolvableIngredients() {
-        BedrockRecipeTable.Table table = BedrockRecipeExporter.build(
+        BedrockRecipeTable.Table table = buildCrafting(
                 List.of(entry("stone_2x", template("stone_2x", Material.STONE, STONE_2X_CMD),
                         compression("does_not_exist"))),
                 resolver(Map.of()));
@@ -181,7 +190,7 @@ class BedrockRecipeExporterTest {
         RecipeSpec ritual = RecipeSpec.ritual("LAPIS_BLOCK", List.of("AMETHYST_SHARD"), 4500, 1);
         RecipeSpec netherite = RecipeSpec.netherite("custom:stone_1x", 1);
 
-        BedrockRecipeTable.Table table = BedrockRecipeExporter.build(
+        BedrockRecipeTable.Table table = buildCrafting(
                 List.of(entry("r", template("r", Material.STONE, 1), ritual),
                         entry("n", template("n", Material.BOW, 2), netherite)),
                 resolver(Map.of("stone_1x", BedrockRecipeTable.ItemRef.of(Material.STONE, STONE_1X_CMD))));
@@ -202,7 +211,7 @@ class BedrockRecipeExporterTest {
                         'v', RecipeIngredient.ofMaterial(Material.STICK)),
                 4);
 
-        JsonObject json = BedrockRecipeExporter.toJson(BedrockRecipeExporter.build(
+        JsonObject json = BedrockRecipeExporter.toJson(buildCrafting(
                 List.of(entry("thing", template("thing", Material.STONE, STONE_2X_CMD), spec)),
                 resolver(Map.of("stone_1x", BedrockRecipeTable.ItemRef.of(Material.STONE, STONE_1X_CMD)))));
 

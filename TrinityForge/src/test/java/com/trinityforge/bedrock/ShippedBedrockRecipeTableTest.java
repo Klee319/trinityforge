@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -90,6 +91,18 @@ class ShippedBedrockRecipeTableTest {
     }
 
     /**
+     * 出荷カタログのスミス台レシピが、統合版向けの表に載る最低件数。
+     *
+     * <p>ここが 0 になっても<b>症状は「統合版で鍛冶台が使えない」のままで元に戻るだけ</b>なので、
+     * 件数で縛らないと壊れたことに気づけない。出荷カタログの {@code method: netherite} は 12 件で、
+     * <b>実行時もこの 12 件がそのまま表へ載る</b> ── {@code NetheriteUpgradeGuard} が
+     * <b>登録</b>を見送る 8 件も、バニラのネザライト強化レシピが代わりに一致して
+     * {@code CatalogSmithingListener} が結果を差し替えるため「サーバが完成させられる」側に入る。
+     * (この 8 件を落とすと、短剣・レイピア・大槌など主要な武器だけ直らない。)
+     */
+    private static final int MINIMUM_SMITHING_RECIPES = 12;
+
+    /**
      * {@code CatalogRecipeRegistrar#registerAll()} は Bukkit のレシピ登録を伴うので呼べない。
      * 登録対象の作り方（テンプレート×宣言レシピ、2 本目以降のキーは {@code _<n>}）だけを写す。
      */
@@ -110,10 +123,66 @@ class ShippedBedrockRecipeTableTest {
         return entries;
     }
 
+    /**
+     * 同じく {@code registerNetheriteOne} が統合版へ配る対象の作り方を写す。
+     *
+     * <p><b>{@code NetheriteUpgradeGuard} を再現していないが、それでよい。</b> あのガードが決めるのは
+     * 「TF が {@code Bukkit.addRecipe} するかどうか」であって「サーバが完成させられるかどうか」では
+     * ない ── 見送った側はバニラのネザライト強化レシピが代わりに一致するので、
+     * {@code PrepareSmithingEvent} は飛び {@code CatalogSmithingListener} が結果を差し替える。
+     * {@code allCompletableSmithing()} は両方を含むので、ここで写している集合と<b>一致する</b>。
+     * ガードが本当に両方を通すことは MockBukkit 上の
+     * {@code CatalogRecipeRegistrarNetheriteTest#aRecipeTheGuardSkippedIsStillOfferedToBedrock...}
+     * が実レシピ走査つきで押さえている。
+     */
+    private static List<CatalogRecipeRegistrar.RegisteredRecipe> smithingEntriesOf(ItemCatalogConfig catalog) {
+        List<CatalogRecipeRegistrar.RegisteredRecipe> entries = new ArrayList<>();
+        for (Map.Entry<String, ItemTemplate> item : catalog.all().entrySet()) {
+            int index = 0;
+            for (RecipeSpec spec : item.getValue().recipes()) {
+                if (!spec.isNetherite()) {
+                    continue;
+                }
+                index++;
+                String keyName = index == 1
+                        ? "catalog_" + item.getKey() + "_smithing"
+                        : "catalog_" + item.getKey() + "_smithing_" + index;
+                entries.add(new CatalogRecipeRegistrar.RegisteredRecipe(
+                        NamespacedKey.fromString("trinityforge:" + keyName), item.getValue(), spec));
+            }
+        }
+        return entries;
+    }
+
+    /**
+     * 出荷カタログのネザライト強化が統合版向けの表に載ること。
+     *
+     * <p>統合版の鍛冶台は base スロットに置けるかを item tag で、結果をクライアント計算で決めるので、
+     * この表が空になると<b>鍛冶台だけ静かに元の「置けない」状態へ戻る</b>。
+     */
+    @Test
+    void shippedCatalogProducesSmithingRecipes() throws Exception {
+        ItemCatalogConfig catalog = loadShipped();
+        BedrockRecipeTable.Table table =
+                BedrockRecipeExporter.build(List.of(), smithingEntriesOf(catalog), catalog);
+
+        List<BedrockRecipeTable.Recipe> smithing = table.recipes().stream()
+                .filter(recipe -> recipe.type() == BedrockRecipeTable.Type.SMITHING)
+                .toList();
+        assertTrue(smithing.size() >= MINIMUM_SMITHING_RECIPES,
+                "出荷カタログのスミス台レシピをほとんど拾えていない。書き出し=" + smithing.size()
+                        + " / 素材未解決=" + table.skipped().size() + " " + table.skipped());
+        for (BedrockRecipeTable.Recipe recipe : smithing) {
+            assertEquals(BedrockRecipeTable.SMITHING_SLOT_COUNT, recipe.slots().size(), recipe.id());
+            assertTrue(recipe.slots().get(BedrockRecipeTable.SMITHING_BASE_SLOT).hasCustom(),
+                    "base にカスタム識別が無い(＝補正の意味が無い): " + recipe.id());
+        }
+    }
+
     @Test
     void shippedCatalogProducesABedrockRecipeTable() throws Exception {
         ItemCatalogConfig catalog = loadShipped();
-        BedrockRecipeTable.Table table = BedrockRecipeExporter.build(entriesOf(catalog), catalog);
+        BedrockRecipeTable.Table table = BedrockRecipeExporter.build(entriesOf(catalog), List.of(), catalog);
 
         int candidates = table.recipes().size() + table.skipped().size();
         assertTrue(candidates >= MINIMUM_CANDIDATES,
@@ -131,7 +200,7 @@ class ShippedBedrockRecipeTableTest {
     @Test
     void everyExportedRecipeHasACustomIngredient() throws Exception {
         ItemCatalogConfig catalog = loadShipped();
-        BedrockRecipeTable.Table table = BedrockRecipeExporter.build(entriesOf(catalog), catalog);
+        BedrockRecipeTable.Table table = BedrockRecipeExporter.build(entriesOf(catalog), List.of(), catalog);
 
         List<String> pointless = table.recipes().stream()
                 .filter(recipe -> !recipe.needsBedrockFix())
@@ -145,7 +214,7 @@ class ShippedBedrockRecipeTableTest {
     @Test
     void shapedRecipesCarryAFullGrid() throws Exception {
         ItemCatalogConfig catalog = loadShipped();
-        BedrockRecipeTable.Table table = BedrockRecipeExporter.build(entriesOf(catalog), catalog);
+        BedrockRecipeTable.Table table = BedrockRecipeExporter.build(entriesOf(catalog), List.of(), catalog);
 
         List<String> broken = table.recipes().stream()
                 .filter(recipe -> recipe.type() == BedrockRecipeTable.Type.SHAPED)

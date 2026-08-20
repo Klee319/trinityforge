@@ -66,6 +66,18 @@ public final class CatalogRecipeRegistrar {
      */
     private static final String SMITHING_SUFFIX = "_smithing";
 
+    /**
+     * {@code method: netherite} のテンプレ枠。<b>常にバニラのネザライト強化テンプレ</b>。
+     *
+     * <p>定数にしてあるのは、統合版へ配る表({@code com.trinityforge.bedrock.BedrockRecipeExporter})が
+     * <b>同じ値を指す必要がある</b>ため。片方だけ書き換えると、クライアントには
+     * 「置ける・完成すると表示される」のにサーバが渡さない盤面ができる。
+     */
+    public static final Material SMITHING_TEMPLATE_MATERIAL = Material.NETHERITE_UPGRADE_SMITHING_TEMPLATE;
+
+    /** {@code method: netherite} の追加素材枠。<b>常にバニラのネザライトインゴット</b>({@link #SMITHING_TEMPLATE_MATERIAL} と同じ理由で定数)。 */
+    public static final Material SMITHING_ADDITION_MATERIAL = Material.NETHERITE_INGOT;
+
     private final Plugin plugin;
     private final ItemCatalogConfig catalog;
     private final ItemFactory itemFactory;
@@ -80,6 +92,38 @@ public final class CatalogRecipeRegistrar {
     private final Set<String> deferredArsCatalogIds = new java.util.LinkedHashSet<>();
     /** Live view of what is currently registered, for {@code CatalogWorkbenchListener}. */
     private final Map<NamespacedKey, RegisteredRecipe> registeredSpecs = new LinkedHashMap<>();
+    /**
+     * <b>サーバが実際に完成させられる</b> {@code method: netherite}(スミス台)レシピ。
+     *
+     * <p><b>{@code registeredSpecs} とは意図的に分けている。</b> あちらは
+     * {@code CatalogWorkbenchListener} が「作業台に置かれた盤面と突き合わせる候補」として
+     * 総当たりするコレクションで、そこへスミス台レシピを混ぜると
+     * <b>作業台の照合が素材ゼロの spec を舐めはじめる</b>(shape も shapeless 素材も持たない)。
+     * 分けておけば既存の利用者は 1 行も変わらない。
+     *
+     * <p><b>「TF が addRecipe したもの」ではない</b>点に注意。ここに載る条件は 2 つあり、
+     * どちらも「{@code PrepareSmithingEvent} が飛んで {@code CatalogSmithingListener} が
+     * 結果を差し替えられる」＝<b>プレイヤーが実際に完成品を受け取れる</b>ことを意味する:
+     * <ol>
+     *   <li>{@link #registerNetheriteOne} が {@link SmithingTransformRecipe} を登録できた
+     *       (base の材質がバニラのネザライト強化対象<b>ではない</b> BOW / TRIDENT / MACE /
+     *       CROSSBOW など)。</li>
+     *   <li>{@link NetheriteUpgradeGuard} が「同じ 3 点に一致する既存レシピが<b>ある</b>」と
+     *       判定して登録を見送った場合。base の材質が DIAMOND_SWORD / DIAMOND_AXE /
+     *       DIAMOND_HOE などで、<b>バニラのネザライト強化レシピが代わりに一致する</b>ので、
+     *       イベントは飛ぶし listener も効く。出荷カタログ 12 件のうち<b>8 件がこちら</b>。</li>
+     * </ol>
+     *
+     * <p>2 番目を落とすと何が起きるか: 統合版クライアントが持つのは Geyser が変換した
+     * <b>バニラのレシピ(base = 素のダイヤの剣)</b>だけなので、カスタムの短剣を置いても
+     * 照合が成立せず<b>結果が表示されない</b>。サーバは完成させられるのに、である。
+     * ＝「短剣・レイピア・大槌など主要 8 種だけ直らない」という、
+     * <b>直ったように見えて半分だけ壊れている</b>最悪の状態になる。
+     *
+     * <p>逆に、走査自体に失敗した ({@link NetheriteUpgradeGuard#scanned()} が false) ときは
+     * <b>1 件も載せない</b>。既存レシピの有無が分からない以上、「完成する」と断言できないため。
+     */
+    private final Map<NamespacedKey, RegisteredRecipe> completableSmithing = new LinkedHashMap<>();
 
     /**
      * One registered TF workbench recipe: owning catalog entry + the parsed spec.
@@ -201,16 +245,26 @@ public final class CatalogRecipeRegistrar {
                 plugin.getLogger().log(Level.FINE,
                         "[items/catalog.yml] netherite recipe for '" + template.id() + "' keeps using the existing "
                         + base + " smithing recipe (registering ours would shadow it)");
+                if (guard.scanned()) {
+                    // 登録は見送るが、既存レシピが同じ3点に一致するので PrepareSmithingEvent は飛び、
+                    // CatalogSmithingListener が結果を差し替える = プレイヤーは完成品を受け取れる。
+                    // 統合版クライアントはその「バニラのレシピ」しか知らずカスタム base と照合できないので、
+                    // 補正レシピはむしろこちらの方が要る (completableSmithing の javadoc 参照)。
+                    completableSmithing.put(key, new RegisteredRecipe(key, template, spec));
+                }
                 return;
             }
             ItemStack result = buildResult(template, spec);
             SmithingTransformRecipe recipe = new SmithingTransformRecipe(key, result,
-                    new RecipeChoice.MaterialChoice(Material.NETHERITE_UPGRADE_SMITHING_TEMPLATE),
+                    new RecipeChoice.MaterialChoice(SMITHING_TEMPLATE_MATERIAL),
                     new RecipeChoice.MaterialChoice(base),
-                    new RecipeChoice.MaterialChoice(Material.NETHERITE_INGOT),
+                    new RecipeChoice.MaterialChoice(SMITHING_ADDITION_MATERIAL),
                     false);
             Bukkit.addRecipe(recipe);
             registeredKeys.add(key);
+            // addRecipe が通った後にだけ記録する。先に入れると、投げたときに
+            // 「登録できていないレシピ」が統合版の表へ流れる。
+            completableSmithing.put(key, new RegisteredRecipe(key, template, spec));
         } catch (RuntimeException ex) {
             plugin.getLogger().log(Level.WARNING,
                     "[items/catalog.yml] failed to register netherite smithing recipe for '"
@@ -238,8 +292,8 @@ public final class CatalogRecipeRegistrar {
         }
 
         static NetheriteUpgradeGuard snapshot(Plugin plugin) {
-            ItemStack templateProbe = new ItemStack(Material.NETHERITE_UPGRADE_SMITHING_TEMPLATE);
-            ItemStack additionProbe = new ItemStack(Material.NETHERITE_INGOT);
+            ItemStack templateProbe = new ItemStack(SMITHING_TEMPLATE_MATERIAL);
+            ItemStack additionProbe = new ItemStack(SMITHING_ADDITION_MATERIAL);
             List<SmithingRecipe> conflicting = new ArrayList<>();
             try {
                 Iterator<Recipe> it = Bukkit.recipeIterator();
@@ -274,6 +328,11 @@ public final class CatalogRecipeRegistrar {
                         + "1件も登録しません(バニラのネザライト強化を奪う事故を避けるための fail-closed)", t);
                 return new NetheriteUpgradeGuard(List.of(), false);
             }
+        }
+
+        /** 既存レシピの走査に成功したか。false のときは「既存レシピの有無が分からない」。 */
+        boolean scanned() {
+            return scanned;
         }
 
         boolean mayRegister(Material base) {
@@ -364,6 +423,18 @@ public final class CatalogRecipeRegistrar {
     }
 
     /**
+     * <b>サーバが完成させられる</b>スミス台({@code method: netherite})レシピ(登録順)。
+     *
+     * <p>「TF が {@code Bukkit.addRecipe} したもの」とは一致しない ──
+     * バニラのネザライト強化レシピが代わりに一致するケースも含む。
+     * {@link #allRegistered()} には<b>含まれない</b>。理由は {@code completableSmithing} の
+     * フィールド javadoc を参照。
+     */
+    public Collection<RegisteredRecipe> allCompletableSmithing() {
+        return List.copyOf(completableSmithing.values());
+    }
+
+    /**
      * 登録済みレシピ1件の結果スタック。カタログ由来なら {@link #buildResult} で毎回組み立て直し、
      * {@code added-recipes} 由来なら固定結果の複製を返す。
      *
@@ -398,6 +469,7 @@ public final class CatalogRecipeRegistrar {
         }
         registeredKeys.clear();
         registeredSpecs.clear();
+        completableSmithing.clear();
         deferredArsCatalogIds.clear();
     }
 

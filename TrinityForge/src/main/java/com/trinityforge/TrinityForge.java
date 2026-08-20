@@ -2340,9 +2340,18 @@ public final class TrinityForge extends JavaPlugin {
         }
         try {
             BedrockRecipeTable.Table table = BedrockRecipeExporter.build(
-                    catalogRecipeRegistrar.allRegistered(), configManager.itemCatalog());
+                    catalogRecipeRegistrar.allRegistered(),
+                    catalogRecipeRegistrar.allCompletableSmithing(),
+                    configManager.itemCatalog(),
+                    configManager.dedicatedEffects().recipeGatePerks().keySet());
             BedrockRecipeExporter.write(getDataFolder().toPath(), table);
+            long smithing = table.recipes().stream()
+                    .filter(recipe -> recipe.type() == BedrockRecipeTable.Type.SMITHING)
+                    .count();
+            // 種別の内訳を出す。合計だけだと、スミス台が 0 件へ落ちても
+            // 200 件中の数件の差として埋もれて気づけない(鍛冶台だけ静かに元へ戻る)。
             getLogger().info("[bedrock] 統合版向け補正レシピ表: " + table.recipes().size() + " 件"
+                    + "(うち鍛冶台 " + smithing + " 件)"
                     + describeSkippedBedrockRecipes(table.skipped()));
         } catch (java.io.IOException | RuntimeException ex) {
             getLogger().log(java.util.logging.Level.WARNING,

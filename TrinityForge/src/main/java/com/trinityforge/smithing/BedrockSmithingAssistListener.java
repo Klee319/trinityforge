@@ -37,10 +37,25 @@ import java.util.UUID;
  * {@code RecipePropertySet}(=読み込み済みスミスレシピの ingredient から毎回組み直される)で決まり、
  * {@code CatalogRecipeRegistrar#registerNetheriteOne} が base=BOW/CROSSBOW/TRIDENT/MACE の
  * {@link org.bukkit.inventory.SmithingTransformRecipe} を登録することで置けるようになっている。
- * ところが<b>統合版クライアントは鍛冶台のスロット判定を自前で持っており、サーバから届いたレシピでは
- * 広がらない</b>。GeyserMC/Geyser#4706 が "Can't Fix / Missing Client Feature" として閉じているとおり、
- * Geyser 側でも直せない。プレイヤーからは「置けない」「置こうとすると一瞬増殖して戻る」に見える
+ * ところが<b>統合版クライアントは鍛冶台のスロット判定を自前で持っており、
+ * サーバから届いた「レシピ」では広がらない</b>。プレイヤーからは「置けない」
+ * 「置こうとすると一瞬増殖して戻る」に見える
  * (クライアント予測が拒否 → サーバの正しい状態が送り直される往復)。
+ *
+ * <p><b>訂正 (2026-08-20)</b>: ここには以前「GeyserMC/Geyser#4706 が
+ * "Can't Fix / Missing Client Feature" で閉じているとおり Geyser 側でも直せない」と書いてあったが、
+ * <b>#4706 は防具トリム(custom trim patterns / materials)の issue で、ネザライト強化の話ではない</b>。
+ * 実際には統合版のスロット判定は<b>アイテムタグ</b>で決まる ── base 枠は
+ * {@code minecraft:transformable_items} を要求する(bedrock.dev の Recipes ドキュメント /
+ * minecraft.wiki の Item tag (Bedrock Edition))。GeyserExtra が登録するカスタムアイテムに
+ * このタグを付け、併せて {@code SmithingTransformRecipeData} を追送する対応を入れた
+ * (`reports/ACTIVE_RECORD.md` の「鍛冶台も対応」)。
+ *
+ * <p><b>この listener をまだ消していないのは、その新経路が実機で通ることを確認していないから。</b>
+ * 切り分けには {@link #DISABLE_PERMISSION} を使う(そのプレイヤーの補助だけを切れる)。
+ * 確認が取れたら撤去してよい ── そのときは
+ * {@code TrinityForge.java} の登録 1 行とこのクラスを消せば済む。逆に、消した後で新経路が
+ * 効いていないと分かると<b>統合版から鍛冶台を使う手段が 1 つも無くなる</b>ので、順序を逆にしないこと。
  *
  * <p><b>なぜ独自 GUI を作らないのか</b>: 鍛冶台の {@link org.bukkit.event.inventory.PrepareSmithingEvent}
  * には TF 以外にも判定が乗っている ── TF の
@@ -80,6 +95,20 @@ public final class BedrockSmithingAssistListener implements Listener {
 
     /** Java 版クライアントからこの補助を動作確認するための権限(既定 false)。 */
     public static final String OVERRIDE_PERMISSION = "trinityforge.smithing.bedrock-assist";
+
+    /**
+     * この補助を<b>切る</b>権限。既定では誰も持たない。
+     *
+     * <p>実機確認のために要る。統合版プレイヤーには補助が無条件で掛かるので、これが無いと
+     * 「鍛冶台に置けたのは補助のおかげか、GeyserExtra のアイテムタグのおかげか」を
+     * <b>切り分ける手段が一つも無い</b> ── つまり「タグ経路が確認できたら補助を撤去する」という
+     * 撤去条件を永久に満たせない。
+     *
+     * <p>使い方: {@code /lp user <名前> permission set trinityforge.smithing.bedrock-assist.off true}
+     * で対象プレイヤーだけ補助を切り、<b>手に持たずに</b>鍛冶台を開いて base スロットへ
+     * ドラッグできるかを見る。置けたならタグ経路が効いている。
+     */
+    public static final String DISABLE_PERMISSION = OVERRIDE_PERMISSION + ".off";
 
     /** base スロット(Bukkit の {@link SmithingInventory} は 0=型 / 1=素材 / 2=追加素材 / 3=結果)。 */
     private static final int BASE_SLOT = 1;
@@ -164,6 +193,9 @@ public final class BedrockSmithingAssistListener implements Listener {
 
     /** この補助の対象か(統合版プレイヤー、または動作確認用の権限保持者)。 */
     private static boolean isAssisted(Player player) {
+        if (player.hasPermission(DISABLE_PERMISSION)) {
+            return false;
+        }
         return isBedrockId(player.getUniqueId()) || player.hasPermission(OVERRIDE_PERMISSION);
     }
 

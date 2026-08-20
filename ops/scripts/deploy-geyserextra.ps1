@@ -19,6 +19,11 @@
     check-servers-stopped.ps1 で必ずゲートし、プロキシ側は配備先 jar を
     排他オープンできるかで「Velocity が掴んでいないか」を確かめる。
 
+    ⚠️ **TrinityForge より先にこれを配る。**（2026-08-20 以降）
+    TF が書き出す `bedrock-recipes.json` は形式バージョン 2 で、旧 GeyserExtra の
+    collector は 1 しか受け付けず**表を丸ごと reject する**（鍛冶台だけでなく
+    作業台の補正も全部消える）。逆順（GeyserExtra だけ新しい）は 1 も 2 も受理するので安全。
+
     ⚠️ **配備先のファイル名は「今入っている名前」に合わせる。**
     成果物名（geyserExtra-1.0.0-SNAPSHOT.jar / extension-1.0.0-SNAPSHOT.jar）とは違う。
     名前を変えると同じ拡張が 2 本ロードされる。

@@ -42,8 +42,19 @@ import java.util.Objects;
  */
 public final class BedrockRecipeTable {
 
-    /** ファイル形式のバージョン。受け取り側は不一致なら読まずに警告する。 */
-    public static final int FORMAT_VERSION = 1;
+    /**
+     * ファイル形式のバージョン。受け取り側は<b>理解できないバージョンなら読まずに警告する</b>。
+     *
+     * <p><b>2 (2026-08-20)</b>: {@link Type#SMITHING} を追加した。<b>ここを上げないと事故る</b> ──
+     * v1 の受け取り側は {@code type} が {@code "shaped"} でなければ問答無用で shapeless 扱いするので、
+     * スミス台レシピ(テンプレ/base/追加素材の3スロット)を<b>「3素材の作業台 shapeless レシピ」として
+     * 統合版クライアントへ配ってしまう</b>。配備は TF/ArsPaper と GeyserExtra で別スクリプトなので
+     * 片側だけ新しい状態が実際に起こりうる。
+     *
+     * <p>逆方向(新しい受け取り側 × 古い書き手)は、受け取り側が v1 も受理することで吸収する
+     * (v2 は v1 の厳密な上位互換 ── 増えたのは type の種類だけ)。
+     */
+    public static final int FORMAT_VERSION = 2;
 
     private BedrockRecipeTable() {
     }
@@ -95,7 +106,27 @@ public final class BedrockRecipeTable {
         }
     }
 
-    public enum Type { SHAPED, SHAPELESS }
+    /**
+     * レシピの種別。
+     *
+     * <p>{@link #SMITHING} は<b>スミス台のネザライト強化</b>({@code items/catalog.yml} の
+     * {@code method: netherite})。{@link Recipe#slots()} は必ず
+     * {@link #SMITHING_TEMPLATE_SLOT}/{@link #SMITHING_BASE_SLOT}/{@link #SMITHING_ADDITION_SLOT}
+     * の 3 マス固定で、盤面の幅・高さは持たない。
+     */
+    public enum Type { SHAPED, SHAPELESS, SMITHING }
+
+    /** {@link Type#SMITHING} のスロット数(テンプレ / base / 追加素材)。 */
+    public static final int SMITHING_SLOT_COUNT = 3;
+
+    /** スミス台のテンプレ枠。TF では常にネザライト強化テンプレ(バニラ)。 */
+    public static final int SMITHING_TEMPLATE_SLOT = 0;
+
+    /** スミス台の base 枠。<b>ここだけがカスタム品</b>で、補正の本体。 */
+    public static final int SMITHING_BASE_SLOT = 1;
+
+    /** スミス台の追加素材枠。TF では常にネザライトインゴット(バニラ)。 */
+    public static final int SMITHING_ADDITION_SLOT = 2;
 
     /**
      * 1 レシピ。
@@ -125,6 +156,20 @@ public final class BedrockRecipeTable {
                             "shaped recipe '" + id + "' has " + slots.size() + " slots for a "
                                     + width + "x" + height + " grid");
                 }
+            } else if (type == Type.SMITHING) {
+                if (slots.size() != SMITHING_SLOT_COUNT) {
+                    throw new IllegalArgumentException(
+                            "smithing recipe '" + id + "' needs exactly " + SMITHING_SLOT_COUNT
+                                    + " slots (template/base/addition) but has " + slots.size());
+                }
+                // 空マスのあるスミス台レシピは統合版では成立しない(3枠すべてを要求する UI)。
+                // 空のまま配ると「クライアントは出せると思っているのにサーバが渡さない」になる。
+                for (int i = 0; i < slots.size(); i++) {
+                    if (slots.get(i).isEmpty()) {
+                        throw new IllegalArgumentException(
+                                "smithing recipe '" + id + "' has an empty slot at index " + i);
+                    }
+                }
             } else if (slots.isEmpty()) {
                 throw new IllegalArgumentException("shapeless recipe '" + id + "' has no ingredients");
             }
@@ -136,6 +181,9 @@ public final class BedrockRecipeTable {
          * <p><b>ここが false のレシピは書き出さない。</b> 素材がすべてバニラなら Geyser の既定変換で
          * 正しく照合できる（結果だけカスタムでも結果は正しく変換される）ので、
          * 補正レシピを足すと同じレシピが二重に載るだけになる。
+         *
+         * <p>{@link Type#SMITHING} でも同じ判定でよい ── テンプレと追加素材は必ずバニラなので、
+         * ここが true になるのは<b>base がカスタム品のとき</b>だけ。そしてそれが直したい唯一のケース。
          */
         public boolean needsBedrockFix() {
             return slots.stream().anyMatch(Slot::hasCustom);

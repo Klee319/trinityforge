@@ -2651,16 +2651,27 @@ Geyser 公開 API の `CustomItemBedrockOptions.tags(Set<Identifier>)` は
 （2.11.1-b1223 の jar を逆アセンブルして確認。バニラ由来カスタムアイテムの登録経路でも通る）。
 `IdentifierImpl.toString()` は `Key.toString()` = `namespace:path`。
 
-**実装（2 段構え。片方だけでは動かない）**:
+**実装（タグが本体、レシピ注入は補助）**:
 
-1. **置けるようにする** — GeyserExtra が登録する**全カスタムアイテム**に
+> **クロスレビューで前提がもう一段ひっくり返った（2026-08-20）。**
+> Geyser には既に「Java 側が結果を出したら、**盤面の実アイテムから**スミスレシピをその場で合成して
+> クライアントへ送り、再計算を強制する」経路がある
+> （`JavaContainerSetSlotTranslator#updateSmithingTableOutput`。逆アセンブルで確認。
+> 入口は「テンプレ枠がネザライト強化テンプレであること」で、合成する ingredient は
+> **実 `GeyserItemStack` 由来なのでカスタム識別子がそのまま載る**）。
+> つまり **base 枠に置けさえすれば結果は出る**。**タグ 1 行が本体**で、
+> 下記 2 の注入レシピが足しているのは「サーバ往復を待たずに結果が出る」ことだけ。
+> `BedrockSmithingTableCmdStripper` の javadoc が「Geyser の動的合成はサーバが結果を出した後にしか
+> 走らないが、置けないので結果が出ない」と書いていたのは正しく、**その袋小路の出口がタグ**だった。
+
+1. **置けるようにする（本体）** — GeyserExtra が登録する**全カスタムアイテム**に
    `minecraft:transformable_items` を付ける（`CustomItemsHandler#registerVanillaItem`）。
    **対象を絞らないのは意図的**: 絞るにはレシピ表が要るが、表はバックエンドから
    `GeyserDefineCustomItemsEvent` の**後**に届くので、cold start でタグが欠け
    「2 回目の再起動から動く」という最悪の間欠故障になる。全付与の代償は
    「統合版だけ base 枠に何でも置けて結果が出ない」という見た目の非対称だけで、
    何が渡るかは Java サーバが決めるので実害は無い。
-2. **結果を出す** — 補正レシピに `SmithingTransformRecipeData`(tag=`smithing_table`) を足す。
+2. **結果を即出す（補助）** — 補正レシピに `SmithingTransformRecipeData`(tag=`smithing_table`) を足す。
    base は `source-item` のカタログエントリの material + CMD
    （Bukkit 側の登録は `MaterialChoice(材質だけ)` の緩い判定で、CMD 込みの照合は
    `CatalogSmithingListener` がやっている。材質だけをクライアントへ渡すと
@@ -2678,18 +2689,18 @@ TF/ArsPaper と GeyserExtra は**別スクリプトで配備する**ので片側
 
 | 担当 | 変更 |
 |---|---|
-| TrinityForge | `BedrockRecipeTable` に `Type.SMITHING`・`FORMAT_VERSION=2`／`CatalogRecipeRegistrar` に `registeredSmithing` と `allRegisteredSmithing()`／`BedrockRecipeExporter.build` が 3 引数化 |
+| TrinityForge | `BedrockRecipeTable` に `Type.SMITHING`・`FORMAT_VERSION=2`／`CatalogRecipeRegistrar` に `completableSmithing` と `allCompletableSmithing()`／`BedrockRecipeExporter.build` がゲート集合を取る／assist の停止権限 |
 | ArsPaper | 形式バージョンの契約コメントとテストの文言だけ（**出力は 1 バイトも変わらない**） |
-| GeyserExtra (Paper) | collector が `{1,2}` を受理・出力は常に v2 |
-| GeyserExtra (extension) | reader が `Type` enum 化・未知 type は推測せず skip／injector が `SmithingTransformRecipeData` を送る／`CustomItemsHandler` が item tag を付ける |
+| GeyserExtra (Paper) | collector が `{1,2}` を受理・出力は常に v2／`SmithingBaseExemptions` を新設し CMD ストリッパが注入対象を剥がさないようにした／全 reject 時に既存出力を消さない |
+| GeyserExtra (extension) | reader が `Type` enum 化・未知 type は推測せず skip／injector が `SmithingTransformRecipeData` を送る（`default -> throw` 付き）／`CustomItemsHandler` が item tag を付け、identifier マップのコピーを O(1) 化／drop を warn へ |
 
 **踏まないように決めた設計判断**:
 
-- **`registeredSmithing` は `registeredSpecs` と分ける。** あちらは `CatalogWorkbenchListener` が
+- **`completableSmithing` は `registeredSpecs` と分ける。** あちらは `CatalogWorkbenchListener` が
   「作業台の盤面と突き合わせる候補」として総当たりするコレクションで、スミス台レシピを混ぜると
   **shape も shapeless 素材も持たない spec を舐めはじめる**。分ければ既存利用者は 1 行も変わらない。
-- **`registerNetheriteOne` が `Bukkit.addRecipe` を通った後にだけ記録する。** 条件を別実装で
-  組み直すと、`NetheriteUpgradeGuard` に弾かれて**登録されていないレシピを「作れる」と配る**ことになる。
+- **条件を別実装で組み直さず、registrar が持っている判定結果をそのまま使う。**
+  「登録できたか」ではなく**「サーバが完成させられるか」**が基準（上の 2 を参照）。
 - **テンプレ／追加素材の Material は `CatalogRecipeRegistrar` の `public static final` 定数に集約。**
   登録側と表側で別々に書くと、クライアントだけが成立すると信じる盤面ができる。
 - **未知の `type` は絶対に既知へフォールバックしない。** これが形式にバージョンを付けている理由そのもの。
@@ -2711,6 +2722,101 @@ ArsPaper 473 / 0、geyserExtra 320 / 0。**変異テスト 3 本で空振りで�
 **実機で見るべきログ**: 上記に加えてプロキシの
 `[bedrock-recipes] sent N corrected recipes (M smithing)`（debug）。
 **`(M smithing)` が出ないなら表にスミス台レシピが載っていない。**
+
+##### クロスレビューで見つけて直したもの（同日・2 エージェント）
+
+**1. CMD ストリッパと新経路が相討ちになっていた（配備すれば無言で全部無効化された）**
+
+`BedrockSmithingTableCmdStripper` は統合版プレイヤーが**鍛冶台を開いている間、ウィンドウ内の
+全アイテムから CMD を剥がして**送る（既定 ON）。すると統合版クライアントが持っているのは
+素の `minecraft:bow` で、**タグも注入レシピも `geyser_custom:*` 側に付いている**ので
+どちらも当たらない。しかも対象がちょうど排他だった:
+
+| 対象 | 今日の状態 | 効いている機構 |
+|---|---|---|
+| ダイヤ系 8 件（短剣・レイピア・大槌・大斧・鎌・斧・戦鎌・杖） | **普通に置けている** | CMD ストリッパ（剥がせばバニラの強化レシピが一致する） |
+| 弓・クロスボウ・トライデント・メイスの 4 件 | **置けない**（＝W-159 の報告そのもの） | ストリッパでは原理的に救えない（素のバニラ弓に `transformable_items` が無い） |
+
+つまり**新経路が狙っているのは、ちょうどストリッパが救えない 4 件**で、そこでストリッパに潰される。
+
+修正: **ストリッパの除外集合を、注入に使うのと同じマージ済みレシピ表から導出する**
+（`SmithingBaseExemptions`）。表の smithing エントリの base 枠に載っている
+`<material>#<cmd>` だけ CMD を剥がさない。**表にスミス台エントリが無ければ除外ゼロ＝現状のまま**
+なので、片側だけ配備しても退行しない（自己整合）。それ以外のカスタム品は今までどおり剥がすので、
+「カタログ外の CMD 付きダイヤ剣を剥がしてバニラ強化する」既存挙動も無傷。
+
+**2. 出荷 12 件のうち 8 件が統合版の表から抜けていた（＝主要武器だけ直らない）**
+
+`NetheriteUpgradeGuard` は base の材質がバニラのネザライト強化対象（DIAMOND_SWORD /
+DIAMOND_AXE / DIAMOND_HOE）だと**登録を見送る**。最初の実装は「TF が登録できたものだけ」を
+書き出していたので、12 件中 8 件が表に載らなかった。**だがサーバはその 8 件を完成させられる**
+（バニラのレシピが代わりに一致 → `PrepareSmithingEvent` → `CatalogSmithingListener` が結果を差し替え）。
+＝「直ったように見えて半分だけ壊れている」最悪の状態。
+
+修正: 収集の意味を「登録できたもの」から**「サーバが完成させられるもの」**へ変えた
+（`allRegisteredSmithing()` → `allCompletableSmithing()`）。ガードが**走査に成功した上で**
+見送った分だけ載せ、走査自体が失敗した（＝既存レシピの有無が分からない）ときは載せない。
+
+**3. パークゲートが掛かると「完成品が見えるのに取れない」（潜在）**
+
+統合版は結果をクライアント側で計算するので、`CatalogCraftGateListener#onPrepareSmithing` が
+`setResult(null)` しても**完成品が表示されたまま取れない**。出荷 skilltree に netherite 系の
+`recipe:` ゲートは 1 件も無いので**今日は踏まない**が、config で有効にした瞬間に踏む。
+修正: ゲート id が配置済みの強化は**表から外す**（Geyser の動的合成に委ねれば、
+サーバが結果を出したときだけ表示されるので自動的に正しくなる）。
+材質→ゲート id の対応は `CatalogCraftGateListener#netheriteGateIdFor` を共有する（二重定義しない）。
+
+**4. 実機確認を成立させるスイッチが無かった** — 統合版プレイヤーには
+`BedrockSmithingAssistListener`（手に持って右クリック）が無条件で掛かるので、
+「置けたのは補助のおかげかタグのおかげか」を切り分けられず、**撤去条件を永久に満たせない**。
+`trinityforge.smithing.bedrock-assist.off` 権限を足した（既定では誰も持たない）。
+
+**5. イベントループ上で 1200 件超の Map を毎回コピーしていた** —
+`CustomItemsHandler#registeredBedrockIdentifiers()` が `Map.copyOf` を返しており、
+injector は**素材ごと・組み合わせごと・レシピごと**にこれを呼ぶ。実配備の
+`custom_items.json` は 1223 件なので 1 セッションのレシピ送信で 5 桁回のフルコピーが
+Netty のイベントループで走る。しかも Paper の `addRecipe` はレシピを毎回全員へ再送する。
+`ConcurrentHashMap` + 固定の unmodifiable ビューに変えて O(1) 化。
+
+**6. 失敗が debug ログにしか出なかった** — この機能は**失敗すると元の不具合と同じ症状**に
+なるので、ログだけが「配備されていない」と「配備したが全件 drop している」の唯一の区別手段。
+`dropped > 0` を warn へ（ロードごとに 1 回）。TF 側の書き出しログにも**鍛冶台の内訳**を出す
+（合計だけだと 200 件中の数件の差に埋もれる）。
+
+**7. 全 reject 時に既存の出力を消していた** — collector を旧版へ戻すと TF の v2 を全部 reject
+→ `tables.isEmpty()` → **配ってあった `<backend>.json` を削除**で、作業台の補正まで道連れ。
+reject が 1 件でもあるときは**消さずに前回の内容を残す**ようにした。
+
+**8. injector の `switch` が非網羅でも通っていた** — アロー形式でも switch *文* なので、
+`Type` が増えた日に「何も足さないまま `added++` だけ回り、ログは N 件送ったと言う」。
+`default -> throw` を置いた（外側の `catch(Throwable)` が WARN を出してその起動の間だけ止める）。
+
+##### 配備順（重要）
+
+**GeyserExtra を TrinityForge より先に配備する。** TF は表を常に v2 で刻むので、
+GeyserExtra が旧版のままだと表を丸ごと reject する（作業台の補正も含めて）。
+逆順（GeyserExtra だけ新しい）は v1 も受理するので安全。
+※ 実配備の extension フォルダに `bedrock-recipes/` はまだ存在しない ＝
+**この機構は本番で一度も動いたことがない**。今回が初回配備。
+
+##### まだ直していない（今回の変更起因ではない）
+
+- **Dev_Server / Resource_Server の表はプロキシに届かない。** 両者の `extension-data-folder` は
+  skinFixOnlyMode のため**ローカル**を指しているので、そこへ書いた `bedrock-recipes/<backend>.json`
+  を Geyser 拡張は永久に読まない。それでも `poll()` は成功ログを出す。今は config が
+  ジャンクション共有で 3 台とも同じレシピ集合なので実害が出ていないだけで、
+  **設計が意図したバックエンド跨ぎの union は一度も起きていない**。
+- **`/geyser reload` 後、injector が古い `CustomItemsHandler` を掴んだまま**になる
+  （`Registries` が static で、`install()` が `Wrapper` を見つけて即 return するため）。
+  表は拾い直すのに identifier マップだけ古い。ログは出ない。
+- **タグ付与の副作用**: Java 版は base 枠が `RecipePropertySet(SMITHING_BASE)` で制限されるので
+  「そもそも置けない」が、統合版は**置けてしまってサーバに弾かれ再同期する**＝ちらつく。
+  対象が全カスタムアイテムなので遭遇率は上がる。絞るには表が要るが、表は
+  `GeyserDefineCustomItemsEvent` の後に届くので cold start で穴が空く。**ちらつきを取った。**
+- `registerNonVanillaItem`（v1 API）はタグを付けられない。実配備の非バニラ登録は 0 件。
+- injector 側に自動テストが無い（Geyser の型を持つため）。descriptor の並びは
+  Geyser 自身の `JavaUpdateRecipesTranslator` の逆アセンブルと突き合わせて一致を確認済み。
+
 
 #### 併発（実データ）: 統合版で別物が同じアイテムに見える CMD 衝突
 

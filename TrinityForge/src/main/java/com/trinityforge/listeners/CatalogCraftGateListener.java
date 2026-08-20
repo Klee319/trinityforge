@@ -174,6 +174,18 @@ public final class CatalogCraftGateListener implements Listener {
         return path;
     }
 
+    /**
+     * base の材質に対応する {@code recipe:<id>} ゲート id。ゲート対象でなければ {@code null}。
+     *
+     * <p>public なのは<b>統合版向けレシピ表の書き出し</b>({@code BedrockRecipeExporter})が
+     * 同じ対応表を要るため。あちらで材質→id を書き直すと、
+     * 「サーバは塞いでいるのにクライアントには完成品が見えている」という
+     * <b>最も分かりにくい壊れ方</b>が、対応表がずれた分だけ発生する。
+     */
+    public static String netheriteGateIdFor(Material base) {
+        return base == null ? null : NETHERITE_UPGRADE_GATE_IDS.get(base);
+    }
+
     private static String netheriteGateId(SmithingInventory inventory) {
         ItemStack template = inventory.getInputTemplate();
         ItemStack base = inventory.getInputEquipment();

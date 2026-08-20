@@ -311,6 +311,86 @@ class CatalogRecipeRegistrarNetheriteTest {
                 "衝突しない BOW 側は登録されなければならない");
     }
 
+    /**
+     * <b>登録を見送った強化も統合版向けの表には載せる</b>こと。
+     *
+     * <p>ここを落とすと「直ったように見えて半分だけ壊れている」状態になる。バニラのネザライト強化と
+     * 衝突する材質(DIAMOND_SWORD / DIAMOND_AXE / DIAMOND_HOE ＝<b>出荷カタログ 12 件中 8 件</b>)は
+     * TF がレシピを登録しないが、<b>バニラのレシピが代わりに一致するので
+     * {@code PrepareSmithingEvent} は飛び、{@code CatalogSmithingListener} が結果を差し替える</b> ──
+     * つまりサーバは完成させられる。ところが統合版クライアントが持っているのは Geyser が変換した
+     * バニラのレシピ(base = 素のダイヤの剣)だけで、カスタムの短剣とは照合できない。
+     * <b>補正レシピはむしろこちら側にこそ要る。</b>
+     */
+    @Test
+    void aRecipeTheGuardSkippedIsStillOfferedToBedrockBecauseTheServerCompletesIt(
+            @TempDir File tempDir) throws IOException {
+        Bukkit.addRecipe(new SmithingTransformRecipe(
+                new NamespacedKey("minecraft", "netherite_sword_smithing"),
+                new ItemStack(Material.NETHERITE_SWORD),
+                new RecipeChoice.MaterialChoice(Material.NETHERITE_UPGRADE_SMITHING_TEMPLATE),
+                new RecipeChoice.MaterialChoice(Material.DIAMOND_SWORD),
+                new RecipeChoice.MaterialChoice(Material.NETHERITE_INGOT)));
+
+        ItemCatalogConfig catalog = loadCatalog(tempDir, """
+                items:
+                  diamond_dagger:
+                    material: DIAMOND_SWORD
+                    custom-model-data: 1101
+                  netherite_dagger:
+                    material: NETHERITE_SWORD
+                    recipe:
+                      method: netherite
+                      source-item: custom:diamond_dagger
+                  diamond_bow:
+                    material: BOW
+                    custom-model-data: 1096
+                  netherite_bow:
+                    material: BOW
+                    custom-model-data: 1097
+                    recipe:
+                      method: netherite
+                      source-item: custom:diamond_bow
+                """);
+        CatalogRecipeRegistrar registrar = new CatalogRecipeRegistrar(
+                fakePlugin(tempDir), catalog, factoryWithMockAssembler());
+
+        registrar.registerAll();
+
+        java.util.List<String> offered = registrar.allCompletableSmithing().stream()
+                .map(entry -> entry.key().getKey())
+                .toList();
+        assertTrue(offered.contains("catalog_netherite_dagger_smithing"),
+                "登録は見送るがサーバは完成させられるので、統合版へは配らなければならない: " + offered);
+        assertTrue(offered.contains("catalog_netherite_bow_smithing"),
+                "登録できた側も当然配る: " + offered);
+    }
+
+    /**
+     * source がカタログに無い強化は<b>統合版の表にも載せない</b>こと。
+     *
+     * <p>こちらは「サーバも完成させられない」ので、配ると統合版だけ完成品が見えて取れなくなる。
+     */
+    @Test
+    void aRecipeWithAnUnknownSourceIsNotOfferedToBedrockEither(@TempDir File tempDir)
+            throws IOException {
+        ItemCatalogConfig catalog = loadCatalog(tempDir, """
+                items:
+                  netherite_bow:
+                    material: BOW
+                    recipe:
+                      method: netherite
+                      source-item: custom:does_not_exist
+                """);
+        CatalogRecipeRegistrar registrar = new CatalogRecipeRegistrar(
+                fakePlugin(tempDir), catalog, factoryWithMockAssembler());
+
+        registrar.registerAll();
+
+        assertTrue(registrar.allCompletableSmithing().isEmpty(),
+                "サーバが完成させられないものを統合版へ配ってはいけない");
+    }
+
     /** 防具トリムは template/addition が違うので「衝突あり」と誤判定してはいけない。 */
     @Test
     void armorTrimRecipeDoesNotBlockANetheriteRecipeOnTheSameBaseMaterial(@TempDir File tempDir)

@@ -3,6 +3,7 @@ package com.trinityforge.bedrock;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.trinityforge.config.domains.ItemCatalogConfig;
+import com.trinityforge.listeners.CatalogCraftGateListener;
 import com.trinityforge.stats.CatalogRecipeRegistrar;
 import com.trinityforge.stats.ExternalItemRegistry;
 import com.trinityforge.stats.ItemTemplate;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
@@ -36,8 +38,10 @@ import java.util.TreeSet;
  *
  * <h2>書き出す対象</h2>
  * <ul>
- *   <li>Bukkit のクラフト台に乗るレシピだけ ({@link RecipeSpec#isBukkitCrafting()})。
- *       儀式・鍛冶・合成は作業台の照合を通らない。</li>
+ *   <li>Bukkit のクラフト台に乗るレシピ ({@link RecipeSpec#isBukkitCrafting()}) と、
+ *       <b>スミス台のネザライト強化</b> ({@link RecipeSpec#isNetherite()})。
+ *       儀式({@code method: ritual})と金床合成({@code method: combine})は対象外 ──
+ *       どちらも統合版クライアントのレシピ表に載る形が無く、サーバ側イベントだけで完結している。</li>
  *   <li><b>素材にカスタム識別があるものだけ。</b> 素材が全部バニラなら Geyser の既定変換で
  *       正しく照合できる（結果だけカスタムでも結果側は正しく変換される）。</li>
  *   <li>{@code reversible: true} の<b>逆レシピ(解凍)も書く。</b>
@@ -45,7 +49,22 @@ import java.util.TreeSet;
  *       ({@code registerReverseOne} が Bukkit へ直接入れるだけ) ので、
  *       ここで spec から組み直さないと丸ごと落ちる ── そして逆レシピの素材は
  *       「正レシピの完成品」＝必ずカスタム品なので、<b>落とすと解凍が直らない</b>。</li>
+ *   <li><b>スミス台は「サーバが完成させられるものだけ」</b>
+ *       ({@link CatalogRecipeRegistrar#allCompletableSmithing()})。
+ *       <b>「TF が登録したものだけ」ではない</b> ── バニラのネザライト強化レシピが
+ *       代わりに一致するせいで TF が登録を見送ったケース(出荷カタログでは 12 件中 8 件)でも、
+ *       {@code PrepareSmithingEvent} は飛んで {@code CatalogSmithingListener} が結果を差し替えるので
+ *       プレイヤーは完成品を受け取れる。そして<b>統合版クライアントが持っているのは
+ *       Geyser が変換したバニラのレシピ(base = 素のダイヤの剣)だけ</b>なので、
+ *       補正レシピはむしろこちら側にこそ要る。ここで条件を組み直さず、
+ *       registrar が持っている判定結果をそのまま使うこと。</li>
  * </ul>
+ *
+ * <h2>スミス台の base に「カタログ品の CMD」を書く理由</h2>
+ * Bukkit 側の登録は {@code MaterialChoice(素材の material)} ＝<b>材質だけの緩い判定</b>で、
+ * 実際に何が出来るかは {@code CatalogSmithingListener} が CMD 込みで決めている。
+ * 統合版クライアントへ「材質だけ」を渡すと<b>素のバニラ弓でも完成すると表示される</b>ので、
+ * ここでは {@code source-item} のカタログエントリを解決して material + CMD を書く。
  */
 public final class BedrockRecipeExporter {
 
@@ -88,11 +107,21 @@ public final class BedrockRecipeExporter {
         };
     }
 
-    /** 出荷カタログでの書き出し。 */
+    /** 出荷カタログでの書き出し。ゲートは掛かっていない前提(テスト用)。 */
     public static BedrockRecipeTable.Table build(
             Collection<CatalogRecipeRegistrar.RegisteredRecipe> registered,
+            Collection<CatalogRecipeRegistrar.RegisteredRecipe> completableSmithing,
             ItemCatalogConfig catalog) {
-        return build(registered, catalogResolver(catalog));
+        return build(registered, completableSmithing, catalogResolver(catalog), Set.of());
+    }
+
+    /** 出荷カタログ＋ゲート集合での書き出し。 */
+    public static BedrockRecipeTable.Table build(
+            Collection<CatalogRecipeRegistrar.RegisteredRecipe> registered,
+            Collection<CatalogRecipeRegistrar.RegisteredRecipe> completableSmithing,
+            ItemCatalogConfig catalog,
+            Set<String> configuredRecipeGateIds) {
+        return build(registered, completableSmithing, catalogResolver(catalog), configuredRecipeGateIds);
     }
 
     /**
@@ -101,9 +130,39 @@ public final class BedrockRecipeExporter {
      */
     public static BedrockRecipeTable.Table build(
             Collection<CatalogRecipeRegistrar.RegisteredRecipe> registered,
+            Collection<CatalogRecipeRegistrar.RegisteredRecipe> completableSmithing,
             CustomItemResolver catalog) {
+        return build(registered, completableSmithing, catalog, Set.of());
+    }
+
+    /**
+     * レシピ表を組む。
+     *
+     * @param configuredRecipeGateIds いずれかのスキルツリーノードが {@code recipe:<id>} として
+     *     配っているゲート id の集合。ここに載っている強化は<b>表から外す</b> ── 統合版は結果を
+     *     クライアント側で計算するので、サーバが {@code setResult(null)} で塞いでも
+     *     <b>完成品が見えたまま取れない</b>という、ユーザーには純粋なバグにしか見えない状態になる。
+     *     外しておけば Geyser 自身の動的合成(サーバが結果を出したときだけ走る)に委ねられ、
+     *     ゲートの有無がそのまま表示に反映される。
+     */
+    public static BedrockRecipeTable.Table build(
+            Collection<CatalogRecipeRegistrar.RegisteredRecipe> registered,
+            Collection<CatalogRecipeRegistrar.RegisteredRecipe> completableSmithing,
+            CustomItemResolver catalog,
+            Set<String> configuredRecipeGateIds) {
         List<BedrockRecipeTable.Recipe> recipes = new ArrayList<>();
         List<String> skipped = new ArrayList<>();
+        for (CatalogRecipeRegistrar.RegisteredRecipe entry : completableSmithing) {
+            String id = entry.key().toString();
+            smithing(id, entry.template(), entry.spec(), catalog, configuredRecipeGateIds)
+                    .ifPresentOrElse(
+                    recipe -> {
+                        if (recipe.needsBedrockFix()) {
+                            recipes.add(recipe);
+                        }
+                    },
+                    () -> skipped.add(id));
+        }
         for (CatalogRecipeRegistrar.RegisteredRecipe entry : registered) {
             RecipeSpec spec = entry.spec();
             if (!spec.isBukkitCrafting() || !spec.shouldRegister()) {
@@ -169,6 +228,48 @@ public final class BedrockRecipeExporter {
                 BedrockRecipeTable.ItemRef.of(template.material(), template.customModelData()));
         return Optional.of(new BedrockRecipeTable.Recipe(
                 id, BedrockRecipeTable.Type.SHAPELESS, 0, 0, List.of(source), result));
+    }
+
+    /**
+     * スミス台のネザライト強化 1 件。
+     *
+     * <p>テンプレと追加素材は {@link CatalogRecipeRegistrar} の定数から採る ──
+     * 登録側と別の値を書くと、クライアントだけが成立すると信じる盤面ができる。
+     * base は {@code source-item} のカタログエントリ(＝{@code CatalogSmithingListener} が
+     * CMD 込みで照合している相手)。
+     *
+     * @return source-item が解決できないときは {@code empty}(呼び出し側が skipped に積む)
+     */
+    private static Optional<BedrockRecipeTable.Recipe> smithing(
+            String id, ItemTemplate template, RecipeSpec spec, CustomItemResolver catalog,
+            Set<String> configuredRecipeGateIds) {
+        if (template == null) {
+            return Optional.empty();
+        }
+        String sourceId = spec.sourceItem();
+        if (sourceId == null || sourceId.isBlank()) {
+            return Optional.empty();
+        }
+        Optional<BedrockRecipeTable.ItemRef> base = resolveCustom(sourceId, catalog);
+        if (base.isEmpty()) {
+            return Optional.empty();
+        }
+        String gateId = CatalogCraftGateListener.netheriteGateIdFor(base.get().material());
+        if (gateId != null && configuredRecipeGateIds.contains(gateId)) {
+            // パーク未取得なら PrepareSmithingEvent で結果が消される強化。
+            // 表へ載せるとクライアントが勝手に完成品を描いてしまうので載せない。
+            return Optional.empty();
+        }
+        BedrockRecipeTable.ItemRef result = new BedrockRecipeTable.ItemRef(
+                template.material(), template.customModelData(), Math.max(1, spec.amount()));
+        List<BedrockRecipeTable.Slot> slots = List.of(
+                BedrockRecipeTable.Slot.of(BedrockRecipeTable.ItemRef.of(
+                        CatalogRecipeRegistrar.SMITHING_TEMPLATE_MATERIAL, null)),
+                BedrockRecipeTable.Slot.of(base.get()),
+                BedrockRecipeTable.Slot.of(BedrockRecipeTable.ItemRef.of(
+                        CatalogRecipeRegistrar.SMITHING_ADDITION_MATERIAL, null)));
+        return Optional.of(new BedrockRecipeTable.Recipe(
+                id, BedrockRecipeTable.Type.SMITHING, 0, 0, slots, result));
     }
 
     private static Optional<BedrockRecipeTable.Recipe> shaped(
@@ -292,7 +393,11 @@ public final class BedrockRecipeExporter {
     private static JsonObject toJson(BedrockRecipeTable.Recipe recipe) {
         JsonObject object = new JsonObject();
         object.addProperty("id", recipe.id());
-        object.addProperty("type", recipe.type() == BedrockRecipeTable.Type.SHAPED ? "shaped" : "shapeless");
+        object.addProperty("type", switch (recipe.type()) {
+            case SHAPED -> "shaped";
+            case SHAPELESS -> "shapeless";
+            case SMITHING -> "smithing";
+        });
         if (recipe.type() == BedrockRecipeTable.Type.SHAPED) {
             object.addProperty("width", recipe.width());
             object.addProperty("height", recipe.height());
