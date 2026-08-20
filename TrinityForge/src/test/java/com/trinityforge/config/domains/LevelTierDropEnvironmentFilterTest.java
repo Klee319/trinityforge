@@ -27,8 +27,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <h2>なぜこの軸が要るのか</h2>
  * 既存の {@code where:} は「討伐したワールドがダンジョンインスタンスか」しか見ない。
  * つまり<b>オーバーワールドもジ・エンドもどちらも {@code field}</b> になり、両方に出る
- * エンダードラゴンを片方だけに限定できない。依頼は「オーバーワールドのエンダードラゴン」
- * だったので、ここを絞らないとエンドクリスタルで復活させたエンドラからも卵が出る。
+ * エンダードラゴンを片方だけに限定できない。この軸はそのために新設した。
+ *
+ * <p><b>2026-08-20(W-178): 出荷設定ではこの軸を使わなくなった。</b> 軸そのものは残す(下の単体テスト群)
+ * が、ドラゴンの卵の {@code environment: [NORMAL]} は撤去した —— 実サーバにオーバーワールドへ
+ * エンダードラゴンが出る経路が無く({@code EliteMobs} の {@code ENDER_DRAGON} は束縛者のダンジョン
+ * ボスなので {@code where: field} から外れる)、<b>この行は一度も発火できていなかった</b>。
  *
  * <h2>この検査が無いと何が無言で壊れるか</h2>
  * <ul>
@@ -102,7 +106,7 @@ class LevelTierDropEnvironmentFilterTest {
     // ------------------------------------------------------------------ 出荷設定
 
     @Test
-    @DisplayName("出荷設定: ドラゴンの卵は全帯に 100%/1個・ENDER_DRAGON・field・NORMAL 限定で載っている")
+    @DisplayName("出荷設定: ドラゴンの卵は全帯に 100%/1個・ENDER_DRAGON・field・ディメンション無制限で載っている")
     void shippedDragonEggEntryIsWiredInEveryBand() throws Exception {
         YamlConfiguration cfg = new YamlConfiguration();
         cfg.loadFromString(Files.readString(Path.of(MOB_LEVEL_TABLE)));
@@ -143,9 +147,14 @@ class LevelTierDropEnvironmentFilterTest {
             if (!"field".equals(String.valueOf(egg.get("where")))) {
                 problems.add("min-level=" + minLevel + ": where が field でない (" + egg.get("where") + ")");
             }
-            if (!List.of("NORMAL").equals(egg.get("environment"))) {
-                problems.add("min-level=" + minLevel + ": environment が [NORMAL] でない ("
-                        + egg.get("environment") + ") — ジ・エンドのエンドラからも落ちる");
+            // 2026-08-20(W-178): ここは「[NORMAL] であること」から「そもそも付いていないこと」へ反転した。
+            // オーバーワールドにエンダードラゴンが湧く経路が実サーバに存在せず、[NORMAL] 限定だと
+            // この 100% ドロップは永久に発火しない(= hero 武器の儀式コア素材が入手不能のまま)。
+            // where: field は残っているので、ダンジョンインスタンスの束縛者からは落ちない。
+            if (egg.get("environment") != null) {
+                problems.add("min-level=" + minLevel + ": environment が付いている ("
+                        + egg.get("environment") + ") — W-178 でディメンション制限は撤去した。"
+                        + "付け直すとオーバーワールド以外で落ちなくなり、実サーバでは一度も発火しない");
             }
         }
         assertTrue(problems.isEmpty(), String.join("\n", problems));
