@@ -667,6 +667,114 @@ class CraftQualityListenerSmithingExpTest {
         assertFalse(CraftQualityListener.producesCraftedItem(null, empty));
     }
 
+    /**
+     * <b>実サーバ報告 (2026-08-20 / W-171)</b>: 「Ctrl+Q で1スタックのシャベルを一括製作したのに
+     * 1つ分の経験値しか入らない」。
+     *
+     * <p>真因: {@link CraftItemEvent} は<b>クリック1回につき1度しか飛ばない</b>。バニラ
+     * {@code AbstractContainerMenu#doClick} の {@code ClickType.THROW} 分岐は {@code button == 1}
+     * (=Ctrl+Q) のときだけ「同じ品が出る限り safeTake→drop」を<b>ループ</b>する
+     * (paper-1.21.11.jar の実バイトコードで {@code goto} を確認)。旧実装は
+     * {@code event.isShiftClick()} だけを見ており Ctrl+Q は false なので、常に1回ぶんへ落ちていた。
+     *
+     * <p>落とす経路なので<b>収納容量では頭打ちにならない</b>: インベントリが満杯でも素材ぶん全部作れる。
+     */
+    @Test
+    void controlDropBulkCraftGrantsExpForEveryCraftEvenWithAFullInventory() {
+        ItemStack result = new ItemStack(Material.IRON_SHOVEL);
+        when(itemStats.profileFor(eq(Material.IRON_SHOVEL), any()))
+                .thenReturn(Optional.of(mock(ItemStatProfile.class)));
+        when(itemStats.qualityModeOffsetFor(eq(Material.IRON_SHOVEL), any())).thenReturn(0);
+        when(itemStats.useRequirementFor(eq(Material.IRON_SHOVEL), any()))
+                .thenReturn(Optional.of(new ItemUseRequirement(10, SkillId.SMITHING)));
+        fillPlayerStorageExcept(0); // 満杯 —— Ctrl+Q は地面へ落とすので制約にならない
+
+        CraftingInventory inventory = mock(CraftingInventory.class);
+        when(inventory.getResult()).thenReturn(result);
+        when(inventory.getMatrix()).thenReturn(new ItemStack[]{
+                new ItemStack(Material.IRON_INGOT, 64),
+                new ItemStack(Material.STICK, 64),
+                new ItemStack(Material.STICK, 64)
+        });
+        CraftItemEvent event = mock(CraftItemEvent.class);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getInventory()).thenReturn(inventory);
+        when(event.getCurrentItem()).thenReturn(result);
+        when(event.getRecipe()).thenReturn(mock(Recipe.class));
+        when(event.getAction()).thenReturn(org.bukkit.event.inventory.InventoryAction.DROP_ALL_SLOT);
+        when(event.getCursor()).thenReturn(new ItemStack(Material.AIR));
+
+        listener().onCraft(event);
+
+        verify(dispatcher).grant(player.getUniqueId(), SkillId.SMITHING, SMITHING_EXP_PER_CRAFT * 64);
+    }
+
+    /**
+     * <b>増殖ガード (2026-08-20)</b>: 前回の一括クラフト修正で「素材をスタックした状態で1個だけ
+     * クラフトしても、スタック数ぶんの EXP が入る」増殖バグを踏んでいる。回数は<b>盤面の素材の
+     * 最小個数</b>から求めるので、素材が各1個なら Ctrl+Q でもちょうど1回ぶんで止まる。
+     */
+    @Test
+    void controlDropWithSingleIngredientsStillGrantsExactlyOneCraft() {
+        ItemStack result = new ItemStack(Material.IRON_SHOVEL);
+        when(itemStats.profileFor(eq(Material.IRON_SHOVEL), any()))
+                .thenReturn(Optional.of(mock(ItemStatProfile.class)));
+        when(itemStats.qualityModeOffsetFor(eq(Material.IRON_SHOVEL), any())).thenReturn(0);
+        when(itemStats.useRequirementFor(eq(Material.IRON_SHOVEL), any()))
+                .thenReturn(Optional.of(new ItemUseRequirement(10, SkillId.SMITHING)));
+
+        CraftingInventory inventory = mock(CraftingInventory.class);
+        when(inventory.getResult()).thenReturn(result);
+        when(inventory.getMatrix()).thenReturn(new ItemStack[]{
+                new ItemStack(Material.IRON_INGOT, 1),
+                new ItemStack(Material.STICK, 1),
+                new ItemStack(Material.STICK, 1)
+        });
+        CraftItemEvent event = mock(CraftItemEvent.class);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getInventory()).thenReturn(inventory);
+        when(event.getCurrentItem()).thenReturn(result);
+        when(event.getRecipe()).thenReturn(mock(Recipe.class));
+        when(event.getAction()).thenReturn(org.bukkit.event.inventory.InventoryAction.DROP_ALL_SLOT);
+        when(event.getCursor()).thenReturn(new ItemStack(Material.AIR));
+
+        listener().onCraft(event);
+
+        verify(dispatcher).grant(player.getUniqueId(), SkillId.SMITHING, SMITHING_EXP_PER_CRAFT);
+    }
+
+    @Test
+    void craftOperationCountDependsOnTheClickAction() {
+        ItemStack[] matrix = {new ItemStack(Material.IRON_INGOT, 5), new ItemStack(Material.STICK, 5)};
+        ItemStack result = new ItemStack(Material.IRON_SHOVEL);
+        ItemStack[] fullStorage = new ItemStack[36];
+        java.util.Arrays.fill(fullStorage, new ItemStack(Material.DIRT, Material.DIRT.getMaxStackSize()));
+        ItemStack[] emptyStorage = new ItemStack[36];
+
+        // shift = 作れるだけ作って「しまう」 → 収納容量で頭打ち(満杯なら0)
+        assertEquals(5, CraftQualityListener.craftOperationCount(
+                org.bukkit.event.inventory.InventoryAction.MOVE_TO_OTHER_INVENTORY,
+                matrix, emptyStorage, result));
+        assertEquals(0, CraftQualityListener.craftOperationCount(
+                org.bukkit.event.inventory.InventoryAction.MOVE_TO_OTHER_INVENTORY,
+                matrix, fullStorage, result));
+
+        // Ctrl+Q = 作れるだけ作って「落とす」 → 満杯でも素材ぶん全部
+        assertEquals(5, CraftQualityListener.craftOperationCount(
+                org.bukkit.event.inventory.InventoryAction.DROP_ALL_SLOT,
+                matrix, fullStorage, result));
+
+        // 素の Q はループしない / 通常クリックも1回 / action 不明は安全側の1回
+        assertEquals(1, CraftQualityListener.craftOperationCount(
+                org.bukkit.event.inventory.InventoryAction.DROP_ONE_SLOT,
+                matrix, fullStorage, result));
+        assertEquals(1, CraftQualityListener.craftOperationCount(
+                org.bukkit.event.inventory.InventoryAction.PICKUP_ALL,
+                matrix, emptyStorage, result));
+        assertEquals(1, CraftQualityListener.craftOperationCount(
+                (org.bukkit.event.inventory.InventoryAction) null, matrix, emptyStorage, result));
+    }
+
     private void fillPlayerStorageExcept(int emptySlots) {
         ItemStack[] storage = new ItemStack[player.getInventory().getStorageContents().length];
         for (int slot = emptySlots; slot < storage.length; slot++) {

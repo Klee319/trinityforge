@@ -133,6 +133,23 @@ public final class PdcKeys {
      * ({@code com.trinityforge.gathering.GatheringEfficiencyEnchantApplier} が唯一の読み書き元)。
      */
     public static final NamespacedKey ITEM_GATHERING_EFFICIENCY_APPLIED = key("gathering_efficiency_applied");
+    /**
+     * 醸造でベースを {@code WATER} へ倒す<b>前</b>の {@link org.bukkit.potion.PotionType} 名
+     * (STRING、2026-08-20 / W-170)。
+     *
+     * <p><b>なぜ要るか（実バグ）</b>: {@code PotionQualityListener}(HIGH) は段階の違う効果を一意に
+     * 確定させるため、品質が乗るポーションのベースを必ず {@code WATER} へ倒して全部カスタム効果で
+     * 表現する。ところが EXP を出す {@code NativeSkillExperienceListener#onBrew} は MONITOR
+     * (＝その<b>後</b>)で、完成品の {@code getBasePotionType()} から
+     * {@code alchemy_progression.yml} の {@code brew_result} を引いていた。倒された後なので
+     * 引けるのは常に {@code WATER} ── 表に無い ⇒ どの効果ポーションを作っても
+     * {@code alchemy_brew_exp} の定額へ落ちて<b>EXP が一律</b>になる。
+     * 品質が 0 のプレイヤーは倒されないので正しく引ける＝<b>スキルツリーで品質を取った人だけ壊れる</b>。
+     *
+     * <p>そこで倒す直前の種類をここへ焼き付け、EXP 側はこれを最優先で読む。
+     * 印が無い（品質 0／他プラグイン製）ポーションは従来どおり {@code getBasePotionType()} を見る。
+     */
+    public static final NamespacedKey ITEM_BREW_SOURCE_POTION = key("brew_source_potion");
     /** Weapon coating stack count (alchemy weapon-coating-unlock). */
     public static final NamespacedKey ITEM_COATING_STACKS = key("coating_stacks");
     /** Accumulated flat bonus damage from weapon coating materials. */

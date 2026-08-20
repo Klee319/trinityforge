@@ -2,6 +2,7 @@ package com.trinityforge.listeners;
 
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.AlchemyQualityConfig;
+import com.trinityforge.pdc.PdcKeys;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
 import com.trinityforge.progression.catalog.SkillCatalogEntry;
 import com.trinityforge.progression.core.SkillId;
@@ -139,6 +140,13 @@ public final class PotionQualityListener implements Listener {
         // 段階の異なる効果を一意に確定させるため、baseはWATERへ倒して全てcustom effectsで表現する
         // (BrewRecipeSupport#customPotion と同じ既存パターン。2026-07-31 に
         //  BrewUnlockListener#makeCustomPotion からそちらへ移設された)。
+        //
+        // ⚠️ 倒す【前】の種類を焼き付ける (2026-08-20 / W-170)。EXP を出す
+        //   NativeSkillExperienceListener#onBrew は MONITOR = このリスナ(HIGH)の【後】に走り、
+        //   完成品の base から alchemy_progression.yml の brew_result を引く。倒した後は常に WATER で
+        //   表に無いため、どの効果ポーションを作っても alchemy_brew_exp の定額へ落ちて【EXPが一律】に
+        //   なっていた。品質0のプレイヤーはここを通らないので、スキルツリーで品質を取った人だけ壊れる。
+        stampBrewSourcePotion(meta);
         meta.setBasePotionType(PotionType.WATER);
         meta.clearCustomEffects();
         for (PotionEffect effect : boosted) {
@@ -152,6 +160,27 @@ public final class PotionQualityListener implements Listener {
             meta.displayName(BrewRecipeSupport.potionDisplayName(result.getType(), boosted));
         }
         result.setItemMeta(meta);
+    }
+
+    /**
+     * ベースを {@code WATER} へ倒す直前の {@link PotionType} を
+     * {@link PdcKeys#ITEM_BREW_SOURCE_POTION} へ焼き付ける (2026-08-20 / W-170)。
+     *
+     * <p>倒した後は {@code getBasePotionType()} が常に {@code WATER} を返すので、EXP 側
+     * ({@code NativeSkillExperienceListener#onBrew}) が {@code brew_result} を引けなくなる。
+     * <b>既に倒れている（＝WATER）ものには書かない</b> — 延長/強化のように「一度品質を乗せた
+     * ポーションをもう一度醸造する」経路で、上書きすると前の記録を消してしまうため。
+     */
+    private static void stampBrewSourcePotion(PotionMeta meta) {
+        if (!meta.hasBasePotionType()) {
+            return;
+        }
+        PotionType original = meta.getBasePotionType();
+        if (original == null || original == PotionType.WATER) {
+            return;
+        }
+        meta.getPersistentDataContainer()
+                .set(PdcKeys.ITEM_BREW_SOURCE_POTION, PersistentDataType.STRING, original.name());
     }
 
     private static boolean isSplashOrLingering(Material type) {

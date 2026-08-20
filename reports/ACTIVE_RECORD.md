@@ -2835,6 +2835,63 @@ max-augments:
 
 ---
 
+### 実サーバ報告バッチ（2026-08-20 受領 第18陣。W-170〜W-171）
+
+| ID | 内容 | 状態 |
+|---|---|---|
+| W-170 | 錬金のスキル「醸造の見習い」「調合の職人」を解放後、耐火などの効果付きポーションを作ると入る職業EXPが全て一律 302 になる | ✅ 修正済み（**未配備**。TF jar 要再ビルド） |
+| W-171 | Ctrl+Q で 1 スタックのシャベルを一括製作しても、EXP が 1 個分しか入らない | ✅ 修正済み（**未配備**。TF jar 要再ビルド） |
+
+#### W-170 「品質を取った人だけ」醸造EXPが一律になる — 品質付与がポーションの身元を消していた
+
+**真因（機構レベル・イベント順序）**: `PotionQualityListener`(HIGH) は段階の違う効果を一意に確定させるため、
+品質が乗るポーションの**ベース種別を必ず `WATER` へ倒して**全部カスタム効果で表現する。
+一方 EXP を出す `NativeSkillExperienceListener#onBrew` は **MONITOR（＝その後）**で、
+完成品の `getBasePotionType().name()` から `alchemy_progression.yml` の `brew_result` を引いていた。
+倒された後に読めるのは常に `WATER` で表に無いため、**どの効果ポーションを作っても定額 `alchemy_brew_exp` へ落ちる**。
+
+- **「解放後」に壊れる理由**: `potion_quality_bonus` が 0 のプレイヤーは `applyQuality` に到達しないので
+  ベースが倒れず正しく引ける。**スキルツリーで品質を取った人だけ**が壊れる ── ログにも例外にも一切出ない無言死。
+- **数値の裏取り**: HEAD の config（`alchemy_brew_exp: 150` / `exp_multiplier_quality: 0.005` / `multiplier_manual: 2`）で
+  `150 × 1.005 × 2 = 301.5 → 302`（品質1）。報告の「一律 302」と一致する。
+  ⚠ 作業ツリーの `alchemy_progression.yml` は他セッション（設定エディタ）が値を書き換え済みだが、
+  **稼働サーバはそれを読んでいない**（サーバ起動 00:34 / yml の mtime 01:30 / `latest.log` に reload 無し）。
+- **修正**: 倒す直前の種別を PDC `trinityforge:brew_source_potion`（`PdcKeys#ITEM_BREW_SOURCE_POTION`）へ焼き付け、
+  EXP 側は**それを最優先で読み**、無ければ従来どおり `getBasePotionType()` へフォールバックする。
+  品質を取っていないプレイヤーの挙動は不変。
+- **回帰テスト**: `AlchemyBrewResultExpTest`（4 件・skip 0）。焼き付けと読み取りの**両方を外すと該当 2 件が落ちる**ことを実走確認。
+  `PotionMeta#getAllEffects()` は MockBukkit 未実装なので `PotionQualityListenerTest` と同じ spy 回避策を使っている
+  （**素で呼ぶとテストが FAILED でなく SKIPPED に化ける**）。
+
+#### W-171 Ctrl+Q の一括クラフトで EXP が 1 回分しか入らない
+
+**真因**: `CraftItemEvent` は**クリック 1 回につき 1 度しか飛ばない**。バニラ
+`AbstractContainerMenu#doClick` の `ClickType.THROW` 分岐は **`button == 1`（＝Ctrl+Q）のときだけ**
+「同じ品が出る限り `safeTake` → `drop`」を**ループ**する
+（稼働サーバの `paper-1.21.11.jar` から `AbstractContainerMenu.class` を取り出して逆アセンブルし、
+`goto` で先頭へ戻ることを実バイトコードで確認した。素の Q は `button == 0` なのでループしない）。
+旧実装は `event.isShiftClick()` だけを見ていて **Ctrl+Q は false** なので、必ず 1 回分へ落ちていた。
+
+- **shift と Ctrl+Q は上限が違う**: shift は「作れるだけ作って**しまう**」ので素材と**収納容量**の小さい方で頭打ち。
+  Ctrl+Q は**地面へ落とす**ので**収納容量では頭打ちにならない**（満杯でも素材ぶん全部作れる）。
+  実回数は `craftOperationCount(InventoryAction, …)` がアクションごとに出す。
+- **増殖ガードは維持**: 前回の一括クラフト修正で「素材をスタックした状態で 1 個だけクラフトしても
+  スタック数ぶん EXP が入る」増殖バグを踏んでいる。回数は**盤面の各スロットの最小個数**から求めるので、
+  素材が各 1 個なら Ctrl+Q でもちょうど 1 回で止まる（テストで固定した）。
+- **途中で自分が入れた回帰を 1 件潰した**: 収納内容を無条件に `player.getInventory().getStorageContents()` で
+  読む形にしたら、インベントリを持たないモックを使う `CraftQualityListenerResultDupeTest` 2 件が NPE で落ちた
+  （旧実装は shift のときだけ三項演算子の内側で読んでいた）。**`Supplier<ItemStack[]>` で遅延読みにして解消**。
+  Ctrl+Q 経路はそもそも収納を読まない、という事実がシグネチャに出るので意図としても正しい。
+- **回帰テスト**: `CraftQualityListenerSmithingExpTest` に 3 件追加（満杯インベントリでの Ctrl+Q 64 連、
+  素材各 1 個での 1 回止め、アクション別の純関数表）。**呼び出しを `event.isShiftClick()` へ戻すと 1 件が落ちる**ことを実走確認。
+
+**検証**: TF フルテスト **4435 件・失敗 26・skip 2**。26 件は**すべて他セッションの未コミット yml 由来**で、
+触った領域は 1 件も含まない（例: `NativeSkillCatalogRatesTest` の `expected 10.0 but was 25.0` は
+作業ツリーの `light_armor_progression.yml` が `exp_damage_piece: 10 → 25` に書き換わっているため）。
+**⚠ 未実施（ユーザー作業）: TF jar の再ビルド＋配備＋サーバ再起動**（Java 変更なので config だけでは効かない）。
+
+---
+
 ## 4. 既知の未修正の問題・弱点
 
 いずれも**意図的に許容している**か、**直すには判断が要る**もの。新規に見つけたバグはここへ足す。
@@ -2994,6 +3051,7 @@ git 系:
 
 | 日付 | 内容 |
 |---|---|
+| 2026-08-20 | **実サーバ報告 第18陣 W-170/W-171**（醸造EXPが一律 302 / Ctrl+Q の一括クラフトで EXP が 1 個分）。**2 件とも「1 回しか飛ばないイベント」と「後段が前段に壊された情報を読む」型で、config では絶対に直らない**。**W-170**: `PotionQualityListener`(HIGH) が品質付与のためポーションのベース種別を `WATER` へ倒す → EXP を出す `NativeSkillExperienceListener#onBrew`(MONITOR) が `getBasePotionType()` で `brew_result` を引くので**常に表に無い `WATER` を読み、定額へ落ちる**。`potion_quality_bonus` が 0 なら `applyQuality` に到達しないので、**品質を取った人だけ壊れる**（報告の「解放後」と一致）。HEAD の config で `150 × 1.005 × 2 = 301.5 → 302` と報告値まで一致した。倒す直前の種別を PDC `trinityforge:brew_source_potion` へ焼き付け、EXP 側はそれを最優先で読む形に。**W-171**: `CraftItemEvent` はクリック 1 回につき 1 度しか飛ばず、バニラ `AbstractContainerMenu#doClick` の `ClickType.THROW` 分岐は **`button == 1`（Ctrl+Q）だけ**「同じ品が出る限り `safeTake`→`drop`」を**ループ**する（稼働サーバの `paper-1.21.11.jar` を逆アセンブルして `goto` を実バイトコードで確認）。旧実装は `isShiftClick()` だけを見ており Ctrl+Q は false なので常に 1 回分だった。**shift は収納容量で頭打ち・Ctrl+Q は地面へ落とすので頭打ちにならない**という差もアクション別に反映。**前回の増殖バグ（スタック素材で 1 個クラフトしてもスタック数ぶん入る）は回数を「各スロットの最小個数」から出すことで維持**し、テストで固定した。**途中で自分が入れた回帰を 1 件潰した**: 収納を無条件に読む形にしたらインベントリを持たないモックの `CraftQualityListenerResultDupeTest` 2 件が NPE で落ちたので `Supplier<ItemStack[]>` の遅延読みへ（Ctrl+Q は収納を読まない、がシグネチャに出る）。RED 実証: W-170 は焼き付けと読み取りを外すと 2 件、W-171 は呼び出しを `isShiftClick()` へ戻すと 1 件が実際に落ちることを実走確認。検証: TF **4435 件・失敗 26・skip 2**（26 は全て他セッションの未コミット yml 由来。例: `exp_damage_piece: 10 → 25` の書き換えで `NativeSkillCatalogRatesTest` が `expected 10.0 but was 25.0`）。**⚠ 未実施（ユーザー作業）: TF jar の再ビルド＋配備＋サーバ再起動** |
 | 2026-08-20 | **呪文フォームの住み分け（設計依頼）── 炸裂は伝播の完全下位互換だった**。ArsPaper `a528407`。棚卸しで「投射 + 害悪 + 伝播×4 = 140 マナで 8 ブロック内 9 体」に対し「炸裂 + 害悪 + 半径増加×6 = 270 マナで半径 7」と判明し、**チェーン検索半径 `8.0` が Java 側ベタ書きで炸裂の最大半径より広い**のが決定打だった。**ダメージ重複が起きていないのは i-frame のおかげ**（チェーンは +2/+4/+6 tick で撃つのでバニラの無敵時間 10 tick に吸われる。`setNoDamageTicks(0)` を呼ぶのは `HeavyImpactEffect` だけで伝播は付かない）＝炸裂+伝播は「重複して強い」ではなく**払ったマナが消える**状態だった。ユーザー判断で **案1 + 案3 + 上限 + 減衰**を実装。**案1**: ヒット済み集合を `SpellContext.CastState` へ移し `copy()` で参照共有、チェーンは未ヒットだけを掴む（同じマナが「重複」ではなく**到達範囲**になる）。炸裂は **resolve より先に** `markCastHits(targets)` を呼ぶ ── **逆順だと 1 体目のチェーンが「これから直撃させる 2 体目・3 体目」を選んで無敵時間に捨てる**ので、この順序を `PropagateChainSharingTest` で固定し、逆に戻すと落ちることを実走確認した。**案3**: 誰にも当たらなかった炸裂は炸裂地点そのものを伝播の起点にできる（`resolvePropagateFromLocation`）。**投射は外した弾から連鎖しない**ので、これが炸裂+伝播だけの利点になる。**上限 `max-chains-per-cast: 20` は必須** ── 未ヒットを探し直す方式は密集地で候補が尽きるまで外へ伸び、起点ごとに `getNearbyLivingEntities` を呼ぶので TT で対象数×検索回数が跳ね上がる。**減衰 `damage-falloff-per-hop: 0.15` / `min-damage-rate: 0.4` は最終ダメージへ掛ける** ── 素の威力側に掛けると TF の守備力が引き算で効くため 0.4 倍のつもりが `min-component-damage: 1` に張り付き、減衰率と実ダメージが桁で食い違う。算術は `SpellPropagateMath` へ切り出して挙動で固定した。⚠ **`glyphs.yml` は `saveResource(..., false)`** なので稼働中サーバの yml は上書きされず、4 つの新パラメータは Java 側の既定値で動く（変えたいなら配備先へ手で足す）。⚠ **未着手（判断待ち）**: `base-burst-radius` が `1.0`（コード既定 2.0。`4c78f08` の一括正規化で落ちたと見られる）ため炸裂単体は依然弱い。2.5 前後への引き上げを提案済み。`form-cooldowns` 全 0 も同様。検証: fork **460 件・失敗 0・skip 0**（HEAD 単体で `git archive` して実走。HEAD~1 と同じ 4 件だけが失敗＝**すべて他セッションの未コミット WIP 由来で、増えた 6 件は全緑**）。**⚠ 未実施（ユーザー作業）: ArsPaper jar の再ビルドと配備＋サーバ再起動** |
 | 2026-08-19 | **実サーバ報告 第14陣 W-157〜W-160**（統合版まわり4件）。**W-159/W-160 は同一原因**で、統合版クライアントが鍛冶台のスロット判定を自前で持っているためサーバのレシピ登録では広がらない（Geyser#4706 は Can't Fix）。独自 GUI は `PrepareSmithingEvent` に乗る**3プラグイン7判定**を全部バイパスするので採らず、**本物の鍛冶台へサーバ側から差し込む** `BedrockSmithingAssistListener` を新設した（`Inventory#setItem` は `slotsChanged()` を通るので `PrepareSmithingEvent` は正規に発火＝7判定はそのまま効く）。**W-158（`custom:` 素材の統合版クラフト）は Bukkit のレシピでは原理的に表現できない**ことが確定（Paper は `Ingredient#display()` を上書きしていないので ExactChoice でも送られる内容は型だけ）で未着手。**W-157 は DiscordSRV の `AvatarUrl` を `{texture}` 基準へ変えるだけ**だが書き換え先が稼働サーバ配下なのでユーザー適用待ち |
 | 2026-08-18 | **図鑑のユーザー報告 2 件**（「エディタの図鑑でアイテム名がID表記になっている」「バニラの武器やモブの一部が登録されていない」）。**1 件目は本日 01:30 の `667a362` で既に直っていた**ので、直したのは再発防止と 2 件目。生ID表示の機構は `util.js` の `itemRefSelect` が**候補集合に無い値を primary=生ID で描く**ことで、`collection.yml` の `items.sourcelink` 25 件と `items.functional` 15 件（`material:` を持たない品）が候補源リストから漏れていたのが実害の 40 件。**候補源の取りこぼしは警告が一切出ない**ので、`test/collection-entry-labels-2026-08-18.test.js` で「出荷 `collection.yml` の全エントリが名前付きで解決する」ことと「`catalog-candidates.js` の `EXTRA_SOURCES` と `app.js` の `EXTRA_CONFIGS` が対になっている」ことを機械的に固定した（`667a362` 以前の候補源へ戻すと 2 件が実際に落ちることを実走確認）。2 件目は**バニラの武器・道具が図鑑に 1 件も無かった**（`TRIDENT`/`MACE`/`ELYTRA` だけが `structure` に混在）ので `weapon_vanilla` 17 件・`tool_vanilla` 24 件を新設、モブは 6 件追加（`PARCHED`＝AbstractSkeleton→undead、`NAUTILUS`/`ZOMBIE_NAUTILUS`＝AbstractNautilus→aquatic、`CAMEL_HUSK`/`COPPER_GOLEM`/`HAPPY_GHAST`→passive。分類は paper-api のインタフェース階層を `javap` で確認して決めた）。**`GIANT` と `MANNEQUIN` は意図的に入れない** ── 前者は討伐経路が無く後者は Mob ではないので、載せると分母に「永久に埋まらない枠」が入り `percent: 100` 系アチーブメントが到達不能になる（K-11 と同型）。**「一括追加」も直した**: 走査集合が `catalogCandidates`（カスタムIDのみ）だったのでバニラ Material が**構造的に addressable でなかった**（`*_SWORD` と打っても 0 件）。候補集合の組み立ては `catalog-candidates.js#bulkAddCandidateIds` に出して Node テストから直接検証している。**続けてカテゴリの整理**（ユーザー報告「Ars素材カテゴリに圧縮素材やただの中間素材が入っている」）: `material_ars` に混ざっていた圧縮素材 11 件（`*_4x` と `stone_5x`。圧縮シリーズの最上位 2 段だけが取り残されていた）を `material_compressed`（160→171 件＝定義側の圧縮 171 件と一致）の五十音順の位置へ移し、残り 30 件（コア 5・ガチャ券 9・スクラップ 6・中間素材 10）は「Ars素材」という括りが実態と合わないので **`material_misc`「素材等」へ改名**した（旧ID `material_ars` は collection.yml 以外から参照されていないことを確認済み）。ID の形で機械判定できるので「圧縮素材が `material_compressed` 以外に置かれていない」ことをテストに追加した。**さらにスレッドの重複も解消した**: `thread_*` が `material_tf` と `thread` の両方に入っていて図鑑で二重に並んでいたので `material_tf` から落とした（86→35 件）。調べたら**`material_tf` の `thread_*` は 51 件あり、うち 6 件（`thread_better_fortune` / `thread_blindness` / `thread_gacha` / `thread_role_effeciency` / `thread_role_luck` / `thread_translate`）は `thread` カテゴリに一度も入っていなかった**ので `thread` を 45→51 件にした。**見逃していた真因は `ShippedCollectionEntryIdTest` が件数を `45` というリテラルで固定していたこと** ── リテラル自体が誤っていたので「6 件取りこぼしのある状態」をずっと緑で通していた（許可リスト方式と同じ罠）。期待値をカタログの非draft な `thread_*` から導出する形へ作り替え、直前のコミット状態へ戻すと欠けている 6 件を名指しで落とすことを実走確認した。あわせて editor 側に「同じエントリが2カテゴリに入っていない」「カタログの非draft スレッドは全件 `thread` に入っている」を追加。エントリ総数 774→**729 件（ユニーク 729・重複ゼロ）**。**さらに、その 6 スレッドが「ドロップするのに防具へ永久に挿せない」状態だったのを直した**（ユーザー承認のうえ `catalog.yml` に着手）。**`external-source: arspaper` を足すだけでは直らなかった** ── 6 種は CMD **100023〜100028** で、正規の 45 種（CMD 3000xx）とは別系統で、**Ars の `ThreadType` enum にも `threads.yml` にも定義が無かった**（`blindness` と `translate` だけ `{}` で置かれていた）。`ThreadGui#isEffectThread` は `arspaper:thread_item_type` PDC を `ThreadType.fromId` へ通すので、定数が無い id は必ず null になり装着が弾かれる。**効果は装着時にしか乗らないので 6 種は実質死んでいた**（ログには何も出ず、`ShippedCatalogExternalSourceDriftTest` が赤いことでしか気づけない）。処置は ArsPaper fork `fca43eb`（`ThreadType` に 6 定数＋`threads.yml` に `display_name`/`lore`。効果の実体は TF の `item-stats.yml` `STRING#1000xx` が持つので数値は全部 0、`baseMaterial` は `STRING` で catalog・item-stats・cmd-registry と一致させた）＋ TF 側で 6 エントリに `external-source: arspaper`。**「今後カタログにスレッドを足したら自動で対応する」形（enum → config 駆動レジストリ化）は採らなかった**: `ThreadType` は単なる registry ではなく**スレッドごとに固有の base Material と CMD を保持**していて（それが `item-stats.yml` のキー `<MATERIAL>#<CMD>` になる）、`SocketedThreads.Entry` の型でもあるため、切り離すと fork 11 ファイル＋ソース文字列を固定しているテストに波及する。代わりに**忘れたら落ちるガードを両側に置いた**: fork の `ThreadsYamlEnumParityTest`（`threads.yml` のキー ⇔ `ThreadType` の id を両方向で一致、各エントリの `display_name` 必須）と editor の「catalog の非draft スレッドは Ars `threads.yml` にも定義があり `external-source` を持つ」。どちらも変更前に戻すと欠けている件を名指しで落とすことを実走確認した。fork は **410 件・失敗 5**（着手前 408 件・失敗 6。`ShippedRecipeDisplayNameTest` が解消）。**⚠ 未実施（ユーザー作業）: ArsPaper jar の再ビルドと配備**（Java 変更を含むので config だけでは効かない）。**続けて、赤かったスレッド系ガード 4 件を全部閉じた**（ユーザー指摘「これ修正済みじゃなかったっけ。テストが赤いのおかしい」）── ArsPaper fork `ad4b952`。**うち 3 件はテスト側の誤検知で、実データも実装も正しかった**: ①`mana_regen が旧 3 段のまま` は `assertFalse(contains("mana_regen.thresholds.3"))` と書かれていたが、**引き上げ後の規約は 3/5 段**（同じテストが `hero_of_the_village`／`night_vision`／`conduit_power` を 3/5 で固定している）で、旧実装 3/6 と区別できるのは 6 段の有無だけ。②`translate の mana-bonus 累計 −100 が死に値` は、`translate` が `mana-bonus −100` の代償で `mana-regen +10` を得る**トレードオフ型**（`blindness` も `max-health −10` の代償で `attack-power +250`）で、負の累計は意図した代償。抽選最小値との比較は正の累計だけに当て、代わりに「代償があるなら見返りもあること」を縛る形にした。③`ジャンプ時刻を記録していない` は実装が `LAST_JUMP_AT.put/remove` で正しく配線済みで、テストが `lastJumpAt.put(` という**識別子の綴り**を固定していたため定数命名へ直した時点で赤くなっていた（大文字小文字と下線を落として突き合わせる形へ）。**実データの不具合は 1 件だけ**: `role_luck`／`role_effeciency` は `threads.yml` で `stackable` を持たないので上限が「1 個 × キャリア 5」で、**6 段は物理的に発動しない**（設計書 §3-A-5 が上限 5 を見落とした分で `mana_regen` の 6→5 と同型）。最終ティアの累計を変えないよう 6 段の値を 5 段へ畳んだ（`role_luck` 2→4 ／ `role_effeciency` 5→15）。**`role_effeciency` も同じ不具合を持っていたのに、テストが最初の 1 件で止まるため隠れていた。** RED 実証（`potion-effect: wither` を書き 6 段を戻すと該当 2 本が落ちる）済み。fork は **410 件・失敗 0**（着手前 408 件・失敗 6）。**「落ちるべきでないときに落ちるテスト」も「落ちるべきときに落ちないテスト」と同じくらい高くつく** ── 3 件とも「もう直っている」と気づくまでに調査が必要だった。検証: TF **4155 件・失敗25・skip2**（失敗 21 クラスはどれも collection を読んでいない＝他セッションの未コミット分。collection 系 16 クラス 136 件は全緑）、config-editor **1388 件・失敗23**（着手前と同じ失敗集合）。**config のみの変更なので jar 再ビルドは不要**。 **その後、ユーザー要件「role_luck の 6 段が到達不能=>これ修正して。別件で同一のスレッドを重複で入れられるようにしてほしい」で方針を差し替えた** ── ArsPaper fork `ad8747e`。2 つは同じ話で、**重複を許せば上限が上がって 6 段が到達可能になる**ので、直前に入れた「6 段を 5 段へ畳む」修正は撤回し、設計書 §3-A-5 どおりの 6 段へ戻した（`role_luck` 5段:2 + 6段:2 ／ `role_effeciency` 5段:5 + 6段:10）。**既定を反転**: `ThreadApplicationPolicy.DEFAULT_STACKABLE = true` / `DEFAULT_MAX_STACK = 2` を新設し、`ThreadConfig#isStackable`／`#getMaxStack` の未記載時の既定をここから読む（旧: 未記載＝重複不可・max 未記載＝無制限）。上限は 1 装備 2 本 × キャリア 5 個 = **10 本**。`ThreadGui` が持っていた重複/最大積載の分岐は純関数`canSocketAnother` へ移した（フォークのテスト基盤は `ThreadConfig` をロードできない ── 静的初期化が `PotionEffectType` を引くため ── ので、挙動を固定できる場所が純関数側だけ）。**⚠ 村の英雄のスレッドだけは `max: 1` を明示した（balance）**: このスレッドは `percent-bonus-damage` を1 本 +6% 配る唯一の突出枠で次点（棘 +2.5%）の 2.4 倍あり、既定 2 本を許すと防具 4 部位で 8 本になって `ShippedThreadBandIndependenceTest` が**全帯で +22.0pt 超過**を検出した（Lv20 +61% ／ Lv60 +71% ／ Lv100 +81%、目標 +39/49/59%）。**帯目標は 2026-08-14 の戦闘リワークで「1 装備 1 本」前提に較正されている**ので、2 本以上にしたいなら先に `item-stats.yml` の 1 本あたりの割合ダメージを下げる必要がある（yml にその旨を明記）。残り 44 種は既定どおり同一装備へ重複できる（装備が違えば従来どおりキャリア 5 個ぶん重複可）。TF 側の帯モデル `perItemCapById` の既定もフォークに合わせて更新した（**ここを合わせ忘れると帯目標の超過を緑で通す**＝検査の無効化）。editor の「重複設定」も既定反転に追随（未記載はチェック済みで描き、`max` に「未設定 = 2」を出す。実際の描画結果をブラウザで評価して確認した）。あわせて `thread-effects-in-item-stats-2026-08-09.test.js` の**件数リテラル 45 を導出比較へ置換**（スレッドが 51 種へ増えて赤くなっていた。件数リテラルは許可リストと同型）。RED 実証: `role_luck` に `stackable: false` を書き戻すと「6 段は到達不能」で落ち、`ThreadConfig` の既定を `false` に戻すと新設の配線ガードが落ちる。検証: fork **413 件・失敗 0**、TF の `*Thread*` 50 件は `ShippedThreadItemStatsTest` の 1 件だけ失敗（**他セッション由来**：`13f1d20` が `NETHERITE_UPGRADE_SMITHING_TEMPLATE#300045` の `grant-chances` に主ステ `gathering-efficiency: 1` を足したため 4 件規約に対して 5 件。触っていないので未対応）、config-editor **1391 件・失敗 22**（着手前の集合から 1 件減）。**⚠ 未実施（ユーザー作業）: ArsPaper jar の再ビルドと配備**（Java を変更しているので config だけでは効かない）。 |

@@ -44,6 +44,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
 
 /**
  * Stamps crafted equipment with TrinityForge rollSeed + quality (ITEM_ECONOMY_SPEC 5.2c/5.2d).
@@ -154,13 +155,13 @@ public final class CraftQualityListener implements Listener {
             // 結果枠だけを差し替える。カーソルには絶対に触らないこと(理由は下記)。
             event.getInventory().setResult(stamped.clone());
             event.setCurrentItem(stamped.clone());
-            int craftOperations = event.isShiftClick()
-                    ? craftOperationCount(
-                            true,
-                            event.getInventory().getMatrix(),
-                            player.getInventory().getStorageContents(),
-                            stamped)
-                    : 1;
+            // 「作れるだけ作る」操作(shift / Ctrl+Q)は CraftItemEvent が1回しか飛ばないので、
+            // アクションから実回数を求める。isShiftClick() だけを見ると Ctrl+Q が1回に落ちる(W-171)。
+            int craftOperations = craftOperationCount(
+                    event.getAction(),
+                    event.getInventory().getMatrix(),
+                    () -> player.getInventory().getStorageContents(),
+                    stamped);
             if (candidates.contains(ArsProgressionBridge.ARS_SMITHING)) {
                 ArsProgressionBridge.grantSmithingExpForResult(
                         plugin,
@@ -566,13 +567,65 @@ public final class CraftQualityListener implements Listener {
         return resultMeta.getDamage() == expectedDamage;
     }
 
-    static int craftOperationCount(boolean shiftClick, ItemStack[] matrix,
-                                   ItemStack[] destinationStorage, ItemStack result) {
-        if (!shiftClick) {
+    /**
+     * このクリック 1 回で実際に成立するクラフト回数。{@link CraftItemEvent} は
+     * <b>クリック 1 回につき 1 度しか飛ばない</b>ので、「作れるだけ作る」操作はここで回数を数えないと
+     * 1 回ぶんの EXP しか出ない。
+     *
+     * <ul>
+     *   <li>{@code MOVE_TO_OTHER_INVENTORY}(shift) — 作れるだけ作ってインベントリへ入れる。
+     *       素材と<b>収納容量</b>の小さい方で頭打ちになる。</li>
+     *   <li>{@code DROP_ALL_SLOT}(Ctrl+Q) — <b>作れるだけ作って地面へ落とす</b> (2026-08-20 / W-171)。
+     *       バニラ {@code AbstractContainerMenu#doClick} の {@code ClickType.THROW} 分岐は
+     *       {@code button == 1} のときだけ「同じ品が出る限り {@code safeTake} → {@code drop}」を
+     *       <b>ループ</b>する(1.21.11 の実バイトコードで確認: {@code goto} で先頭へ戻る)。
+     *       落とすので<b>収納容量では頭打ちにならない</b> ── ここが shift と違う。
+     *       以前は {@code event.isShiftClick()} だけを見ていたため、1 スタック作っても EXP は 1 回ぶんだった。</li>
+     *   <li>{@code DROP_ONE_SLOT}(素の Q) — 同じ分岐だが {@code button == 0} なのでループしない = 1 回。</li>
+     *   <li>それ以外(通常クリック/数字キー) — 1 回。</li>
+     * </ul>
+     * 純関数なのでユニットテストから直接叩ける。
+     */
+    static int craftOperationCount(InventoryAction action, ItemStack[] matrix,
+                                   Supplier<ItemStack[]> destinationStorage, ItemStack result) {
+        if (action == null) {
             return 1;
         }
-        if (matrix == null || destinationStorage == null || result == null
+        return switch (action) {
+            case MOVE_TO_OTHER_INVENTORY ->
+                    craftOperationCount(true, true, matrix, destinationStorage.get(), result);
+            // 地面へ落とすので収納容量は制約にならない = 収納を読みに行かない。
+            case DROP_ALL_SLOT -> craftOperationCount(true, false, matrix, null, result);
+            default -> 1;
+        };
+    }
+
+    /**
+     * テスト用に収納内容を直値で渡す版。実運用側が {@link Supplier} を取るのは、収納を読むのが
+     * shift クラフトのときだけだから ── 常に {@code getInventory()} を触ると、インベントリを持たない
+     * モック環境や結果枠だけを見るテスト経路で無関係な NPE を起こす。
+     */
+    static int craftOperationCount(InventoryAction action, ItemStack[] matrix,
+                                   ItemStack[] destinationStorage, ItemStack result) {
+        return craftOperationCount(action, matrix, () -> destinationStorage, result);
+    }
+
+    /** 後方互換: shift クラフト(収納容量で頭打ち)専用の旧シグネチャ。 */
+    static int craftOperationCount(boolean shiftClick, ItemStack[] matrix,
+                                   ItemStack[] destinationStorage, ItemStack result) {
+        return craftOperationCount(shiftClick, true, matrix, destinationStorage, result);
+    }
+
+    static int craftOperationCount(boolean batchCraft, boolean boundByDestination, ItemStack[] matrix,
+                                   ItemStack[] destinationStorage, ItemStack result) {
+        if (!batchCraft) {
+            return 1;
+        }
+        if (matrix == null || result == null
                 || result.getType().isAir() || result.getAmount() <= 0) {
+            return 0;
+        }
+        if (boundByDestination && destinationStorage == null) {
             return 0;
         }
         int ingredientLimit = Integer.MAX_VALUE;
@@ -586,6 +639,9 @@ public final class CraftQualityListener implements Listener {
         }
         if (!hasIngredient) {
             return 0;
+        }
+        if (!boundByDestination) {
+            return ingredientLimit;
         }
 
         long itemCapacity = 0L;

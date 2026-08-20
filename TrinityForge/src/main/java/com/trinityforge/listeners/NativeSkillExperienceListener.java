@@ -3,6 +3,7 @@ package com.trinityforge.listeners;
 import com.trinityforge.TrinityForge;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
+import com.trinityforge.pdc.PdcKeys;
 import com.trinityforge.config.domains.MobLevelTableConfig;
 import com.trinityforge.config.domains.SkillExpConfig.GatheringExpMode;
 import com.trinityforge.farming.CropMaturity;
@@ -56,6 +57,7 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
@@ -921,9 +923,11 @@ public final class NativeSkillExperienceListener implements Listener {
         ItemStack ingredient = brewIngredient(event);
         List<String> potionTypes = new ArrayList<>();
         for (ItemStack result : event.getResults()) {
-            if (result != null && result.getItemMeta() instanceof PotionMeta potion
-                    && potion.hasBasePotionType()) {
-                potionTypes.add(potion.getBasePotionType().name());
+            if (result != null && result.getItemMeta() instanceof PotionMeta potion) {
+                String type = brewResultPotionType(potion);
+                if (type != null) {
+                    potionTypes.add(type);
+                }
             }
         }
         double brew = alchemyBrewExpForIngredient(alchemy, ingredient, potionTypes);
@@ -952,6 +956,27 @@ public final class NativeSkillExperienceListener implements Listener {
         if (block.getState() instanceof BrewingStand fresh) {
             brewOwnership.clear(fresh);
         }
+    }
+
+    /**
+     * {@code brew_result} を引くためのポーション種別名。{@code null} = 引けるものが無い。
+     *
+     * <p><b>PDC を先に見る理由 (2026-08-20 / W-170)</b>: {@link PotionQualityListener}(HIGH) は
+     * 品質が乗るポーションのベースを必ず {@code WATER} へ倒す。このリスナは MONITOR = その<b>後</b>に
+     * 走るので、{@code getBasePotionType()} からは常に {@code WATER} しか読めず、
+     * {@code brew_result} が引けずに {@code alchemy_brew_exp} の定額へ落ちていた
+     * (＝耐火でも暗視でも同じ EXP になる。品質 0 のプレイヤーだけ正しく引けるので
+     * 「スキルツリーで品質を取った人だけ壊れる」という現れ方をしていた)。
+     * 倒す直前の種別は {@link PdcKeys#ITEM_BREW_SOURCE_POTION} へ焼き付けてあるので、それを最優先で読む。
+     */
+    static String brewResultPotionType(PotionMeta meta) {
+        if (meta == null) return null;
+        String stamped = meta.getPersistentDataContainer()
+                .get(PdcKeys.ITEM_BREW_SOURCE_POTION, PersistentDataType.STRING);
+        if (stamped != null && !stamped.isBlank()) {
+            return stamped;
+        }
+        return meta.hasBasePotionType() ? meta.getBasePotionType().name() : null;
     }
 
     /**
