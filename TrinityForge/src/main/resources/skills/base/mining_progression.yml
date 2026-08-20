@@ -5,22 +5,22 @@
 
 experience:
   max_level: 100
-  exp_level_curve: (%level% + 75 * 2^(%level%/7.6)) + 300
+  exp_level_curve: (%level% + 75 * 2^(%level%/8)) + 300
   exp_multiplier_mine: 1
-  exp_multiplier_blast: 1.5
+  exp_multiplier_blast: 0.5
   mining_break:
-    NETHERRACK: 2
+    NETHERRACK: 6
     NETHER_QUARTZ_ORE: 40
     NETHER_GOLD_ORE: 40
     OBSIDIAN: 40
-    END_STONE: 6
-    STONE: 4
-    DEEPSLATE: 6
-    GRANITE: 8
-    ANDESITE: 8
-    DIORITE: 8
-    CALCITE: 16
-    TUFF: 8
+    END_STONE: 10
+    STONE: 8
+    DEEPSLATE: 12
+    GRANITE: 12
+    ANDESITE: 12
+    DIORITE: 12
+    CALCITE: 20
+    TUFF: 10
     DRIPSTONE_BLOCK: 12
     AMETHYST_BLOCK: 32
     BLACKSTONE: 8
@@ -28,21 +28,21 @@ experience:
     SMOOTH_BASALT: 8
     COAL_ORE: 40
     IRON_ORE: 80
-    COPPER_ORE: 32
-    GOLD_ORE: 160
-    LAPIS_ORE: 320
-    REDSTONE_ORE: 80
-    DIAMOND_ORE: 400
+    COPPER_ORE: 30
+    GOLD_ORE: 400
+    LAPIS_ORE: 350
+    REDSTONE_ORE: 150
+    DIAMOND_ORE: 800
     EMERALD_ORE: 400
-    DEEPSLATE_COAL_ORE: 60
+    DEEPSLATE_COAL_ORE: 80
     DEEPSLATE_IRON_ORE: 120
-    DEEPSLATE_COPPER_ORE: 84
-    DEEPSLATE_GOLD_ORE: 240
-    DEEPSLATE_LAPIS_ORE: 240
-    DEEPSLATE_REDSTONE_ORE: 120
-    DEEPSLATE_DIAMOND_ORE: 600
-    DEEPSLATE_EMERALD_ORE: 1600
-    ANCIENT_DEBRIS: 1600
+    DEEPSLATE_COPPER_ORE: 60
+    DEEPSLATE_GOLD_ORE: 400
+    DEEPSLATE_LAPIS_ORE: 350
+    DEEPSLATE_REDSTONE_ORE: 150
+    DEEPSLATE_DIAMOND_ORE: 800
+    DEEPSLATE_EMERALD_ORE: 3200
+    ANCIENT_DEBRIS: 3000
     TERRACOTTA: 8
     WHITE_TERRACOTTA: 8
     ORANGE_TERRACOTTA: 8
@@ -60,8 +60,6 @@ experience:
     GREEN_TERRACOTTA: 8
     RED_TERRACOTTA: 8
     BLACK_TERRACOTTA: 8
-    SANDSTONE: 4
-    RED_SANDSTONE: 4
     # 海底神殿。SEA_LANTERN はドロップが PRISMARINE_CRYSTALS に変わるので、
     # ゲート用のブロック行だけでなくドロップ側の行も必要(drop_sum は実際に落ちた材質の行から
     # 加算するため、ドロップ側が無いと SEA_LANTERN を掘っても EXP が 0 のままになる)。
@@ -88,8 +86,10 @@ experience:
     TUFF_BRICKS: 8
     CHISELED_TUFF: 8
     CHISELED_TUFF_BRICKS: 8
-    ICE: 8
-    PACKED_ICE: 12
+    ICE: 4
+    PACKED_ICE: 8
     BLUE_ICE: 16
     POINTED_DRIPSTONE: 8
     GLOWSTONE: 16
+    SANDSTONE: 4
+    RED_SANDSTONE: 4

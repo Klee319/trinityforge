@@ -38,8 +38,8 @@ daily-diminishing:
   lock-release-hours: 24
   reset-id: "2026-08-19-w154"
   per-amount: 100000
-  decay-per-amount: 0.7
-  floor: 0.3
+  decay-per-amount: 0.9
+  floor: 0.5
   exempt-skills: []
 # 【同一地点の逓減】TT・放置狩り対策。半径 radius 以内・直近 window-seconds 秒の【撃破数】で決まる。
 # threshold 体までは倍率1.0、超えた1体につき decay-per-kill ずつ下がり floor で止まる。
@@ -120,41 +120,41 @@ ars-smithing:
   # キーの語彙: バニラは Material 名 / カスタム品は custom:<id>(大小を潰さない)。
   # 圧縮素材(custom:<id>_Nx)は 0。圧縮するだけでEXPが増える経路を作らないため(J-12)。
   exp-per-material:
-    STICK: 0.5
-    OAK_PLANKS: 1
-    SPRUCE_PLANKS: 1
-    BIRCH_PLANKS: 1
-    JUNGLE_PLANKS: 1
-    ACACIA_PLANKS: 1
-    DARK_OAK_PLANKS: 1
-    MANGROVE_PLANKS: 1
-    CHERRY_PLANKS: 1
-    PALE_OAK_PLANKS: 1
-    BAMBOO_PLANKS: 1
-    CRIMSON_PLANKS: 1
-    WARPED_PLANKS: 1
-    STRING: 1
-    LEATHER: 3
-    COBBLESTONE: 1.5
-    STONE: 1.5
-    COBBLED_DEEPSLATE: 2
-    DEEPSLATE: 2
-    BLACKSTONE: 2
-    COPPER_INGOT: 4
-    IRON_INGOT: 8
-    GOLD_INGOT: 8
-    AMETHYST_SHARD: 6
+    STICK: 10
+    OAK_PLANKS: 10
+    SPRUCE_PLANKS: 10
+    BIRCH_PLANKS: 10
+    JUNGLE_PLANKS: 10
+    ACACIA_PLANKS: 10
+    DARK_OAK_PLANKS: 10
+    MANGROVE_PLANKS: 10
+    CHERRY_PLANKS: 10
+    PALE_OAK_PLANKS: 10
+    BAMBOO_PLANKS: 10
+    CRIMSON_PLANKS: 10
+    WARPED_PLANKS: 10
+    STRING: 10
+    LEATHER: 10
+    COBBLESTONE: 10
+    STONE: 10
+    COBBLED_DEEPSLATE: 10
+    DEEPSLATE: 10
+    BLACKSTONE: 10
+    COPPER_INGOT: 10
+    IRON_INGOT: 10
+    GOLD_INGOT: 10
+    AMETHYST_SHARD: 10
     # アメジストブロック(=欠片4個)。魔術師段の魔導防具の儀式で消費するので行が要る
     # (この表に無い素材は 0 として積まれ、無言でEXPを取りこぼす)。
     AMETHYST_BLOCK: 40
     DIAMOND: 25
     NETHERITE_SCRAP: 30
     NETHERITE_INGOT: 120
-    BLAZE_ROD: 8
-    BREEZE_ROD: 20
-    PHANTOM_MEMBRANE: 6
-    PRISMARINE_SHARD: 4
-    PRISMARINE_CRYSTALS: 5
+    BLAZE_ROD: 30
+    BREEZE_ROD: 30
+    PHANTOM_MEMBRANE: 10
+    PRISMARINE_SHARD: 10
+    PRISMARINE_CRYSTALS: 10
     SHULKER_SHELL: 20
     ECHO_SHARD: 30
     HEART_OF_THE_SEA: 60
@@ -162,21 +162,11 @@ ars-smithing:
     # 2026-08-03: 賢者(Lv80)の儀式で使うので追加。エンドラ討伐が要る＝BREEZE_ROD より上、
     # ECHO_SHARD(深層都市の探索)と同格に置いている。
     DRAGON_BREATH: 30
-    custom:stone_2x: 0
-    custom:netherrack_2x: 0
-    custom:thread_empty: 4
-    custom:magebloom_fiber: 8
+    custom:thread_empty: 10
+    custom:magebloom_fiber: 10
     custom:reinforced_fiber: 10
-    custom:wither_rose_1x: 0
-    custom:amethyst_block_2x: 0
     custom:reinforced_leather: 12
-    custom:blaze_rod_2x: 0
     custom:source_gem: 20
-    custom:shulker_shell_1x: 0
-    custom:blaze_rod_3x: 0
-    custom:dragon_breath_3x: 0
-    custom:breeze_rod_2x: 0
-    custom:shulker_shell_2x: 0
     custom:hard_metal: 40
     custom:heavy_metal: 40
     custom:elder_guardian_spike: 40
@@ -212,10 +202,6 @@ ars-smithing:
     #   ソース凝縮核 = 700,000 ソース相当 → core_jewelry(5000) の一段下。
     custom:source_crystal: 400
     custom:source_condenser: 3500
-    custom:diamond_block_2x: 0
-    custom:dragon_breath_2x: 0
-    custom:gold_block_2x: 0
-    custom:iron_block_2x: 0
     # 2026-08-10(J-12): 圧縮素材(_Nx)は鍛冶EXPの対象外。ユーザー判断「圧縮素材は経験値不要」。
     # 2026-08-19 訂正: ここには「行を消すと素材合計を丸ごと捨てて定額(100)へ戻る」と書いてあったが、
     #    その全か無かの分岐は【2026-08-17 に定額 exp-per-craft ごと廃止済み】で、もう存在しない。
@@ -226,37 +212,37 @@ ars-smithing:
     # ⚠️ ただし ShippedRitualMaterialExpCoverageTest は今も「儀式で消費する素材は全て表にある」ことを
     #    要求する。意図して無報酬にする素材があるなら、行を消すのではなく 0 を書くのが安全
     #    (消すと「意図的に0」と「足し忘れ」を機械的に区別できなくなる)。
-    LAPIS_LAZULI: 1
-    LAPIS_BLOCK: 9
-    REDSTONE: 1
-    REDSTONE_BLOCK: 9
-    QUARTZ: 2
-    QUARTZ_BLOCK: 8
+    LAPIS_LAZULI: 20
+    LAPIS_BLOCK: 10
+    REDSTONE: 10
+    REDSTONE_BLOCK: 10
+    QUARTZ: 10
+    QUARTZ_BLOCK: 10
     EMERALD: 10
     EMERALD_BLOCK: 90
     IRON_BLOCK: 72
     GOLD_BLOCK: 72
     DIAMOND_BLOCK: 225
-    NETHERITE_BLOCK: 1080
-    WHEAT: 1
-    HAY_BLOCK: 9
-    WHITE_WOOL: 4
-    FEATHER: 1
-    FLINT: 2
-    SUGAR: 0.5
-    SLIME_BALL: 2
-    GLOWSTONE_DUST: 2
-    BLAZE_POWDER: 4
-    MAGMA_CREAM: 6
-    PUFFERFISH: 4
+    NETHERITE_BLOCK: 2000
+    WHEAT: 10
+    HAY_BLOCK: 10
+    WHITE_WOOL: 10
+    FEATHER: 10
+    FLINT: 10
+    SUGAR: 10
+    SLIME_BALL: 10
+    GLOWSTONE_DUST: 10
+    BLAZE_POWDER: 10
+    MAGMA_CREAM: 10
+    PUFFERFISH: 10
     GOLDEN_CARROT: 10
     GOLDEN_APPLE: 72
-    RABBIT_FOOT: 8
-    CHEST: 8
-    TRIPWIRE_HOOK: 5
+    RABBIT_FOOT: 10
+    CHEST: 10
+    TRIPWIRE_HOOK: 10
     SHIELD: 20
-    ENDER_PEARL: 5
-    CHORUS_FRUIT: 4
+    ENDER_PEARL: 10
+    CHORUS_FRUIT: 10
     ENDER_EYE: 10
     ENDER_CHEST: 90
     CRYING_OBSIDIAN: 12
@@ -266,8 +252,53 @@ ars-smithing:
     NAUTILUS_SHELL: 20
     TOTEM_OF_UNDYING: 200
     ELYTRA: 250
-    HEAVY_CORE: 150
-    DRAGON_EGG: 300
+    HEAVY_CORE: 1500
+    DRAGON_EGG: 3000
+    OAK_LOG: 10
+    ACACIA_LOG: 10
+    BIRCH_LOG: 10
+    CHERRY_LOG: 10
+    CRIMSON_STEM: 10
+    DARK_OAK_LOG: 10
+    JUNGLE_LOG: 10
+    MANGROVE_LOG: 10
+    PALE_OAK_LOG: 10
+    SPRUCE_LOG: 10
+    WARPED_STEM: 10
+    PAPER: 10
+    BOOK: 10
+    NAME_TAG: 10
+    TURTLE_EGG: 10
+    OCHRE_FROGLIGHT: 12
+    PEARLESCENT_FROGLIGHT: 12
+    VERDANT_FROGLIGHT: 12
+    COOKED_BEEF: 10
+    DIRT: 5
+    custom:core_wood: 5000
+    custom:core_meat: 5000
+    custom:core_vegetable: 5000
+    custom:core_ground: 5000
+    custom:abyssal_ingot: 250
+    custom:dungeon_seal_binder: 300
+    custom:reality_thread_core: 350
+    custom:binder_fragment: 400
+    # 一般的なモブドロップ / 松明。LEATHER(3) より安い帯に置く。
+    SPIDER_EYE: 20
+    TORCH: 10
+    custom:stone_2x: 0
+    custom:netherrack_2x: 0
+    custom:wither_rose_1x: 0
+    custom:amethyst_block_2x: 0
+    custom:blaze_rod_2x: 0
+    custom:shulker_shell_1x: 0
+    custom:blaze_rod_3x: 0
+    custom:dragon_breath_3x: 0
+    custom:breeze_rod_2x: 0
+    custom:shulker_shell_2x: 0
+    custom:diamond_block_2x: 0
+    custom:dragon_breath_2x: 0
+    custom:gold_block_2x: 0
+    custom:iron_block_2x: 0
     IRON_HELMET: 40
     IRON_CHESTPLATE: 64
     IRON_LEGGINGS: 56
@@ -280,40 +311,12 @@ ars-smithing:
     DIAMOND_CHESTPLATE: 200
     DIAMOND_LEGGINGS: 175
     DIAMOND_BOOTS: 100
-    OAK_LOG: 4
-    ACACIA_LOG: 4
-    BIRCH_LOG: 4
-    CHERRY_LOG: 4
-    CRIMSON_STEM: 4
-    DARK_OAK_LOG: 4
-    JUNGLE_LOG: 4
-    MANGROVE_LOG: 4
-    PALE_OAK_LOG: 4
-    SPRUCE_LOG: 4
-    WARPED_STEM: 4
-    PAPER: 0.5
-    BOOK: 2
-    NAME_TAG: 8
-    TURTLE_EGG: 6
-    OCHRE_FROGLIGHT: 12
-    PEARLESCENT_FROGLIGHT: 12
-    VERDANT_FROGLIGHT: 12
-    COOKED_BEEF: 4
-    DIRT: 0.5
-    custom:core_wood: 5000
-    custom:core_meat: 5000
-    custom:core_vegetable: 5000
-    custom:core_ground: 5000
     custom:stone_5x: 0
     custom:wither_rose_2x: 0
     custom:breeze_rod_3x: 0
     custom:emerald_block_4x: 0
     custom:netherite_block_1x: 0
     custom:echo_shard_2x: 0
-    custom:abyssal_ingot: 250
-    custom:dungeon_seal_binder: 300
-    custom:reality_thread_core: 350
-    custom:binder_fragment: 400
     custom:spell_book_novice: 40
     custom:spell_book_apprentice: 80
     custom:mage_arcane_novice_helmet: 60
@@ -386,11 +389,8 @@ ars-smithing:
     custom:oak_wood_2x: 0
     custom:cod_2x: 0
     custom:hay_block_2x: 0
-    # 一般的なモブドロップ / 松明。LEATHER(3) より安い帯に置く。
-    SPIDER_EYE: 2
-    TORCH: 1
 smithing:
-  exp-per-craft: 15
+  exp-per-craft: 20
   exp-per-material:
     STICK: 0.5
     OAK_PLANKS: 1
@@ -406,46 +406,35 @@ smithing:
     CRIMSON_PLANKS: 1
     WARPED_PLANKS: 1
     STRING: 1
-    LEATHER: 3
-    COBBLESTONE: 1.5
-    STONE: 1.5
+    LEATHER: 5
+    COBBLESTONE: 2
+    STONE: 2
     COBBLED_DEEPSLATE: 2
     DEEPSLATE: 2
     BLACKSTONE: 2
-    COPPER_INGOT: 4
-    IRON_INGOT: 8
-    GOLD_INGOT: 8
-    AMETHYST_SHARD: 6
+    COPPER_INGOT: 8
+    IRON_INGOT: 12
+    GOLD_INGOT: 16
+    AMETHYST_SHARD: 10
     DIAMOND: 25
     NETHERITE_SCRAP: 30
     NETHERITE_INGOT: 120
-    BLAZE_ROD: 8
+    BLAZE_ROD: 10
     BREEZE_ROD: 20
-    PHANTOM_MEMBRANE: 6
-    PRISMARINE_SHARD: 4
+    PHANTOM_MEMBRANE: 10
+    PRISMARINE_SHARD: 5
     PRISMARINE_CRYSTALS: 5
     SHULKER_SHELL: 20
     ECHO_SHARD: 30
-    HEART_OF_THE_SEA: 60
-    NETHER_STAR: 200
+    HEART_OF_THE_SEA: 100
+    NETHER_STAR: 500
     # 2026-08-03: 賢者(Lv80)の儀式で使うので追加。エンドラ討伐が要る＝BREEZE_ROD より上、
     # ECHO_SHARD(深層都市の探索)と同格に置いている。
     DRAGON_BREATH: 30
-    custom:stone_2x: 0
-    custom:netherrack_2x: 0
-    custom:thread_empty: 4
-    custom:magebloom_fiber: 8
+    custom:magebloom_fiber: 10
     custom:reinforced_fiber: 10
-    custom:wither_rose_1x: 0
-    custom:amethyst_block_2x: 0
     custom:reinforced_leather: 12
-    custom:blaze_rod_2x: 0
     custom:source_gem: 20
-    custom:shulker_shell_1x: 0
-    custom:blaze_rod_3x: 0
-    custom:dragon_breath_3x: 0
-    custom:breeze_rod_2x: 0
-    custom:shulker_shell_2x: 0
     custom:hard_metal: 40
     custom:heavy_metal: 40
     custom:elder_guardian_spike: 40
@@ -475,10 +464,6 @@ smithing:
     custom:dragon_scale: 80
     custom:warden_tendril: 90
     custom:source_gem_block: 180
-    custom:diamond_block_2x: 0
-    custom:dragon_breath_2x: 0
-    custom:gold_block_2x: 0
-    custom:iron_block_2x: 0
     # 2026-08-10(J-12): 圧縮素材(_Nx)は鍛冶EXPの対象外。ユーザー判断「圧縮素材は経験値不要」。
     # 2026-08-19 訂正: ここには「行を消すと素材合計を丸ごと捨てて定額(100)へ戻る」と書いてあったが、
     #    その全か無かの分岐は【2026-08-17 に定額 exp-per-craft ごと廃止済み】で、もう存在しない。
@@ -489,9 +474,9 @@ smithing:
     # ⚠️ ただし ShippedRitualMaterialExpCoverageTest は今も「儀式で消費する素材は全て表にある」ことを
     #    要求する。意図して無報酬にする素材があるなら、行を消すのではなく 0 を書くのが安全
     #    (消すと「意図的に0」と「足し忘れ」を機械的に区別できなくなる)。
-    LAPIS_LAZULI: 1
+    LAPIS_LAZULI: 5
     LAPIS_BLOCK: 9
-    REDSTONE: 1
+    REDSTONE: 5
     REDSTONE_BLOCK: 9
     QUARTZ: 2
     QUARTZ_BLOCK: 8
@@ -531,18 +516,6 @@ smithing:
     ELYTRA: 250
     HEAVY_CORE: 150
     DRAGON_EGG: 300
-    IRON_HELMET: 40
-    IRON_CHESTPLATE: 64
-    IRON_LEGGINGS: 56
-    IRON_BOOTS: 32
-    GOLDEN_HELMET: 40
-    GOLDEN_CHESTPLATE: 64
-    GOLDEN_LEGGINGS: 56
-    GOLDEN_BOOTS: 32
-    DIAMOND_HELMET: 125
-    DIAMOND_CHESTPLATE: 200
-    DIAMOND_LEGGINGS: 175
-    DIAMOND_BOOTS: 100
     OAK_LOG: 4
     ACACIA_LOG: 4
     BIRCH_LOG: 4
@@ -567,16 +540,43 @@ smithing:
     custom:core_meat: 5000
     custom:core_vegetable: 5000
     custom:core_ground: 5000
+    custom:abyssal_ingot: 250
+    custom:dungeon_seal_binder: 300
+    custom:reality_thread_core: 350
+    custom:binder_fragment: 400
+    custom:stone_2x: 0
+    custom:netherrack_2x: 0
+    custom:thread_empty: 4
+    custom:wither_rose_1x: 0
+    custom:amethyst_block_2x: 0
+    custom:blaze_rod_2x: 0
+    custom:shulker_shell_1x: 0
+    custom:blaze_rod_3x: 0
+    custom:dragon_breath_3x: 0
+    custom:breeze_rod_2x: 0
+    custom:shulker_shell_2x: 0
+    custom:diamond_block_2x: 0
+    custom:dragon_breath_2x: 0
+    custom:gold_block_2x: 0
+    custom:iron_block_2x: 0
+    IRON_HELMET: 40
+    IRON_CHESTPLATE: 64
+    IRON_LEGGINGS: 56
+    IRON_BOOTS: 32
+    GOLDEN_HELMET: 40
+    GOLDEN_CHESTPLATE: 64
+    GOLDEN_LEGGINGS: 56
+    GOLDEN_BOOTS: 32
+    DIAMOND_HELMET: 125
+    DIAMOND_CHESTPLATE: 200
+    DIAMOND_LEGGINGS: 175
+    DIAMOND_BOOTS: 100
     custom:stone_5x: 0
     custom:wither_rose_2x: 0
     custom:breeze_rod_3x: 0
     custom:emerald_block_4x: 0
     custom:netherite_block_1x: 0
     custom:echo_shard_2x: 0
-    custom:abyssal_ingot: 250
-    custom:dungeon_seal_binder: 300
-    custom:reality_thread_core: 350
-    custom:binder_fragment: 400
     custom:spell_book_novice: 40
     custom:spell_book_apprentice: 80
     custom:mage_arcane_novice_helmet: 60

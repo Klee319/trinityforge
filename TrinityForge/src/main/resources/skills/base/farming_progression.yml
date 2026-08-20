@@ -4,13 +4,13 @@
 
 experience:
   max_level: 100
-  exp_level_curve: (%level% + 75 * 2^(%level%/7.6)) + 300
+  exp_level_curve: (%level% + 75 * 2^(%level%/8)) + 300
   block_interact:
     BEEHIVE: 400
     BEE_NEST: 400
     SWEET_BERRY_BUSH: 40
-    CAVE_VINES: 20
-    CAVE_VINES_PLANT: 13
+    CAVE_VINES: 40
+    CAVE_VINES_PLANT: 40
     PUMPKIN: 0
     KELP: 0
     TWISTING_VINES_PLANT: 0
@@ -18,21 +18,14 @@ experience:
     WEEPING_VINES: 0
     WEEPING_VINES_PLANT: 0
   block_drops:
-    TORCHFLOWER_CROP: 100
-    TORCHFLOWER: 100
-    PITCHER_CROP: 100
-    PITCHER_PLANT: 100
+    TORCHFLOWER_CROP: 500
+    PITCHER_CROP: 500
     WHEAT: 48
     POTATOES: 40
-    POTATO: 10
     CARROTS: 40
-    CARROT: 10
     BEETROOTS: 48
-    BEETROOT: 28
     COCOA: 80
-    COCOA_BEANS: 10
     MELON: 80
-    MELON_SLICE: 8
     PUMPKIN: 80
     NETHER_WART: 10
     BROWN_MUSHROOM: 80
@@ -41,7 +34,6 @@ experience:
     WARPED_FUNGUS: 96
     CRIMSON_FUNGUS: 96
     SWEET_BERRY_BUSH: 60
-    SWEET_BERRIES: 10
     CAVE_VINES: 80
     GLOW_BERRIES: 20
     DANDELION: 40
@@ -66,8 +58,8 @@ experience:
     WEEPING_VINES_PLANT: 20
     TWISTING_VINES: 20
     TWISTING_VINES_PLANT: 20
-    KELP: 10
-    KELP_PLANT: 10
+    KELP: 5
+    KELP_PLANT: 5
     HANGING_ROOTS: 40
     BIG_DRIPLEAF: 80
     SMALL_DRIPLEAF: 80
@@ -86,6 +78,14 @@ experience:
     TALL_GRASS: 20
     LARGE_FERN: 20
     SUNFLOWER: 60
+    TORCHFLOWER: 100
+    PITCHER_PLANT: 100
+    POTATO: 10
+    CARROT: 10
+    BEETROOT: 28
+    COCOA_BEANS: 10
+    MELON_SLICE: 8
+    SWEET_BERRIES: 10
   entity_breed:
     FROG: 160
     MUSHROOM_COW: 140
@@ -112,13 +112,13 @@ experience:
     BEE: 100
     CHICKEN: 80
   entity_drops:
-    BEEF: 60
+    BEEF: 40
     PORKCHOP: 60
     CHICKEN: 40
     RABBIT: 100
-    MUTTON: 60
-    LEATHER: 60
-    FEATHER: 14
+    MUTTON: 40
+    LEATHER: 40
+    FEATHER: 40
     WHITE_WOOL: 40
     BLACK_WOOL: 40
     BLUE_WOOL: 40
@@ -135,6 +135,7 @@ experience:
     PURPLE_WOOL: 40
     RED_WOOL: 40
     YELLOW_WOOL: 40
+    RABBIT_HIDE: 20
   entity_shear:
-    SHEEP: 200
+    SHEEP: 150
     MUSHROOM_COW: 1000
