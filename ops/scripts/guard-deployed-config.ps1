@@ -28,6 +28,25 @@
     止めると「エディタで直したものを配りたいだけ」の通常運用まで巻き込まれる。
     代わりに一覧を必ず出し、呼び出し側(deploy-config-head.cmd)が最後にもう一度出す。
 
+    ── 2026-08-20 (W-177): 退避だけでは足りないので【リポジトリへ取り込む】────────────
+    退避は「消えはしない」だけで、配備先の内容は結局 HEAD で上書きされる。人から見れば
+    設定は元に戻ったままなので、同じ報告(「設定したのにロールバックした」)が再発した。
+    そこで Check は退避したあと、その内容を【リポジトリの src\main\resources へ書き戻す】。
+    書き戻したファイルは W-106 のワーキングツリー重ね掛けで、そのまま同じ配備に乗る。
+    配備の向きが repo -> server の一方通行でなくなり、ロールバックが構造的に起きなくなる。
+
+    書き戻す条件は次の全部。1つでも欠けたら退避だけして報告する:
+      - リポジトリ側に【同じ相対パスのファイルが実在する】
+        (無いものはプラグインが自分で吐いた生成物。取り込むと出荷物が汚れる)
+      - $RuntimeStateNames に載っていない
+        (サーバが実行中に書き換える状態ファイル。人の編集ではない)
+      - 同じ相対パスを別のバックエンドから既に取り込んでいない
+        (ArsPaper は配備先が3つ。食い違っていたら後勝ちにせず報告だけする)
+
+    取り込んだ結果はワーキングツリーの未コミット変更になる。CLAUDE.md の
+    「config の yml を編集したらその作業のコミットに必ず含める」に従って commit すること。
+    取り込みたくないときは -NoPromote。
+
 .PARAMETER Mode
     Check  : 上書き前の検査。ドリフトを検出して退避し、一覧を出す。
     Record : 配備後の台帳更新。現在の配備先の姿を記録する。
@@ -79,7 +98,9 @@ param(
     [string] $RepoRoot,
     [string] $ManifestPath,
     [string] $BackupRoot,
-    [switch] $NoBackup
+    [switch] $NoBackup,
+    # 付けると退避と報告だけ行い、リポジトリへの書き戻しをしない (W-177)。
+    [switch] $NoPromote
 )
 
 Set-StrictMode -Version Latest
@@ -97,6 +118,33 @@ if (-not $BackupRoot) {
 
 # plugin descriptor であって config ではない。配備側でも除外しているので突合せからも外す。
 $ExcludedNames = @("paper-plugin.yml")
+
+# サーバが実行中に自分で書き換える yml。中身は「人の編集」ではなく実行時の状態なので、
+# 差分が出て当たり前だし、リポジトリへ書き戻してはいけない (W-177)。
+#   world_settings.yml : ArsPaper WorldSettingsManager がワールド別BANを保存する
+#   source-network.yml : ArsPaper SourceNetwork がソースリンクのブロック座標を保存する
+$RuntimeStateNames = @("world_settings.yml", "source-network.yml")
+
+# 配備先のラベル -> リポジトリ側の資源ディレクトリ。
+# ArsPaper はバックエンドごとに配備先があるが、リポジトリ側は 1 つしか無い。
+$TfSourceRoot  = Join-Path $RepoRoot "TrinityForge\src\main\resources"
+$ArsSourceRoot = Join-Path $RepoRoot "fork-handoff\arspaper\fork\src\main\resources"
+
+function Get-SourceInfo {
+    <#
+    .SYNOPSIS
+        配備先ラベルから「リポジトリ側の資源ディレクトリ」と「取り込みの重複判定キー」を返す。
+    #>
+    param([Parameter(Mandatory)] [string] $Label)
+
+    if ($Label -eq "TrinityForge") {
+        return [pscustomobject]@{ Root = $TfSourceRoot; Key = "TF" }
+    }
+    if ($Label -like "ArsPaper@*") {
+        return [pscustomobject]@{ Root = $ArsSourceRoot; Key = "ARS" }
+    }
+    return $null
+}
 
 # 見る配備先を組み立てる。TrinityForge は【1 回だけ】(他はジャンクションで同じ実体を指す)、
 # ArsPaper はバックエンドごとに実体があるので全部。
@@ -185,6 +233,20 @@ $backupDir = Join-Path $BackupRoot $stamp
 $driftCount = 0
 $backedUp = 0
 $unknown = $false
+$promoted = New-Object System.Collections.Generic.List[string]
+$promotedKeys = @{}
+$notPromoted = New-Object System.Collections.Generic.List[string]
+
+function Copy-Backup {
+    <# 上書きされる前の配備先ファイルを退避する。#>
+    param([string] $Src, [string] $Label, [string] $Rel)
+    $dst = Join-Path (Join-Path $backupDir $Label) $Rel
+    $dstDir = Split-Path -Parent $dst
+    if (-not (Test-Path -LiteralPath $dstDir)) {
+        New-Item -ItemType Directory -Path $dstDir -Force | Out-Null
+    }
+    Copy-Item -LiteralPath $Src -Destination $dst -Force
+}
 
 foreach ($r in $roots) {
     if (-not (Test-Path -LiteralPath $r.Path)) {
@@ -195,8 +257,23 @@ foreach ($r in $roots) {
 
     if ($null -eq $recorded) {
         # 台帳が無い = 「前回の姿」を知らない。判定できないので全部を退避側に倒す。
+        # 取り込み(promote)はしない: 「配備先が新しい」のか「リポジトリが新しい」のかを
+        # 区別する材料が無いので、取り込むとリポジトリ側の未配備の変更を巻き戻してしまう。
         $unknown = $true
         Write-Host "  [UNKN ] $($r.Label): 前回配備の台帳が無いので、サーバ側編集の有無を判定できない"
+
+        # 判定できないなりに、目で見る範囲は絞る。リポジトリと中身が違うものだけ名指しする。
+        # (どちらが新しいかは分からないが、サーバ側編集は必ずこの一覧の中にある)
+        $info = Get-SourceInfo -Label $r.Label
+        if ($null -ne $info) {
+            foreach ($rel in ($current.Keys | Sort-Object)) {
+                $repoFile = Join-Path $info.Root $rel
+                if (-not (Test-Path -LiteralPath $repoFile)) { continue }
+                $repoHash = (Get-FileHash -LiteralPath $repoFile -Algorithm SHA256).Hash
+                if ($repoHash -eq $current[$rel]) { continue }
+                Write-Host "  [DIFF ] $($r.Label)\$rel  (リポジトリと中身が違う。どちらが新しいかは台帳が無いので不明)"
+            }
+        }
         if (-not $NoBackup -and $current.Count -gt 0) {
             foreach ($rel in ($current.Keys | Sort-Object)) {
                 $src = Join-Path $r.Path $rel
@@ -228,16 +305,49 @@ foreach ($r in $roots) {
 
         $driftCount++
         Write-Host "  [DRIFT] $($r.Label)\$rel  <- 前回配備の後にサーバ側で書き換えられている"
+        $src = Join-Path $r.Path $rel
         if (-not $NoBackup) {
-            $src = Join-Path $r.Path $rel
-            $dst = Join-Path (Join-Path $backupDir $r.Label) $rel
-            $dstDir = Split-Path -Parent $dst
-            if (-not (Test-Path -LiteralPath $dstDir)) {
-                New-Item -ItemType Directory -Path $dstDir -Force | Out-Null
-            }
-            Copy-Item -LiteralPath $src -Destination $dst -Force
+            Copy-Backup -Src $src -Label $r.Label -Rel $rel
             $backedUp++
         }
+
+        # ---- リポジトリへ書き戻す (W-177) ------------------------------------------------
+        # ここをやらないと、退避はしたが配備先は HEAD で上書きされる = 人から見れば
+        # 設定が元に戻ったまま。同じ報告が 2 回出た原因そのもの。
+        if ($NoPromote) {
+            $notPromoted.Add("$($r.Label)\$rel  (-NoPromote 指定)")
+            continue
+        }
+        $leaf = Split-Path -Leaf $rel
+        if ($RuntimeStateNames -contains $leaf) {
+            $notPromoted.Add("$($r.Label)\$rel  (サーバが実行中に書き換える状態ファイル)")
+            continue
+        }
+        $info = Get-SourceInfo -Label $r.Label
+        if ($null -eq $info) {
+            $notPromoted.Add("$($r.Label)\$rel  (リポジトリ側の対応先が不明)")
+            continue
+        }
+        $repoFile = Join-Path $info.Root $rel
+        if (-not (Test-Path -LiteralPath $repoFile)) {
+            $notPromoted.Add("$($r.Label)\$rel  (リポジトリに同じパスが無い = プラグインの生成物)")
+            continue
+        }
+        $key = "$($info.Key)|$rel"
+        if ($promotedKeys.ContainsKey($key)) {
+            $notPromoted.Add("$($r.Label)\$rel  (同じファイルを $($promotedKeys[$key]) から取り込み済み。食い違うなら手で突き合わせること)")
+            continue
+        }
+        if ($NoBackup) {
+            # --dry-run。書き換えないが、何が取り込まれるかは見せる。
+            Write-Host "  [PROMOTE?] $($r.Label)\$rel  ->  $repoFile"
+            $promotedKeys[$key] = $r.Label
+            continue
+        }
+        Copy-Item -LiteralPath $src -Destination $repoFile -Force
+        $promotedKeys[$key] = $r.Label
+        $promoted.Add("$repoFile  <- $($r.Label)\$rel")
+        Write-Host "  [PROMOTED] $($r.Label)\$rel  ->  $repoFile"
     }
 }
 
@@ -245,8 +355,18 @@ if ($driftCount -eq 0 -and -not $unknown) {
     Write-Host "  [ OK  ] 配備先の yml は前回配備のまま。サーバ側で書き換えられたものは無い。"
 } elseif ($driftCount -gt 0) {
     Write-Host ""
-    Write-Host "  配備先で直接編集された yml が $driftCount 件ある。これから HEAD の内容で上書きされる。"
-    Write-Host "  編集を残したいなら、リポジトリ側の src\main\resources\<同じパス> に反映してから配り直すこと。"
+    Write-Host "  配備先で直接編集された yml が $driftCount 件ある。"
+}
+if ($promoted.Count -gt 0) {
+    Write-Host ""
+    Write-Host "  $($promoted.Count) 件をリポジトリへ取り込んだ。この配備にはこの内容が乗る(=元に戻らない)。"
+    foreach ($x in $promoted) { Write-Host "    $x" }
+    Write-Host "  ⚠ 取り込んだ分はワーキングツリーの未コミット変更。commit すること (CLAUDE.md)。"
+}
+if ($notPromoted.Count -gt 0) {
+    Write-Host ""
+    Write-Host "  取り込まなかったもの ($($notPromoted.Count) 件)。これらは配備先が上書きされる:"
+    foreach ($x in $notPromoted) { Write-Host "    $x" }
 }
 if ($backedUp -gt 0) {
     Write-Host "  退避先: $backupDir  ($backedUp 件)"

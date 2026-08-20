@@ -7,6 +7,13 @@
 #  「自分がどのサーバか」は config ではなくプロキシ(Velocity)に聞いているので、
 #  ここには「プロキシ上のサーバ名 → 表示名」の対応表だけを置く。
 #
+#  【この yml は設定エディタに画面が無い】
+#  直す場所は「リポジトリのこのファイル」だけ。配備先(plugins/TrinityForge/network.yml)を
+#  直接書き換えても、次の config 配備でリポジトリの内容に上書きされる = ロールバックして見える。
+#  2026-08-19 に実際に起きた(W-110)。2026-08-20 (W-177) からは配備スクリプトが
+#  「配備先で書き換えられた yml」を検出してリポジトリへ取り込み直すので消えなくなったが、
+#  取り込みは配備を1回走らせるまで起きない。最初からここを直すのが確実。
+#
 #  【動く条件】
 #  - velocity.toml の bungee-plugin-message-channel = true（既定で true）
 #  - 送信側のサーバにプレイヤーが 1 人以上居ること
@@ -28,7 +35,7 @@ chat:
   #   %message% … 本文
   # 自分のサーバの発言も他サーバの発言も【同じ形】で出す。
   # 片方だけ書式を変えると「どこの発言か」が読み取れなくなる。
-  format: "<gray>【</gray><aqua>%server%</aqua><gray>】</gray><white>%player%</white><gray>:</gray> <white>%message%</white>"
+  format: "<color:aqua><b>【%server%】</b></color><color:white>%player%</color><color:dark_gray><b>: </b></color><color:white>%message%</color>"
 
   # プロキシ上のサーバ名（velocity.toml の [servers] に書いた名前）→ 表示名。
   # ここに無い名前はサーバ名がそのまま出る（設定漏れが目に見えるように、空表示にはしない）。

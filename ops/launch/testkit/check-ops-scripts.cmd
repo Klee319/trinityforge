@@ -17,6 +17,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\run-selftest.
 set "SELFTEST=%errorlevel%"
 
 echo.
+echo === config rollback guards, self-test (W-177) ===
+REM  These two are what stops "my config rolled back" from happening again:
+REM  the deploy guard copies server-side edits back into the repository, and
+REM  run-against-head restores the working tree it borrowed. Both are silent when broken.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\test-guard-deployed-config.ps1"
+if errorlevel 1 set "SELFTEST=1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\test-run-against-head.ps1"
+if errorlevel 1 set "SELFTEST=1"
+
+echo.
 echo === weekly reset, dry run (READ THE DELETE LIST) ===
 powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\reset-resource.ps1" -DryRun
 

@@ -35,13 +35,18 @@ REM    skills\base\farming_progression.yml, none of which the operator had asked
 REM    --only narrows the copy to a single file so an unrelated change cannot ride along.
 REM    The path is relative to the TrinityForge config root, e.g.  --only combat\damage.yml
 REM
-REM  Server-side edits (2026-08-19, W-110)
+REM  Server-side edits (2026-08-19 W-110, extended 2026-08-20 W-177)
 REM    Deployment is one-way repo -> server, and the W-106 overlay protects the REPOSITORY working
 REM    tree only. The config editor has no screen for every yml (network.yml, for one), so editing
 REM    the deployed file by hand is sometimes the only option -- and that edit used to vanish here
-REM    silently, with no backup. Step 3/4 now compares the deployed yml against a manifest taken at
-REM    the end of the previous deploy, names what changed since, and backs it up into
-REM    tmp\deploy-config-backup before overwriting. It warns; it does not block.
+REM    silently, with no backup. Step 2/4 compares the deployed yml against a manifest taken at
+REM    the end of the previous deploy, backs up whatever changed since, AND copies it back into
+REM    the repository so the very next step ships it instead of reverting it. It never blocks.
+REM
+REM    W-110 only backed the drift up. The server copy was still overwritten, so from a player's
+REM    seat the setting had simply rolled back -- and the same report came in again on 2026-08-20.
+REM    Copying it back into the repository is what actually closes the loop, and it is why step
+REM    2/4 now runs BEFORE the HEAD export instead of after it.
 REM
 REM  This deploys CONFIG ONLY. Jars are deploy.cmd's job (run it WITHOUT --config).
 REM
@@ -144,10 +149,32 @@ echo   [ OK  ] no backend looks alive.
 :after_check
 echo.
 
-REM ---- 2/4  export HEAD -------------------------------------------------------------------------
+REM ---- 2/4  did anyone edit the DEPLOYED yml -----------------------------------------------------
+REM  Deployment is one-way repo -> server. The W-106 overlay protects edits made in the REPOSITORY
+REM  working tree, not edits made to the deployed file itself -- and the config editor has no
+REM  screen for every yml, so "edit it on the server" is sometimes the only way. Those edits used
+REM  to be overwritten silently and with no backup (2026-08-19, network.yml, W-110).
+REM  guard-deployed-config.ps1 compares the deployed yml against a manifest taken at the end of the
+REM  previous deploy, backs up anything that changed since, AND copies it back into the repository
+REM  (W-177). It never blocks the deploy.
+REM
+REM  THIS RUNS BEFORE THE HEAD EXPORT ON PURPOSE. The export overlays the working tree on top of
+REM  HEAD, so a file promoted here is picked up by the very next step and ships in THIS deploy.
+REM  While it ran after the export (2026-08-19 to 2026-08-20) the edit was backed up but the
+REM  server copy was still reverted, which is exactly what "my config rolled back" looks like.
+echo --- 2/4  check the deployed config for server-side edits ---
+set "GUARD_ARGS=-VelocityRoot "%VELOCITY_ROOT%" -ConfigHost "%TF_CONFIG_HOST%" -Backends "%TF_BACKENDS%""
+if defined DRYRUN (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\guard-deployed-config.ps1" -Mode Check %GUARD_ARGS% -NoBackup
+) else (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\guard-deployed-config.ps1" -Mode Check %GUARD_ARGS%
+)
+echo.
+
+REM ---- 3/4  export HEAD -------------------------------------------------------------------------
 REM  Runs even under --dry-run: the export writes only inside tmp\ and its report of
 REM  "uncommitted, therefore not deployed" is the main thing a dry run is for.
-echo --- 2/4  export HEAD into tmp\deploy-head ---
+echo --- 3/4  export HEAD into tmp\deploy-head ---
 if defined HEADONLY (
     powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\export-head-config.ps1" -HeadOnly
 ) else (
@@ -160,23 +187,6 @@ if errorlevel 1 (
 if not exist "%TFRES%\" (
     echo   [ERROR] expected staged config not found: %TFRES%
     exit /b 1
-)
-echo.
-
-REM ---- 3/4  did anyone edit the DEPLOYED yml -----------------------------------------------------
-REM  Deployment is one-way repo -> server. The W-106 overlay protects edits made in the REPOSITORY
-REM  working tree, not edits made to the deployed file itself -- and the config editor has no
-REM  screen for every yml, so "edit it on the server" is sometimes the only way. Those edits used
-REM  to be overwritten silently and with no backup (2026-08-19, network.yml, W-110).
-REM  guard-deployed-config.ps1 compares the deployed yml against a manifest taken at the end of the
-REM  previous deploy, names anything that changed since, and copies it into tmp\deploy-config-backup
-REM  before it is overwritten. It never blocks the deploy: nothing is lost once it is backed up.
-echo --- 3/4  check the deployed config for server-side edits ---
-set "GUARD_ARGS=-VelocityRoot "%VELOCITY_ROOT%" -ConfigHost "%TF_CONFIG_HOST%" -Backends "%TF_BACKENDS%""
-if defined DRYRUN (
-    powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\guard-deployed-config.ps1" -Mode Check %GUARD_ARGS% -NoBackup
-) else (
-    powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\guard-deployed-config.ps1" -Mode Check %GUARD_ARGS%
 )
 echo.
 
@@ -264,9 +274,10 @@ if defined DRYRUN (
     echo  Config deployed from HEAD. Start the network:  launch\start-all.cmd
 )
 if not defined DRYRUN (
-    echo  Re-read step 3/4 above: any [DRIFT] line is an edit made on the SERVER that has just been
-    echo  overwritten. The old content is under tmp\deploy-config-backup -- to keep it, put it into
-    echo  TrinityForge\src\main\resources and deploy again.
+    echo  Re-read step 2/4 above. Every [DRIFT] line was an edit made on the SERVER; each one that
+    echo  also shows [PROMOTED] has been copied back into the repository and IS in this deploy --
+    echo  commit it. Anything listed as not promoted was only backed up, under
+    echo  tmp\deploy-config-backup, and the server copy has been overwritten.
 )
 echo ============================================================
 exit /b 0

@@ -389,8 +389,25 @@ goto s5
 echo   [SKIP ] --build-only.
 goto s5
 :s4_run
+REM  Deployment is one-way repo -> server, so anything edited on the SERVER is about to be
+REM  overwritten. Some yml (network.yml) has no screen in the config editor, so editing the
+REM  deployed file is the only way a human can change it -- and until 2026-08-20 this path
+REM  destroyed those edits with no backup and no message (W-110 was wired into
+REM  deploy-config-head.cmd only). guard-deployed-config.ps1 backs the drift up AND copies it
+REM  back into the repository, so the copy below ships the edit instead of reverting it.
+set "GUARD_ARGS=-VelocityRoot "%VELOCITY_ROOT%" -ConfigHost "%TF_CONFIG_HOST%" -Backends "%TF_BACKENDS%""
+if defined DRYRUN (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\guard-deployed-config.ps1" -Mode Check %GUARD_ARGS% -NoBackup
+) else (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\guard-deployed-config.ps1" -Mode Check %GUARD_ARGS%
+)
 call :deploy_config
 if defined FAILED goto fail
+REM  Record what the deployed config looks like now, so the next run can tell "someone edited the
+REM  server copy" apart from "the repository changed". --dry-run copied nothing: leave the baseline.
+if not defined DRYRUN (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\guard-deployed-config.ps1" -Mode Record %GUARD_ARGS%
+)
 
 REM ---- 5. restart -------------------------------------------------------------------------------
 :s5

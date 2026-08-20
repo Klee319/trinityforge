@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -143,6 +144,35 @@ class ChatFormatTest {
         assertTrue(plain(rendered).startsWith("[資源] Klee319: hello"), plain(rendered));
         assertEquals(NamedTextColor.GREEN, colorOf(rendered, "hello"),
                 "飾りの色が本文を上書きした");
+    }
+
+    /**
+     * 出荷 {@code network.yml} の {@code chat.format} をそのまま通して固定する (2026-08-20 W-177)。
+     *
+     * <p>この yml は設定エディタに画面が無いので、直すときは必ずここが唯一の書き換え先になる。
+     * そして {@link ChatFormat#render} は書式が壊れていても<b>既定の書式へ黙って落ちる</b>ので、
+     * 実サーバでは「設定したのに前の見た目のまま」= ロールバックしたようにしか見えない。
+     * 出荷値を実際に render して、既定へ落ちていないことを確かめる。
+     */
+    @Test
+    @DisplayName("出荷 network.yml の chat.format は既定へ落ちずにそのまま描画される")
+    void shippedNetworkFormat_rendersWithoutFallingBack() throws Exception {
+        java.nio.file.Path file = java.nio.file.Path.of("src/main/resources/network.yml");
+        assertTrue(java.nio.file.Files.isRegularFile(file),
+                "出荷 yml が見つからない: " + file.toAbsolutePath());
+        org.bukkit.configuration.file.YamlConfiguration cfg =
+                new org.bukkit.configuration.file.YamlConfiguration();
+        cfg.loadFromString(java.nio.file.Files.readString(file));
+        String format = cfg.getString("chat.format");
+        assertNotNull(format, "network.yml に chat.format が無い");
+
+        List<String> warnings = new ArrayList<>();
+        Component rendered = ChatFormat.render(
+                format, "資源", "Klee319", Component.text("hello"), warnings::add);
+
+        assertTrue(warnings.isEmpty(), "出荷書式で警告が出た: " + warnings);
+        assertEquals("【資源】Klee319: hello", plain(rendered),
+                "出荷書式の並びが変わった(プレースホルダの欠落やタイポなら既定へ落ちている)");
     }
 
     /** 木を辿って、指定の文字列を持つ最初のノードの色を返す。 */
