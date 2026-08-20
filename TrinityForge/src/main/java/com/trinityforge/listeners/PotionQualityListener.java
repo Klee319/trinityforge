@@ -98,6 +98,10 @@ public final class PotionQualityListener implements Listener {
         if (rewriteCustomEffectUpgrade(event)) {
             return;
         }
+        // 同じ理由でスプラッシュ化/残留化も先に見る(容器が変わるだけで品質は既に乗っている)。
+        if (rewriteCustomEffectContainerMix(event)) {
+            return;
+        }
         if (!(event.getBlock().getState() instanceof BrewingStand stand)) {
             return;
         }
@@ -213,6 +217,90 @@ public final class PotionQualityListener implements Listener {
 
     private static boolean isSplashOrLingering(Material type) {
         return type == Material.SPLASH_POTION || type == Material.LINGERING_POTION;
+    }
+
+    // ---- スプラッシュ化(火薬) / 残留化(ドラゴンブレス) の救済 ------------------------------
+    //
+    // なぜ必要か(2026-08-21 実サーバ報告「ポーションをスプラッシュ化しようとすると水入り瓶になる」):
+    //   バニラの【容器 mix】は結果を1から組み直す。稼働サーバの paper-1.21.11.jar を逆アセンブルすると
+    //   PotionBrewing#mix の容器 mix 分岐は
+    //       PotionContents.createItemStack(mix.to.value(), contents.potion().get())
+    //   の1行だけで、入力のコンポーネントを【1つも引き継がない】(カスタム効果・表示名・PDC が全部落ちる)。
+    //   TF は品質を乗せるとき base を WATER へ倒して全部カスタム効果で表現する(#applyQuality)ので、
+    //   スプラッシュ化すると WATER だけが残った【スプラッシュ水入り瓶】になり中身が消える。
+    //   ＝ 錬金術の品質ステを持っている人だけ壊れる(0 の人は base が倒れないので正常)。
+    //   延長/強化(#rewriteCustomEffectUpgrade)と原因も対処も同じ形で、あちらだけ救済が入っていた。
+    //
+    // バニラの容器 mix はこの2組だけ(paper-1.21.11.jar の addVanillaMixes を実バイトコードで確認):
+    //   POTION + GUNPOWDER -> SPLASH_POTION / SPLASH_POTION + DRAGON_BREATH -> LINGERING_POTION
+    //
+    // 持続時間には手を入れない: バニラでもスプラッシュ化で持続は変わらず、残留の 1/4 は
+    // 【使用時に AreaEffectCloud 側が掛ける】ので、ここで縮めると二重に効く。
+    // 品質も乗せ直さない(容器が変わるだけで、そのポーションには既に乗っている)。
+
+    /** バニラの容器 mix の行き先。組み合わせが違えば {@code null}(バニラに任せる)。 */
+    private static Material containerMixTarget(Material ingredient, Material bottle) {
+        if (ingredient == Material.GUNPOWDER && bottle == Material.POTION) {
+            return Material.SPLASH_POTION;
+        }
+        if (ingredient == Material.DRAGON_BREATH && bottle == Material.SPLASH_POTION) {
+            return Material.LINGERING_POTION;
+        }
+        return null;
+    }
+
+    /**
+     * WATER ベース＋カスタム効果のポーションの容器だけを差し替え、中身を保ったまま書き戻す。
+     *
+     * @return この醸造を容器 mix として扱ったなら {@code true}(呼び出し側は品質適用へ進まない)
+     */
+    private boolean rewriteCustomEffectContainerMix(BrewEvent event) {
+        BrewerInventory inv = event.getContents();
+        // getIngredient() ではなく getItem(3) で読む理由は #rewriteCustomEffectUpgrade と同じ。
+        ItemStack ingredient = inv.getItem(3);
+        if (ingredient == null) {
+            return false;
+        }
+        Material ing = ingredient.getType();
+        if (ing != Material.GUNPOWDER && ing != Material.DRAGON_BREATH) {
+            return false;
+        }
+
+        List<ItemStack> results = event.getResults();
+        boolean handled = false;
+        for (int slot = 0; slot < 3; slot++) {
+            ItemStack bottle = inv.getItem(slot);
+            if (bottle == null || !(bottle.getItemMeta() instanceof PotionMeta meta)
+                    || meta.getBasePotionType() != PotionType.WATER
+                    || !meta.hasCustomEffects()) {
+                continue; // 素の水入り瓶やバニラのポーションはバニラの結果に任せる
+            }
+            Material target = containerMixTarget(ing, bottle.getType());
+            if (target == null) {
+                continue;
+            }
+            // PotionMeta は POTION / SPLASH_POTION / LINGERING_POTION で共通なので、器だけ替えれば
+            // カスタム効果も PDC(brew_upgrade / brew_source_potion)もそのまま持ち越せる。
+            ItemStack rebuilt = new ItemStack(target);
+            rebuilt.setItemMeta(meta);
+            if (rebuilt.getItemMeta() instanceof PotionMeta moved) {
+                // 器が変わったので名前を付け直す(「治癒のポーション」→「スプラッシュ治癒のポーション」)。
+                // バニラの容器 mix はそもそも名前を捨てるので、上書きで失うものは無い。
+                net.kyori.adventure.text.Component renamed =
+                        BrewRecipeSupport.potionDisplayName(target, moved.getCustomEffects());
+                if (renamed != null) {
+                    moved.displayName(renamed);
+                    rebuilt.setItemMeta(moved);
+                }
+            }
+            rebuilt.setAmount(1);
+            while (results.size() <= slot) {
+                results.add(null);
+            }
+            results.set(slot, rebuilt);
+            handled = true;
+        }
+        return handled;
     }
 
     // ---- 延長(レッドストーン) / 強化(グロウストーンダスト) の救済 -------------------------
