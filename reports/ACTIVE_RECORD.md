@@ -3495,9 +3495,15 @@ TF フルテスト **4462 件・失敗 29・skip 2**（29 件はすべて他セ�
 （`random:` も同じ比で縮めてあるが、剣と杖でロール幅の比率が違うので合計値では 1.5 からずれる）。
 
 **検証**: `WeaponTierParityTest` **全件緑**（杖 10 本を検査。空振り防止のカウンタ付き）。
-⚠ **TF フルテストは実走できていない** —— 他セッションの未コミット WIP
-（`bedrock/BedrockRecipeExporter.java` / `BedrockRecipeTable.java`）が**現在コンパイルを通らない**ため
-`compileJava` の段階で落ちる（`エラー6個`）。**自分の変更は yml とテストのみで Java 本体は無変更**。
+TF フルテスト **4471 件・失敗 29・skip 2**。29 件は**すべて他セッションの未コミット yml 由来**で、
+武器の数値まわりは 1 件も含まない（`ShippedThreadItemStatsTest` は同じ `item-stats.yml` だがスレッド 300045 の
+`grant-chances` が 5 件になっている件で、こちらの差分には含まれない）。着手直後は 30 件で、
+差の 1 件が**書き換え前の杖検査**だった。
+⚠ 途中、他セッションの未コミット WIP（`bedrock/BedrockRecipeExporter.java` / `BedrockRecipeTable.java`）が
+**コンパイルを通らない状態**になっていて `compileJava` で落ちる時間帯があった（`エラー6個`）。相手が直したので実走できた。
+⚠ **コミットが他セッションに巻き取られた** —— こちらが `git add` した直後に別セッションが
+`git commit`（pathspec 無し）を打ったため、この 3 ファイルは**別セッションのコミット `9af282a` に同梱**されている。
+内容は正しく dev に載っている（push 済み）。同一ワークツリー運用では **`git add` から `git commit` までの間が競合窓**になる。
 **⚠ 未実施（ユーザー作業）: config の配備＋サーバ再起動**（`item-stats.yml` のみなので jar 再ビルドは不要だが、
 W-170〜W-177 の Java 変更が未配備なので結局 jar も要る）。
 
