@@ -216,6 +216,38 @@ import はあくまで「override を消したときのフォールバック値�
 - 2026-08-02: `attack.magic-ratio` を実証する派生カスタムボス6体を `default.mobs` に追加した際に
   43→49へ実際に踏んだ。
 
+### ⚠️ `mob-import.yml` の `max-health` ランプを食うのは【踏破ボス/中ボスだけ】。雑魚のHPはEM自前のまま
+
+HP 委譲の経路は `EliteEntity#setMaxHealth()` → `TrinityForgeIntegration.resolveProfileMaxHealth(this)` の
+1本しかなく、その入口に **`if (!(eliteEntity instanceof CustomBossEntity)) return 0.0;`** がある。
+つまり `combat/mob-import.yml` の `max-health` を触っても、**ダンジョンの雑魚の HP は 1 も動かない**
+（雑魚は EliteMobs 自前の `LevelScaling.calculateMobHealth` のまま）。
+一方 **守備力/攻撃力のスタンプ（`TrinityForgeSpawnListener#stamp`）は全 EM モブに乗る**ので、
+`physical/magical` や `attack` を触ると雑魚にも効く。**この非対称を取り違えると
+「雑魚が柔らかくなりすぎる」と誤って心配して、必要な修正を見送ることになる。**
+
+### ⚠️⚠️ ボスの実HPは【3段の積】。ランプの「加算専用の第2区間」を倍率の内側に置いてはいけない
+
+`実HP = mob-import のランプ(選ばれたLv) × mob-overrides の max-health-multiplier × EM の healthMultiplier`
+
+後ろ 2 段は積で最大 **約 2500 倍**に達する（TF 側 21〜23 倍 × EM 側 30 倍など）。
+`ConversionPolicy.Ramp` の `high-level-from`/`high-level-per-level` は
+`value += perLevel * (level - from)` の**純加算**なので、ランプの内側で足すと
+その加算もまるごと倍率に掛かる。2026-08-03 に置いた `+1800/Lv` は
+**最大 +450万HP/Lv** に化けていて、指数（`growth 1.072`）で組んだ難易度ラダーの形を
+中レベル帯だけ壊していた（難易度6のボスが Lv55 で 623 秒、Lv100 で 69 秒）。2026-08-20（W-176）で撤去。
+
+**判定のコツ**: ランプの「加算区間」は倍率を持たない相手（＝雑魚）にしか意味を持たない。
+倍率が掛かる相手に効かせたい量は**指数側（`growth`）で表現する**。
+
+### ⚠️ ダンジョンモブだけ `flat-defense` をレベルで伸ばすと「帯の中でレベルを上げるほど弱くなる」
+
+`flat-defense` はクリット前に減算される固定値（`ComponentDamageCalculator` step2）。
+プレイヤーの装備更新は **Lv45/60/80/100 の飛び石**で、その間は 1 発の威力がほとんど変わらない。
+そこへ守備力だけ `+150/Lv` で伸ばすと、帯の終わり（Lv55/75/95）で実効DPSが半減し、
+撃破秒数が跳ね上がる。**「レベルを上げたら弱くなった」という報告が来たらここを疑う。**
+フィールドモブ（`combat/mob-types.yml`）は `0.0025/Lv` しか持たない。2026-08-20（W-176）で 0 へ撤去。
+
 ### ⚠️ mob-overrides の絶対値指定はレベル追従を破壊する
 
 導入済み396体のうち265体が `level: dynamic`（入場時にプレイヤーが選んだレベルへ追従）である。
