@@ -9,6 +9,8 @@ import com.trinityforge.active.ActiveSkillCooldownKeys;
 import com.trinityforge.active.ActiveSkillRegistry;
 import com.trinityforge.active.CooldownManager;
 import com.trinityforge.active.FeedbackLayer;
+import com.trinityforge.bedrock.BedrockRecipeExporter;
+import com.trinityforge.bedrock.BedrockRecipeTable;
 import com.trinityforge.combat.BleedService;
 import com.trinityforge.combat.PlayerDefenseResolver;
 import com.trinityforge.combat.PlayerStatAggregator;
@@ -732,6 +734,7 @@ public final class TrinityForge extends JavaPlugin {
         this.catalogRecipeRegistrar = new CatalogRecipeRegistrar(this, configManager.itemCatalog(), itemFactory,
                 () -> configManager.craftingFeatures().addedRecipes());
         catalogRecipeRegistrar.registerAll();
+        exportBedrockRecipeTable();
         // W-44: ArsPaper 定義の custom: 素材(例 material-lists.yml の dungeon_seals 28件)は TF が
         // 先に enable する都合で上の初回登録では解決できない。フォーク側の enable フック頼みだと
         // フォークが古い/呼び出しが落ちた瞬間に「毎起動レシピ登録失敗 = 永久にクラフト不可」になるので、
@@ -1632,6 +1635,7 @@ public final class TrinityForge extends JavaPlugin {
                                         // re-derive the whole registered set (fail-soft per entry).
                                         if (catalogRecipeRegistrar != null) {
                                             catalogRecipeRegistrar.registerAll();
+                                            exportBedrockRecipeTable();
                                             CatalogRitualBridge.registerAll(TrinityForge.this, configManager.itemCatalog());
                                         }
                                         // brew-unlocks の増減を醸造 customMixes へ反映する (D10)。
@@ -2321,9 +2325,57 @@ public final class TrinityForge extends JavaPlugin {
      * TrinityForge's own enable time Ars is not yet up and those results fall back to TF identity
      * builds. Idempotent; safe no-op before {@link #onEnable} completes.
      */
+    /**
+     * 統合版(Bedrock)クライアント向けの補正レシピ表を
+     * {@code plugins/TrinityForge/bedrock-recipes.json} へ書き出す。
+     *
+     * <p><b>なぜ要るのか</b>: 統合版はクラフト結果を<b>クライアント側で</b>計算する。ところが
+     * Geyser がクライアントへ渡すレシピ表は、素材を「Java のアイテム型 → バニラの Bedrock 定義」
+     * に落としてしまう (CustomModelData は Java の {@code Ingredient} に載らないので変換元に無い)。
+     * 結果として「バニラ素材 → カスタム完成品」というレシピが配られ、盤面に乗るカスタム素材と
+     * <b>永久に一致しない</b>。この表はその欠けた情報を外へ出すためのもので、
+     * 受け取り側(GeyserExtra)が実際の Bedrock アイテム定義を指す補正レシピを追送する。
+     *
+     * <p><b>受け取り側のクラスには一切依存しない</b> — 既知のパスへ JSON を置くだけなので、
+     * GeyserExtra が入っていなければ誰も読まないファイルが 1 つ出来るだけ。
+     * 失敗しても統合版のクラフト補正が効かなくなるだけで、サーバの動作には影響しない。
+     */
+    private void exportBedrockRecipeTable() {
+        if (catalogRecipeRegistrar == null) {
+            return;
+        }
+        try {
+            BedrockRecipeTable.Table table = BedrockRecipeExporter.build(
+                    catalogRecipeRegistrar.allRegistered(), configManager.itemCatalog());
+            BedrockRecipeExporter.write(getDataFolder().toPath(), table);
+            getLogger().info("[bedrock] 統合版向け補正レシピ表: " + table.recipes().size() + " 件"
+                    + describeSkippedBedrockRecipes(table.skipped()));
+        } catch (java.io.IOException | RuntimeException ex) {
+            getLogger().log(java.util.logging.Level.WARNING,
+                    "[bedrock] 補正レシピ表の書き出しに失敗した(統合版のクラフト補正のみ無効になる)", ex);
+        }
+    }
+
+    /**
+     * 見送った分を必ずログに出す。黙って切り捨てると「全部書き出せた」ように読めてしまう。
+     * 件数が多いときのために名前は先頭 10 件だけにする。
+     */
+    private static String describeSkippedBedrockRecipes(java.util.List<String> skipped) {
+        if (skipped.isEmpty()) {
+            return "";
+        }
+        java.util.List<String> shown = skipped.subList(0, Math.min(10, skipped.size()));
+        String tail = skipped.size() > shown.size() ? " ほか " + (skipped.size() - shown.size()) + " 件" : "";
+        return " / 素材を解決できず見送り " + skipped.size() + " 件: " + String.join(", ", shown) + tail;
+    }
+
     public void refreshCatalogRecipes() {
         if (catalogRecipeRegistrar != null) {
             catalogRecipeRegistrar.registerAll();
+            // 統合版向けの補正レシピ表は「ここ」が本番。TF の onEnable 時点では ArsPaper が
+            // まだ上がっておらず、圧縮素材のような Ars 実体の custom: 素材を解決できないので、
+            // 初回書き出しは取りこぼしだらけになる。Ars の enable 後に上書きする。
+            exportBedrockRecipeTable();
         }
         // ArsPaper の enable でレシピが増えるので、レシピ帳の解禁も張り直す (D7)。
         // この時点でオンラインのプレイヤーは通常いないが、reload 経路と同じ扱いにしておく。
