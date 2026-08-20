@@ -105,15 +105,45 @@ public final class TitleDisplayService implements Listener {
      * ずれ、称号がまた名前に重なる余地を作ってしまう。
      */
     private static final double VANILLA_NAMETAG_OFFSET = 0.5;
+    /**
+     * 頭上テキスト1行ぶんの高さ(ブロック)。称号を<b>ネームタグと重ねない</b>ために、
+     * 余白(clearance)とは別に必ずこのぶんだけ持ち上げる。
+     *
+     * <p><b>2026-08-20 W-174: これが無かったのが「称号がネームタグを消す」の真因。</b>
+     * {@code titleAnchorY} は {@code 高さ + 0.5}(＝ネームタグの<b>中心</b>)へ clearance を足すだけだった。
+     * ところが config のコメントは「ネームタグの<b>上端</b>からさらに何ブロック離すか」と書いており、
+     * <b>説明と実装が1行ぶんずれていた</b>。名前も称号も1行の高さが約 0.25 あるので、
+     * 中心どうしを 0.25 未満しか離さないと必ず重なる ── 出荷値は 0.2、実サーバの設定は 0.1 で、
+     * <b>どちらも重なる側</b>だった(名前が読めない＝「消えた」に見える)。
+     *
+     * <p>2026-08-03 に入れた不変条件は「称号がネームタグより<b>下</b>に来ない」だけで、
+     * 等号(＝ぴったり重なる)を許していたため、この重なりを一度も検出できなかった。
+     */
+    private static final double NAMETAG_LINE_HEIGHT = 0.25;
     /** {@link #nametagClearance} が壊れた値(NaN/負)を返したときのフォールバック。 */
     private static final double FALLBACK_CLEARANCE = 0.4;
     /**
-     * 乗客(パッセンジャー)の描画基準になる取付点の高さ比率。バニラ既定の
-     * {@code EntityAttachments} は {@code 高さ × 0.75} をパッセンジャー取付点に置く。
-     * Minecraft 側の定数であり設定値ではない(config にすると「バニラの描画位置」という
+     * 乗客(パッセンジャー)の描画基準になる取付点の高さ比率。
+     *
+     * <p><b>2026-08-20 W-174: 0.75 は誤りだったので 1.0 に直した。</b>
+     * 稼働サーバの {@code paper-1.21.11} を逆アセンブルして確定させた事実:
+     * <ul>
+     *   <li>{@code EntityAttachment.PASSENGER} の fallback は {@code Fallback.AT_HEIGHT}、
+     *       その実体は {@code new Vec3(0, height, 0)}(= <b>高さそのもの</b>。
+     *       {@code AT_CENTER} だけが {@code height / 2})。</li>
+     *   <li>{@code EntityType.PLAYER} のビルダは
+     *       {@code sized(0.6, 1.8) → eyeHeight(1.62) → vehicleAttachment(...)} だけで、
+     *       <b>{@code passengerAttachments(...)} を呼んでいない</b>
+     *       ＝プレイヤーは fallback をそのまま使う。</li>
+     * </ul>
+     * つまり取付点は {@code 高さ × 1.0}。0.75 のままだと平行移動を {@code 0.25 × 高さ}
+     * (立ち状態で <b>0.45 ブロック</b>)引きすぎ、称号が<b>その分だけ高く浮く</b>。
+     * 実サーバ報告「位置が従来より上によっている」がこれ。
+     *
+     * <p>Minecraft 側の定数であり設定値ではない(config にすると「バニラの描画位置」という
      * 観測事実が設定ミスでずれ、称号がまた名前に重なる余地を作る)。
      */
-    private static final double VANILLA_PASSENGER_ATTACHMENT_RATIO = 0.75;
+    private static final double VANILLA_PASSENGER_ATTACHMENT_RATIO = 1.0;
     /** 平行移動を metadata で撃ち直す閾値(ブロック)。これ未満の変化は無視して通信量を抑える。 */
     private static final double TRANSLATION_EPSILON = 0.01;
 
@@ -147,10 +177,12 @@ public final class TitleDisplayService implements Listener {
     /**
      * 称号行を置く<b>足元からの</b>高さ。
      *
-     * <p>{@code playerHeight + 0.5} がバニラのネームタグの描画高さ(中心)で、そこへ
-     * {@code clearance} を足したところに称号の中心を置く。返り値が常に
-     * {@code playerHeight + 0.5} より大きい(clearance>=0 のとき等号)ことが、
-     * 「称号がネームタグより下に来ない」＝報告されたバグが再発しないことの保証になる。
+     * <p>{@code playerHeight + 0.5} がバニラのネームタグの描画高さ(<b>中心</b>)。そこへ
+     * {@link #NAMETAG_LINE_HEIGHT}(名前の行を跨ぐぶん)と {@code clearance}(設定で足す余白)を
+     * 足したところに称号の<b>中心</b>を置く。返り値が常に
+     * {@code playerHeight + 0.5 + NAMETAG_LINE_HEIGHT} 以上であることが、
+     * 「称号が名前に重ならない」＝報告されたバグが再発しないことの保証になる
+     * (2026-08-20 W-174 で「下に来ない」から「重ならない」へ強めた)。
      *
      * <p>{@code playerHeight} は {@code player.getHeight()} をそのまま渡す。スニーク中(1.5)や
      * スケール変更にも自動追従し、立ち状態(1.8)を定数で埋め込まない。
@@ -175,7 +207,7 @@ public final class TitleDisplayService implements Listener {
         double height = Double.isFinite(playerHeight) && playerHeight > 0 ? playerHeight : 1.8;
         double eyes = Double.isFinite(eyeHeight) && eyeHeight > 0 ? eyeHeight : 0.0;
         double gap = Double.isFinite(clearance) && clearance >= 0 ? clearance : FALLBACK_CLEARANCE;
-        return Math.max(height, eyes) + VANILLA_NAMETAG_OFFSET + gap;
+        return Math.max(height, eyes) + VANILLA_NAMETAG_OFFSET + NAMETAG_LINE_HEIGHT + gap;
     }
 
     /**
@@ -191,9 +223,20 @@ public final class TitleDisplayService implements Listener {
      * 引き算する形にしてあるので、どの clearance を入れてもネームタグより下には来ない。
      */
     static double mountTranslationY(double playerHeight, double eyeHeight, double clearance) {
-        double height = Double.isFinite(playerHeight) && playerHeight > 0 ? playerHeight : 1.8;
         return titleAnchorY(playerHeight, eyeHeight, clearance)
-                - height * VANILLA_PASSENGER_ATTACHMENT_RATIO;
+                - passengerAttachmentY(playerHeight);
+    }
+
+    /**
+     * 騎乗した乗客が描画される<b>足元からの高さ</b>(= バニラのパッセンジャー取付点)。
+     *
+     * <p>{@link #mountTranslationY} と表裏一体なので、テストが定数を書き写して
+     * 「実装と同じ思い込み」を固定してしまわないよう<b>ここ1点を正</b>にする
+     * (0.75 を実装にもテストにも書いていたせいで、間違いが誰にも検出されなかった)。
+     */
+    static double passengerAttachmentY(double playerHeight) {
+        double height = Double.isFinite(playerHeight) && playerHeight > 0 ? playerHeight : 1.8;
+        return height * VANILLA_PASSENGER_ATTACHMENT_RATIO;
     }
 
     /**

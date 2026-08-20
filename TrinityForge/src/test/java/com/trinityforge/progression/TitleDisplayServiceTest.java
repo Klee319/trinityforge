@@ -57,7 +57,8 @@ class TitleDisplayServiceTest {
     void defaultClearancePlacesTheTitleClearOfTheVanillaNametag() {
         double anchor = TitleDisplayService.titleAnchorY(1.8, 0.4);
 
-        assertEquals(2.7, anchor, 1e-9, "立ち状態(高さ1.8)+既定余白0.4 は 1.8+0.5+0.4 = 2.7");
+        assertEquals(2.95, anchor, 1e-9,
+                "立ち状態(高さ1.8) + ネームタグ(0.5) + 名前の行1つ分(0.25) + 既定余白(0.4) = 2.95");
         assertTrue(anchor - ONE_LINE_TEXT_HEIGHT / 2
                         > VANILLA_NAMETAG_Y_FOR_STANDING_PLAYER + ONE_LINE_TEXT_HEIGHT / 2,
                 "称号の下端がネームタグの上端より上に無いと、名前に重なって隠す(報告されたバグそのもの)");
@@ -101,7 +102,7 @@ class TitleDisplayServiceTest {
     void sneakingHeightIsFollowedInsteadOfHardCodingTheStandingHeight() {
         // スニーク中の当たり判定高さは 1.5。ネームタグもそれに追随して 2.0 へ下がるので、
         // 称号も一緒に下がらないと「しゃがむと称号だけ浮く」ことになる。
-        assertEquals(1.5 + 0.5 + 0.4, TitleDisplayService.titleAnchorY(1.5, 0.4), 1e-9);
+        assertEquals(1.5 + 0.5 + 0.25 + 0.4, TitleDisplayService.titleAnchorY(1.5, 0.4), 1e-9);
         assertTrue(TitleDisplayService.titleAnchorY(1.5, 0.4) < TitleDisplayService.titleAnchorY(1.8, 0.4),
                 "しゃがんだら称号も下がる(高さを定数で埋め込んでいない証明)");
     }
@@ -116,7 +117,7 @@ class TitleDisplayServiceTest {
         double anchor = TitleDisplayService.titleAnchorY(crouchedHitbox, eyes, 0.4);
 
         assertTrue(anchor > eyes, "称号は必ず目線より上に置くこと(視界を塞がない): " + anchor);
-        assertEquals(eyes + 0.5 + 0.4, anchor, 1e-9, "目線の高さが基準になること");
+        assertEquals(eyes + 0.5 + 0.25 + 0.4, anchor, 1e-9, "目線の高さが基準になること");
     }
 
     @Test
@@ -148,38 +149,77 @@ class TitleDisplayServiceTest {
     /**
      * <b>2026-08-19 / W-153</b>: 実サーバ報告「称号の位置がネームタグと同期していない。
      * 少し遅れてついてくる」への対処でクライアント騎乗へ移した。騎乗した乗客の描画基準は
-     * 足元ではなく<b>取付点(高さ×0.75)</b>になるので、平行移動はその差分でなければならない。
-     * ここを当て推量の定数にしていたのが 2026-08-02 以前の「称号が名前に重なる」バグの正体。
+     * 足元ではなく<b>取付点</b>になるので、平行移動はその差分でなければならない。
+     *
+     * <p><b>2026-08-20 / W-174</b>: この検証は元々 {@code height * 0.75} を<b>テストにも書き写して</b>
+     * いたので、実装と同じ思い込み(取付点=高さ×0.75)がそのまま固定され、間違いを一度も検出できなかった。
+     * 今は「置きたい絶対高さ = 高さ + 0.5 + clearance」という<b>独立に決まる値</b>と突き合わせる。
+     * 取付点の実値は {@code paper-1.21.11} の逆アセンブルで確定させてある
+     * ({@code EntityAttachment.PASSENGER} の fallback は {@code AT_HEIGHT} = 高さそのもの。
+     * {@code EntityType.PLAYER} は {@code passengerAttachments} を呼んでいない)。
      */
     @Test
-    void mountTranslationIsTheGapBetweenTheAttachmentPointAndTheTitleAnchor() {
+    void mountTranslationPutsTheTitleExactlyAtTheIntendedAbsoluteHeight() {
         double height = 1.8;
         double eyes = 1.62;
         double clearance = 0.4;
 
         double translation = TitleDisplayService.mountTranslationY(height, eyes, clearance);
+        double rendered = TitleDisplayService.passengerAttachmentY(height) + translation;
 
-        assertEquals(TitleDisplayService.titleAnchorY(height, eyes, clearance) - height * 0.75,
-                translation, 1e-9, "平行移動は『置きたい絶対高さ - 取付点』でなければならない");
-        // 取付点 + 平行移動 が、置きたい絶対高さに一致すること(= 実際の描画位置が正しい)。
-        assertEquals(TitleDisplayService.titleAnchorY(height, eyes, clearance),
-                height * 0.75 + translation, 1e-9);
+        assertEquals(height + 0.5 + 0.25 + clearance, rendered, 1e-9,
+                "騎乗時の実描画高さは『ネームタグ(高さ+0.5) + 1行ぶん(0.25) + clearance』ちょうどであること");
+        assertEquals(TitleDisplayService.titleAnchorY(height, eyes, clearance), rendered, 1e-9,
+                "騎乗経路と非騎乗(テレポート追従)経路が同じ高さに描くこと");
     }
 
+    /**
+     * 取付点そのものが「高さ×1.0」であること(W-174)。
+     * 0.75 に戻すと立ち状態で称号が 0.45 ブロック高く浮く ── 実サーバ報告そのもの。
+     */
     @Test
-    void mountedTitleStaysAboveTheVanillaNametagForEveryPosture() {
-        // 立ち / スニーク / 搭乗(当たり判定が縮み目線が上に残る) の3姿勢で、
-        // 取付点 + 平行移動 が必ずバニラのネームタグ(高さ+0.5)より上にあること。
+    void passengerAttachmentIsTheFullHeight() {
+        assertEquals(1.8, TitleDisplayService.passengerAttachmentY(1.8), 1e-9);
+        assertEquals(1.5, TitleDisplayService.passengerAttachmentY(1.5), 1e-9);
+        assertEquals(1.8, TitleDisplayService.passengerAttachmentY(Double.NaN), 1e-9);
+    }
+
+    /**
+     * <b>2026-08-20 / W-174</b>: 以前ここは {@code rendered >= height + 0.5} しか見ておらず、
+     * <b>等号(＝名前とぴったり重なる)を許していた</b>。名前も称号も1行の高さが約 0.25 あるので、
+     * 中心どうしが 0.25 未満しか離れていなければ名前は読めなくなる ── 出荷値 0.2 / 実サーバ 0.1 は
+     * どちらもその側で、実サーバ報告「称号がバニラのネームタグを消してしまっている」がこれだった。
+     * 不変条件を「下に来ない」から<b>「重ならない」</b>へ強める。
+     */
+    @Test
+    void mountedTitleNeverOverlapsTheVanillaNametagForAnyPostureOrClearance() {
         double[][] postures = {{1.8, 1.62}, {1.5, 1.27}, {0.6, 1.27}};
         for (double[] posture : postures) {
             double height = posture[0];
             double eyes = posture[1];
-            for (double clearance : new double[] {0.0, 0.1, 0.4, 1.0}) {
-                double rendered = height * 0.75
+            // clearance 0(＝設定で最も詰めた状態)でも重ならないこと。0.1 は実サーバの設定値。
+            for (double clearance : new double[] {0.0, 0.1, 0.2, 0.4, 1.0}) {
+                double rendered = TitleDisplayService.passengerAttachmentY(height)
                         + TitleDisplayService.mountTranslationY(height, eyes, clearance);
-                assertTrue(rendered >= height + 0.5,
-                        "騎乗時の描画高さ " + rendered + " がネームタグ(" + (height + 0.5)
-                                + ")より下。名前が隠れるバグへ逆戻りしている");
+                double nametag = height + 0.5;
+                assertTrue(rendered >= nametag + 0.25,
+                        "騎乗時の描画高さ " + rendered + " がネームタグ(" + nametag
+                                + ")と1行ぶん(0.25)離れていない。名前が読めなくなる");
+            }
+        }
+    }
+
+    /** 騎乗していない(packetevents 未導入)経路も同じ「重ならない」保証を持つこと。 */
+    @Test
+    void teleportFollowedTitleNeverOverlapsTheVanillaNametagEither() {
+        double[][] postures = {{1.8, 1.62}, {1.5, 1.27}, {0.6, 1.27}};
+        for (double[] posture : postures) {
+            double height = posture[0];
+            double eyes = posture[1];
+            for (double clearance : new double[] {0.0, 0.1, 0.2, 0.4, 1.0}) {
+                double anchor = TitleDisplayService.titleAnchorY(height, eyes, clearance);
+                assertTrue(anchor >= height + 0.5 + 0.25,
+                        "テレポート追従時の高さ " + anchor + " が名前の行と重なる");
             }
         }
     }
