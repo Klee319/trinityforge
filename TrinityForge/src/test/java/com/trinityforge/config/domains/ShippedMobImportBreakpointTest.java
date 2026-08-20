@@ -22,8 +22,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       これが全ダンジョンモブの唯一の攻撃プロファイル源になる。ここの {@code magic-ratio} が
  *       0 に戻ると「ダンジョンモブは常に完全物理」に逆戻りし、魔法防御が丸ごと死にステになる
  *       (2026-08-02以前の状態、{@link ShippedMobMagicRatioTest} の field mob 版と対の回帰ガード)。</li>
- *   <li><b>45+難易度修正</b>: max-health / flat-defense の high-level-from/per-level が消えると、
- *       Lv45以降のダンジョンモブが「討伐が速くなり続ける」壊れた挙動に無言で戻る。</li>
+ *   <li><b>W-176(2026-08-20)</b>: max-health / flat-defense の「Lv45以降だけ効く加算専用の第2区間」は
+ *       撤去済み。復活すると踏破ボスの撃破秒数が中レベル帯だけ跳ね上がる(実測で難易度1のボスが
+ *       Lv45 12秒 / Lv55 189秒)。ここはその復活を落とすための固定。</li>
  * </ul>
  */
 class ShippedMobImportBreakpointTest {
@@ -51,15 +52,31 @@ class ShippedMobImportBreakpointTest {
                         + "魔法防御が死にステになる");
     }
 
+    /** 出荷 mob-import.yml の max-health カーブ(W-176 で加算区間を撤去した後の値)。 */
+    private static final double DUNGEON_HEALTH_BASE = 150.0;
+    private static final double DUNGEON_HEALTH_GROWTH = 1.072;
+
     @Test
-    @DisplayName("45+難易度修正: max-health の高レベル区間がLv45から発動する")
-    void maxHealthHighLevelBreakpointIsConfigured() throws Exception {
+    @DisplayName("W-176: ダンジョンの max-health は加算区間を持たない純粋な指数である")
+    void maxHealthIsAPureExponentialWithoutTheHighLevelPhase() throws Exception {
         ConversionPolicy policy = loadPolicy();
         ConversionPolicy.Ramp maxHealth = policy.maxHealth();
-        assertEquals(maxHealth.at(45), maxHealth.at(45), DELTA); // 閾値自体は連続(回帰時にNaN化しない確認)
-        assertTrue(maxHealth.at(60) > maxHealth.at(45) * 1.5,
-                "Lv45→60でHPが1.5倍未満しか伸びていない(high-level-per-levelが消えている疑い): "
-                        + maxHealth.at(45) + " -> " + maxHealth.at(60));
+
+        // 【契約の変更】2026-08-03(45+難易度修正)は「Lv45以降だけ +1800/Lv を加算する」第2区間を
+        // 置いていた。2026-08-20(W-176)で撤去した。理由は2つ。
+        //  (1) このランプを食うのは踏破ボス/中ボスだけ(EliteMobs フォークの HP 委譲が
+        //      CustomBossEntity ゲート)。雑魚のHPはここに乗らないので、加算は「ボスだけを
+        //      中レベル帯で厚くする」効果しか持たない。
+        //  (2) ボスの実HPは このランプ × mob-overrides の倍率 × EM の healthMultiplier の3段の積で、
+        //      後段は最大 2500 倍。加算がその内側にあると +1800/Lv が最大 450万HP/Lv に化け、
+        //      指数で組んだ難易度ラダーの形を中レベル帯だけ壊す(スパーキーが Lv55 で 623 秒)。
+        // ここが再び 0 でなくなると撃破秒数のぶれが 2.9倍 → 15.2倍 へ戻る。
+        for (int level : new int[] {0, 44, 45, 46, 60, 80, 100}) {
+            assertEquals(DUNGEON_HEALTH_BASE * Math.pow(DUNGEON_HEALTH_GROWTH, level),
+                    maxHealth.at(level), maxHealth.at(level) * 1.0e-9,
+                    "Lv" + level + " のHPが純粋な指数からずれている"
+                            + "(high-level-per-level が 0 でなくなった疑い)");
+        }
     }
 
     /** 出荷 mob-import.yml の attack-power カーブ(2026-08-12 の火力/防御再較正で置いた値)。 */
@@ -103,13 +120,24 @@ class ShippedMobImportBreakpointTest {
     }
 
     @Test
-    @DisplayName("45+難易度修正: 物理/魔法 flat-defense の高レベル区間がLv45から発動する")
-    void flatDefenseHighLevelBreakpointIsConfigured() throws Exception {
+    @DisplayName("W-176: ダンジョンの物理/魔法 flat-defense はどのレベルでも0(帯の中で実効DPSが下がらない)")
+    void flatDefenseHasNoHighLevelPhase() throws Exception {
         ConversionPolicy policy = loadPolicy();
         ConversionPolicy.Ramp physicalFlat = policy.physical().flatDefense();
         ConversionPolicy.Ramp magicalFlat = policy.magical().flatDefense();
-        assertEquals(0.0, physicalFlat.at(44), DELTA, "Lv45未満は従来どおり無干渉であること");
-        assertTrue(physicalFlat.at(60) > 0.0, "Lv60でphysical.flat-defenseが0のまま(high-level-per-levelが消えている疑い)");
-        assertTrue(magicalFlat.at(60) > 0.0, "Lv60でmagical.flat-defenseが0のまま(high-level-per-levelが消えている疑い)");
+
+        // 【なぜ0で固定するのか】flat-defense はクリット前に減算される純粋な固定値
+        // (ComponentDamageCalculator step2)。プレイヤーの装備更新は Lv45/60/80/100 の飛び石で、
+        // その間は1発の威力が変わらない。そこへ守備力だけ +150/Lv で伸びると
+        // 「同じ装備のままレベルを上げるほど弱くなる」逆転が起き、帯の終わり(Lv55/75/95)で
+        // 撃破秒数が跳ね上がる。2026-08-03 に置いた第2区間を 2026-08-20(W-176)で撤去した。
+        for (int level : new int[] {0, 44, 45, 46, 60, 80, 100}) {
+            assertEquals(0.0, physicalFlat.at(level), DELTA,
+                    "Lv" + level + " の physical.flat-defense が0でない"
+                            + "(Lv45以降の加算専用の第2区間が復活した疑い)");
+            assertEquals(0.0, magicalFlat.at(level), DELTA,
+                    "Lv" + level + " の magical.flat-defense が0でない"
+                            + "(Lv45以降の加算専用の第2区間が復活した疑い)");
+        }
     }
 }
