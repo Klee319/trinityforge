@@ -2445,7 +2445,7 @@ EliteMobs の `PreventUpgradeDiamondToNetherite`（エリート装備のネザ�
 
 | ID | 内容 | 状態 |
 |---|---|---|
-| W-158（続報） | 統合版でカスタムアイテムを材料にしたクラフトが**軒並み**通らない（手置きでも同じ／Java は通り通知も出ない）。ソースジャー／TF 圧縮素材／TF 装備の3系統すべてで発生 | ✅ **真因確定（2026-08-20）**。Geyser が結果枠の取り出しを「クライアント予測の個数 ≠ サーバの結果の個数」で `rejectRequest` する。**W-161 と同一原因・サーバ側は無罪**。下記「W-158 / W-161 の真因が確定」参照。修正方針は未着手 |
+| W-158（続報） | 統合版でカスタムアイテムを材料にしたクラフトが**軒並み**通らない（手置きでも同じ／Java は通り通知も出ない）。ソースジャー／TF 圧縮素材／TF 装備の3系統すべてで発生 | ✅ **真因確定（2026-08-20）**。Geyser が結果枠の取り出しを「クライアント予測の個数 ≠ サーバの結果の個数」で `rejectRequest` する。**W-161 と同一原因・サーバ側は無罪**。下記「W-158 / W-161 の真因が確定」参照。**修正実装済み・配備待ち**（A案: 補正レシピ注入。下記「修正を実装」参照） |
 | W-161 | 鍛冶台・作業台の GUI を開いている状態で shift クリック／ドラッグするとアイテムがちらつく | ✅ **真因確定（2026-08-20）**。GeyserExtra の `updateInventory()` 3 箇所＋ Geyser の `rejectRequest` によるインベントリ再同期。**W-158 と同一の根**。修正は保留（ユーザー判断: まず調査結果だけ） |
 
 #### W-158 続報 — 「誰がマス目にアイテムを入れるか」が Java と統合版で違う
@@ -2560,6 +2560,74 @@ Bedrock ではクライアントの予測状態が毎回上書きされる＝ち
 ＝ TF → GeyserExtra へレシピ表を渡し、**実際の Bedrock アイテム id で Bedrock 側レシピを注入する**。
 
 未観測なのは「解凍で実際に count がいくつ食い違ったか」だけで、**修正方針はこれに依存しない**。
+
+#### W-158 / W-161 の修正を実装（2026-08-20）— **A案: 補正レシピを統合版クライアントへ注入**
+
+**配備待ち。ビルドはしたがサーバへは入れていない。実機確認は未了。**
+
+真因は「クライアントが持つレシピ表が『バニラ素材 → カスタム完成品』になっている」こと。
+Geyser の `JavaUpdateRecipesTranslator` は素材を `mapping.getBedrockDefinition()` で**バニラの
+Bedrock 定義へ落とす**（CustomModelData は Java の `Ingredient` に載らないので変換元に情報が無い）
+一方、**結果だけは `ItemTranslator.translateToBedrock` を通ってカスタム品になる**。
+統合版はクラフト結果をクライアントが計算するので、盤面のカスタム素材とは永久に一致しない。
+
+欠けている情報（素材が本当はどのカスタムアイテムか）を4リポジトリで運ぶ:
+
+| 担当 | 実装 | commit |
+|---|---|---|
+| TrinityForge | `com.trinityforge.bedrock.BedrockRecipeExporter` → `plugins/TrinityForge/bedrock-recipes.json` | `aaed1a5` |
+| ArsPaper | `com.arspaper.recipe.BedrockRecipeExporter` → `plugins/ArsPaper/bedrock-recipes.json` | `c51ccf6`（`feat/trinityforge-fork`） |
+| GeyserExtra (Paper) | `BedrockRecipeTableCollector` → `<extension>/bedrock-recipes/<backend>.json` | `8cd1091` |
+| GeyserExtra (extension) | `BedrockRecipeInjector` → `CraftingDataPacket(cleanRecipes=false)` を追送 | `610705f` |
+
+**なぜ Geyser の内部 API を使わざるを得ないか**（後から「公開 API でやり直せ」と考えないための記録）:
+Geyser の公開 API には**ダウンストリームのパケットイベントもサーバ移動イベントも無い**
+（`api/.../event/downstream/` にあるのは `ServerDefineCommandsEvent` 1本だけ）。そして Java サーバは
+**`Bukkit.addRecipe` のたび・バックエンド移動のたびにレシピを全再送**し、Geyser はそれを
+`cleanRecipes=true` で送り直す（`session.setCleanRecipesRequired(true)`）。
+＝ **セッション参加時に1回送る実装は、最初のリロードかサーバ移動で黙って消える。**
+そのため `Registries.JAVA_PACKET_TRANSLATORS` の `ClientboundUpdateRecipesPacket` 変換器を
+**ラップして直後に走らせる**のが唯一正しい位置。`compileOnly org.geysermc.geyser:core:2.11.1-SNAPSHOT`
+を追加した（**稼働中のプロキシは Geyser 2.11.1-b1223 / commit 85fb46f**、`git.properties` で確認）。
+移動するスナップショットなので更新で壊れうる。全入口を `Throwable` で包み、
+**最初の失敗でこの機能だけ自己無効化して1回だけ警告する**。
+
+**踏まないように決めた設計判断**:
+
+- **解決できない素材が1つでもあるレシピは丸ごと落とす。** 半分だけ正しい表は
+  「クラフトできない」より悪い**「別のレシピが成立する」**になる。
+- **出すのは登録が成功したレシピだけ。** 登録に失敗したものを送ると、統合版クライアントだけが
+  成立すると信じてサーバに拒否される。
+- **逆レシピ（解凍）を必ず出す。** TF 側は `allRegistered()` に載らない（`registerReverseOne` が
+  Bukkit へ直接入れるだけ）ので spec から組み直す。落とすと「解凍だけ直らない」＝実サーバ報告そのもの。
+- **GeyserExtra が実際に登録した Bedrock アイテムだけを指す。** 見た目がバニラと同じで登録を
+  見送った品（`isVanillaLookAlike`）は**クライアント側に区別する手段が無い**ので原理的に補正不能。
+- **形式バージョンが違うファイルは丸ごと捨てて警告する。** 中途半端に読むと上の「別のレシピが成立する」に落ちる。
+  書き手2本（TF / ArsPaper）は**あえてクラスを共有していない** — 共有すると ArsPaper のビルドが
+  `libs/TrinityForge.jar` の差し替え待ちになる。代わりに `FORMAT_VERSION = 1` を揃えてある。
+- **バックエンド1つにつき1ファイル**（`<backend>.json`）。3バックエンドが extension フォルダを
+  共有しているので、名前を分けないと奪い合う（パック生成に `skinFixOnlyMode` が要るのと同じ衝突）。
+- **`size+mtime` の変化で読み直す。** 一度きりだと (1) ArsPaper の enable 後に TF が書き直す本番の表を
+  取り逃がす (2) `/trinityforge reload` がプロキシ再起動まで届かない。**その沈黙は「機能していない」と
+  見分けが付かない**のが厄介。
+
+**残っている限界（承知のうえ）**:
+
+- Geyser が配る**誤ったレシピ（バニラ素材 → カスタム完成品）はそのまま残る**。`cleanRecipes=true` で
+  全消し・全再構築するのは割に合わないと判断した。バニラ素材を並べると成立しないリザルトが見える挙動は現状維持。
+- `list:` 素材は組み合わせごとに1レシピへ展開する。**1レシピあたり32件で打ち切り**、落とした件数をログに出す。
+- **鍛冶台は未対応。** `CraftingDataPacket` は `SmithingTransformRecipeData` も運ぶので、
+  同じ経路で「統合版クライアントが base スロットにカスタム品を受け付ける」ようにできる見込み。
+  成功すれば `BedrockSmithingAssistListener`（**特定アイテムを手に持って右クリック**という
+  ユーザーが「直感的でない」と指摘した UI）を撤去できる。**次の段。**
+
+**実機で見るべきログ**（配備後）:
+
+- バックエンド: `[bedrock-recipes] <backend>: N recipes from 2 plugin(s) [ArsPaper=..][TrinityForge=..]`
+- プロキシ: `[bedrock-recipes] N corrected recipes loaded; M custom Bedrock items are addressable`
+- プロキシ: `[bedrock-recipes] corrected recipes will be sent after Geyser's own`
+- 出ない場合の切り分け順: ①バックエンドの `plugins/TrinityForge/bedrock-recipes.json` があるか
+  ②`<extension>/bedrock-recipes/*.json` に届いているか ③プロキシ側の警告
 
 #### 併発（実データ）: 統合版で別物が同じアイテムに見える CMD 衝突
 
@@ -2952,6 +3020,53 @@ max-augments:
 
 ---
 
+### 幸運のポーションを作業台・儀式・醸造の品質ptへ乗せる（2026-08-20 要望 / W-172）
+
+**要望**: 「醸造・作業台・儀式の各品質ptも幸運のポーションレベルに応じて上がるようにしてほしい」。
+
+**着手前の実態**（調べて分かったこと。ここが要望の前提とずれていた）:
+バニラの幸運（`LUCK`）は TF では **`PlayerLootLuckSource` が `loot_luck` へ 1 レベル = +1.0 で合算する 1 経路しか無く**、
+効いていたのは**釣り上げた装備と拾った装備の品質**だけだった
+（`FishingQualityListener` / `PickupQualityListener`）。作業台・儀式・醸造は幸運を一切見ていない。
+なお**釣りの宝/ゴミ確率にも効かない** —— あちらは `fishing-luck`（ロッドのステ＋エンチャント＋釣りレベル）で、
+幸運ポーションは合算されない。
+
+**入れたもの**:
+
+| 経路 | 加算先 | 場所 |
+|---|---|---|
+| 作業台クラフト | `workbench_quality_bonus` と同じ mode 加算 | `CraftQualityService#qualityBonusFor` |
+| 儀式クラフト | `ritual_quality_bonus` と同じ mode 加算 | 同上（`CraftPath.RITUAL`） |
+| 醸造 | `potion_quality_bonus` と同じ品質pt | `PotionQualityListener#onBrew` |
+
+- **換算レートは 1 つのつまみに集約**: `stats/quality.yml` の **`luck-potion-quality-per-level`（既定 1.0）**。
+  幸運I = 品質+1 / 幸運II = +2。**0 にするとこの機能だけを切れる。**
+- **効果レベルの読み取りは `VanillaLuckEffect` へ一本化**した（`PlayerLootLuckSource` も委譲）。
+  `amplifier + 1` の変換を書き間違えても「幸運が 1 段ずれる」という**誰も気づかない形でしか出ない**ため、
+  読み取り点を 2 つに増やさない。
+- **丸めは合計してから 1 回だけ。** ステと幸運を別々に丸めると `0.5 + 0.5` が `0 + 0` に落ち、
+  **幸運を飲んでも何も起きない帯**ができる（テストで固定した）。
+- **プレビューにも乗る**: `qualityMode` / `minimumQuality`（作業台の結果枠プレビュー）も同じ経路を通すよう直した。
+  ここを直さないと「プレビューは 3 なのに作ると 5」という食い違いが出る。
+- **自動（ホッパー）醸造では幸運ぶんにも `alchemy.auto_mult` の減衰が掛かる。**
+  片方だけ無減衰にすると「幸運を飲んでホッパーへ放置」が成立するので、既存の品質ptと同じ扱いに揃えた。
+- **釣り・拾得は従来どおり**（`loot_luck` へ 1 レベル = +1.0 固定）。あちらは装備・パーク由来の
+  `loot_luck` と単位を揃える必要があるので、このつまみでは動かない（yml に明記した）。
+
+**エディタ**: 品質定義タブへ `luck-potion-quality-per-level` のフィールドとラベル/説明を追加
+（`public/js/tf-forms.js` / `public/js/labels.js`）。`tf-quality` の検証は許可リスト方式ではないので
+スキーマ変更は不要。
+
+**検証**: 新規 `CraftQualityLuckPotionTest` 7 件 + `PotionQualityListenerTest` へ 4 件（計 17 件）、
+**skip 0**。**RED 実証**: 幸運ぶんの加算を潰すと該当 7 件が落ちることを実走確認。
+TF フルテスト **4460 件・失敗 26・skip 2**（26 は着手前と同一集合＝他セッションの未コミット yml 由来）。
+config-editor **1403 件・失敗 25**（品質まわりの 41 件は全緑。失敗はいずれも他セッション由来で、
+例えば `glyph-damage-boost` の round-trip は ArsPaper の `glyphs.yml` の差分）。
+
+**⚠ 未実施（ユーザー作業）: TF jar の配備＋サーバ再起動**（Java 変更。`quality.yml` も同時に配る必要がある）。
+
+---
+
 ### 実サーバ報告バッチ（2026-08-20 受領 第19陣。W-172）
 
 | ID | 内容 | 状態 |
@@ -3203,6 +3318,7 @@ git 系:
 
 | 日付 | 内容 |
 |---|---|
+| 2026-08-20 | **幸運のポーションを作業台・儀式・醸造の品質ptへ乗せた（W-172）**（ユーザー要望）。**着手前の実態は「幸運は釣りと拾得の装備品質にしか効いていない」**で、`PlayerLootLuckSource` が `loot_luck` へ 1 レベル=+1.0 で合算する 1 経路しか無かった（**釣りの宝/ゴミ確率にも効かない** ── あちらは `fishing-luck` でロッドのステ＋エンチャント＋釣りレベルから出しており幸運は入らない）。作業台は `workbench_quality_bonus`、儀式は `ritual_quality_bonus`、醸造は `potion_quality_bonus` と**同じ単位**で幸運ぶんを足す形にし、換算レートは `stats/quality.yml` の **`luck-potion-quality-per-level`（既定 1.0、0 で無効化）** 1 つに集約した。**効果レベルの読み取りは `VanillaLuckEffect` へ一本化**（`amplifier+1` を書き間違えても「幸運が 1 段ずれる」としか出ないので読み取り点を増やさない）。**丸めは合計してから 1 回だけ** ── ステと幸運を別々に丸めると `0.5+0.5` が `0+0` に落ちて幸運が無反応になる帯ができるのでテストで固定した。**プレビュー（`qualityMode`/`minimumQuality`）も同じ経路へ通した**（直さないと「プレビュー 3 なのに作ると 5」になる）。**自動（ホッパー）醸造では幸運ぶんにも `alchemy.auto_mult` の減衰を掛ける**（片方だけ無減衰だと「幸運を飲んで放置」が成立する）。釣り・拾得は `loot_luck` と単位を揃える必要があるので従来どおり 1 レベル=+1.0 固定（yml に明記）。エディタは品質定義タブへフィールドとラベルを追加（`tf-quality` の検証は許可リスト方式ではないのでスキーマ変更は不要）。検証: 新規 `CraftQualityLuckPotionTest` 7 件 + `PotionQualityListenerTest` +4 件・**skip 0**、**RED 実証**（加算を潰すと 7 件が落ちる）済み。TF **4460 件・失敗 26・skip 2**（着手前と同一集合＝他セッションの未コミット yml 由来）、config-editor **1403 件・失敗 25**（品質まわり 41 件は全緑）。**⚠ 未実施（ユーザー作業）: TF jar の配備＋サーバ再起動**（`quality.yml` も同時に配る）。 |
 | 2026-08-20 | **実サーバ報告 第18陣 W-170/W-171**（醸造EXPが一律 302 / Ctrl+Q の一括クラフトで EXP が 1 個分）。**2 件とも「1 回しか飛ばないイベント」と「後段が前段に壊された情報を読む」型で、config では絶対に直らない**。**W-170**: `PotionQualityListener`(HIGH) が品質付与のためポーションのベース種別を `WATER` へ倒す → EXP を出す `NativeSkillExperienceListener#onBrew`(MONITOR) が `getBasePotionType()` で `brew_result` を引くので**常に表に無い `WATER` を読み、定額へ落ちる**。`potion_quality_bonus` が 0 なら `applyQuality` に到達しないので、**品質を取った人だけ壊れる**（報告の「解放後」と一致）。HEAD の config で `150 × 1.005 × 2 = 301.5 → 302` と報告値まで一致した。倒す直前の種別を PDC `trinityforge:brew_source_potion` へ焼き付け、EXP 側はそれを最優先で読む形に。**W-171**: `CraftItemEvent` はクリック 1 回につき 1 度しか飛ばず、バニラ `AbstractContainerMenu#doClick` の `ClickType.THROW` 分岐は **`button == 1`（Ctrl+Q）だけ**「同じ品が出る限り `safeTake`→`drop`」を**ループ**する（稼働サーバの `paper-1.21.11.jar` を逆アセンブルして `goto` を実バイトコードで確認）。旧実装は `isShiftClick()` だけを見ており Ctrl+Q は false なので常に 1 回分だった。**shift は収納容量で頭打ち・Ctrl+Q は地面へ落とすので頭打ちにならない**という差もアクション別に反映。**前回の増殖バグ（スタック素材で 1 個クラフトしてもスタック数ぶん入る）は回数を「各スロットの最小個数」から出すことで維持**し、テストで固定した。**途中で自分が入れた回帰を 1 件潰した**: 収納を無条件に読む形にしたらインベントリを持たないモックの `CraftQualityListenerResultDupeTest` 2 件が NPE で落ちたので `Supplier<ItemStack[]>` の遅延読みへ（Ctrl+Q は収納を読まない、がシグネチャに出る）。RED 実証: W-170 は焼き付けと読み取りを外すと 2 件、W-171 は呼び出しを `isShiftClick()` へ戻すと 1 件が実際に落ちることを実走確認。検証: TF **4435 件・失敗 26・skip 2**（26 は全て他セッションの未コミット yml 由来。例: `exp_damage_piece: 10 → 25` の書き換えで `NativeSkillCatalogRatesTest` が `expected 10.0 but was 25.0`）。**⚠ 未実施（ユーザー作業）: TF jar の再ビルド＋配備＋サーバ再起動** |
 | 2026-08-20 | **呪文フォームの住み分け（設計依頼）── 炸裂は伝播の完全下位互換だった**。ArsPaper `a528407`。棚卸しで「投射 + 害悪 + 伝播×4 = 140 マナで 8 ブロック内 9 体」に対し「炸裂 + 害悪 + 半径増加×6 = 270 マナで半径 7」と判明し、**チェーン検索半径 `8.0` が Java 側ベタ書きで炸裂の最大半径より広い**のが決定打だった。**ダメージ重複が起きていないのは i-frame のおかげ**（チェーンは +2/+4/+6 tick で撃つのでバニラの無敵時間 10 tick に吸われる。`setNoDamageTicks(0)` を呼ぶのは `HeavyImpactEffect` だけで伝播は付かない）＝炸裂+伝播は「重複して強い」ではなく**払ったマナが消える**状態だった。ユーザー判断で **案1 + 案3 + 上限 + 減衰**を実装。**案1**: ヒット済み集合を `SpellContext.CastState` へ移し `copy()` で参照共有、チェーンは未ヒットだけを掴む（同じマナが「重複」ではなく**到達範囲**になる）。炸裂は **resolve より先に** `markCastHits(targets)` を呼ぶ ── **逆順だと 1 体目のチェーンが「これから直撃させる 2 体目・3 体目」を選んで無敵時間に捨てる**ので、この順序を `PropagateChainSharingTest` で固定し、逆に戻すと落ちることを実走確認した。**案3**: 誰にも当たらなかった炸裂は炸裂地点そのものを伝播の起点にできる（`resolvePropagateFromLocation`）。**投射は外した弾から連鎖しない**ので、これが炸裂+伝播だけの利点になる。**上限 `max-chains-per-cast: 20` は必須** ── 未ヒットを探し直す方式は密集地で候補が尽きるまで外へ伸び、起点ごとに `getNearbyLivingEntities` を呼ぶので TT で対象数×検索回数が跳ね上がる。**減衰 `damage-falloff-per-hop: 0.15` / `min-damage-rate: 0.4` は最終ダメージへ掛ける** ── 素の威力側に掛けると TF の守備力が引き算で効くため 0.4 倍のつもりが `min-component-damage: 1` に張り付き、減衰率と実ダメージが桁で食い違う。算術は `SpellPropagateMath` へ切り出して挙動で固定した。⚠ **`glyphs.yml` は `saveResource(..., false)`** なので稼働中サーバの yml は上書きされず、4 つの新パラメータは Java 側の既定値で動く（変えたいなら配備先へ手で足す）。⚠ **未着手（判断待ち）**: `base-burst-radius` が `1.0`（コード既定 2.0。`4c78f08` の一括正規化で落ちたと見られる）ため炸裂単体は依然弱い。2.5 前後への引き上げを提案済み。`form-cooldowns` 全 0 も同様。検証: fork **460 件・失敗 0・skip 0**（HEAD 単体で `git archive` して実走。HEAD~1 と同じ 4 件だけが失敗＝**すべて他セッションの未コミット WIP 由来で、増えた 6 件は全緑**）。**⚠ 未実施（ユーザー作業）: ArsPaper jar の再ビルドと配備＋サーバ再起動** |
 | 2026-08-19 | **実サーバ報告 第14陣 W-157〜W-160**（統合版まわり4件）。**W-159/W-160 は同一原因**で、統合版クライアントが鍛冶台のスロット判定を自前で持っているためサーバのレシピ登録では広がらない（Geyser#4706 は Can't Fix）。独自 GUI は `PrepareSmithingEvent` に乗る**3プラグイン7判定**を全部バイパスするので採らず、**本物の鍛冶台へサーバ側から差し込む** `BedrockSmithingAssistListener` を新設した（`Inventory#setItem` は `slotsChanged()` を通るので `PrepareSmithingEvent` は正規に発火＝7判定はそのまま効く）。**W-158（`custom:` 素材の統合版クラフト）は Bukkit のレシピでは原理的に表現できない**ことが確定（Paper は `Ingredient#display()` を上書きしていないので ExactChoice でも送られる内容は型だけ）で未着手。**W-157 は DiscordSRV の `AvatarUrl` を `{texture}` 基準へ変えるだけ**だが書き換え先が稼働サーバ配下なのでユーザー適用待ち |

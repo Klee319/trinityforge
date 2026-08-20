@@ -557,7 +557,8 @@ public final class TrinityForge extends JavaPlugin {
         // rememberBrewer/markAutomatedBrew で刻むPDCを BrewOwnership 経由で共有読み取りする。
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.PotionQualityListener(this, aggregator,
-                        configManager.alchemyQuality(), progressionCatalog), this);
+                        configManager.alchemyQuality(), progressionCatalog,
+                        configManager.quality()), this);
         // 材料節約率(ingredient_save_chance)をバニラ醸造台へ配線する(2026-07-26)。所有者解決は上と同じ
         // BrewOwnership経由・HIGH優先度。自動(ホッパー)醸造は複製防止のため完全にスキップする
         // (品質/速度と違いauto_mult減衰すら適用しない、詳細はBrewIngredientSaveListenerのjavadoc参照)。
@@ -783,13 +784,6 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.CatalogWorkbenchListener(
                         catalogRecipeRegistrar, configManager.itemCatalog()), this);
-        // W-158 続報の診断計装(2026-08-20)。統合版だけカスタム素材のクラフトが通らないのが
-        // 「どのレシピが選ばれているか」「どの優先度帯で結果が消えているか」のどちらなのかを実測する。
-        // 盤面に識別付きアイテムが乗っているときだけ1行出す。原因が確定したら外すこと
-        // (詳細と読み方は CraftIdentityDiagnosticListener のクラスjavadoc)。
-        getServer().getPluginManager().registerEvents(
-                new com.trinityforge.listeners.CraftIdentityDiagnosticListener(
-                        this, configManager.itemCatalog()), this);
         this.giveItemCommand = new GiveItemCommand(this, itemFactory, configManager.itemCatalog(),
                 configManager.quality());
         this.bindCommand = new BindCommand(itemFactory);

@@ -391,7 +391,8 @@
       { key: "roll-center-inset", int: false },
       { key: "loot-base-quality", int: true },
       { key: "fishing-base-quality", int: true },
-      { key: "give-default-quality", int: true }
+      { key: "give-default-quality", int: true },
+      { key: "luck-potion-quality-per-level", int: false }
     ];
     // 分布プレビュー(下に埋め込み)は上振れσ/下振れσ/最大品質の現在値を読むため、フィールド編集で即再描画する。
     let distPanel = null;

@@ -2,12 +2,14 @@ package com.trinityforge.listeners;
 
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.AlchemyQualityConfig;
+import com.trinityforge.config.domains.QualityConfig;
 import com.trinityforge.pdc.PdcKeys;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
 import com.trinityforge.progression.catalog.SkillCatalogEntry;
 import com.trinityforge.progression.core.SkillId;
 import com.trinityforge.stats.BrewRecipeSupport;
 import com.trinityforge.stats.StatKeys;
+import com.trinityforge.stats.VanillaLuckEffect;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -71,14 +73,23 @@ public final class PotionQualityListener implements Listener {
     private final AlchemyQualityConfig alchemyQuality;
     private final NativeSkillCatalog progressionCatalog;
     private final BrewOwnership brewOwnership;
+    /** 幸運のポーションぶんの換算レート({@code luck-potion-quality-per-level})の参照元。null可=幸運を加算しない。 */
+    private final QualityConfig quality;
 
     public PotionQualityListener(Plugin plugin, PlayerStatAggregator aggregator,
                                  AlchemyQualityConfig alchemyQuality, NativeSkillCatalog progressionCatalog) {
+        this(plugin, aggregator, alchemyQuality, progressionCatalog, null);
+    }
+
+    public PotionQualityListener(Plugin plugin, PlayerStatAggregator aggregator,
+                                 AlchemyQualityConfig alchemyQuality, NativeSkillCatalog progressionCatalog,
+                                 QualityConfig quality) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.aggregator = Objects.requireNonNull(aggregator, "aggregator");
         this.alchemyQuality = Objects.requireNonNull(alchemyQuality, "alchemyQuality");
         this.progressionCatalog = Objects.requireNonNull(progressionCatalog, "progressionCatalog");
         this.brewOwnership = new BrewOwnership(plugin);
+        this.quality = quality;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -99,7 +110,10 @@ public final class PotionQualityListener implements Listener {
             return;
         }
         double damping = brewOwnership.isAutomated(stand) ? autoMult() : 1.0;
-        double qualityPoints = Math.max(0.0, aggregator.aggregate(owner).totalOf(POTION_QUALITY_BONUS)) * damping;
+        // 幸運のポーションぶんはステと同じ「品質ポイント」なので、自動醸造の減衰も同じく掛ける
+        // (片方だけ無減衰にするとホッパー放置が成立してしまう — このリスナの既存ポリシー)。
+        double statPoints = Math.max(0.0, aggregator.aggregate(owner).totalOf(POTION_QUALITY_BONUS));
+        double qualityPoints = (statPoints + luckPotionQualityBonus(owner)) * damping;
         if (qualityPoints <= 0.0) {
             return;
         }
@@ -111,6 +125,20 @@ public final class PotionQualityListener implements Listener {
         for (int slot = 0; slot < results.size(); slot++) {
             applyQuality(results.get(slot), durationAdd, amplifierAdd, qualityPoints);
         }
+    }
+
+    /**
+     * 幸運のポーションぶんの品質ポイント(2026-08-20 ユーザー要望「醸造・作業台・儀式の各品質ptも
+     * 幸運のポーションレベルに応じて上がるように」)。効果レベル ×
+     * {@code stats/quality.yml} の {@code luck-potion-quality-per-level}。
+     * config 未配線(テスト等)・0 設定・未付与なら 0。
+     */
+    private double luckPotionQualityBonus(Player brewer) {
+        if (quality == null) {
+            return 0.0;
+        }
+        double perLevel = quality.luckPotionQualityPerLevel();
+        return perLevel <= 0.0 ? 0.0 : VanillaLuckEffect.levelOf(brewer) * perLevel;
     }
 
     private void applyQuality(ItemStack result, double durationAdd, int amplifierAdd, double qualityPoints) {

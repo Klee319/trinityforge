@@ -28,3 +28,10 @@ roll-center-inset: 0.2
 loot-base-quality: 0
 fishing-base-quality: 0
 give-default-quality: 3
+# 幸運のポーション(バニラの LUCK 効果)1レベルにつき、作業台クラフト・儀式クラフト・醸造の
+# 品質ポイントへ加算する量。幸運I=+1 / 幸運II=+2 が既定。0 にするとこの機能だけを切れる。
+# ⚠️ 釣り・拾得は別経路。あちらは装備/パーク由来の loot_luck へ「1レベル=+1.0」で合算する仕様で、
+#    このつまみでは動かない(loot_luck と単位を揃える必要があるため意図的に固定)。
+# ⚠️ 醸造では自動(ホッパー)醸造の減衰 alchemy.auto_mult が幸運ぶんにも掛かる。
+#    片方だけ無減衰にするとホッパー放置が成立するため、既存の品質ポイントと同じ扱いにしてある。
+luck-potion-quality-per-level: 1.0

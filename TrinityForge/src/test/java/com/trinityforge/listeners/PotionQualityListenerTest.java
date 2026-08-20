@@ -3,6 +3,7 @@ package com.trinityforge.listeners;
 import com.trinityforge.combat.PlayerCombatAggregate;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.AlchemyQualityConfig;
+import com.trinityforge.config.domains.QualityConfig;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
 import com.trinityforge.progression.catalog.SkillCatalogEntry;
 import com.trinityforge.progression.core.SkillId;
@@ -24,6 +25,7 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
@@ -158,6 +160,99 @@ class PotionQualityListenerTest {
     private BrewEvent brewEvent(List<ItemStack> results) {
         BrewerInventory inv = stand.getInventory();
         return new BrewEvent(stand.getBlock(), inv, results, 20);
+    }
+
+    // ------------------------------------------------------------------ 幸運のポーション (2026-08-20)
+
+    /**
+     * ユーザー要望(2026-08-20)「醸造・作業台・儀式の各品質ptも幸運のポーションレベルに応じて上がるように」。
+     * 換算レートは {@code stats/quality.yml} の {@code luck-potion-quality-per-level}(既定 1.0)。
+     */
+    @Test
+    @DisplayName("幸運のポーションを飲んでいると、そのレベルぶん醸造の品質ptが乗る")
+    void luckPotionAddsBrewQualityPoints() {
+        writeManualOwner(player);
+        stubQuality(0.0); // ステ由来は 0 —— 幸運だけで品質が付くことを見る
+        player.addPotionEffect(new PotionEffect(PotionEffectType.LUCK, 1200, 1)); // 幸運II
+        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
+        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.0);
+        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(0.0);
+        PotionQualityListener listener = new PotionQualityListener(
+                plugin, aggregator, alchemyQuality, progressionCatalog, new QualityConfig());
+
+        List<ItemStack> results = new ArrayList<>();
+        results.add(strengthPotion(3600, 0));
+        listener.onBrew(brewEvent(results));
+
+        PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
+        assertEquals(3640, meta.getCustomEffects().get(0).getDuration(),
+                "3600 + 20 * (幸運II = 品質2pt)");
+    }
+
+    @Test
+    @DisplayName("幸運ぶんはステの品質ptに加算される(片方だけになったりしない)")
+    void luckPotionAddsOnTopOfTheStatPoints() {
+        writeManualOwner(player);
+        stubQuality(2.0);
+        player.addPotionEffect(new PotionEffect(PotionEffectType.LUCK, 1200, 0)); // 幸運I
+        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
+        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.0);
+        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(0.0);
+        PotionQualityListener listener = new PotionQualityListener(
+                plugin, aggregator, alchemyQuality, progressionCatalog, new QualityConfig());
+
+        List<ItemStack> results = new ArrayList<>();
+        results.add(strengthPotion(3600, 0));
+        listener.onBrew(brewEvent(results));
+
+        PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
+        assertEquals(3660, meta.getCustomEffects().get(0).getDuration(),
+                "3600 + 20 * (ステ2pt + 幸運I 1pt)");
+    }
+
+    /**
+     * 自動(ホッパー)醸造の減衰は幸運ぶんにも掛かる。片方だけ無減衰にすると
+     * 「幸運を飲んでホッパーへ放置」が成立してしまうため、既存の品質ptと同じ扱いに揃えてある。
+     */
+    @Test
+    @DisplayName("自動醸造では幸運ぶんも alchemy.auto_mult で減衰する")
+    void luckPotionIsDampedOnAutomatedBrews() {
+        writeAutomatedOwner(player);
+        stubQuality(0.0);
+        player.addPotionEffect(new PotionEffect(PotionEffectType.LUCK, 1200, 3)); // 幸運IV = 4pt
+        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
+        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.0);
+        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(0.0);
+        PotionQualityListener listener = new PotionQualityListener(
+                plugin, aggregator, alchemyQuality, progressionCatalog, new QualityConfig());
+
+        List<ItemStack> results = new ArrayList<>();
+        results.add(strengthPotion(1000, 0));
+        listener.onBrew(brewEvent(results));
+
+        PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
+        assertEquals(1020, meta.getCustomEffects().get(0).getDuration(),
+                "幸運IV(4pt) * 0.25 auto_mult = 実効1pt");
+    }
+
+    @Test
+    @DisplayName("luck-potion-quality-per-level: 0 なら幸運は一切乗らない(機能を切れる)")
+    void luckPotionCanBeDisabledByConfig() {
+        writeManualOwner(player);
+        stubQuality(0.0);
+        player.addPotionEffect(new PotionEffect(PotionEffectType.LUCK, 1200, 1));
+        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
+        QualityConfig disabled = mock(QualityConfig.class);
+        when(disabled.luckPotionQualityPerLevel()).thenReturn(0.0);
+        PotionQualityListener listener = new PotionQualityListener(
+                plugin, aggregator, alchemyQuality, progressionCatalog, disabled);
+
+        List<ItemStack> results = new ArrayList<>();
+        results.add(strengthPotion(3600, 0));
+        listener.onBrew(brewEvent(results));
+
+        PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
+        assertEquals(3600, meta.getCustomEffects().get(0).getDuration(), "品質0なら一切触らない");
     }
 
     @Test

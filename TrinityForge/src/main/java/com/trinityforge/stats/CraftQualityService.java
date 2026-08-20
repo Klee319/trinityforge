@@ -133,7 +133,8 @@ public final class CraftQualityService {
 
     /** {@link #qualityMode(Player, Set)} + 品質基準値オフセット (結果は [0, maxQuality] へクランプ)。 */
     public int qualityMode(Player crafter, Set<String> candidateSkills, int modeOffset) {
-        return qualityModeWithBonus(crafter, candidateSkills, modeOffset, workbenchQualityBonus(crafter));
+        return qualityModeWithBonus(crafter, candidateSkills, modeOffset,
+                qualityBonusFor(CraftPath.WORKBENCH, crafter));
     }
 
     /**
@@ -150,7 +151,8 @@ public final class CraftQualityService {
     /** {@link #minimumQuality(Player, Set)} + 品質基準値オフセット。 */
     public int minimumQuality(Player crafter, Set<String> candidateSkills, int modeOffset) {
         Objects.requireNonNull(crafter, "crafter");
-        int mode = qualityModeWithBonus(crafter, candidateSkills, modeOffset, workbenchQualityBonus(crafter));
+        int mode = qualityModeWithBonus(crafter, candidateSkills, modeOffset,
+                qualityBonusFor(CraftPath.WORKBENCH, crafter));
         // プレビューは作業台専用なので、ばらつき補正も workbench.* を引く(儀式のプレビューは存在しない)。
         double spreadDown = spreadTuningFor(CraftPath.WORKBENCH)
                 .effectiveSpreadDown(quality.spreadDown(), downswingBonusFor(CraftPath.WORKBENCH, crafter));
@@ -200,20 +202,28 @@ public final class CraftQualityService {
     }
 
     /**
-     * 作業台クラフト品質の mode 加算(S7 分割)。{@code workbench_quality_bonus}(作業台品質)を加算する。
+     * 経路ごとの品質mode加算(S7 分割) ＋ <b>幸運のポーション</b>ぶん(2026-08-20)。
+     *
+     * <p>丸めは<b>合計してから 1 回だけ</b>行う。ステと幸運を別々に丸めると
+     * 「0.5 + 0.5 = 1」が「0 + 0 = 0」に落ちて、幸運を飲んでも何も起きない帯ができる。
      */
-    private int workbenchQualityBonus(Player player) {
-        return readIntStat(player, "workbench_quality_bonus");
-    }
-
-    /** 儀式クラフト品質の mode 加算(S7 分割)。儀式は新 {@code ritual_quality_bonus} のみ。 */
-    private int ritualQualityBonus(Player player) {
-        return readIntStat(player, "ritual_quality_bonus");
-    }
-
-    /** 経路ごとの品質mode加算ステ(S7 分割)。 */
     private int qualityBonusFor(CraftPath path, Player player) {
-        return path == CraftPath.RITUAL ? ritualQualityBonus(player) : workbenchQualityBonus(player);
+        double stat = readDoubleStat(player,
+                path == CraftPath.RITUAL ? "ritual_quality_bonus" : "workbench_quality_bonus");
+        return (int) Math.round(stat + luckPotionQualityBonus(player));
+    }
+
+    /**
+     * 幸運のポーションぶんの品質ポイント(2026-08-20 ユーザー要望)。
+     * 効果レベル × {@code stats/quality.yml} の {@code luck-potion-quality-per-level}。
+     * 未付与・0 設定なら 0。
+     */
+    private double luckPotionQualityBonus(Player player) {
+        double perLevel = quality.luckPotionQualityPerLevel();
+        if (perLevel <= 0.0) {
+            return 0.0;
+        }
+        return VanillaLuckEffect.levelOf(player) * perLevel;
     }
 
     /**
@@ -278,10 +288,6 @@ public final class CraftQualityService {
                 "craft_roll_up_bonus",
                 "craft_roll_down_reduction",
                 "craft_roll_inset");
-    }
-
-    private int readIntStat(Player player, String key) {
-        return (int) Math.round(readDoubleStat(player, key));
     }
 
     private double readDoubleStat(Player player, String key) {

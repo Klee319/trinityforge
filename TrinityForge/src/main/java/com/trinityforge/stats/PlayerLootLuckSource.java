@@ -53,10 +53,11 @@ public final class PlayerLootLuckSource {
         return total + vanillaLuckEffectLevel(player);
     }
 
-    /** Vanilla LUCK potion-effect level (amplifier+1), 0 when absent. */
+    /**
+     * Vanilla LUCK potion-effect level (amplifier+1), 0 when absent.
+     * 読み取り本体は {@link VanillaLuckEffect}（作業台/儀式/醸造の品質でも同じ値を使うため一本化した）。
+     */
     static double vanillaLuckEffectLevel(Player player) {
-        org.bukkit.potion.PotionEffect effect =
-                player.getPotionEffect(org.bukkit.potion.PotionEffectType.LUCK);
-        return effect == null ? 0.0 : Math.max(0, effect.getAmplifier() + 1);
+        return VanillaLuckEffect.levelOf(player);
     }
 }

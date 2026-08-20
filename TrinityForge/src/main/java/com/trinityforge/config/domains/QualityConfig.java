@@ -40,7 +40,9 @@ public final class QualityConfig {
                 .field(SchemaField.number("roll-center-inset", SchemaField.Type.DOUBLE, 0.0, 0.0, 0.49))
                 .field(SchemaField.number("loot-base-quality", SchemaField.Type.INT, 0, -100, 100))
                 .field(SchemaField.number("fishing-base-quality", SchemaField.Type.INT, 0, -100, 100))
-                .field(SchemaField.number("give-default-quality", SchemaField.Type.INT, 3, 0, 100));
+                .field(SchemaField.number("give-default-quality", SchemaField.Type.INT, 3, 0, 100))
+                .field(SchemaField.number("luck-potion-quality-per-level",
+                        SchemaField.Type.DOUBLE, 1.0, 0.0, 100.0));
         this.domain = new ConfigDomain(PATH, schema);
     }
 
@@ -103,4 +105,17 @@ public final class QualityConfig {
 
     /** Base mode for fished equipment before fishing level, luck and per-item offsets. */
     public int fishingBaseQuality() { return domain.get().getInt("fishing-base-quality"); }
+
+    /**
+     * 幸運のポーション効果 1 レベルあたり、<b>作業台・儀式・醸造</b>の品質ポイントへ加算する量
+     * (2026-08-20 ユーザー要望「醸造・作業台・儀式の各品質ptも幸運のポーションレベルに応じて上がるように」)。
+     * 0 にするとこの機能だけを切れる。既定 1.0 ＝ 幸運 I で品質 +1。
+     *
+     * <p>釣り・拾得は別経路で、装備/パーク由来の {@code loot_luck} へ
+     * {@link com.trinityforge.stats.PlayerLootLuckSource} が<b>常に 1 レベル = +1.0</b> で合算する
+     * (あちらは {@code loot_luck} と同じ単位なので、このつまみでは動かない)。
+     */
+    public double luckPotionQualityPerLevel() {
+        return Math.max(0.0, domain.get().getDouble("luck-potion-quality-per-level"));
+    }
 }
