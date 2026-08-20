@@ -9,12 +9,16 @@
     実サーバを止めて配備するまで誰も気付けない。だから偽のリポジトリと偽の配備先を
     tmp\ に作って、実際に書き戻しが起きるところまで測る。
 
-    測っているのは 5 つ:
+    測っているのは 7 つ:
       1. 前回配備の後に書き換えられた yml が、リポジトリ側へ取り込まれる
       2. 触っていない yml は取り込まれない(差分ゼロなら何もしない)
       3. リポジトリに存在しないファイル(プラグインの生成物)は取り込まれない
       4. サーバが実行中に書き換える状態ファイルは取り込まれない
       5. -NoPromote を付けると取り込まない(退避と報告だけ)
+      6. 配備先とリポジトリが【別々に】動いていたら取り込まない
+         (取り込むと新しいリポジトリを古い配備先で潰す = 直したかった事故と同じになる)
+      7. 配備先とリポジトリが【同じ内容に】動いていたら静かに素通しする
+         (設定エディタは保存のたび配備先へもミラー書き込みするので、これが通常運用)
 
 .NOTES
     サーバにも本物のリポジトリにも触らない。作業ディレクトリは毎回作り直す。
@@ -117,8 +121,36 @@ Assert-True (-not (Test-Path -LiteralPath (Join-Path $arsSource "generated-cache
     "リポジトリに無いファイル(生成物)は取り込まれない"
 Assert-True ((Get-Content -LiteralPath (Join-Path $arsSource "world_settings.yml") -Raw) -notmatch "runtime") `
     "実行時の状態ファイルは取り込まれない"
-Assert-True ((Get-ChildItem -LiteralPath $backupDir -Recurse -Filter "network.yml" -File).Count -ge 1) `
+Assert-True (@(Get-ChildItem -LiteralPath $backupDir -Recurse -Filter "network.yml" -File -ErrorAction SilentlyContinue).Count -ge 1) `
     "上書き前の配備先ファイルが退避されている"
+
+# ---- 4) 両方が動いているときは取り込まない -------------------------------------------------------
+# 設定エディタは保存のたび配備先へもミラー書き込みするので、「配備先が変わった」は
+# 「サーバ側で編集された」とは限らない。その後にリポジトリ側をさらに直していると、
+# 素朴に取り込むと【新しいリポジトリを古い配備先で潰す】= 直したかった事故と同じになる。
+Write-Host ""
+Write-Host "--- 4) 配備先とリポジトリの両方が別々に動いたら取り込まない ---"
+& powershell -NoProfile -ExecutionPolicy Bypass -File $guard -Mode Record @guardArgs | Out-Null
+Write-Yml (Join-Path $tfDeployed "stats\lore.yml") "lore: from-server`n"
+Write-Yml (Join-Path $tfSource   "stats\lore.yml") "lore: from-repo-newer`n"
+& powershell -NoProfile -ExecutionPolicy Bypass -File $guard -Mode Check @guardArgs | Out-Null
+Assert-True ((Get-Content -LiteralPath (Join-Path $tfSource "stats\lore.yml") -Raw) -match "from-repo-newer") `
+    "両方が動いていたらリポジトリ側を潰さない"
+Assert-True (@(Get-ChildItem -LiteralPath $backupDir -Recurse -Filter "lore.yml" -File -ErrorAction SilentlyContinue).Count -ge 1) `
+    "取り込まなかった分も配備先の現物は退避されている"
+
+# ---- 5) 中身が既に一致しているだけなら何も起きない -----------------------------------------------
+# エディタのミラー書き込み直後がこれ。DRIFT ではあるが取り込む必要は無い。
+Write-Host ""
+Write-Host "--- 5) 配備先とリポジトリが同一に動いたときは静かに素通しする ---"
+& powershell -NoProfile -ExecutionPolicy Bypass -File $guard -Mode Record @guardArgs | Out-Null
+Write-Yml (Join-Path $tfDeployed "stats\lore.yml") "lore: edited-in-editor`n"
+Write-Yml (Join-Path $tfSource   "stats\lore.yml") "lore: edited-in-editor`n"
+$out5 = & powershell -NoProfile -ExecutionPolicy Bypass -File $guard -Mode Check @guardArgs
+Assert-True ((Get-Content -LiteralPath (Join-Path $tfSource "stats\lore.yml") -Raw) -match "edited-in-editor") `
+    "同一なら中身は変わらない"
+Assert-True (-not (($out5 -join "`n") -match "取り込まなかったもの")) `
+    "同一のときは『取り込まなかった』と騒がない"
 
 Write-Host ""
 if ($failures.Count -eq 0) {

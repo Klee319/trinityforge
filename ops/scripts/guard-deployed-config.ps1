@@ -338,6 +338,28 @@ foreach ($r in $roots) {
             $notPromoted.Add("$($r.Label)\$rel  (同じファイルを $($promotedKeys[$key]) から取り込み済み。食い違うなら手で突き合わせること)")
             continue
         }
+
+        # ---- リポジトリ側も動いていないか確かめる ----------------------------------------
+        # 配備の最後に Record したとき、配備先の中身は【リポジトリの中身と同一】だった
+        # (この配備でコピーした直後だから)。つまり台帳の $before は
+        # 「前回配備時点のリポジトリの姿」でもある。これと今のリポジトリを比べれば、
+        # リポジトリ側が動いたかどうかが台帳の形式を変えずに判定できる。
+        #
+        # なぜ要るか: 設定エディタは保存のたび【配備先にもミラー書き込み】する
+        # (tool-config.json の deployPaths)。だから「配備先が変わった」は
+        # 「サーバ側で直接編集された」とは限らない。エディタ保存の後に
+        # エージェントがリポジトリ側をさらに直していると、素朴に取り込むと
+        # 【新しいリポジトリの内容を古い配備先の内容で潰す】= 直したかった事故と同じことをする。
+        $repoHash = (Get-FileHash -LiteralPath $repoFile -Algorithm SHA256).Hash
+        if ($repoHash -eq $current[$rel]) {
+            # 中身が既に一致している。エディタのミラー書き込みが typical。取り込む必要が無い。
+            continue
+        }
+        if ($repoHash -ne $before) {
+            $notPromoted.Add("$($r.Label)\$rel  (リポジトリ側も前回配備から変わっている。" +
+                             "どちらが新しいか判定できないので取り込まない。退避した配備先の現物と突き合わせること)")
+            continue
+        }
         if ($NoBackup) {
             # --dry-run。書き換えないが、何が取り込まれるかは見せる。
             Write-Host "  [PROMOTE?] $($r.Label)\$rel  ->  $repoFile"
