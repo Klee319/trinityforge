@@ -45,9 +45,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       つまり存在しない技名を書くと「設定したのにボスが何も撃たない」という症状にしかならない。
  *       ここで出荷 {@code mob-abilities.yml} のテンプレートIDと突き合わせて発明を検出する。</li>
  *   <li><b>モブIDの綴り違いも無言。</b> オーバーライドが当たらないだけで、エラーにはならない。</li>
- *   <li><b>倍率は yml に書けない。</b> {@code MobStatOverride} は絶対値しか受け取らないので、
- *       プランが倍率で書いた値は「共通ランプ({@code combat/mob-import.yml})を Lv50 で評価した実値 ×倍率」
- *       として展開してある。ここではその割り戻しが計画どおりの倍率に戻ることを固定する
+ *   <li><b>ボスと雑魚が同じ強さでも何も起きない。</b> ダンジョンの難易度はスコープ直下の1本の倍率で
+ *       付けるので、<b>個体側に係数を書き忘れると踏破ボスが自分の配下の雑魚と1ダメージ差なく同じになる</b>。
+ *       2026-08-20 まで 121 体すべてがその状態だった(実プレイで「エンドコンテンツのボスが
+ *       フィールドのエンドラと同じ」として報告された)。誰も例外を投げないので、ここで固定する。</li>
+ *   <li><b>倍率と絶対値は別物。</b> {@code MobStatOverride} は 2026-08-14 から倍率キーも受け取る。
+ *       <b>絶対値はレベル追従を殺す</b>ので、レベルが動くコンテンツでは必ず倍率で書く。
  *       ── ランプ側の base/growth を触ると倍率の意味が変わるので、そのときここが落ちる。</li>
  * </ul>
  */
@@ -55,8 +58,16 @@ class ShippedBossStrengthDriftTest {
 
     // === 柱2 の出典となる共通ランプ(combat/mob-import.yml)と束縛者の contentLevel ===
 
-    /** 束縛者は {@code contentLevel: 50} 固定(level-sync が無い)。柱2 の倍率はこのレベルで評価する。 */
-    private static final int BINDER_CONTENT_LEVEL = 50;
+    /**
+     * 束縛者の実レベル。<b>配備先 {@code custombosses/the_binder_of_worlds/*.yml} の {@code level: 100}</b>
+     * が一次情報(2026-08-20 / W-179 に実データで確認)。
+     *
+     * <p>2026-08-01〜2026-08-19 はここが 50 だった。yml のコメントが「contentLevel: 50 固定」と
+     * 書いていたのをそのまま信じたもので、<b>EM の実ファイルとは食い違っていた</b>。その結果、
+     * 束縛者の絶対値だけが半分のレベルのランプで書かれ、実HP がフィールドのエンドラと同じ 1.46M、
+     * 攻撃力は自分の配下の雑魚より弱い、という逆転が起きていた。
+     */
+    private static final int BINDER_CONTENT_LEVEL = 100;
 
     private static final String MOB_IMPORT = "src/main/resources/combat/mob-import.yml";
 
@@ -90,6 +101,37 @@ class ShippedBossStrengthDriftTest {
 
     private static final String BINDER_WORLD = "em_id_binder_of_worlds";
 
+    /**
+     * ボスの居ないスコープ。<b>これは「検査を免除するリスト」なので、増やすときは必ず理由を書く。</b>
+     * <ul>
+     *   <li>{@code default} — ダンジョンではなく「どの EM ダンジョンにも属さないモブ」の受け皿。</li>
+     *   <li>{@code em_adventurers_guild} — 戦闘のない拠点(NPC と計測用の的だけ)。</li>
+     * </ul>
+     */
+    private static final Set<String> BOSSLESS_SCOPES = Set.of("default", "em_adventurers_guild");
+
+    /** エンチャント試練の本数(難易度1〜10)。 */
+    private static final int TRIAL_COUNT = 10;
+
+    /**
+     * エンチャント試練の攻撃力を決めるときの基準レベル。<b>モブ側のレベルではなく、挑むプレイヤーの
+     * 到達レベル</b>を指す —— EM 側の個体にレベル指定が無いので TF の共通ランプは Lv1 でしか
+     * 評価されず、倍率が効かない。だから「Lv100 のプレイヤーが受けるべきダメージ」を直接書く。
+     */
+    private static final int TRIAL_PLAYER_LEVEL = 100;
+
+    /** 最終試練の踏破ボス。 */
+    private static final String TRIAL_FINAL_BOSS = "enchantment_boss_tricky_bones";
+
+    /**
+     * 難易度 n(1〜10)の係数。1.0 から 1.4 までを等間隔に割る。
+     * 幅を 0.4 に抑えてあるのは、この10本が<b>同じ Lv100 装備で順に登る梯子</b>だから ——
+     * 倍率差を大きくすると下位が作業になり上位が壁になる。
+     */
+    private static double trialDifficultyFactor(int n) {
+        return 1.0 + ((n - 1) / (double) (TRIAL_COUNT - 1)) * 0.4;
+    }
+
     /** 柱2 の段階表: モブid -&gt; {HP倍率, 攻撃倍率}。増援は載せない(「変更しない」が仕様)。 */
     private static final Map<String, double[]> BINDER_TIER = new LinkedHashMap<>();
 
@@ -104,21 +146,13 @@ class ShippedBossStrengthDriftTest {
     }
 
     /**
-     * 束縛者の踏破ボス。<b>HP だけは柱2 の倍率(×6.0)を離れて絶対値で書いてある</b>ので、
-     * 段階表とは別に固定する。
+     * 束縛者の踏破ボス。2026-08-20(W-179)からは段階表の倍率(×6.0)だけで決まる —— 絶対値は持たない。
      *
-     * <p><b>なぜ 578100 なのか(マジックナンバーではない)</b>:
-     * 実HP = ここの値 × EliteMobs の {@code healthMultiplier} で、束縛者 phase_4 の
-     * {@code custombosses/the_binder_of_worlds/em_id_binder_of_worlds_phase_4.yml} は
-     * {@code healthMultiplier: 120}。したがって実HP = 578100 × 120 = <b>69,372,000</b>。
-     * これは難易度 10 の基準であるエンチャント試練10
-     * ({@code enchantment_boss_tricky_bones} の {@code max-health: 17340000} ×
-     * {@code healthMultiplier: 4.0} = 69,360,000)と同じ帯に置くための値。
-     * <b>柱2 の ×6.0(= 29106)へ差し戻すと実HP が 3.49M へ落ち、最終ボスが試練10 の 1/20 になる。</b>
+     * <p>実HP = 共通ランプ Lv100({@value #BINDER_CONTENT_LEVEL} で評価)× 6.0 × EliteMobs の
+     * {@code healthMultiplier: 120} = 約 1.13 億。難易度 10 の基準であるエンチャント試練10
+     * (実HP 69,360,000)を上回り、最終ボスが最難関になる。
      */
     private static final String BINDER_FINAL_PHASE = "em_id_binder_of_worlds_phase_4";
-
-    private static final double BINDER_FINAL_PHASE_HEALTH = 578100.0;
 
     /**
      * 柱2-1 の割り当て表: ワールド名 -&gt; その踏破ボス(そのダンジョンで<b>最後に戦う</b>モブ)id と ability の列。
@@ -331,8 +365,38 @@ class ShippedBossStrengthDriftTest {
      * されるため(8体目に絶対値を足しても誰も気づかない)、ここで両側から突き合わせる。
      */
     @Test
-    @DisplayName("束縛者で絶対値(HP/攻撃)を持つのは段階表の7体ちょうど。増援は1体も持たない")
-    void binderAbsoluteCarriersAreExactlyTheTierTable() throws IOException {
+    @DisplayName("束縛者は per-mob の絶対値を1体も持たない(2026-08-20 / W-179 で倍率へ移した)")
+    void binderCarriesNoPerMobAbsoluteValues() throws IOException {
+        YamlConfiguration yaml = loadShippedYaml(MobOverridesConfig.PATH);
+        ConfigurationSection mobs = mobsSection(yaml, BINDER_WORLD);
+
+        Set<String> absoluteCarriers = new TreeSet<>();
+        for (String mobId : mobs.getKeys(false)) {
+            ConfigurationSection stats = mobs.getConfigurationSection(mobId + ".stats");
+            if (stats == null) {
+                continue;
+            }
+            if (stats.isSet("max-health") || stats.isSet("attack.attack-power")) {
+                absoluteCarriers.add(mobId);
+            }
+        }
+        assertEquals(new TreeSet<String>(), absoluteCarriers,
+                "束縛者に per-mob の絶対値が復活している: " + absoluteCarriers + "。"
+                        + "絶対値はレベル追従を殺すうえ、【scope 直下の attack-power-multiplier が"
+                        + "丸ごと捨てられる】側へ移る(MobStatOverride#mergeAttack は置換であって乗算ではない)。"
+                        + "実際 2026-08-19 まで、EM 側が level: 100 なのに絶対値が Lv50 のランプで"
+                        + "書かれており、最終ボスの攻撃力が自分の配下の雑魚より弱いという逆転が起きていた。"
+                        + "強さは必ず倍率(max-health-multiplier / attack-power-multiplier)で書くこと。");
+    }
+
+    /**
+     * 段階表({@link #BINDER_TIER})の対象が、出荷 yml で実際に倍率を持つ個体と<b>一致している</b>
+     * ことを固定する。許可リストだけを見る検査は<b>リスト自体が現実とずれた瞬間に検査ごと無効化</b>
+     * されるため(8体目に倍率を足しても誰も気づかない)、ここで両側から突き合わせる。
+     */
+    @Test
+    @DisplayName("束縛者で段階倍率を持つのは段階表の7体ちょうど。増援は1体も持たない")
+    void binderMultiplierCarriersAreExactlyTheTierTable() throws IOException {
         YamlConfiguration yaml = loadShippedYaml(MobOverridesConfig.PATH);
         ConfigurationSection mobs = mobsSection(yaml, BINDER_WORLD);
 
@@ -342,21 +406,18 @@ class ShippedBossStrengthDriftTest {
             if (stats == null) {
                 continue;
             }
-            if (stats.isSet("max-health") || stats.isSet("attack.attack-power")) {
+            if (stats.isSet("max-health-multiplier") || stats.isSet("attack-power-multiplier")) {
                 carriers.add(mobId);
             }
         }
         assertEquals(new TreeSet<>(BINDER_TIER.keySet()), carriers,
-                "束縛者で per-mob の絶対値を持つ個体の集合が段階表と食い違っている。"
-                        + "絶対値を足した個体は【scope 直下の attack-power-multiplier が丸ごと捨てられる】側へ"
-                        + "移るので(MobOverridesConfig#resolve は scope 直下 → mob 単位の順に適用し、"
-                        + "MobStatOverride#mergeAttack は倍率適用後の値を絶対値で置換する)、"
-                        + "倍率を畳み込まないと 4.8 分だけ弱いまま無言で残る。"
-                        + "段階表に足すか、絶対値をやめるかのどちらかにすること。");
+                "束縛者で per-mob の倍率を持つ個体の集合が段階表と食い違っている。"
+                        + "増援(reinforcement)は『数で圧をかける役』なので個体を強くしない、というのが"
+                        + "柱2 の明示的な指定。段階表に足すか、倍率をやめるかのどちらかにすること。");
     }
 
     @Test
-    @DisplayName("束縛者の4段階＋ミニボス3種が、共通ランプLv50実値×計画倍率×スコープ倍率の絶対値で書かれている")
+    @DisplayName("束縛者の4段階＋ミニボス3種の倍率が、共通ランプLv100に段階表どおり掛かる")
     void binderTierMatchesThePlannedMultipliers(@TempDir File tempDir) throws IOException {
         MobOverridesConfig config = loadShippedOverrides(tempDir);
         double rampHp = rampAt(RAMP_HP_BASE, RAMP_HP_GROWTH, BINDER_CONTENT_LEVEL);
@@ -364,39 +425,31 @@ class ShippedBossStrengthDriftTest {
         double scopeMultiplier = binderScopeAttackMultiplier();
 
         BINDER_TIER.forEach((mobId, multipliers) -> {
-            MobProfile resolved = config.resolve(BINDER_WORLD, mobId, neutralBase(mobId));
+            // 本番と同じ形の素プロファイル: 共通ランプを束縛者の実レベルで評価した値。
+            // 倍率は「元の値の何倍か」なので、0 を敷くと何を掛けても 0 になり検査が意味を失う。
+            MobProfile base = new MobProfile(mobId, BINDER_CONTENT_LEVEL, null,
+                    DefenseStats.NONE, DefenseStats.NONE, AttackStats.plain(rampAttack), rampHp, false);
+            MobProfile resolved = config.resolve(BINDER_WORLD, mobId, base);
 
-            // HP: 段階表の倍率をランプ実値に掛けた絶対値。踏破ボス phase_4 だけは倍率を離れた実HP基準
-            // (根拠は BINDER_FINAL_PHASE_HEALTH の javadoc)。
-            double expectedHp = BINDER_FINAL_PHASE.equals(mobId)
-                    ? BINDER_FINAL_PHASE_HEALTH
-                    : Math.rint(rampHp * multipliers[0]);
+            // 倍率は層ごとに掛け算になる(MobOverridesConfig#resolve が scope → mob の順に applyTo)。
+            //   HP     = ランプ × 段階表の倍率                (scope 直下に max-health-multiplier は無い)
+            //   攻撃   = ランプ × scope の難易度倍率 × 段階表の倍率
+            double expectedHp = rampHp * multipliers[0];
+            double expectedAttack = rampAttack * scopeMultiplier * multipliers[1];
 
-            // 攻撃: yml は「ランプ実値 × 段階倍率」を小数2桁で丸めた値へ、さらに scope 倍率を
-            // 畳み込んだ2桁の値を書いている(2段の丸めを踏襲しないと 0.01 ずれる)。
-            //   例) phase_1 = 21.26(ランプLv50) × 1.3 = 27.64 → × 4.8 = 132.67
-            // scope 倍率を畳み込むのは、絶対値を持つ個体では倍率が捨てられるため
-            // (MobStatOverride#applyTo → mergeAttack が置換であって乗算ではない)。
-            double plannedAttack = Math.rint(rampAttack * multipliers[1] * 100.0) / 100.0;
-            double expectedAttack = Math.rint(plannedAttack * scopeMultiplier * 100.0) / 100.0;
-
-            assertEquals(expectedHp, resolved.maxHealth(), 1.0,
-                    mobId + " の max-health が " + resolved.maxHealth() + "。期待は " + expectedHp
-                            + (BINDER_FINAL_PHASE.equals(mobId)
-                            ? "(踏破ボスの実HP基準。EM の healthMultiplier 120 を掛けて 69,372,000 = "
-                            + "エンチャント試練10 と同帯)"
-                            : "(共通ランプ Lv" + BINDER_CONTENT_LEVEL + " 実値 "
-                            + String.format("%.2f", rampHp) + " × " + multipliers[0] + ")")
-                            + "。倍率キーは MobStatOverride に無いので、ここは絶対値でしか書けない。");
-            assertEquals(expectedAttack, resolved.attack().defaultDamage(), 0.01,
-                    mobId + " の attack.attack-power が " + resolved.attack().defaultDamage()
+            assertEquals(expectedHp, resolved.maxHealth(), expectedHp * 1.0e-9,
+                    mobId + " の max-health が " + resolved.maxHealth() + "。期待は 共通ランプ Lv"
+                            + BINDER_CONTENT_LEVEL + " 実値 " + String.format("%.2f", rampHp)
+                            + " × 段階倍率 " + multipliers[0] + " = " + expectedHp + "。"
+                            + "絶対値へ戻すとレベル追従が死ぬ(2026-08-19 まで Lv50 基準のまま"
+                            + "取り残されていた)。");
+            assertEquals(expectedAttack, resolved.attack().defaultDamage(), expectedAttack * 1.0e-9,
+                    mobId + " の attack-power が " + resolved.attack().defaultDamage()
                             + "。期待は 共通ランプ Lv" + BINDER_CONTENT_LEVEL + " 実値 "
-                            + String.format("%.2f", rampAttack) + " × 段階倍率 " + multipliers[1]
-                            + " = " + plannedAttack + " × scope 倍率 " + scopeMultiplier
-                            + " = " + expectedAttack + "。"
-                            + "scope 直下の attack-power-multiplier は【絶対値を持つ個体では捨てられる】ので、"
-                            + "yml 側にはこの畳み込み済みの値を書くのが正しい。"
-                            + "畳み込みを戻すと、増援だけが 4.8 倍でボスが据え置きという逆転が起きる。");
+                            + String.format("%.2f", rampAttack) + " × scope 倍率 " + scopeMultiplier
+                            + " × 段階倍率 " + multipliers[1] + " = " + expectedAttack + "。"
+                            + "ここに絶対値を書き足すと scope 倍率が丸ごと捨てられ、"
+                            + "ボスだけが難易度補正の外へ落ちる。");
         });
     }
 
@@ -453,6 +506,132 @@ class ShippedBossStrengthDriftTest {
                             + "(1.072)にすると『所要時間は変わらないのに報酬だけ1000倍』という"
                             + "過去に踏んだ破綻を再現する。EXP は共通 1.008 + 役割係数のまま据え置くこと。");
         }
+    }
+
+    // === W-179: ダンジョンのボスが雑魚と同じ強さに戻らないようにする ===
+
+    /**
+     * ボス係数を<b>1体も持たないダンジョン</b>を検出する。
+     *
+     * <p>ダンジョンの難易度は scope 直下の倍率1本で付いており、それは<b>そのダンジョンの全個体に
+     * 等しく掛かる</b>。したがって個体側に係数が無いと、踏破ボスの攻撃力は自分の配下の雑魚と
+     * <b>完全に同値</b>になる。2026-08-20 まで 121 体すべてがそうで、実プレイでは
+     * 「エンドコンテンツのボスがオーバーワールドのエンドラと同じ」として報告された。
+     *
+     * <p>この検査を「係数を持つ個体の許可リスト」で書くと、<b>リストが現実とずれた瞬間に検査ごと
+     * 無効化</b>される。そこで<b>ダンジョン側から</b>「必ず1体は雑魚より強い個体が居ること」を要求する。
+     * 実際 W-179 の1回目の適用では、EM ファイルに {@code bossType:} キーが無い虚無の鐘だけが
+     * <b>ダンジョン丸ごと素通り</b>していた(分類が {@code name:} の {@code $bossLevel}
+     * プレースホルダ側にあった)。この形の検査でしか捕まらない。
+     */
+    @Test
+    @DisplayName("どのダンジョンにも「雑魚より強い個体」が最低1体は居る(ボス=雑魚の再発防止)")
+    void everyDungeonHasAtLeastOneMobStrongerThanItsTrash() throws IOException {
+        YamlConfiguration yaml = loadShippedYaml(MobOverridesConfig.PATH);
+        ConfigurationSection overrides = yaml.getConfigurationSection("overrides");
+        assertNotNull(overrides, "出荷 mob-overrides.yml に overrides セクションが無い");
+
+        List<String> flat = new ArrayList<>();
+        for (String world : overrides.getKeys(false)) {
+            if (BOSSLESS_SCOPES.contains(world)) {
+                continue;
+            }
+            ConfigurationSection mobs = overrides.getConfigurationSection(world + ".mobs");
+            if (mobs == null || mobs.getKeys(false).isEmpty()) {
+                continue;
+            }
+            double strongest = 0.0;
+            for (String mobId : mobs.getKeys(false)) {
+                ConfigurationSection stats = mobs.getConfigurationSection(mobId + ".stats");
+                if (stats == null) {
+                    continue;
+                }
+                strongest = Math.max(strongest, stats.getDouble("attack-power-multiplier", 0.0));
+            }
+            if (strongest <= 1.0) {
+                flat.add(world + "(" + mobs.getKeys(false).size() + "体)");
+            }
+        }
+        assertEquals(List.of(), flat,
+                "ボス係数を1体も持たないダンジョンがある: " + flat + "。"
+                        + "scope 直下の倍率は全個体に等しく掛かるので、この状態では踏破ボスの攻撃力が"
+                        + "自分の配下の雑魚と1ダメージ差なく同じになる —— しかも例外は出ない。"
+                        + "EM 側の分類は bossType: キーだけでなく name: の $bossLevel / $minibossLevel /"
+                        + "$eventBossLevel プレースホルダにも入っているので、片方だけ見て配ると"
+                        + "ダンジョン単位で丸ごと漏れる。"
+                        + "ボスの居ないスコープを意図的に増やしたときは BOSSLESS_SCOPES に理由付きで足すこと。");
+    }
+
+    /**
+     * エンチャント試練10本の攻撃力が、難易度1〜10 の等間隔な梯子に載っていることを固定する。
+     *
+     * <p>この試練群だけ scope 直下が<b>絶対値</b>なのは、EM 側の個体にレベル指定が無く共通ランプが
+     * 動かないため(倍率をいくら掛けても効かない)。その代わり<b>他ダンジョンの一斉調整から取り残される</b>：
+     * 2026-08-19 の攻撃力圧縮(W-175)は倍率行しか触らなかったので、ここだけ旧値
+     * (同レベルのフィールドモブの 2.92〜6.16 倍 = 厳選装備でも実質1発)のまま残っていた。
+     *
+     * <p>期待値はランプから計算する。直書きすると、ランプを動かしたときにこの10本だけ
+     * 置き去りになったことを検出できない —— それが 2026-08-19 に起きたことそのもの。
+     */
+    @Test
+    @DisplayName("エンチャント試練10本の攻撃力が、共通ランプLv100の難易度梯子(×1.0〜×1.4)に載っている")
+    void enchantmentTrialAttackLadderStaysOnTheCommonRamp() throws IOException {
+        YamlConfiguration yaml = loadShippedYaml(MobOverridesConfig.PATH);
+        double ramp = rampAt(RAMP_ATTACK_BASE, RAMP_ATTACK_GROWTH, TRIAL_PLAYER_LEVEL);
+
+        List<String> problems = new ArrayList<>();
+        for (int n = 1; n <= TRIAL_COUNT; n++) {
+            String world = "em_id_enchantment_challenge_" + n;
+            ConfigurationSection stats = yaml.getConfigurationSection("overrides." + world + ".stats");
+            if (stats == null || !stats.isSet("attack.attack-power")) {
+                problems.add(world + ": scope 直下の attack.attack-power が無い");
+                continue;
+            }
+            double expected = Math.rint(ramp * trialDifficultyFactor(n) * 100.0) / 100.0;
+            double actual = stats.getDouble("attack.attack-power");
+            if (Math.abs(actual - expected) > 0.01) {
+                problems.add(world + ": " + actual + " (期待 " + expected + " = 共通ランプ Lv"
+                        + TRIAL_PLAYER_LEVEL + " " + String.format("%.2f", ramp) + " × 難易度係数 "
+                        + String.format("%.4f", trialDifficultyFactor(n)) + ")");
+            }
+        }
+        assertEquals(List.of(), problems,
+                "エンチャント試練の攻撃力が梯子から外れている: " + problems + "。"
+                        + "この10本は絶対値なので【他ダンジョンの一斉調整に付いてこない】。"
+                        + "ランプや他ダンジョンの攻撃力を動かしたら、ここも同じ尺度へ揃え直すこと。");
+    }
+
+    /**
+     * 「scope 直下の<b>絶対値</b>の上に、個体の<b>倍率</b>が乗る」ことを実装で確かめる。
+     *
+     * <p>絶対値と倍率が同じ解決チェーンに並ぶのはこの試練群だけで、しかも
+     * {@code MobStatOverride#mergeAttack} は<b>絶対値で置換する</b>(乗算ではない)。
+     * 「絶対値を書いた時点で倍率は捨てられる」という直感が正しければ、試練のボスは
+     * 自分の配下の召喚体と同じ攻撃力になる。<b>実際にはそうならない</b>
+     * (scope と mob は別の層として順に適用されるため)ことを固定しておかないと、
+     * ここを絶対値へ「統一」する改修が入ったときに無言でボスが弱体化する。
+     */
+    @Test
+    @DisplayName("試練のボスは scope の絶対攻撃力の上に自分の係数が乗る(絶対値が倍率を殺さない)")
+    void trialBossMultiplierRidesOnTopOfTheScopeAbsolute(@TempDir File tempDir) throws IOException {
+        MobOverridesConfig config = loadShippedOverrides(tempDir);
+        YamlConfiguration yaml = loadShippedYaml(MobOverridesConfig.PATH);
+        String world = "em_id_enchantment_challenge_" + TRIAL_COUNT;
+
+        double scopeAbsolute = yaml.getDouble("overrides." + world + ".stats.attack.attack-power");
+        assertTrue(scopeAbsolute > 0.0, world + " の scope 直下に絶対 attack-power が無い");
+        double bossMultiplier = yaml.getDouble(
+                "overrides." + world + ".mobs." + TRIAL_FINAL_BOSS + ".stats.attack-power-multiplier");
+        assertTrue(bossMultiplier > 1.0,
+                TRIAL_FINAL_BOSS + " にボス係数が無い。最終試練の踏破ボスが自分の召喚体と同じ攻撃力になる。");
+
+        MobProfile boss = config.resolve(world, TRIAL_FINAL_BOSS, neutralBase(TRIAL_FINAL_BOSS));
+        assertEquals(scopeAbsolute * bossMultiplier, boss.attack().defaultDamage(), 0.01,
+                TRIAL_FINAL_BOSS + " の解決後の攻撃力が " + boss.attack().defaultDamage()
+                        + "。期待は scope 絶対値 " + scopeAbsolute + " × ボス係数 " + bossMultiplier
+                        + " = " + (scopeAbsolute * bossMultiplier) + "。"
+                        + "これが scope 絶対値と同値になったら、絶対値が倍率を握り潰す実装へ変わったということ。"
+                        + "そのときは試練群のボス係数を絶対値へ畳み込み直さないとボスが雑魚と同値になる。");
     }
 
     // === 柱2-1: 他ダンジョンのボスへ配った abilities ===
