@@ -38,6 +38,12 @@ GIT_COMMIT_A = re.compile(
     r"\bgit\b[^\n|;&]*\bcommit\b[^\n|;&]*\s(-a\b|-am\b|--all\b)")
 
 # ---- C: ワーキングツリーを捨てる git ------------------------------------------------------------
+# git が【コマンドの先頭】に来ているものだけを見る。行頭か、区切り(; && || | 改行 括弧)の直後。
+# これを付けないと「git checkout -- <path> は禁止」と書いた文字列をエコー・保存するだけで
+# deny になる。ドキュメントやメモを書けなくなるうえ、原因が分かりにくい(2026-08-20 に実際に踏んだ)。
+# バックティックを区切りに含めないのはそのため: markdown の `git checkout ...` は素通しにする。
+GIT = r"(?:^|[\n;&|(])\s*git\b"
+#
 # 各項目は (落とすパターン, 例外的に通すパターン, 表示名)。
 # 例外側を「同じコマンド全体」で見るのが要点: git stash は `stash@{0}` の中にも
 # \bstash\b が出るので、否定先読みだけで書くと `git stash apply stash@{0}` を誤爆する。
@@ -46,18 +52,18 @@ GIT_COMMIT_A = re.compile(
 #   落とす : git checkout -- <path> / git checkout . / git checkout <rev> src/... / *.yml など
 #   通す   : git checkout dev / git checkout -b feat/x / git checkout -B dev origin/dev
 GIT_CHECKOUT_PATH = re.compile(
-    r"\bgit\b[^\n|;&]*\bcheckout\b[^\n|;&]*"
+    GIT + r"[^\n|;&]*\bcheckout\b[^\n|;&]*"
     r"(\s--\s|\s\.(\s|$)|[\\/]|\.(yml|yaml|java|js|mjs|json|md|ps1|cmd|py|txt)\b)")
-GIT_CHECKOUT_BRANCH = re.compile(r"\bgit\b[^\n|;&]*\bcheckout\b[^\n|;&]*\s-[bB]\b")
+GIT_CHECKOUT_BRANCH = re.compile(GIT + r"[^\n|;&]*\bcheckout\b[^\n|;&]*\s-[bB]\b")
 # git restore は既定でワーキングツリーを戻す。--staged だけなら index を戻すだけなので通す。
-GIT_RESTORE = re.compile(r"\bgit\b[^\n|;&]*\brestore\b")
-GIT_RESTORE_STAGED_ONLY = re.compile(r"\bgit\b[^\n|;&]*\brestore\b[^\n|;&]*--staged\b")
-GIT_RESET_HARD = re.compile(r"\bgit\b[^\n|;&]*\breset\b[^\n|;&]*\s--hard\b")
-GIT_CLEAN = re.compile(r"\bgit\b[^\n|;&]*\bclean\b[^\n|;&]*\s-[a-zA-Z]*[fdx]")
+GIT_RESTORE = re.compile(GIT + r"[^\n|;&]*\brestore\b")
+GIT_RESTORE_STAGED_ONLY = re.compile(GIT + r"[^\n|;&]*\brestore\b[^\n|;&]*--staged\b")
+GIT_RESET_HARD = re.compile(GIT + r"[^\n|;&]*\breset\b[^\n|;&]*\s--hard\b")
+GIT_CLEAN = re.compile(GIT + r"[^\n|;&]*\bclean\b[^\n|;&]*\s-[a-zA-Z]*[fdx]")
 # git stash はワーキングツリーを退避「して消す」。list/show/pop/apply は消さないので通す。
-GIT_STASH = re.compile(r"\bgit\b[^\n|;&]*\bstash\b")
+GIT_STASH = re.compile(GIT + r"[^\n|;&]*\bstash\b")
 GIT_STASH_READONLY = re.compile(
-    r"\bgit\b[^\n|;&]*\bstash\b\s+(list|show|pop|apply)\b")
+    GIT + r"[^\n|;&]*\bstash\b\s+(list|show|pop|apply)\b")
 
 WORKTREE_DESTROYERS = (
     (GIT_CHECKOUT_PATH, GIT_CHECKOUT_BRANCH, "git checkout <path>"),

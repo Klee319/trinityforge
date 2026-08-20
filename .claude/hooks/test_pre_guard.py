@@ -80,6 +80,27 @@ def test_harmless_git_is_allowed(cmd):
     assert bash(cmd) == "allow", cmd
 
 
+@pytest.mark.parametrize("cmd", [
+    # コマンドではなく「文字列としての言及」。ドキュメント・メモ・コミットメッセージを書く
+    # だけで deny になると原因が分からず作業が止まる (2026-08-20 に実際に踏んだ)。
+    "python -c \"print('禁止: `git checkout -- <path>` は使わない')\"",
+    'echo "git stash push は禁止" >> docs/agent-context/notes.md',
+    "grep -rn 'git reset --hard' docs/",
+])
+def test_merely_mentioning_the_command_is_allowed(cmd):
+    assert bash(cmd) == "allow", cmd
+
+
+@pytest.mark.parametrize("cmd", [
+    # 区切りの直後に来ていれば、前に何が書いてあっても実行なので落とす。
+    "cd TrinityForge; git checkout -- src/main/resources/network.yml",
+    "npm test || git checkout -- package-lock.json",
+    "(git stash push -- TrinityForge)",
+])
+def test_command_position_after_a_separator_is_still_denied(cmd):
+    assert bash(cmd) == "deny", cmd
+
+
 # ---- A/B: 既存のガードが生きていること ----------------------------------------------------------
 
 @pytest.mark.parametrize("cmd", [

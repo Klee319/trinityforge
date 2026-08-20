@@ -2616,10 +2616,7 @@ Geyser の公開 API には**ダウンストリームのパケットイベント
 - Geyser が配る**誤ったレシピ（バニラ素材 → カスタム完成品）はそのまま残る**。`cleanRecipes=true` で
   全消し・全再構築するのは割に合わないと判断した。バニラ素材を並べると成立しないリザルトが見える挙動は現状維持。
 - `list:` 素材は組み合わせごとに1レシピへ展開する。**1レシピあたり32件で打ち切り**、落とした件数をログに出す。
-- **鍛冶台は未対応。** `CraftingDataPacket` は `SmithingTransformRecipeData` も運ぶので、
-  同じ経路で「統合版クライアントが base スロットにカスタム品を受け付ける」ようにできる見込み。
-  成功すれば `BedrockSmithingAssistListener`（**特定アイテムを手に持って右クリック**という
-  ユーザーが「直感的でない」と指摘した UI）を撤去できる。**次の段。**
+- 鍛冶台は下記「鍛冶台も対応」で実装した（**配備待ち・実機未確認**）。
 
 **実機で見るべきログ**（配備後）:
 
@@ -2628,6 +2625,92 @@ Geyser の公開 API には**ダウンストリームのパケットイベント
 - プロキシ: `[bedrock-recipes] corrected recipes will be sent after Geyser's own`
 - 出ない場合の切り分け順: ①バックエンドの `plugins/TrinityForge/bedrock-recipes.json` があるか
   ②`<extension>/bedrock-recipes/*.json` に届いているか ③プロキシ側の警告
+
+#### 鍛冶台も対応（2026-08-20）— **item tag + SmithingTransformRecipeData の 2 段構え**
+
+**配備待ち。ビルドとテストは通したがサーバへは入れていない。実機確認は未了。**
+
+**前提がひとつ間違っていた。** `BedrockSmithingAssistListener` の javadoc と上記の
+「鍛冶台は未対応」は、GeyserMC/Geyser#4706 が "Can't Fix / Missing Client Feature" で閉じている
+ことを根拠に「統合版のスロット判定はサーバから広げられない」と書いていた。
+**#4706 は防具トリム（custom trim patterns / materials）の issue**で、メンテナ onebeastchris の
+回答も "Bedrock doesn't allow adding custom **trim patterns/materials**"。
+**ネザライト強化（smithing transform）については何も言っていない。**
+
+一次情報（bedrock.dev の Recipes ドキュメント / minecraft.wiki の Item tag (Bedrock Edition)）では、
+統合版の鍛冶台の各枠は**アイテムタグで決まる**:
+
+| 枠 | 要求タグ | TF の場合 |
+|---|---|---|
+| テンプレ | `minecraft:transform_templates` | バニラのネザライト強化テンプレが保持済み |
+| base | **`minecraft:transformable_items`** | **カスタム品には無い ← これが原因** |
+| 追加素材 | `minecraft:transform_materials` | バニラのネザライトインゴットが保持済み |
+
+Geyser 公開 API の `CustomItemBedrockOptions.tags(Set<Identifier>)` は
+`CustomItemRegistryPopulator.setupBasicItemInfo` で `addItemTag()` → NBT の `item_tags` に書かれる
+（2.11.1-b1223 の jar を逆アセンブルして確認。バニラ由来カスタムアイテムの登録経路でも通る）。
+`IdentifierImpl.toString()` は `Key.toString()` = `namespace:path`。
+
+**実装（2 段構え。片方だけでは動かない）**:
+
+1. **置けるようにする** — GeyserExtra が登録する**全カスタムアイテム**に
+   `minecraft:transformable_items` を付ける（`CustomItemsHandler#registerVanillaItem`）。
+   **対象を絞らないのは意図的**: 絞るにはレシピ表が要るが、表はバックエンドから
+   `GeyserDefineCustomItemsEvent` の**後**に届くので、cold start でタグが欠け
+   「2 回目の再起動から動く」という最悪の間欠故障になる。全付与の代償は
+   「統合版だけ base 枠に何でも置けて結果が出ない」という見た目の非対称だけで、
+   何が渡るかは Java サーバが決めるので実害は無い。
+2. **結果を出す** — 補正レシピに `SmithingTransformRecipeData`(tag=`smithing_table`) を足す。
+   base は `source-item` のカタログエントリの material + CMD
+   （Bukkit 側の登録は `MaterialChoice(材質だけ)` の緩い判定で、CMD 込みの照合は
+   `CatalogSmithingListener` がやっている。材質だけをクライアントへ渡すと
+   **素のバニラ弓でも完成すると表示される**）。
+
+**形式バージョンを 1 → 2 へ上げた（必須）**。v1 の受け取り側は `type` が `"shaped"` 以外を
+問答無用で shapeless 扱いするので、**スミス台の 3 枠を「3 素材の作業台レシピ」として配ってしまう**。
+TF/ArsPaper と GeyserExtra は**別スクリプトで配備する**ので片側だけ新しい状態は現実に起こる。
+逆方向（新しい受け取り側 × 古い書き手）は受け取り側が **{1, 2} の両方を受理**して吸収する。
+**ArsPaper は v1 のまま変更していない** — スミス台レシピを 1 件も登録しないので上げる意味が無く、
+無駄な再ビルドと再配備を強いるだけ。以前 ArsPaper 側のテストに書いてあった
+「TF と同じ値でなければならない」は**もう誤り**なので文言ごと直した。
+
+**変更したリポジトリ**:
+
+| 担当 | 変更 |
+|---|---|
+| TrinityForge | `BedrockRecipeTable` に `Type.SMITHING`・`FORMAT_VERSION=2`／`CatalogRecipeRegistrar` に `registeredSmithing` と `allRegisteredSmithing()`／`BedrockRecipeExporter.build` が 3 引数化 |
+| ArsPaper | 形式バージョンの契約コメントとテストの文言だけ（**出力は 1 バイトも変わらない**） |
+| GeyserExtra (Paper) | collector が `{1,2}` を受理・出力は常に v2 |
+| GeyserExtra (extension) | reader が `Type` enum 化・未知 type は推測せず skip／injector が `SmithingTransformRecipeData` を送る／`CustomItemsHandler` が item tag を付ける |
+
+**踏まないように決めた設計判断**:
+
+- **`registeredSmithing` は `registeredSpecs` と分ける。** あちらは `CatalogWorkbenchListener` が
+  「作業台の盤面と突き合わせる候補」として総当たりするコレクションで、スミス台レシピを混ぜると
+  **shape も shapeless 素材も持たない spec を舐めはじめる**。分ければ既存利用者は 1 行も変わらない。
+- **`registerNetheriteOne` が `Bukkit.addRecipe` を通った後にだけ記録する。** 条件を別実装で
+  組み直すと、`NetheriteUpgradeGuard` に弾かれて**登録されていないレシピを「作れる」と配る**ことになる。
+- **テンプレ／追加素材の Material は `CatalogRecipeRegistrar` の `public static final` 定数に集約。**
+  登録側と表側で別々に書くと、クライアントだけが成立すると信じる盤面ができる。
+- **未知の `type` は絶対に既知へフォールバックしない。** これが形式にバージョンを付けている理由そのもの。
+- **`BedrockSmithingAssistListener`（手に持って右クリック）は残した。** 実機で新経路が通ることを
+  確かめるまで、**統合版で唯一動いている経路を消さない**。確認後に撤去するのは 1 行。
+
+**残っている限界**:
+
+- `registerNonVanillaItem`（v1 API 経路）はタグを付けられない。TF のカタログ品は全て
+  バニラ由来（CMD 変種）なので実害は無いが、非バニラ登録を増やしたらここが穴になる。
+- `isVanillaLookAlike` で登録を見送った品は**そもそも Bedrock アイテムが無い**ので、
+  作業台と同じくタグもレシピも当てられない。
+
+**検証**: TF 4470 / 失敗 29 / スキップ 2（失敗は全て他セッションの yml 変更由来で、
+`bedrock/`・`CatalogRecipeRegistrar`・`CatalogWorkbench*`・`CatalogSmithing*` の 95 件は全緑）、
+ArsPaper 473 / 0、geyserExtra 320 / 0。**変異テスト 3 本で空振りでないことを確認**
+（smithing→shapeless／未知バージョン受理／テンプレと base の並び入れ替え、いずれも該当テストが落ちる）。
+
+**実機で見るべきログ**: 上記に加えてプロキシの
+`[bedrock-recipes] sent N corrected recipes (M smithing)`（debug）。
+**`(M smithing)` が出ないなら表にスミス台レシピが載っていない。**
 
 #### 併発（実データ）: 統合版で別物が同じアイテムに見える CMD 衝突
 
@@ -3358,6 +3441,68 @@ TF フルテスト **4462 件・失敗 29・skip 2**（29 件はすべて他セ�
 
 ---
 
+### 杖の火力/CT と範囲ダメージ半径の再調整（2026-08-20 要望）
+
+**要望**: 「杖の CT が短すぎるし火力も同じ tier の武器に比べて高すぎる」／
+追記「大剣のダメージ半径を 3 とし、他の範囲ダメージが発生する武器はこのナーフに合わせて縮小して」。
+**ユーザー決定**: 杖は「剣とほぼ同じ攻撃力（1.5 倍程度）でいずれも CT は 4s 固定」／他の AoE 武器は「一律 x0.75」。
+
+**着手前の実態（測って分かったこと）**: 杖の単体 DPS は**もともと剣の 0.48〜0.63 倍**に収まっていて、
+その意味では「高すぎ」なかった。体感の原因は別の 2 つ。
+
+- **1 発の威力が剣の 2.16〜2.71 倍**（`attack-power`）。魔法ダメージは
+  `spellBase + 杖の attack-power × magical.attack-power-scale`（=1.0）なので**そのまま 1 発に乗る**。
+  範囲呪文なら**その値が対象ごとに入る**ため、複数体では DPS 比が一気に崩れる。
+- **CT が上位ほど短い逆進カーブ**（木 3.5s → ネザライト 2.8s → インフィニティ **2.1s**）。
+  上位帯ほど「重い一撃を速く撃てる」形になっていた。
+
+**入れたもの（`stats/item-stats.yml` のデータ変更のみ。Java は無変更）**:
+
+| 対象 | 変更 |
+|---|---|
+| 杖 10 本 | `attack-power` を**同系列の剣の 1.5 倍**へ（`random:` も同じ比で縮小）。`item-cooldown` を**全帯 4.0s 固定** |
+| 大剣 15 本 | `aoe-radius` を **3** へ統一（3.5 / 4 だった 10 本を縮小） |
+| その他の AoE 武器 48 本 | `aoe-radius` を **x0.75**（2.0→1.5 / 2.5→1.88 / 3.0→2.25 / 3.5→2.63） |
+
+杖の新旧（fixed `attack-power`）:
+
+| 系列 | 旧 | 同系列の剣 | 新 | 旧CT → 新CT |
+|---|---|---|---|---|
+| 木 | 171 | 63 | 94 | 3.5 → 4.0 |
+| 石 | 274 | 105 | 158 | 3.3 → 4.0 |
+| 銅 | 303 | 120 | 180 | 3.2 → 4.0 |
+| 鉄 | 714 | 294 | 441 | 3.1 → 4.0 |
+| 金 | 1507 | 596 | 894 | 3.0 → 4.0 |
+| ダイヤ | 2835 | 1260 | 1890 | 2.9 → 4.0 |
+| ネザライト | 8167 | 3780 | 5670 | 2.8 → 4.0 |
+| インフィニティ | 70440 | 37800 | 56700 | 2.1 → 4.0 |
+| 星枢(hero) | 54445 | 23520 | 35280 | 2.3 → 4.0 |
+| 守護者(nuclear) | 24771 | 12600 | 18900 | 2.5 → 4.0 |
+
+- **効き幅は大きい。** 単体 DPS は剣比 **約 0.5 倍 → 約 0.23 倍**（1 発 1.5 倍 ÷ CT 4s ÷ 剣のレート 1.6/s）。
+  杖の存在意義は「単体 DPS」ではなく**範囲・貫通・呪文効果**へ寄る。強すぎ/弱すぎの再調整は
+  この 2 つの数字（倍率 1.5 と CT 4.0）を動かすだけで済む形にしてある。
+- **CT の下限に注意**: ArsPaper 側の `SpellCaster` は `MIN_COOLDOWN_MS = 100`。4.0s は余裕で上回るので
+  この変更で下限に当たることはない。
+- **ついでに分かったこと（ユーザーの質問への回答）**: 弓は剣の **1.78 倍**、クロスボウは **2.04 倍**の
+  `attack-power` で、**全 9 帯で比がぴたり一定**（設計どおり）。どちらも `item-cooldown` を持たず、
+  レートはバニラの引き絞り/装填時間（約 1.0〜1.25s）で決まるので、実効 DPS は剣とほぼ同等に着地する。
+
+**回帰テスト**: `WeaponTierParityTest` の杖検査を**書き換えた**。旧検査は「詠唱 DPS が剣の 47.5%±」という
+**帯**だったが、この帯は**1 発の威力と CT を同時に動かせてしまう**ので、上記の逆進カーブ（1 発 2.7 倍 × CT 2.1s）を
+そのまま通していた。新しい検査は**倍率 1.5 と CT 4.0s そのものを直接固定する**
+（`wandsAreOneAndAHalfSwordsOnAFixedFourSecondCooldown`）。倍率は `fixed` の `attack-power` で見る
+（`random:` も同じ比で縮めてあるが、剣と杖でロール幅の比率が違うので合計値では 1.5 からずれる）。
+
+**検証**: `WeaponTierParityTest` **全件緑**（杖 10 本を検査。空振り防止のカウンタ付き）。
+⚠ **TF フルテストは実走できていない** —— 他セッションの未コミット WIP
+（`bedrock/BedrockRecipeExporter.java` / `BedrockRecipeTable.java`）が**現在コンパイルを通らない**ため
+`compileJava` の段階で落ちる（`エラー6個`）。**自分の変更は yml とテストのみで Java 本体は無変更**。
+**⚠ 未実施（ユーザー作業）: config の配備＋サーバ再起動**（`item-stats.yml` のみなので jar 再ビルドは不要だが、
+W-170〜W-177 の Java 変更が未配備なので結局 jar も要る）。
+
+---
+
 ## 4. 既知の未修正の問題・弱点
 
 いずれも**意図的に許容している**か、**直すには判断が要る**もの。新規に見つけたバグはここへ足す。
@@ -3517,6 +3662,7 @@ git 系:
 
 | 日付 | 内容 |
 |---|---|
+| 2026-08-20 | **杖の火力/CT と範囲ダメージ半径を再調整**（ユーザー要望「杖の CT が短すぎるし火力も同じ tier の武器に比べて高すぎる」＋「大剣のダメージ半径を 3 とし、他の範囲ダメージ武器はこのナーフに合わせて縮小」）。**測ってみると杖の単体 DPS はもともと剣の 0.48〜0.63 倍**で、体感の原因は別の 2 つ ── **1 発の威力が剣の 2.16〜2.71 倍**（魔法ダメージは `spellBase + 杖の attack-power × 1.0` なので 1 発にそのまま乗り、範囲呪文では対象ごとに入る）と、**CT が上位ほど短い逆進カーブ**（木 3.5s → インフィニティ 2.1s）。ユーザー決定に従い杖 10 本を「同系列の剣の 1.5 倍・CT 4.0s 固定」へ、大剣 15 本の `aoe-radius` を 3 へ統一、その他の AoE 武器 48 本を x0.75（2.0→1.5 / 2.5→1.88 / 3.0→2.25 / 3.5→2.63）。`stats/item-stats.yml` のデータのみで **Java は無変更**。**旧テストが穴だった** ── `WeaponTierParityTest` の杖検査は「詠唱 DPS が剣の 47.5%±」という**帯**で、1 発と CT を同時に動かせるため逆進カーブを素通りさせていた。**倍率 1.5 と CT 4.0s を直接固定する検査へ書き換えた**。**弓/クロスボウは剣の 1.78 / 2.04 倍**で全 9 帯一定、`item-cooldown` は持たない（レートはバニラの引き絞り時間）。**未配備**（config 配備＋再起動が必要） |
 | 2026-08-20 | **config が勝手にロールバックする 2 経路を塞いだ（W-177）**（ユーザー報告 2 件）。報告は「network.yml でチャット書式を変えたら戻っていた」と「触媒のレシピと id を変えたら戻っていた」。**原因は別々で、どちらも『配備／git がリポジトリの未コミット編集を一方的に潰す』形**。① **network.yml は設定エディタに画面が無い**ので人が直せるのは配備先の実ファイルだけ。config 配備は repo → server の一方通行なので、**2026-08-19 23:14 の配備がその編集を握り潰した**（配備先 network.yml の mtime と中身が HEAD 一致で確定）。W-110 でガードは作ってあったが **`deploy-config-head.cmd` からしか呼ばれておらず、実際に走った `deploy.cmd --config` は 1 度も呼んでいなかった**（`tmp/deploy-config-manifest.json` も `tmp/deploy-config-backup/` も存在しなかった＝**ガードは一度も動いていない**）。② **触媒＝杖3種（`magic_wand`/`abyss_wand`/`boundary_wand` → `infinity_wand`/`hero_wand`/`nuclear_wand`）の id とレシピ**は、**別セッションがテストのために `catalog.yml` を HEAD へ戻した**ときに消えた。決定的証拠: エディタのバックアップ `catalog.yml.bak-20260819-145122-654`（14:51:22 の保存直前の姿）が **`5979298^` とバイト単位で一致**し、33 秒後の commit `5979298` は `source:` 34 箇所（68 行）**だけ**を含む＝**14:51:22 の保存が丸ごと消えている**。commit メッセージ自身が「catalog.yml を HEAD へ戻した状態でも…確認済み」と書いている。副作用として、その sweep は id で hero/nuclear を拾うので**巻き戻った杖3種だけ 8000/15000 のまま取り残されていた**（ユーザーが 2026-08-20 15:19/15:20 に手で復元済み）。**対策**: (a) `guard-deployed-config.ps1` を「退避するだけ」から**「配備先の編集をリポジトリへ書き戻す」**へ拡張し、**配備の向きが一方通行でなくなるようにした**（リポジトリに同名が実在し／実行時状態ファイルでなく／他バックエンドから取り込み済みでない、の3条件。`-NoPromote` で無効化）。(b) **`deploy.cmd --config` にもガードを配線**し、`deploy-config-head.cmd` は**ガードを HEAD 展開の前へ移動**（後ろだと取り込んだ内容がその配備に乗らず、退避したのにサーバは元に戻ったままになる＝今回の再発そのもの）。(c) `.claude/hooks/pre-guard.py` が **`git checkout <path>` / `restore` / `reset --hard` / `clean` / `stash push` を deny**（ブランチ操作と `stash list/show/pop/apply` は通す）。(d) 代替の正規手段 **`ops/scripts/run-against-head.ps1`**（退避→HEAD を置く→実行→**finally で必ず戻す**）を追加。(e) network.yml にユーザー指定の書式を入れ、**「エディタに画面が無い」ことを yml 冒頭に明記**。検証: `test-guard-deployed-config.ps1` 6 項目・`test-run-against-head.ps1` 6 項目（どちらも新規、testkit へ配線）、`test_pre_guard.py` 35 件（deny/allow 両側）、`ChatFormatTest` 10 件・skip 0。**RED 実証**: 出荷書式のプレースホルダを 1 文字崩すと新テストが落ちる／`-NoPromote` で取り込みが起きないことを同じテスト内で対にした。台帳（`tmp/deploy-config-manifest.json`）は稼働中の配備先から 143 件で作成済み＝次の配備から `[UNKN]` ではなく差分判定が効く。**⚠ 未実施（ユーザー作業）: TF jar と network.yml の配備＋サーバ再起動**（チャット書式は配備しないと変わらない）。 |
 | 2026-08-20 | **幸運のポーションを作業台・儀式・醸造の品質ptへ乗せた（W-172）**（ユーザー要望）。**着手前の実態は「幸運は釣りと拾得の装備品質にしか効いていない」**で、`PlayerLootLuckSource` が `loot_luck` へ 1 レベル=+1.0 で合算する 1 経路しか無かった（**釣りの宝/ゴミ確率にも効かない** ── あちらは `fishing-luck` でロッドのステ＋エンチャント＋釣りレベルから出しており幸運は入らない）。作業台は `workbench_quality_bonus`、儀式は `ritual_quality_bonus`、醸造は `potion_quality_bonus` と**同じ単位**で幸運ぶんを足す形にし、換算レートは `stats/quality.yml` の **`luck-potion-quality-per-level`（既定 1.0、0 で無効化）** 1 つに集約した。**効果レベルの読み取りは `VanillaLuckEffect` へ一本化**（`amplifier+1` を書き間違えても「幸運が 1 段ずれる」としか出ないので読み取り点を増やさない）。**丸めは合計してから 1 回だけ** ── ステと幸運を別々に丸めると `0.5+0.5` が `0+0` に落ちて幸運が無反応になる帯ができるのでテストで固定した。**プレビュー（`qualityMode`/`minimumQuality`）も同じ経路へ通した**（直さないと「プレビュー 3 なのに作ると 5」になる）。**自動（ホッパー）醸造では幸運ぶんにも `alchemy.auto_mult` の減衰を掛ける**（片方だけ無減衰だと「幸運を飲んで放置」が成立する）。釣り・拾得は `loot_luck` と単位を揃える必要があるので従来どおり 1 レベル=+1.0 固定（yml に明記）。エディタは品質定義タブへフィールドとラベルを追加（`tf-quality` の検証は許可リスト方式ではないのでスキーマ変更は不要）。検証: 新規 `CraftQualityLuckPotionTest` 7 件 + `PotionQualityListenerTest` +4 件・**skip 0**、**RED 実証**（加算を潰すと 7 件が落ちる）済み。TF **4460 件・失敗 26・skip 2**（着手前と同一集合＝他セッションの未コミット yml 由来）、config-editor **1403 件・失敗 25**（品質まわり 41 件は全緑）。**⚠ 未実施（ユーザー作業）: TF jar の配備＋サーバ再起動**（`quality.yml` も同時に配る）。 |
 | 2026-08-20 | **実サーバ報告 第18陣 W-170/W-171**（醸造EXPが一律 302 / Ctrl+Q の一括クラフトで EXP が 1 個分）。**2 件とも「1 回しか飛ばないイベント」と「後段が前段に壊された情報を読む」型で、config では絶対に直らない**。**W-170**: `PotionQualityListener`(HIGH) が品質付与のためポーションのベース種別を `WATER` へ倒す → EXP を出す `NativeSkillExperienceListener#onBrew`(MONITOR) が `getBasePotionType()` で `brew_result` を引くので**常に表に無い `WATER` を読み、定額へ落ちる**。`potion_quality_bonus` が 0 なら `applyQuality` に到達しないので、**品質を取った人だけ壊れる**（報告の「解放後」と一致）。HEAD の config で `150 × 1.005 × 2 = 301.5 → 302` と報告値まで一致した。倒す直前の種別を PDC `trinityforge:brew_source_potion` へ焼き付け、EXP 側はそれを最優先で読む形に。**W-171**: `CraftItemEvent` はクリック 1 回につき 1 度しか飛ばず、バニラ `AbstractContainerMenu#doClick` の `ClickType.THROW` 分岐は **`button == 1`（Ctrl+Q）だけ**「同じ品が出る限り `safeTake`→`drop`」を**ループ**する（稼働サーバの `paper-1.21.11.jar` を逆アセンブルして `goto` を実バイトコードで確認）。旧実装は `isShiftClick()` だけを見ており Ctrl+Q は false なので常に 1 回分だった。**shift は収納容量で頭打ち・Ctrl+Q は地面へ落とすので頭打ちにならない**という差もアクション別に反映。**前回の増殖バグ（スタック素材で 1 個クラフトしてもスタック数ぶん入る）は回数を「各スロットの最小個数」から出すことで維持**し、テストで固定した。**途中で自分が入れた回帰を 1 件潰した**: 収納を無条件に読む形にしたらインベントリを持たないモックの `CraftQualityListenerResultDupeTest` 2 件が NPE で落ちたので `Supplier<ItemStack[]>` の遅延読みへ（Ctrl+Q は収納を読まない、がシグネチャに出る）。RED 実証: W-170 は焼き付けと読み取りを外すと 2 件、W-171 は呼び出しを `isShiftClick()` へ戻すと 1 件が実際に落ちることを実走確認。検証: TF **4435 件・失敗 26・skip 2**（26 は全て他セッションの未コミット yml 由来。例: `exp_damage_piece: 10 → 25` の書き換えで `NativeSkillCatalogRatesTest` が `expected 10.0 but was 25.0`）。**⚠ 未実施（ユーザー作業）: TF jar の再ビルド＋配備＋サーバ再起動** |

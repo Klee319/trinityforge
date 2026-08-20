@@ -72,6 +72,11 @@ class WeaponTierParityTest {
     /** {@code combat/damage.yml} の {@code level-scaling.per-level}。 */
     private static final double PER_LEVEL = 0.01;
 
+    /** 杖の詠唱クールダウン(秒)。2026-08-20 に全帯 4 秒固定へ揃えた。 */
+    private static final double WAND_COOLDOWN_SECONDS = 4.0;
+    /** 杖の attack-power は同系列の剣の何倍か。 */
+    private static final double WAND_ATTACK_POWER_MULTIPLIER = 1.5;
+
     /**
      * 武器種ごとの「同系列の剣に対する実効DPS比」の許容帯。
      * 剣が 100%。下限だけでなく<b>上限も</b>見る（剣より強い近接武器を作らないため）。
@@ -216,7 +221,7 @@ class WeaponTierParityTest {
 
     private record Weapon(String statKey, String id, String type, String series, int level,
                           double attackSpeed, double rate, double perHit, double bleed,
-                          double reach) {
+                          double reach, double fixedAttackPower, double cooldown) {
         double dps() {
             return perHit * rate + bleed;
         }
@@ -329,7 +334,8 @@ class WeaponTierParityTest {
             // され続けるので、発症後の定常DPS ≒ bleed-damage。
             double bleed = stat(item, "bleed-chance") > 0 ? stat(item, "bleed-damage") : 0.0;
             out.add(new Weapon(statKey, id, type, series, level,
-                    attackSpeed, rate, perHit, bleed, stat(item, "attack-reach")));
+                    attackSpeed, rate, perHit, bleed, stat(item, "attack-reach"),
+                    fixed.getDouble("attack-power", 0.0), cooldown));
         }
         assertFalse(out.isEmpty(), "武器を1件も読めていない(この検査は空振りしている)");
         return out;
@@ -599,31 +605,57 @@ class WeaponTierParityTest {
         assertTrue(problems.isEmpty(), "出血の一番手は鎌であること:\n" + String.join("\n", problems));
     }
 
+    /** 系列ごとの剣の固定 attack-power。杖の分母。 */
+    private static Map<String, Double> swordFixedApBySeries(List<Weapon> weapons) {
+        Map<String, Double> out = new TreeMap<>();
+        for (Weapon w : weapons) {
+            if ("sword".equals(w.type()) && w.series() != null) {
+                out.merge(w.series(), w.fixedAttackPower(), Math::max);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * 2026-08-20 ユーザー決定「杖は剣とほぼ同じ攻撃力(1.5倍程度)で、いずれも CT は 4s 固定」。
+     *
+     * <p>それ以前は「詠唱DPS が剣の 47.5%」という帯で縛っていたが、その帯は
+     * <b>1発の威力と CT を同時に動かせてしまう</b>ので、実際には
+     * 「1発が剣の 2.2〜2.7 倍・CT は上位ほど短い(3.5s→2.1s)」という逆進カーブを許していた。
+     * 上位帯ほど杖が強くなる原因がここにあったため、DPS 帯ではなく
+     * <b>攻撃力の倍率と CT そのもの</b>を直接固定する。
+     *
+     * <p>倍率は fixed の attack-power で見る。{@code random:} も同じ比で縮めてあるが、
+     * 剣と杖でロール幅の比率が違うので合計値で見ると 1.5 からずれる（そこは意図した差）。
+     */
     @Test
-    @DisplayName("杖の詠唱DPS（attack-power / item-cooldown）が剣の 50% 前後にある")
-    void wandCastingDpsIsTheIntendedModestBand() {
+    @DisplayName("杖の攻撃力が同系列の剣の1.5倍・CTは全帯4秒で固定されている")
+    void wandsAreOneAndAHalfSwordsOnAFixedFourSecondCooldown() {
         List<Weapon> weapons = loadWeapons();
-        // 杖は「同じ系列の剣」があればそれを分母に、無ければ同レベル帯で最強の剣に落とす
-        // (magic / boundary 系列には剣が無いが、abyss には abyss_sword がある)。
-        Map<String, Double> bySeries = swordBySeries(weapons);
-        Map<Integer, Double> sword = swordByLevel(weapons);
+        Map<String, Double> swordAp = swordFixedApBySeries(weapons);
         List<String> problems = new ArrayList<>();
         int checked = 0;
         for (Weapon w : weapons) {
             if (!"wand".equals(w.type())) {
                 continue;
             }
-            Double denominator = w.series() != null && bySeries.containsKey(w.series())
-                    ? bySeries.get(w.series())
-                    : sword.get(w.level());
-            if (denominator == null) {
+            checked++;
+            if (Math.abs(w.cooldown() - WAND_COOLDOWN_SECONDS) > 1e-6) {
+                problems.add(String.format("%s (Lv%d): item-cooldown が %.2fs（%.1fs 固定のはず）",
+                        w.id(), w.level(), w.cooldown(), WAND_COOLDOWN_SECONDS));
+            }
+            Double sword = w.series() == null ? null : swordAp.get(w.series());
+            if (sword == null || sword <= 0) {
+                problems.add(String.format("%s: 同系列(%s)の剣が引けない（倍率を検査できていない）",
+                        w.id(), w.series()));
                 continue;
             }
-            checked++;
-            double ratio = w.dps() / denominator;
-            if (ratio < 0.40 || ratio > 0.60) {
-                problems.add(String.format("%s (Lv%d): 詠唱DPSが剣の %.0f%%（狙いは 47.5%%、許容 40〜60%%）",
-                        w.id(), w.level(), ratio * 100));
+            // 期待値は round(剣 x 1.5)。小数へ丸めた実データと突き合わせるので許容は ±1。
+            double expected = Math.round(sword * WAND_ATTACK_POWER_MULTIPLIER);
+            if (Math.abs(w.fixedAttackPower() - expected) > 1.0) {
+                problems.add(String.format("%s (Lv%d): attack-power %.0f は剣 %.0f の %.2f 倍（狙いは %.1f 倍 = %.0f）",
+                        w.id(), w.level(), w.fixedAttackPower(), sword,
+                        w.fixedAttackPower() / sword, WAND_ATTACK_POWER_MULTIPLIER, expected));
             }
         }
         assertTrue(checked >= 8, "杖を " + checked + " 本しか読めていない(この検査は空振りしている)");
