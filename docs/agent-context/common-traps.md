@@ -408,6 +408,41 @@ Ars 側だけを読んでいたため、**TFカタログ由来の儀式 39 件�
 手書きしていた `SourceAutoConsume` が `trinityforge:item_catalog_id`（実在しない名前）を持っていて
 無言で外れていた。
 
+### ⚠️⚠️ 「Material だけを見た変換／消費」はカスタムアイテムを無言で消す（2026-08-20 W-172）
+
+**症状は必ず「見た目が普通のバニラ品 1 個に化けた」で、ログにも例外にも一切出ない。**
+`materials.yml` の圧縮素材は `base_material` がバニラそのものなので
+（`potato_3x` = **729 倍**圧縮ジャガイモのベースは `POTATO`、`stone_5x` = **59049 倍**のベースは `STONE`）、
+`Material` だけで分岐するコードからは素のジャガイモ／石と**完全に見分けが付かない**。
+
+書く前にこの 2 つを必ず確認する:
+
+1. **`ItemStack` を `new ItemStack(<別のMaterial>)` で差し替えていないか。**
+   差し替えた瞬間に CMD・PDC・表示名・lore が全部消え、**圧縮を戻して取り返すこともできない**。
+   `Item#setItemStack` / `Map<Material, Material>` の `get(stack.getType())` が典型。
+2. **「入れた素材を消費して別 Material を返すバニラ装置」への搬入を塞いだか。**
+   かまど系・醸造台・コンポスター・**石切台・製図台・機織り機・ビーコン支払い**、
+   そして**ピグリンの物々交換**（拾ったスタックの Material しか見ない）。
+
+保護の判定は自分で書かず、既存の 1 点を使う:
+
+| どこ | 何を使うか |
+|---|---|
+| ArsPaper フォーク（魔法など、バニライベントを通らない経路） | `PdcHelper#hasProtectedIdentity`（Ars id → TF catalog id → CMD の順） |
+| ArsPaper フォーク（バニラ装置への搬入） | `CustomItemListener.CONSUMING_MACHINES` に装置名を足す（クリックとホッパーの両経路が同じ集合を見る） |
+| TF 本体 | `CatalogVanillaOperationPolicy#isCatalogItem` ／ `CatalogVanillaOperationGuardListener` |
+
+**`CatalogVanillaOperationGuardListener`（TF）は Ars の `materials.yml` 素材を守らない**
+（`items/catalog.yml` に載っている品しか見ない）。逆に **ArsPaper 側の魔法は TF のガードを一切通らない**ので、
+TF カタログ品も魔法の側で守る必要がある。**「どちらかが守っているだろう」は毎回外れる。**
+
+**金床 / 砥石 / 鍛冶台は一律遮断集合に入れない。** 専用の `Prepare*` ガードが
+「消費だけ拒否して、カスタム防具のアーマートリムなど正当な用途は通す」判断をしており、
+一律遮断へ足すとその判断ごと潰れる。
+
+**直し方は「変換先を用意する」ではなく「変換しない」。**「焼き圧縮ジャガイモ」を全ベース材質ぶん
+定義しないと成立せず、定義漏れがまた無言の喪失に化ける。
+
 ### ⚠️ `CrossPluginItemResolver` の既定解決順は「TFカタログ優先」── Ars 側にしか正しいPDCを刻めないIDは `external-source:` を明示しないと一生ソケット/挿入できない
 
 `items/catalog.yml` に Ars 側実体（`materials.yml`/`threads.yml` 等）と同じ id のエントリを置くと、

@@ -2952,6 +2952,71 @@ max-augments:
 
 ---
 
+### 実サーバ報告バッチ（2026-08-20 受領 第19陣。W-172）
+
+| ID | 内容 | 状態 |
+|---|---|---|
+| W-172 | 精錬魔法で圧縮ジャガイモを焼いたら、ただのベイクドポテトになった。**類似の不具合が他にもたくさんあるはず** | ✅ 修正済み（**未配備**。ArsPaper jar と TF jar の両方が要る） |
+
+#### W-172 「Material だけを見た変換」がカスタムアイテムの身元を消す — 5 経路を修正
+
+**報告の一件（真因）**: `SmeltEffect#smeltNearbyItems` は
+`SMELT_MAP.get(stack.getType())` の結果を **`item.setItemStack(new ItemStack(smelted, amount))`**
+で丸ごと差し替えていた。`SMELT_MAP` は `POTATO → BAKED_POTATO` を持ち、
+`potato_1x/2x/3x`（9/81/**729** 倍圧縮ジャガイモ）は全部 `base_material: POTATO` なので、
+**729 個ぶんがベイクドポテト 1 個に化ける**。CMD も PDC も表示名も消えるため
+「圧縮を戻して取り返す」こともできない完全な喪失で、ログにも例外にも一切出ない。
+
+**なぜ既存のガードで止まらなかったか**: かまど・醸造台・コンポスターへの搬入は
+2026-08-19（W-132）で `CustomItemListener` が塞いでいる。しかし**魔法はバニライベントを一切通らない**ので、
+その門の外側に居た。
+
+**「他にもたくさんある」を機械的に洗い出した**（`setItemStack` の全呼び出し／`Map<Material, Material>` の全定義／
+`.get(<stack>.getType())` の全呼び出しを TF 本体・ArsPaper・EliteMobs の 3 リポジトリで走査し、
+`materials.yml` の `base_material` 全 89 種と `items/catalog.yml` の `material` 全 72 種に突き合わせた）。
+**同じ形の穴は 5 経路**。TF カタログ品は `CatalogVanillaOperationGuardListener` が既に守っていて交わりは 0 件だったので、
+被害は全部 ArsPaper の `materials.yml` 素材側だった。
+
+| # | 経路 | 実害（ベース材質の重なり） | 修正 |
+|---|---|---|---|
+| 1 | **精錬魔法**（`SmeltEffect`） | `SMELT_MAP` の 20 キーが Ars 素材のベースと重なる（POTATO / BEEF / COD / SALMON / 各種原木 / STONE / SAND / NETHERRACK / QUARTZ_BLOCK …）。圧縮素材 **約 60 種**が対象 | 同一性を持つ品は変換しない |
+| 2 | **粉砕魔法**（`CrushEffect`） | `crush_map` の STONE / DEEPSLATE / QUARTZ_BLOCK / MELON が `stone_1x..5x` `deepslate_1x..4x` 等のベース | 同上 |
+| 3 | **石切台** | `stone_5x`（**59049 倍圧縮石**）を入れると石レンガ 1 個。STONE / DEEPSLATE / GRANITE / DIORITE / ANDESITE / END_STONE / QUARTZ_BLOCK / COPPER_BLOCK ベースの **32 種** | 搬入と選択の両方を遮断 |
+| 4 | **製図台** | `base_material: PAPER` の**ガチャ券 8 種**（`gacha_ticket_*`）を地図の拡張で食う | 同上 |
+| 5 | **ビーコン支払い / ピグリンの物々交換** | `abyssal_ingot`(NETHERITE_INGOT) / `core_jewelry`(EMERALD) / `heavy_metal`・`pillager_plate`(IRON_INGOT) / `piglin_brute_plate`(GOLD_INGOT) | 支払いスロットとピグリンの拾得を遮断 |
+
+**方針は「変換先を用意する」ではなく「変換しない」**。「焼き圧縮ジャガイモ」を全ベース材質ぶん定義しないと成立せず、
+定義漏れがまた無言の喪失に化けるため。素の採掘/モブドロップは `ItemMeta` を持たないので判定に掛からず、
+**「バニラの石を焼いて滑らかな石にする」といった本来の用途は一切狭まらない**。
+
+- **判定は 1 箇所へ集約**: `PdcHelper#hasProtectedIdentity`（Ars の `custom_item_id` → TF の `catalog_id` →
+  CustomModelData の順に見る）。魔法側は `CustomItemConversionPolicy` を通す。
+  **TF カタログ品もここで守る** —— 魔法は TF 本体のガードを通らないので、ここで守らないと誰も守らない。
+- **金床 / 砥石 / 鍛冶台はあえて遮断集合に入れていない**。専用の `Prepare*` ガードが
+  「消費だけ拒否して、カスタム防具のアーマートリムなど正当な用途は通す」判断をしており、
+  一律遮断へ足すとその判断ごと潰れる（テスト `dedicatedlyGuardedStationsStayOut` で固定した）。
+- **ついでに塞いだ潜在穴**: TF の `VanillaItemRemover` は `trinityforge:` PDC しか保護対象にしておらず、
+  `removed-vanilla-items` に **Material を 1 つ足した瞬間**、そのベース材質を使う Ars 素材が全部消える状態だった
+  （現在の設定は `ANY:MENDING` だけなので未発火）。`arspaper:` namespace も保護へ加えた。
+  **エンチャント剥がし側はこの保護を通らない設計**なので、Ars 装備の修繕除去などの既存挙動は変わらない
+  （`arsPaperCustomItemsStillLoseStrippedEnchants` で固定）。
+
+**検証**:
+- ArsPaper フォーク **473 件・失敗 0・skip 0**（+11 件）。
+  `CustomItemConversionPolicy` の保護を外すと `customItemsAreNeverConverted` が落ちることを実走確認。
+- TF 本体 **4445 件・失敗 26・skip 2**。26 件は**すべて他セッションの未コミット yml 由来**で、
+  触った領域は 1 件も含まない。`arspaper` 判定を消すと `arsPaperCustomItemsAreNeverRemovedEvenIfMaterialMatches`
+  が落ちることを実走確認。
+- **⚠ 未実施（ユーザー作業）: ArsPaper jar と TF jar の配備＋サーバ再起動。**
+
+**残っている取りこぼし（意図的に未対応）**:
+- **ブロック側の変換**（`SmeltEffect#applyToBlock` / `CrushEffect#crushBlock` / `ExchangeEffect`）は未対応。
+  Ars のカスタムブロックは `DECORATED_POT`（ソースジャー）と `BEACON`（ウェイストーン）で、
+  どの変換表にも載っていないため現状は無害。**変換表に足すときはここを思い出すこと。**
+- 圧縮素材を「圧縮のまま焼く/切る」機能は作っていない。欲しければ別途仕様の判断が要る。
+
+---
+
 ## 4. 既知の未修正の問題・弱点
 
 いずれも**意図的に許容している**か、**直すには判断が要る**もの。新規に見つけたバグはここへ足す。

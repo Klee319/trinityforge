@@ -249,6 +249,9 @@ public final class VanillaItemRemover {
         return false;
     }
 
+    /** ArsPaper フォークの PDC 名前空間(型依存を作らないよう文字列で持つ)。 */
+    private static final String ARSPAPER_NAMESPACE = "arspaper";
+
     private boolean isTfCatalogItem(ItemStack stack) {
         if (!stack.hasItemMeta()) {
             return false;
@@ -260,9 +263,18 @@ public final class VanillaItemRemover {
         }
         // 条件2: trinityforge namespace の PDC キーを1つでも持てば TF品(未刻印でも owner/coating/
         // XP瓶量などの単独状態を持つ改変バニラ品を守る)。
+        //
+        // 2026-08-20 W-172: arspaper namespace も同じ扱いにする。ここは Material 一致だけで
+        // 「アイテムごと消す」判定なので、removed-vanilla-items に Material を1つ足した瞬間、
+        // そのベース材質を使う materials.yml 素材(圧縮素材・ガチャ券など)が全部消えていた
+        // (stone_5x のベースは STONE)。名前空間の文字列比較だけなので TF が Ars のクラスへ
+        // 依存することはない(依存の向きは Ars → TF の一方通行)。エンチャント剥がし側は
+        // この保護を通らない設計なので、Ars 装備の修繕除去などの既存挙動は変わらない
+        // ({@link #sanitize} の javadoc)。
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
         for (NamespacedKey key : pdc.getKeys()) {
-            if (PdcKeys.NAMESPACE.equals(key.getNamespace())) {
+            if (PdcKeys.NAMESPACE.equals(key.getNamespace())
+                    || ARSPAPER_NAMESPACE.equals(key.getNamespace())) {
                 return true;
             }
         }

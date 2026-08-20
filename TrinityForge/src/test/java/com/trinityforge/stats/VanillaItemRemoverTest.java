@@ -370,6 +370,49 @@ class VanillaItemRemoverTest {
         assertFalse(remover.shouldRemove(stack));
     }
 
+    /**
+     * ArsPaper の {@code materials.yml} 素材(圧縮素材・ガチャ券など)も、材質禁止での丸ごと削除からは守る
+     * (2026-08-20 W-172)。
+     *
+     * <p>ここは Material 一致だけで「アイテムごと消す」判定なので、{@code removed-vanilla-items} に
+     * Material を1つ足した瞬間、そのベース材質を使う Ars 素材が全部消えていた
+     * ({@code stone_5x} のベースは {@code STONE})。
+     */
+    @Test
+    void arsPaperCustomItemsAreNeverRemovedEvenIfMaterialMatches() {
+        VanillaItemRemover remover = new VanillaItemRemover();
+        remover.updateTargets(List.of("STONE"), LOG);
+
+        ItemStack stack = new ItemStack(Material.STONE);
+        ItemMeta meta = stack.getItemMeta();
+        meta.getPersistentDataContainer().set(
+                new NamespacedKey("arspaper", "custom_item_id"), PersistentDataType.STRING, "stone_5x");
+        stack.setItemMeta(meta);
+
+        assertFalse(remover.shouldRemove(stack),
+                "59049倍圧縮石が materials.yml 由来と分からず丸ごと消える(W-172)");
+    }
+
+    /**
+     * ただしエンチャント剥がしは Ars 品でも従来どおり効く。保護を広げすぎると、
+     * {@code ANY:MENDING} で全体から修繕を消しているのに Ars 装備だけ残る、という別の穴になる。
+     */
+    @Test
+    void arsPaperCustomItemsStillLoseStrippedEnchants() {
+        VanillaItemRemover remover = new VanillaItemRemover();
+        remover.updateTargets(List.of("ANY:mending"), LOG);
+
+        ItemStack stack = new ItemStack(Material.DIAMOND_CHESTPLATE);
+        ItemMeta meta = stack.getItemMeta();
+        meta.addEnchant(Enchantment.MENDING, 1, true);
+        meta.getPersistentDataContainer().set(
+                new NamespacedKey("arspaper", "custom_item_id"), PersistentDataType.STRING, "mage_chestplate");
+        stack.setItemMeta(meta);
+
+        assertEquals(VanillaItemRemover.Verdict.STRIPPED, remover.sanitize(stack));
+        assertFalse(stack.getItemMeta().hasEnchant(Enchantment.MENDING));
+    }
+
     private static ItemStack enchantedBook(Enchantment enchant, int level) {
         ItemStack stack = new ItemStack(Material.ENCHANTED_BOOK);
         ItemMeta meta = stack.getItemMeta();
