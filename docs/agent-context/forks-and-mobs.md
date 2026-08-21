@@ -1590,6 +1590,59 @@ Lv100 帯の最良防具（バニラ系）の **魔法守備は 3.9・魔法耐�
 **「魔法が痛い」の答えは装備ではなくスキルツリー**なので、
 魔法寄りのダンジョン（`magic-ratio: 0.45`）を新設するときはこの前提で数値を見ること。
 
+## EliteMobs の lua パワー — 「直したのに効かない」の常連（2026-08-21）
+
+### 既定 lua は **一度しか書かれない**
+
+`LuaPowersConfig#initialize` は `if (!file.exists())` の中でしか
+`Files.writeString(file, luaPowersConfigFields.getSource())` を呼ばない。つまり:
+
+- **フォークの `getSource()` を直して jar を入れ替えても、既に `.lua` があるサーバは永久にそのまま。**
+  ArsPaper の `saveResource(..., false)`（`arspaper-config-saveresource-false-never-updates`）と同じ形。
+- 裏返すと、**配備先の `.lua` を直接書き換えれば EliteMobs に戻されることもない**。
+  1ファイル直すだけでそのパワーを持つ全モブに効く。
+
+配備先は `plugins/EliteMobs/powers/*.lua`（2026-08-21 時点で 68 本）。
+モブ側の yml は `- invulnerability_arrow.yml` のように **`.yml` 付き**で参照するが、
+実体は同名の `.lua`。
+
+**⚠️ BOM を付けないこと。** lua パーサは先頭の BOM を弾く。PowerShell の `>` と
+`Set-Content -Encoding utf8` は BOM を付けるので、`[System.IO.File]::WriteAllText` +
+`UTF8Encoding($false)` で書く（`powershell-redirect-bom-breaks-yaml` と同根）。
+
+### `invulnerability_arrow` = 矢が「跳ね返る」の正体
+
+出荷の中身は実質1行:
+
+```lua
+if context.event.damage_cause == "PROJECTILE" then context.event.cancel_event() end
+```
+
+EliteMobs は `EliteMobDamagedByPlayerEvent` がキャンセルされると
+**生の `EntityDamageByEntityEvent` ごと `setCancelled(true)` する**。
+すると バニラの `LivingEntity#hurt` が false を返し、`AbstractArrow` が矢の速度を反転させる
+—— プレイヤーから見た症状は「**矢が敵に跳ね返される**」。
+**当たっていないのではなく、当たってから無効化されている**（散り・命中率の問題ではない）。
+
+- 出荷ダンジョンの **92 体**がこのパワーを持つ（`custombosses/` を grep）。
+  ダークカテドラルは**ボス全フェーズ・全雑魚・ミニボスが無条件**なので弓は完全に無力だった。
+- `difficultyID: [1, 2]` 付きで書かれている個体もある（難易度0では矢が通る）。
+- **切り分けはログの死亡メッセージが速い**: 矢での撃破は `was shot by`、
+  弓で殴った近接死は `was slain by ... using [弓]`。後者しか出ていなければ矢は通っていない。
+- 2026-08-21 にユーザー判断で**廃止**した。差し替えは
+  `ops/scripts/apply-elitemobs-arrow-invulnerability.ps1`（`-Restore` で戻せる）。
+  **パワーの定義自体は残す** —— 92 体の yml が参照しているので、消すと参照が壊れる。
+
+### lua から与ダメージを弄っても TF が上書きする
+
+イベントテーブルには `set_damage_amount` / `multiply_damage_amount` があるが、
+lua の listener は `@EventHandler`（**NORMAL**）で走るのに対し、
+フォークの `TrinityForgeCombatListener#onEliteDamagedByPlayer` は **HIGHEST** で
+`event.setDamage(vanillaBase)` を無条件に書き戻す。
+**＝ TF の戦闘委譲が有効な間、lua のダメージ加工は無言で捨てられる。**
+`cancel_event()` だけは（TF 側が `ignoreCancelled = true` なので）効く。
+「無効化ではなく減衰にする」たぐいの調整をしたいなら TF 側の改修が要る。
+
 ## 関連
 
 - [./combat.md](./combat.md)
