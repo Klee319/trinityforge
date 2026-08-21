@@ -2791,6 +2791,39 @@ reject が 1 件でもあるときは**消さずに前回の内容を残す**よ
 `Type` が増えた日に「何も足さないまま `added++` だけ回り、ログは N 件送ったと言う」。
 `default -> throw` を置いた（外側の `catch(Throwable)` が WARN を出してその起動の間だけ止める）。
 
+##### 初回配備で実際に落ちた（2026-08-21 15:04）— `added-recipes` で表が丸ごと NPE
+
+```
+[bedrock] 補正レシピ表の書き出しに失敗した(統合版のクラフト補正のみ無効になる)
+java.lang.NullPointerException: Cannot invoke "ItemTemplate.material()" because "template" is null
+    at BedrockRecipeExporter.forward(BedrockRecipeExporter.java:197)
+```
+
+`progression/crafting-features.yml` の `added-recipes` は**結果になるカタログエントリを持たない**ので、
+registrar は `template` を `null` にして `fixedResult` だけを載せる。これは
+`RegisteredRecipe` の javadoc に**明記されていた契約**（「結果スタックが要る呼び出し側は
+`template()` を直接使わず `resultOf()` を使うこと」）だが、書き出し側の `forward`/`reverse` が
+`template` を直に触っていた。**鍛冶台対応ではなく W-158 のクラフト表側（`aaed1a5`）の元からのバグ**で、
+この機構が本番で初めて走ったので露見した。
+
+**落ちるのは 1 件ではなく表そのもの**なので、統合版の補正が作業台も鍛冶台も全部無効になる。
+しかも出荷 `added-recipes` は **7 件とも `custom:` 素材（スクラップ→インゴット）**＝
+補正が最も要るレシピ群だった。
+
+**なぜテストが緑だったか**: 出荷カタログだけを通す `ShippedBedrockRecipeTableTest` は
+`added-recipes` を経由しない（registrar を通さず自前でエントリを組んでいる）。
+修正では「registrar に登録させてから書き出す」実経路のテストを 2 本足した
+（`CatalogRecipeRegistrarTest`。`fixedResult` に本物の `ItemStack` が要るので MockBukkit 側）。
+
+**実サーバの物証で分かったこと**（配備先 `plugins/TrinityForge/bedrock-recipes.json`、14 件）:
+
+- **鍛冶台 12 件は全部載っていた** ＝ `NetheriteUpgradeGuard` で登録を見送る 8 件も表へ出す
+  修正が実機で効いている（MockBukkit ではガードが空振りするので、これが初の実証）。
+- クラフト側は 2 件だけ。これは **TF の `onEnable` 時点（ArsPaper より前）の表**で、
+  `custom:` 素材が Ars 品を指すものは `PendingArsIngredient` で未登録、`added-recipes` も未登録。
+  ArsPaper enable 後の再書き出しが NPE で落ちたため、この不完全な表が残っていた。
+  修正後はクラフト側の件数が増える。
+
 ##### 配備順（重要）
 
 **GeyserExtra を TrinityForge より先に配備する。** TF は表を常に v2 で刻むので、
