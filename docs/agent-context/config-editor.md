@@ -1013,6 +1013,33 @@ CSS の `.stat-row > .value-cell { flex: 0 0 160px }` と `.value-cell .field-in
 - 適用先は `statSelect` を持つ**全て**のステ行: `forms.js`(item-stats 固定/品質別/ランダム・
   フォールバック・セット効果)、`ars-spellbooks.js`、`tf-skilltree.js`、`tf-lifestyle-forms.js`、`p5-forms.js`。
 
+## セット効果の乗算には「レイヤ選択」が要る（2026-08-22、W-186）
+
+「セット効果で乗算をONにした時にレイヤ指定ができない」という指摘。原因は UI ではなく、
+**レイヤという概念が editor / ArsPaper フォーク / TF 本体のどこにも無かった**こと
+（乗算は全部 `"addon"` という専用レイヤ1本へ固定で入っていた）。
+TF は「レイヤ内は Σ(v-1) を足し、レイヤ同士は掛ける」ので、装備側にも同じステの倍率があると
+**掛け算で二重に乗る**。詳細は `combat.md` の「乗算レイヤは…」節。
+
+editor 側で足したものは3つ:
+
+- `lib/schema.js` の `validateArsThreadSets` が `layer:` を受ける。
+  **空文字は弾く／加算モードに付いていたら弾く**（黙って無視されるキーを保存させない）。
+- `forms.js` の `renderThreadSetEffects` に `setEffectLayerSelect`。行の並びは item-stats と同じ
+  **`[ステ選択][値セル][加算/乗算][乗算レイヤ][×]`**。
+- 既定レイヤ定数 `SET_EFFECT_DEFAULT_LAYER = "addon"`。
+  **フォークの `ThreadSetConfig#DEFAULT_LAYER` / TF の `AddonCombatStats#MULTIPLIER_LAYER_ID` と
+  同じ文字列でなければならない**（ずれると「layer 未指定」の解釈だけが食い違う）。
+
+item-stats の `multLayerSelect` と違い、**未選択状態（`__unset__`）を作らない**。
+セット効果はレイヤ未定義のステでも乗算にできる（「セット効果専用」＝ `addon` へ落ちる）ので、
+行き止まりが存在しない ── item-stats 側は「このステ用のレイヤが無いと乗算ON自体を拒否」する alert があるが、
+こちらにその門は要らない。
+
+⚠️ **乗算の値を書き換えるコードは必ず `multiplyValue(delta, layer)` を通す。**
+`{ mode: "multiply", value }` を直書きすると `layer` が落ち、黙って専用レイヤ（＝装備側と掛け算）へ戻る。
+回帰は `test/thread-set-multiplier-layer-2026-08-22.test.js`（直書きが残っていないことを走査で固定）。
+
 ## 加算/乗算の切替は `modeToggleButton` に統一する（2026-08-22）
 
 同じ「加算か乗算か」が**3画面で3通り**に出ていた（item-stats とスキルツリーは**チェックボックス**、

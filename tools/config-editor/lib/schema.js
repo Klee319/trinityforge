@@ -1238,6 +1238,16 @@ function validateArsThreadSets(data, errors) {
             && String(val.mode) !== "multiply" && String(val.mode) !== "add") {
           errors.push(`thread-sets.${tname}.thresholds.${n}.${stat}.mode: "multiply" または "add" である必要があります`);
         }
+        // 2026-08-22(W-186): 乗算の合流先レイヤ。lore.yml の multiplier-layers の id
+        // (layer_1 等)を書くと装備側の同じレイヤの中で足し算になり、書かないと "addon" という
+        // セット効果専用レイヤに入って装備側とは掛け算になる。fork ThreadSetConfig が読む。
+        if (val.layer !== undefined && val.layer !== null) {
+          if (typeof val.layer !== "string" || !val.layer.trim()) {
+            errors.push(`thread-sets.${tname}.thresholds.${n}.${stat}.layer: 空でない文字列である必要があります`);
+          } else if (String(val.mode) !== "multiply") {
+            errors.push(`thread-sets.${tname}.thresholds.${n}.${stat}.layer: 乗算モード(mode: multiply)のときだけ指定できます`);
+          }
+        }
       }
     }
   }

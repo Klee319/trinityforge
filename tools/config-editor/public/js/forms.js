@@ -1915,6 +1915,28 @@
       // 操作感は旧 set-effects のものをそのまま流用し、書き込み先だけ
       // threadSetsRoot["thread-sets"][threadId].thresholds へ差し替えた。
       // threadSetsRoot が渡っていない画面(旧来の呼び出し経路)では何も描かない。
+      // 2026-08-22(W-186): セット効果の乗算にも合流先レイヤを持たせる。
+      // レイヤを名指ししない乗算は "addon" という専用レイヤに入り、装備側の同種倍率とは
+      // 【掛け算】になる(TF: レイヤ内は Σ(v-1) の足し算、レイヤ同士は積)。攻撃力%のように
+      // 装備側にも同じ倍率があるステはレイヤを合わせないと二重に乗る。
+      // 文字列 "addon" は fork の ThreadSetConfig#DEFAULT_LAYER / TF の
+      // AddonCombatStats#MULTIPLIER_LAYER_ID と一致していなければならない。
+      const SET_EFFECT_DEFAULT_LAYER = "addon";
+      /** セット効果1件の現在の乗算レイヤ(未指定は専用レイヤ)。 */
+      function setEffectLayerOf(val) {
+        const raw = val && typeof val === "object" ? val.layer : null;
+        return typeof raw === "string" && raw.trim() ? raw.trim() : SET_EFFECT_DEFAULT_LAYER;
+      }
+      /** 乗算をONにしたときの既定レイヤ: このステ用の定義済みレイヤがあればそれ、無ければ専用レイヤ。 */
+      function setEffectDefaultLayer(stat) {
+        const defs = layersForStatDef(stat);
+        return defs.length ? defs[0].id : SET_EFFECT_DEFAULT_LAYER;
+      }
+      /** 乗算の値を書き換えるときレイヤを落とさないための組み立て。 */
+      function multiplyValue(delta, layer) {
+        return { mode: "multiply", value: delta == null ? 0 : delta, layer: layer };
+      }
+
       function renderThreadSetEffects(tid) {
         if (!threadSetsRoot || !tid) return null;
         if (!threadSetsRoot["thread-sets"] || typeof threadSetsRoot["thread-sets"] !== "object") {
@@ -1934,6 +1956,50 @@
           title: "N個以上装備で発動する累積しきい値式のステータス。" }));
         const node = setsMap[tid] && typeof setsMap[tid] === "object" ? setsMap[tid] : null;
         const thresholds = node && node.thresholds && typeof node.thresholds === "object" ? node.thresholds : {};
+        /**
+         * 乗算レイヤの選択。候補は「このステが基準になっている定義済みレイヤ」＋「セット効果専用(addon)」。
+         * item-stats 側 (multLayerSelect) と違って未選択状態を作らない —— セット効果は
+         * レイヤ未定義のステでも乗算にできる(addon へ落ちる)ので、行き止まりが存在しない。
+         */
+        function setEffectLayerSelect(statsRef, statKey, current) {
+          const opts = layersForStatDef(statKey).map((l) => ({
+            value: l.id,
+            primary: l.name,
+            secondary: l.id !== l.name ? l.id : "",
+            title: `装備側の「${l.name}」と同じレイヤに合流します(レイヤ内は足し算)`
+          }));
+          opts.push({
+            value: SET_EFFECT_DEFAULT_LAYER,
+            primary: "セット効果専用",
+            secondary: SET_EFFECT_DEFAULT_LAYER,
+            title: "どの乗算レイヤにも属さない受け皿。装備側の倍率とは掛け算になります"
+          });
+          // 現在のレイヤがこのステ用の定義に無い(未定義 or 基準ステ不一致)場合も選択肢に残す。
+          if (!opts.some((o) => o.value === current)) {
+            const def = multiplierLayers().find((l) => l.id === current);
+            opts.push({
+              value: current,
+              primary: (def ? def.name : current) + " (このステ用の定義ではありません)",
+              secondary: current,
+              title: def
+                ? `レイヤ「${def.name}」の基準ステータスは ${def.stat || "(未設定)"} です。`
+                : "未定義のレイヤです。"
+            });
+          }
+          return window.listSelect({
+            value: current,
+            className: "mult-layer-select",
+            options: opts,
+            onCommit: (nv) => {
+              if (!nv || nv === current) return false;
+              const val = statsRef[statKey];
+              statsRef[statKey] = multiplyValue(
+                val && typeof val === "object" ? Number(val.value) || 0 : 0, nv);
+              render();
+              return true;
+            }
+          });
+        }
         const thrKeys = Object.keys(thresholds).sort((a, b) => Number(a) - Number(b));
         const thrRows = h("div", { class: "pedestal-rows" });
         if (thrKeys.length === 0) {
@@ -1972,17 +2038,19 @@
             const isMultiply = stats[st] != null && typeof stats[st] === "object"
               && String(stats[st].mode) === "multiply";
             const rawValue = isMultiply ? Number(stats[st].value) || 0 : stats[st];
+            const layerId = isMultiply ? setEffectLayerOf(stats[st]) : null;
             // 2026-08-22: プルダウンをやめ、item-stats / スキルツリーと同じ切替ボタンへ統一した。
             const modeToggle = window.modeToggleButton(isMultiply, (next) => {
               const current = isMultiply ? (Number(stats[st].value) || 0) : (Number(stats[st]) || 0);
-              stats[st] = next ? { mode: "multiply", value: current } : current;
+              // 乗算ONではレイヤも決める(未指定のまま保存すると装備側と掛け算になり二重に乗る)。
+              stats[st] = next ? multiplyValue(current, setEffectDefaultLayer(st)) : current;
               render();
             }, "加算 = 総合値へそのまま足す / 乗算 = 総合値へ割合で掛ける(攻撃力など帯で桁が変わるステはこちら)");
             const valueControl = isMultiply
               // 乗算は「倍率の増分」を保存する(0.1 = +10%)。しきい値をまたいで素直に足し合わせられる
               // 表現なので、fork 側の累積しきい値式とそのまま噛み合う。
               ? window.rateValueControl(rawValue, (v) => {
-                  stats[st] = { mode: "multiply", value: v == null ? 0 : v };
+                  stats[st] = multiplyValue(v, layerId);
                 }, { blankWhenEmpty: false })
               // 2026-08-12: 素の numberInput だと %ステ(dodge-chance 等)が割合のまま
               // 「0.03」と出て単位も付かなかった(statUnitSlot は %ステに空スロットを返す。
@@ -1997,10 +2065,11 @@
                 render();
                 return true;
               }),
-              // 並びは item-stats / スキルツリーと同じ [ステ選択][値セル][加算/乗算][×]。
+              // 並びは item-stats / スキルツリーと同じ [ステ選択][値セル][加算/乗算][乗算レイヤ][×]。
               window.valueCell(valueControl,
                 isMultiply ? h("span", { class: "unit-suffix unit-slot", text: "", title: "" }) : window.statUnitSlot(st)),
               modeToggle,
+              isMultiply ? setEffectLayerSelect(stats, st, layerId) : null,
               h("button", {
                 class: "btn-small danger", type: "button", text: "×",
                 onclick: () => { delete stats[st]; pruneNode(); render(); }

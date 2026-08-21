@@ -64,26 +64,35 @@ public final class AddonCombatStats {
             return out;
         }
         for (String token : raw.split(";")) {
-            int eq = token.indexOf('=');
-            if (eq <= 0) {
-                continue;
-            }
-            String key = token.substring(0, eq).trim();
-            if (key.isEmpty()) {
-                continue;
-            }
-            double value;
-            try {
-                value = Double.parseDouble(token.substring(eq + 1).trim());
-            } catch (NumberFormatException notNumeric) {
-                continue;
-            }
-            if (!Double.isFinite(value) || value == 0.0) {
-                continue;
-            }
-            out.merge(StatKeys.canonical(key), value, Double::sum);
+            putToken(out, token);
         }
         return out;
+    }
+
+    /**
+     * 1トークン({@code "key=value"})を解釈して {@code into} へ足す。壊れたトークン(= が無い、キーが
+     * 空、数値でない、非有限、ゼロ)は黙って捨てる —— 1件の破損で残り全部を落とさないため。
+     * {@link #parse} と {@link #parseLayered} でトークンの解釈規則を共有するための切り出し。
+     */
+    private static void putToken(Map<String, Double> into, String token) {
+        int eq = token.indexOf('=');
+        if (eq <= 0) {
+            return;
+        }
+        String key = token.substring(0, eq).trim();
+        if (key.isEmpty()) {
+            return;
+        }
+        double value;
+        try {
+            value = Double.parseDouble(token.substring(eq + 1).trim());
+        } catch (NumberFormatException notNumeric) {
+            return;
+        }
+        if (!Double.isFinite(value) || value == 0.0) {
+            return;
+        }
+        into.merge(StatKeys.canonical(key), value, Double::sum);
     }
 
     /**
@@ -107,20 +116,94 @@ public final class AddonCombatStats {
     }
 
     /**
-     * 乗算レイヤのレイヤID。{@code PlayerCombatAggregate} は「レイヤ内は Σ(v-1) を合算し、
-     * レイヤ同士は乗算」するので、アドオン由来の倍率を1レイヤに束ねるための固定ID。
+     * 乗算レイヤの<b>既定</b>レイヤID。{@code PlayerCombatAggregate} は「レイヤ内は Σ(v-1) を合算し、
+     * レイヤ同士は乗算」する。{@code thread-sets.yml} の乗算ステが {@code layer:} を書かなかったときの
+     * 受け皿で、どのレイヤにも属さない倍率をここ1本に束ねる。
+     *
+     * <p><b>2026-08-22(W-186)まではアドオン倍率が全部このIDへ固定で入っていた。</b>
+     * 現在は {@code layer:} で {@code stats/lore.yml} の {@code multiplier-layers}(layer_1 など)を
+     * 名指しでき、名指しした倍率は装備側の同レイヤと<b>同じレイヤの中で加算合流</b>する
+     * (別レイヤ扱いの掛け算にはならない)。スレッドと装備の攻撃力%が二重に乗るのを避けるための変更。
      */
     public static final String MULTIPLIER_LAYER_ID = "addon";
 
     /**
-     * The player's addon <b>multiplier</b> contribution (empty when unset or blank): canonical stat key
-     * → 倍率の増分(0.1 = +10%)。{@link PdcKeys#PLAYER_ADDON_COMBAT_MULTIPLIERS} を {@link #parse} で
-     * 読むだけなので、コーデックは加算チャネルと完全に共通。Never throws。
-     *
-     * <p>加算チャネル({@link #read})と違い、この値は総合値へ<b>掛かる</b>。フォークが
-     * {@code thread-sets.yml} の {@code mode: multiply} を集計してここへ書く。
+     * レイヤIDとステキーの区切り文字。{@code "layer_1@attack-power=0.25"}。
+     * canonical なステキー(英小文字とハイフン)にもレイヤID(英数字とアンダースコア)にも現れない。
      */
-    public static Map<String, Double> readMultipliers(Player player) {
+    private static final char LAYER_SEPARATOR = '@';
+
+    /**
+     * レイヤ付き倍率マップ(レイヤID → canonicalステキー → 倍率の<b>増分</b>。0.1 = +10%)を
+     * {@code "layer@key=value;layer@key=value"} へ符号化する。ゼロ・非有限値を捨てる規則は
+     * {@link #encode} と同じ。レイヤIDが null/空白なら {@link #MULTIPLIER_LAYER_ID} を使う。
+     */
+    public static String encodeLayered(Map<String, Map<String, Double>> byLayer) {
+        StringBuilder out = new StringBuilder();
+        if (byLayer == null) {
+            return "";
+        }
+        for (Map.Entry<String, Map<String, Double>> layer : byLayer.entrySet()) {
+            if (layer.getValue() == null) {
+                continue;
+            }
+            String layerId = layer.getKey() == null || layer.getKey().isBlank()
+                    ? MULTIPLIER_LAYER_ID : layer.getKey().trim();
+            for (Map.Entry<String, Double> entry : layer.getValue().entrySet()) {
+                double value = entry.getValue() == null ? 0.0 : entry.getValue();
+                if (value == 0.0 || !Double.isFinite(value)) {
+                    continue;
+                }
+                if (out.length() > 0) {
+                    out.append(';');
+                }
+                out.append(layerId).append(LAYER_SEPARATOR)
+                        .append(StatKeys.canonical(entry.getKey())).append('=').append(value);
+            }
+        }
+        return out.toString();
+    }
+
+    /**
+     * {@link #encodeLayered} の逆。壊れたトークンは1件ずつ捨て、全体は落とさない。
+     *
+     * <p><b>{@code @} を含まないトークンは {@link #MULTIPLIER_LAYER_ID} へ落とす。</b>
+     * PDC はサーバ再起動をまたいでプレイヤーに残るので、レイヤ導入前(2026-08-22 以前)に書かれた
+     * {@code "key=value"} 形式をそのまま読めないと、古い値を持ったままのプレイヤーだけ倍率が
+     * 無言で消える。フォークが次に装備を再計算した時点で新形式へ上書きされる。
+     */
+    public static Map<String, Map<String, Double>> parseLayered(String raw) {
+        Map<String, Map<String, Double>> out = new LinkedHashMap<>();
+        if (raw == null || raw.isBlank()) {
+            return out;
+        }
+        for (String token : raw.split(";")) {
+            int at = token.indexOf(LAYER_SEPARATOR);
+            String layerId = MULTIPLIER_LAYER_ID;
+            String rest = token;
+            if (at >= 0) {
+                String head = token.substring(0, at).trim();
+                if (!head.isEmpty()) {
+                    layerId = head;
+                }
+                rest = token.substring(at + 1);
+            }
+            Map<String, Double> layer = out.computeIfAbsent(layerId, k -> new LinkedHashMap<>());
+            putToken(layer, rest);
+        }
+        out.values().removeIf(Map::isEmpty);
+        return out;
+    }
+
+    /**
+     * The player's addon <b>multiplier</b> contribution (empty when unset or blank):
+     * レイヤID → canonicalステキー → 倍率の増分(0.1 = +10%)。
+     * {@link PdcKeys#PLAYER_ADDON_COMBAT_MULTIPLIERS} を {@link #parseLayered} で読む。Never throws。
+     *
+     * <p>加算チャネル({@link #read})と違い、この値は加算合算が終わった総合値へ<b>掛かる</b>。
+     * フォークが {@code thread-sets.yml} の {@code mode: multiply} を集計してここへ書く。
+     */
+    public static Map<String, Map<String, Double>> readLayeredMultipliers(Player player) {
         if (player == null) {
             return Map.of();
         }
@@ -131,6 +214,6 @@ public final class AddonCombatStats {
         } catch (RuntimeException wrongTypeStored) {
             return Map.of();
         }
-        return parse(raw);
+        return parseLayered(raw);
     }
 }

@@ -44,6 +44,39 @@
 - **防御率（`defense-rate`）は 2026-08-15 に一本化された。** それ以前はアイテム側だけ `armor-defense-rate`（バニラ防具値の点数）で書き、`Attribute.ARMOR` へ写像して同じミラーから読み戻していたが、「防具値は直感的でない」というユーザー判断で防具値ステを廃止し、**1点=1.5%軽減（`combat/damage.yml` の `vanilla-armor.defense-rate-per-point`）で換算して `defense-rate` へ統合**した。いまは `DefenseStatBridge` が他の防御ステと同様この率を直接読む。**TFスタンプ装備の `Attribute.ARMOR` は `AttributeApplier` が材質既定ごと常に抑止する（＝防具バーは常に空）** ので、ミラー寄与は0でありTFの防御率と二重計上にならない。ミラー自体は素のバニラ防具（TF未スタンプ）用に残してある。
 - 属性系ステ（max-health 等）だけは item マップがバニラ属性へ自動反映されないので、`PerkAttributeApplier.apply()` が `channelOf==ATTRIBUTE` のものだけを Attribute へ merge する。ここが Haste 等の他プラグインと衝突しないよう「ライブ属性値を一切読まない」設計になっている（読むと相殺事故を起こす）。
 
+### 乗算レイヤは「レイヤ内は足し算・レイヤ同士は掛け算」── アドオンの倍率もレイヤを名乗る（2026-08-22、W-186）
+
+`PlayerCombatAggregate#multiplierFor(key)` は **Π over layers of (1 + Σ(v-1))**。
+つまり**同じレイヤに入れた倍率は足され、別レイヤに入れた倍率は掛かる**。
+レイヤの定義は `stats/lore.yml` の `multiplier-layers`（`{id, name, stat}`。**1レイヤ＝1基準ステ**で、
+現行は `layer_1:attack-power` / `layer_2:bleed-damage` / `layer_3:fixed-damage` / `layer_4:bleed-damage-rate`）。
+
+供給源は3つあり、**全部が同じレイヤ空間を共有している**:
+
+| 供給源 | 入口 | レイヤの決まり方 |
+|---|---|---|
+| 装備（item-stats） | `DerivedItemStats.resolveMultipliers` | `multipliers.<layer>.<section>.<stat>` のキーそのもの |
+| スキルツリーのパーク | `PerkBuffResolver` | パーク定義の乗算レイヤ（基準ステ不一致は**無言で捨てられる**） |
+| アドオン（ArsPaper のスレッドのセット効果） | `AddonCombatStats.readLayeredMultipliers` → `PlayerStatAggregator` | **PDC が持つレイヤID**（`thread-sets.yml` の `layer:`） |
+
+⚠️ **2026-08-22 まで、アドオン由来の倍率は `AddonCombatStats.MULTIPLIER_LAYER_ID`（`"addon"`）へ
+固定で入っていた。** 装備側にも同じステの倍率がある場合（攻撃力%）、別レイヤ扱い＝**掛け算で二重に乗る**。
+出荷 `thread-sets.yml` の攻撃力%13件がこの状態だった（装備 ×1.20 × スレッド ×1.25 = ×1.50。
+同レイヤなら ×1.45）。W-186 で `thread-sets.yml` に `layer:` を足し、13件を `layer_1` へ寄せた。
+
+- PDC の乗算チャネル（`PdcKeys#PLAYER_ADDON_COMBAT_MULTIPLIERS`）の書式は
+  **`"layer@key=value;layer@key=value"`**（値は倍率の**増分**。0.1 = +10%）。
+  コーデックは `AddonCombatStats#encodeLayered`/`#parseLayered` で、フォークは TF jar 越しに同じものを呼ぶ。
+- **`@` を含まないトークンは `"addon"` へ落とす（後方互換）。** PDC はサーバ再起動をまたいで
+  プレイヤーに残るので、旧形式を捨てると更新直後に再ログインしていないプレイヤーだけ倍率が無言で消える。
+- レイヤIDは合算側では**ただのグループキー**で、`lore.yml` に実在するかの検証はしていない
+  （存在しないIDを書くと「自分専用の1レイヤ」＝掛け算になる。エラーもログも出ない）。
+  出荷 yml については ArsPaper の `ThreadSetMultiplierLayerTest` が
+  「実在するレイヤを、基準ステが一致する形で名指ししているか」を固定している。
+- lore 表示も同じレイヤIDを使う（`LoreComposer#appendMultiplierLines`）。
+  **未定義のIDだと `[レイヤ名]` の括弧が出ない**ので、`x1.25` だけの行になっていたら
+  レイヤの書き忘れを疑う。`layer_1` を名乗ると装備と同じ `x1.25 [攻撃力％]` になる。
+
 ### ⚠️ オフハンドの規則は「持っているだけ」と「実際に使った」で別（2026-08-13 確定）
 
 `aggregate(Player, ItemStack mainhandContributor, boolean contributorIsOffhand)` の**寄与アイテム
