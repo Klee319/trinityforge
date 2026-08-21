@@ -408,6 +408,85 @@ class FarmingHarvestListenerTest {
         org.mockito.Mockito.verify(event, org.mockito.Mockito.never()).setDropItems(false);
     }
 
+    // --- 2026-08-22 ユーザー報告「クワで一括収穫時に耐久値が減らない」 ---
+
+    /** メインハンドの道具に溜まっているダメージ。 */
+    private int heldToolDamage() {
+        ItemStack held = player.getInventory().getItemInMainHand();
+        return held == null || held.getType().isAir()
+                ? -1
+                : ((org.bukkit.inventory.meta.Damageable) held.getItemMeta()).getDamage();
+    }
+
+    private void setHeldToolDamage(int damage) {
+        ItemStack held = player.getInventory().getItemInMainHand();
+        org.bukkit.inventory.meta.Damageable meta =
+                (org.bukkit.inventory.meta.Damageable) held.getItemMeta();
+        meta.setDamage(damage);
+        held.setItemMeta((org.bukkit.inventory.meta.ItemMeta) meta);
+        player.getInventory().setItemInMainHand(held);
+    }
+
+    /**
+     * 範囲収穫は<b>刈った枚数ぶん</b>鍬の耐久を取る。
+     *
+     * <p>2026-08-22 まで意図的に0だった(「作物は硬度0なのでバニラでも鍬は減らない」)。
+     * だが範囲収穫は1マスぶんの手間でNマスを刈るものなので、バニラ基準を根拠にすると
+     * Nが増えるほど得になるだけで歯止めが無い。一括伐採/一括採掘と同じ「1マス1点」へ揃える。
+     *
+     * <p><b>起点は数えない</b> ── 起点を壊すのはバニラ({@link BlockBreakEvent} の発火元)で、
+     * 作物は硬度0なのでバニラが0を取る。TFが自分で壊す隣接マスぶんだけを取る。
+     */
+    @Test
+    void areaHarvestConsumesOneDurabilityPerHarvestedNeighbor() {
+        stubAreaHarvest(false);
+        Block origin = matureWheat(player, 0, 0);
+        matureWheat(player, 1, 0);
+        matureWheat(player, 0, 1);
+        matureWheat(player, 1, 1);
+        // 半径1の残り5マスは空のまま = 刈られないので耐久も取られない。
+
+        listener(mock(ChainBreakExpGrant.class)).onBlockBreak(breakEvent(origin));
+
+        assertEquals(3, heldToolDamage(), "刈った隣接3マスぶんだけ耐久が減ること");
+    }
+
+    /** 鍬が途中で壊れたら、そこで収穫を打ち切る(バニラで道具が壊れたときと同じ)。 */
+    @Test
+    void areaHarvestStopsWhenTheHoeBreaksMidway() {
+        stubAreaHarvest(false);
+        int maxDurability = Material.DIAMOND_HOE.getMaxDurability();
+        setHeldToolDamage(maxDurability - 1); // あと1回で壊れる
+        Block origin = matureWheat(player, 0, 0);
+        List<Block> neighbors = List.of(
+                matureWheat(player, 1, 0), matureWheat(player, 0, 1), matureWheat(player, 1, 1),
+                matureWheat(player, -1, 0), matureWheat(player, 0, -1), matureWheat(player, -1, -1),
+                matureWheat(player, 1, -1), matureWheat(player, -1, 1));
+
+        listener(mock(ChainBreakExpGrant.class)).onBlockBreak(breakEvent(origin));
+
+        assertTrue(player.getInventory().getItemInMainHand().getType().isAir(), "鍬が壊れて消えること");
+        long harvested = neighbors.stream().filter(b -> b.getType() == Material.AIR).count();
+        assertEquals(1L, harvested, "壊れた時点で打ち切ること(残り7マスは刈られない)");
+    }
+
+    /**
+     * 材質を問わず「1マス1点」。消費の可否判定は {@code ChainBreakSupport.toolConsumesDurability} に
+     * 一本化してあるので、クリエイティブ/素手/耐久を持たない材質が除外されるのも一括伐採と同じ規則。
+     */
+    @Test
+    void areaHarvestTakesOnePointPerTileFromAnyDamageableHoe() {
+        player.getInventory().setItemInMainHand(new ItemStack(Material.WOODEN_HOE));
+        stubAreaHarvest(false);
+        Block origin = matureWheat(player, 0, 0);
+        Block neighbor = matureWheat(player, 1, 0);
+
+        listener(mock(ChainBreakExpGrant.class)).onBlockBreak(breakEvent(origin));
+
+        assertEquals(Material.AIR, neighbor.getType(), "前提: 木の鍬でも範囲収穫は起きる");
+        assertEquals(1, heldToolDamage(), "耐久を持つ材質なら材質を問わず1マス1点");
+    }
+
     private static final class IgnoredCancelledMonitor implements Listener {
         private int calls;
 

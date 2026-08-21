@@ -205,6 +205,27 @@ public final class ChainBreakSupport {
     }
 
     /**
+     * この道具で「連鎖1回ぶんの耐久」を取ってよいか(クリエイティブ / 素手 / 耐久を持たない材質は false)。
+     *
+     * <p>{@link #breakChain} を使わずに自前でブロックを壊す経路
+     * ({@code FarmingHarvestListener} の範囲収穫)へ<b>同じ耐久モデルを配るための入口</b>。
+     * 判定と消費を別々に書き写すと、W-173 の {@code isUnbreakable()} 漏れのような穴が
+     * 経路ごとに再発する。
+     */
+    public static boolean toolConsumesDurability(Player player, ItemStack tool) {
+        return consumesDurability(player, tool);
+    }
+
+    /**
+     * メインハンドの道具の耐久を1消費する。詳細と設計理由は {@link #damageHeldTool}。
+     *
+     * @return 破壊(収穫)を続けてよければ true(道具が壊れたら false)
+     */
+    public static boolean damageHeldToolOnce(Player player) {
+        return damageHeldTool(player);
+    }
+
+    /**
      * メインハンドの道具を1減らす。バニラの道具と同じく耐久力(UNBREAKING)エンチャントの
      * {@code 1/(L+1)} 判定を通し、上限に達したら破壊する。
      *

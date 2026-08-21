@@ -666,6 +666,9 @@ public final class TrinityForge extends JavaPlugin {
         // 2026-08-19 W-148: 魔法の討伐EXPにも武器・弓術と同じ足きりを掛ける。ここを外すと
         // 「同じモブを倒しても魔法だけ満額で入る」非対称が戻る(実サーバ報告の症状そのもの)。
         arsMagicExperienceListener.setKillRewardAdjuster(killRewardAdjuster);
+        // 2026-08-22: 防具の被弾EXPにも同じ足きりを掛ける(比較相手は「殴ってきた敵のレベル」)。
+        // ここを外すと、格上モブに殴られるだけで防具EXPだけが満額入る非対称が戻る。
+        nativeSkillExperienceListener.setKillRewardAdjuster(killRewardAdjuster);
         getServer().getPluginManager().registerEvents(combatListener, this);
 
         // Aggro/threat tracking (gap C5). The service owns a bounded, self-evicting HateTable and

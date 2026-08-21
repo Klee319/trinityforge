@@ -7766,12 +7766,14 @@ items:
       source-cost-reduction: 0.03
       thread-slots: 1
       item-cooldown: 4
+      durability: 35
     per-quality:
       attack-power: 3.26
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
       mana-bonus: 1
+      durability: 6
     use-level-requirement: 0
     use-skill: ARS_MAGIC
     quality-mode-offset: 0
@@ -7803,12 +7805,14 @@ items:
       source-cost-reduction: 0.05
       thread-slots: 1
       item-cooldown: 4
+      durability: 78
     per-quality:
       attack-power: 5.56
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
       mana-bonus: 1
+      durability: 13
     use-level-requirement: 5
     use-skill: ARS_MAGIC
     quality-mode-offset: -1
@@ -7840,12 +7844,14 @@ items:
       source-cost-reduction: 0.07
       thread-slots: 1
       item-cooldown: 4
+      durability: 114
     per-quality:
       attack-power: 6.55
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
       mana-bonus: 1
+      durability: 19
     use-level-requirement: 15
     use-skill: ARS_MAGIC
     quality-mode-offset: -2
@@ -7877,12 +7883,14 @@ items:
       source-cost-reduction: 0.09
       thread-slots: 1
       item-cooldown: 4
+      durability: 150
     per-quality:
       attack-power: 15.48
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
       mana-bonus: 1
+      durability: 25
     use-level-requirement: 25
     use-skill: ARS_MAGIC
     quality-mode-offset: -3
@@ -7914,12 +7922,14 @@ items:
       source-cost-reduction: 0.11
       thread-slots: 1
       item-cooldown: 4
+      durability: 19
     per-quality:
       attack-power: 31.5
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
       mana-bonus: 1
+      durability: 3
     use-level-requirement: 35
     use-skill: ARS_MAGIC
     quality-mode-offset: -4
@@ -7951,12 +7961,14 @@ items:
       source-cost-reduction: 0.14
       thread-slots: 1
       item-cooldown: 4
+      durability: 936
     per-quality:
       attack-power: 65.56
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
       mana-bonus: 3
+      durability: 156
     use-level-requirement: 45
     use-skill: ARS_MAGIC
     quality-mode-offset: -5
@@ -7988,12 +8000,14 @@ items:
       source-cost-reduction: 0.17
       thread-slots: 1
       item-cooldown: 4
+      durability: 1218
     per-quality:
       attack-power: 195.46
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
       mana-bonus: 10
+      durability: 203
     use-level-requirement: 60
     use-skill: ARS_MAGIC
     quality-mode-offset: -6
@@ -8025,12 +8039,14 @@ items:
       source-cost-reduction: 0.23
       thread-slots: 1
       item-cooldown: 4
+      durability: 3654
     per-quality:
       attack-power: 1919.53
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
       mana-bonus: 100
+      durability: 609
     use-level-requirement: 100
     use-skill: ARS_MAGIC
     quality-mode-offset: -8
@@ -8062,12 +8078,14 @@ items:
       source-cost-reduction: 0.23
       thread-slots: 3
       item-cooldown: 4
+      durability: 3654
     per-quality:
       attack-power: 1202.13
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
       mana-bonus: 62
+      durability: 609
     use-level-requirement: 100
     use-skill: ARS_MAGIC
     quality-mode-offset: -8
@@ -8099,12 +8117,14 @@ items:
       source-cost-reduction: 0.2
       thread-slots: 2
       item-cooldown: 4
+      durability: 3654
     per-quality:
       attack-power: 647.86
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
       mana-bonus: 33
+      durability: 609
     use-level-requirement: 80
     use-skill: ARS_MAGIC
     quality-mode-offset: -7

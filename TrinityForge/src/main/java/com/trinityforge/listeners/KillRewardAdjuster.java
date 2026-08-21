@@ -166,6 +166,26 @@ public final class KillRewardAdjuster {
                 : combatService.skillLevelOf(player.getUniqueId(), skillId));
     }
 
+    /**
+     * <b>職業(スキル)EXPの足きりだけ</b>を返す版。ダンジョン上乗せは掛けない
+     * (2026-08-22 ユーザー指示「防具の被弾EXPも今回のlevel差調整の該当にする」)。
+     *
+     * <p>防具の被弾EXPは<b>撃破報酬ではない</b>ので、{@code dungeon-level-reward} の上乗せは
+     * これまで一度も掛かっていない。足きりを入れるついでに上乗せまで足すと、指示に無い
+     * 「ダンジョンで防具EXPが増える」という別の変更が黙って混ざる。だから
+     * {@link #skillExpMultiplier} を流用せず、縮小側だけを切り出してある。
+     *
+     * @param mob 被弾させてきた相手。レベル刻印が無ければ {@code 1.0}(素通し)。
+     */
+    public double skillExpLevelCutoff(Player player, LivingEntity mob, String skillId) {
+        MobData data = MobData.of(mob);
+        if (player == null || !data.hasProfile()) {
+            return 1.0;
+        }
+        return cutoff().expMultiplier(
+                combatService.skillLevelOf(player.getUniqueId(), skillId), data.level());
+    }
+
     /** 経験値側の足きり本体。基準レベルだけを呼び出し側が決める。 */
     private double expMultiplierAt(Player player, LivingEntity mob, int playerLevel) {
         MobData data = MobData.of(mob);

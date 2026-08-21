@@ -244,6 +244,15 @@ public final class FarmingHarvestListener implements Listener {
         try {
             ItemStack tool = player.getInventory().getItemInMainHand();
             World world = origin.getWorld();
+            // 2026-08-22 ユーザー指示「クワで一括収穫時に耐久値が減らない。収穫した量に応じて減ること」。
+            // それまでは【意図的に取っていなかった】── 作物は硬度0なのでバニラなら鍬の耐久は減らない、
+            // という理屈だった。範囲収穫は「バニラでは1マスぶんの手間で N マスを刈る」ものなので、
+            // バニラ基準を根拠にすると N が増えるほど得になるだけで歯止めが無い。
+            // モデルは一括伐採/一括採掘と完全に共通(ChainBreakSupport)── 1マス1点・耐久力エンチャントの
+            // 1/(L+1) 判定つき・壊れたらそこで打ち切り。経路ごとに書き写すと W-173 の
+            // isUnbreakable() 漏れのような穴が経路ごとに再発する。
+            boolean damageTool = ChainBreakSupport.toolConsumesDurability(player, tool);
+            Material toolType = tool == null ? null : tool.getType();
             int harvested = 0;
             for (Offset offset : AreaHarvestPolicy.squareOffsets(gimmickConfig.areaHarvestRadius(tier))) {
                 Block neighbor = world.getBlockAt(
@@ -252,9 +261,12 @@ public final class FarmingHarvestListener implements Listener {
                 if (!FarmingCropCatalog.isCrop(neighborType) || !isMature(neighbor)) {
                     continue;
                 }
+                if (damageTool && player.getInventory().getItemInMainHand().getType() != toolType) {
+                    // 道具が壊れた/持ち替わった。
+                    break;
+                }
                 // 2026-07-28: 範囲収穫分も BlockBreakEvent が飛ばないため農業EXPが入っていなかった
-                // (一括伐採/一括破壊と同じ欠落)。破壊前に付与すること。作物は硬度0なのでバニラでも
-                // 鍬の耐久は減らない — ここで耐久を消費しないのは意図的。
+                // (一括伐採/一括破壊と同じ欠落)。破壊前に付与すること。
                 // 2026-07-31 G1 round2 指摘7: ルートテーブルの抽選はこの1回だけ。引いた結果を
                 // そのまま harvestNeighbor へ渡す(旧実装は EXP 用と実ドロップ用で別々に引いていたので、
                 // 確率ドロップだと「EXPの根拠」と「手に入る物」が食い違い、抽選コストも2倍だった)。
@@ -262,6 +274,10 @@ public final class FarmingHarvestListener implements Listener {
                         ChainBreakSupport.grantExpFor(chainBreakExp, player, neighbor, tool);
                 harvestNeighbor(neighbor, neighborType, tool, replantActive, rolled, player);
                 harvested++;
+                if (damageTool && !ChainBreakSupport.damageHeldToolOnce(player)) {
+                    // 鍬が壊れた。バニラなら道具が壊れればそこで採取は止まるので、残りは刈らない。
+                    break;
+                }
             }
             if (harvested > 0) {
                 // 2026-07-25 §2 B-1: 発動フィードバック(控えめなactionbar)。

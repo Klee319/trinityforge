@@ -50,6 +50,8 @@ class KillRewardAdjusterSkillLevelExpTest {
     private static final int LIGHT_WEAPONS_LEVEL = 100;
     /** 同じ人の魔法は未着手。 */
     private static final int ARS_MAGIC_LEVEL = 1;
+    /** 防具は武器と一緒に上げているのでモブと同レベル(被弾EXPの足きり検査用)。 */
+    private static final int HEAVY_ARMOR_LEVEL = 100;
     private static final int MOB_LEVEL = 100;
 
     /** 出荷値と同じ形: アイテムは20差で完全遮断 / 経験値は15差から 0.067 ずつ減って30差で0。 */
@@ -72,18 +74,23 @@ class KillRewardAdjusterSkillLevelExpTest {
     }
 
     private KillRewardAdjuster adjuster() {
+        // ダンジョン上乗せが混ざらないよう、判定を常に false にする。
+        return adjuster(DungeonLevelReward.NONE, false);
+    }
+
+    private KillRewardAdjuster adjuster(DungeonLevelReward reward, boolean inDungeon) {
         SymmetricCombatService combatService = mock(SymmetricCombatService.class);
         when(combatService.combatLevelOf(any())).thenReturn(COMBAT_LEVEL_OF_PURE_SPECIALIST);
         when(combatService.skillLevelOf(any(), eq(SkillId.LIGHT_WEAPONS))).thenReturn(LIGHT_WEAPONS_LEVEL);
         when(combatService.skillLevelOf(any(), eq(SkillId.ARS_MAGIC))).thenReturn(ARS_MAGIC_LEVEL);
+        when(combatService.skillLevelOf(any(), eq(SkillId.HEAVY_ARMOR))).thenReturn(HEAVY_ARMOR_LEVEL);
         CombatDamageConfig damageConfig = mock(CombatDamageConfig.class);
         when(damageConfig.levelCutoff()).thenReturn(SHIPPED_SHAPE);
-        when(damageConfig.dungeonLevelReward()).thenReturn(DungeonLevelReward.NONE);
+        when(damageConfig.dungeonLevelReward()).thenReturn(reward);
         PlayerStatAggregator aggregator = mock(PlayerStatAggregator.class);
         when(aggregator.aggregate(any(Player.class)))
                 .thenReturn(new PlayerCombatAggregate(Map.of(), Map.of(), Map.of(), Map.of(), Map.of()));
-        // ダンジョン上乗せが混ざらないよう、判定を常に false にする。
-        return new KillRewardAdjuster(damageConfig, combatService, aggregator, world -> false);
+        return new KillRewardAdjuster(damageConfig, combatService, aggregator, world -> inDungeon);
     }
 
     private Zombie mob() {
@@ -127,6 +134,41 @@ class KillRewardAdjusterSkillLevelExpTest {
 
         assertEquals(0.0, adjuster.skillExpMultiplier(player, mob(), null), 1e-9);
         assertEquals(0.0, adjuster.skillExpMultiplier(player, mob(), "NOT_A_SKILL"), 1e-9);
+    }
+
+    /**
+     * 防具の被弾EXP用(2026-08-22)。ダンジョンの挑戦レベルに応じた上乗せが<b>効いている</b>設定で、
+     * {@code skillExpLevelCutoff} だけが上乗せを拾わないことを見る。
+     */
+    private static final DungeonLevelReward BOOSTING_REWARD = new DungeonLevelReward(
+            true, 0, 5, 0.0, 0.0, 0.0, 0.1, 2.0, 0.0);
+
+    @Test
+    @DisplayName("防具の被弾EXPの足きりはその防具スキル自身のレベルで判定する")
+    void armorCutoffUsesTheArmorSkillLevel() {
+        Player player = server.addPlayer();
+        KillRewardAdjuster adjuster = adjuster();
+
+        // 重装100 vs モブ100 = 差0 → 満額。戦闘レベル67 で判定していたら 0 になる。
+        assertEquals(1.0, adjuster.skillExpLevelCutoff(player, mob(), SkillId.HEAVY_ARMOR), 1e-9,
+                "防具スキルがモブと同レベルなのに削られている");
+        // 魔法(1)を渡せば同じモブでも 0 ── レベル源がスキルごとに切り替わっている証拠。
+        assertEquals(0.0, adjuster.skillExpLevelCutoff(player, mob(), SkillId.ARS_MAGIC), 1e-9);
+    }
+
+    @Test
+    @DisplayName("被弾EXPの足きりにはダンジョン報酬の上乗せを掛けない(撃破報酬ではないため)")
+    void armorCutoffSkipsTheDungeonBonus() {
+        Player player = server.addPlayer();
+        KillRewardAdjuster adjuster = adjuster(BOOSTING_REWARD, true);
+
+        // 撃破EXP側は Lv100 モブ = 20段 × 0.1 = +2.0(上限2.0)で 3.0 倍になる。
+        assertEquals(3.0, adjuster.skillExpMultiplier(player, mob(), SkillId.HEAVY_ARMOR), 1e-9,
+                "上乗せが効く設定になっていない(このテストが何も検査していない)");
+        // 被弾EXP側は縮小だけ。ここが 3.0 になったら、指示に無い
+        // 「ダンジョンで防具EXPが増える」変更が黙って混ざっている。
+        assertEquals(1.0, adjuster.skillExpLevelCutoff(player, mob(), SkillId.HEAVY_ARMOR), 1e-9,
+                "被弾EXPにダンジョンの上乗せが漏れている");
     }
 
     @Test

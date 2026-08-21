@@ -32,6 +32,7 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Enemy;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.EventHandler;
@@ -1049,6 +1050,25 @@ public final class NativeSkillExperienceListener implements Listener {
     private final AttackerTargetCooldown heavyArmorExpCooldown = new AttackerTargetCooldown();
     private final AttackerTargetCooldown lightArmorExpCooldown = new AttackerTargetCooldown();
 
+    /**
+     * レベル差の足きり(2026-08-22 ユーザー指示「防具の被弾EXPも今回のlevel差調整の該当にする。
+     * (被弾した敵のlevelと比較)」)。
+     *
+     * <p>撃破EXP側(武器/弓術/魔法)は {@code CombatListener} と {@code ArsMagicExperienceListener} が
+     * 同じ足きりを掛けているのに、<b>防具の被弾EXPだけが素通りしていた</b>。格上モブに殴られるだけで
+     * 防具EXPが満額入るので、「低レベルのまま高レベル帯へ連れて行ってもらう」抑制が防具側で
+     * 完全に無効だった。
+     *
+     * <p>{@code null} のままでも動く(足きり無し = 従来どおり)。テストと、配線前に発火する
+     * 起動直後のイベントで落ちないようにするため。
+     */
+    private KillRewardAdjuster killRewardAdjuster;
+
+    /** 足きりを注入する。実配線は {@code TrinityForge} の起動時だけ。 */
+    public void setKillRewardAdjuster(KillRewardAdjuster killRewardAdjuster) {
+        this.killRewardAdjuster = killRewardAdjuster;
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onArmorDamage(EntityDamageByEntityEvent event) {
         if (!(event.getEntity() instanceof Player player) || event.getFinalDamage() <= 0.0) return;
@@ -1137,6 +1157,18 @@ public final class NativeSkillExperienceListener implements Listener {
         if (entityMultiplier <= 0.0) {
             return;
         }
+        // レベル差の足きり(2026-08-22)。比較するのは【被弾した敵のレベル】と
+        // 【その防具スキル自身のレベル】── 撃破EXPを職業レベル基準へ寄せたのと同じ規則
+        // (戦闘レベルは全スキルを畳んだ値なので、伸びている柱に守られて防具だけ素通りする)。
+        // ダンジョンの報酬上乗せは掛けない(被弾EXPは撃破報酬ではないため。
+        // KillRewardAdjuster#skillExpLevelCutoff の javadoc 参照)。
+        double levelCutoff = 1.0;
+        if (killRewardAdjuster != null && attacker instanceof LivingEntity livingAttacker) {
+            levelCutoff = killRewardAdjuster.skillExpLevelCutoff(player, livingAttacker, skill);
+        }
+        if (levelCutoff <= 0.0) {
+            return;
+        }
         double pvpMultiplier = pvp
                 ? Math.max(0.0, entry.rate("armor.pvp_multiplier", 0.1))
                 : 1.0;
@@ -1159,7 +1191,7 @@ public final class NativeSkillExperienceListener implements Listener {
             double spot = entry.rate("armor.location_diminishing_enabled", 1.0) > 0.0
                     ? locationMultiplier
                     : 1.0;
-            grant(player, skill, total * worldMultiplier * spot);
+            grant(player, skill, total * worldMultiplier * spot * levelCutoff);
         }
     }
 
