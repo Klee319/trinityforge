@@ -9,7 +9,12 @@ experience:
   alchemy_brew_exp: 150
   exp_multiplier_quality: 0.05
   multiplier_automated: 0.25
-  multiplier_manual: 1
+  # 手動醸造(醸造台にプレイヤーが素材を入れて作った分)のEXP倍率。
+  # 2026-08-20 01:23 のエディタ保存で 2 → 1 になっており、「醸造の経験値で本来得られる
+  # 経験値の半分しか手に入らない」という実サーバ報告の直接の原因だった。
+  # 2026-08-21 ユーザー確認のうえ 2 へ戻した。brew_result / brew_ingredient の表の値は
+  # 「1回の醸造で得る素の量」なので、体感EXPはこの倍率を掛けた値になる。
+  multiplier_manual: 2
   brew_result:
     AWKWARD: 150
     FIRE_RESISTANCE: 300
