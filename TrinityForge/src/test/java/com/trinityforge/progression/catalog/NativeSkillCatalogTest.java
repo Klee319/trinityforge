@@ -127,7 +127,9 @@ class NativeSkillCatalogTest {
     void authoritativeActionExpTablesAreLoaded() {
         assertEquals(400.0,
                 CATALOG.get(SkillId.MINING).expFor("mining_break", "DIAMOND_ORE"));
-        assertEquals(48.0,
+        // 19.2 = 2026-08-21(W-180)で 48 の 40% へ圧縮した一括収穫作物の単価。
+        // 5種そろっているか / 同値かは ShippedFarmingExpCompressionTest が見る。
+        assertEquals(19.2,
                 CATALOG.get(SkillId.FARMING).expFor("block_drops", "WHEAT"));
         assertEquals(40.0,
                 CATALOG.get(SkillId.WOODCUTTING).expFor("woodcutting_break", "OAK_LOG"));
@@ -153,7 +155,8 @@ class NativeSkillCatalogTest {
     void allValhallaNonCombatActionTablesAreLoaded() {
         assertEquals(160.0,
                 CATALOG.get(SkillId.FARMING).expFor("entity_breed", "FROG"));
-        assertEquals(60.0,
+        // 32 = 2026-08-21(W-180)で家畜討伐EXPを 80% へ圧縮した後の値(40 → 32)。
+        assertEquals(32.0,
                 CATALOG.get(SkillId.FARMING).expFor("entity_drops", "BEEF"));
         assertEquals(200.0,
                 CATALOG.get(SkillId.FARMING).expFor("entity_shear", "SHEEP"));

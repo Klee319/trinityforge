@@ -3348,6 +3348,73 @@ config-editor **1403 件・失敗 25**（品質まわりの 41 件は全緑。�
 ---
 
 
+### 実サーバ報告バッチ（2026-08-21 受領 第23陣。W-180）
+
+| ID | 内容 | 状態 |
+|---|---|---|
+| W-180 | 農業の経験値効率が良すぎる。畑の作物（一括収穫対応）を 40%、家畜討伐を 80% に | ✅ 対応（**config のみ**。`skills/base/farming_progression.yml`） |
+
+#### W-180 農業EXPの圧縮
+
+**変更（`skills/base/farming_progression.yml` のみ。jar の再ビルドは不要）**
+
+- **畑の作物（一括収穫 `area-harvest` が対象にする5種）を 40% へ。**
+  `WHEAT` / `POTATOES` / `CARROTS` / `BEETROOTS` / `NETHER_WART` の `block_drops` を **48 → 19.2**。
+  対象一覧は Java 側 `FarmingCropCatalog.CROPS` が一次情報で、これと1対1に一致している。
+- **家畜討伐（`entity_drops`）を 80% へ。** 24 行すべてに ×0.8。
+  `BEEF` 40→32 / `PORKCHOP` 60→48 / `RABBIT` 100→80 / `MUTTON`・`LEATHER`・`FEATHER`・
+  羊毛16色 40→32 / `RABBIT_HIDE` 20→16。
+
+**基準にした「現行」は 48。** 5種の `block_drops` は 2026-08-21 の午前に
+`40 / 40 / 10`（WHEAT 48・BEETROOTS 48・POTATOES 40・CARROTS 40・NETHER_WART 10）から
+**48 へ統一されていた**（配備先 `plugins/TrinityForge/skills/base/farming_progression.yml` も同値・同日更新）。
+そのため HEAD からの差分で見ると `NETHER_WART` だけは **10 → 19.2 と増えている**が、
+実サーバで動いていた値（48）の 40% としては正しい。
+
+**触っていないもの（意図的）**
+
+- `entity_breed`（繁殖EXP）— 討伐だけを弱める依頼なので変えていない。
+  **ここは討伐EXPのゲートでもある**（`NativeSkillExperienceListener#onFarmingMobDeath` が
+  値 0 以下の種を討伐EXPの対象から外す）ので、討伐を下げるつもりでここを触ると
+  **繁殖EXPが巻き添えになり、0 を書くとその種の討伐EXPが丸ごと消える**。
+- `entity_shear`（毛刈り）・`block_interact`（ベリー等の右クリック収穫）— 依頼の対象外。
+- `block_drops` の**ドロップ品の行**（`POTATO` / `CARROT` / `BEETROOT` / `COCOA_BEANS` /
+  `MELON_SLICE` / `SWEET_BERRIES`）— **1度も読まれないので触っていない**。
+  `stats/skill-exp.yml` の `gathering.exp-mode` が `block_value` で、この方式では
+  **ブロック名の行だけが実際のEXP量**になり、ドロップ品の行はツール要件ガード
+  （`drops.isEmpty()`）を通す以外の役目を持たない（`drop_sum` / `max` へ戻したときだけ効く）。
+  **農業EXPの調整はブロック名の行で行うこと。**
+- `break-vanilla-exp`（破壊時に落ちるバニラEXPオーブ）— 農業スキルEXPとは別物なので対象外。
+
+**効きの目安（Lv100・一括収穫 tier4 = 半径4 の場合）**
+
+| | 変更前 | 変更後 |
+|---|---|---|
+| 1回の一括収穫（最大 81 ブロック） | 3,888 | **1,555.2** |
+| 作物1マス | 48 | **19.2** |
+| 牛1体（肉3 + 革2 と仮定） | 200 | **160** |
+
+一括収穫は**連鎖した1ブロックごとに単価を丸ごと配る**ので、単価がそのまま倍率として効く。
+
+**再発防止（`ShippedFarmingExpCompressionTest` を新設。RED 実証済み）**
+
+- **一括収穫の対象作物5種すべてに `block_drops` の行があり、同じ単価に揃っている。**
+  対象一覧を Java（`FarmingCropCatalog.CROPS`）側から引いているので、
+  **作物を Java へ足して yml へ足し忘れると落ちる**（足し忘れるとその作物だけ無言でEXP 0）。
+  意図的に単価を変えるときは定数 `AREA_HARVEST_CROP_EXP` も一緒に動かす。
+- **`entity_breed` に 0 の種が居ない。** 0 は繁殖EXPと討伐EXPを同時に殺すゲートなので、
+  「討伐を弱めよう」でここが 0 になる事故を止める。
+- **`entity_drops` に 0 の行が無い。** 0 は「行が無い」と完全に同じ挙動で、残すと誤解しか生まない。
+
+`NativeSkillCatalogTest` の `block_drops.WHEAT`（48 → 19.2）と `entity_drops.BEEF`（60 → 32）の
+期待値も追随させた。BEEF は元から出荷値（40）とずれていた。
+
+**テスト**: 4485 件 / 失敗 26 / スキップ 2。失敗は全て他セッションの未コミット yml 由来で、
+農業に関係するものは 1 件も無い（`NativeSkillCatalogTest` の残り2件は毛刈り 200→150 と
+採掘 400→800 のドリフトで、どちらもこの作業の対象外）。
+
+**配備**: config のみ。config 再配備 →`/trinityforge reload`。
+
 ### 実サーバ報告バッチ（2026-08-20 受領 第22陣。W-179）
 
 | ID | 内容 | 状態 |
