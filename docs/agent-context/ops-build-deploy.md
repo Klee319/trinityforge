@@ -573,3 +573,41 @@ JVM 再起動以外に復旧手段なし）なので、軽い判定に置き換�
 - [./config-editor.md](./config-editor.md)
 - [./common-traps.md](./common-traps.md)
 - [./forks-and-mobs.md](./forks-and-mobs.md)
+
+## ⚠️⚠️ バックエンドごとにデータパックが違うと HuskSync がインベントリを丸ごと捨てる（2026-08-21）
+
+**症状**: 「サーバ移動でごくまれに（条件不明）アイテムがロストする」。
+
+**機構**: HuskSync は snapshot の NBT を ItemStack へ戻すときに、その鯖の registry を引く。
+**登録されていないエンチャント／コンポーネントが 1 個でも混ざると ItemStack 変換が例外**になり、
+HuskSync は例外を握って **そのデータ型（＝インベントリなりエンダーチェストなり）を丸ごと skip** する:
+
+```
+[HuskSync] Failed to deserialize %s data for snapshot %s; skipping it.
+           ... The player will load without this data type for this session.
+NbtApiException: Failed to convert NBT to ItemStack.
+           DataResult.Error['Failed to get element nova_structures:spiteful ...
+```
+
+**1 個のアイテムのせいでインベントリ全部が来ない。** しかもその後の save で snapshot が上書きされるので恒久ロスト。
+
+**この構成での実際のズレ**: `Resource_Server/world/datapacks/` にだけ 17 個のデータパック
+（**Dungeons and Taverns v5.1.0** ほか DnT オーバーホール 10 種・Terralith・Incendium・Nullscape・Structory 等）が入っており、
+DnT 本体が `data/nova_structures/enchantment/*.json` で**カスタムエンチャント 34 種**を登録している。
+**Main_Server / Dev_Server の `world/datapacks/` は `bukkit` だけ。**
+→ 資源鯖で拾った DnT エンチャ品を持って Main へ移動した瞬間に発火する。
+
+**確認手順**（推測しない。実物を見る）:
+
+```bash
+V=/d/game/minecraft/PaperServer/Velocity_for_TF
+for s in Main_Server Resource_Server Dev_Server; do ls "$V/$s/world/datapacks/"; done
+grep -a "Failed to deserialize" "$V/Main_Server/logs/latest.log"
+```
+
+**原則: HuskSync で結ぶバックエンドは、registry を足すデータパックを全台で一致させる。**
+worldgen を変えたくない鯖には「registry だけ入った版」を作って配る。
+プラグイン jar のバージョン差より**データパックの差のほうが先に事故る**。
+
+**復旧**: `max_user_data_snapshots: 16` / `snapshot_backup_frequency: 4h` の範囲内なら
+`/userdata list <player>` → `/userdata restore` で戻せる。**ローテーションで消える前に動く。**
