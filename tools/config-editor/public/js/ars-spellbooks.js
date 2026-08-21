@@ -490,8 +490,10 @@
       });
       row.appendChild(s);
       // per-quality は整数ステでも小数入力を許可 (閾値方式: 累積を切り捨てて実効値化)。
-      row.appendChild(window.statValueControl(stat, target[stat], (v) => { target[stat] = v; }, { allowIntDecimal: group === "per-quality" }));
-      if (window.statUnitSlot) row.appendChild(window.statUnitSlot(stat));
+      // 値+単位は item-stats と同じ「総幅固定の値セル」へ入れる (単位の有無で × の縦線がずれない)。
+      row.appendChild(window.valueCell(
+        window.statValueControl(stat, target[stat], (v) => { target[stat] = v; }, { allowIntDecimal: group === "per-quality" }),
+        window.statUnitSlot ? window.statUnitSlot(stat) : null));
       row.appendChild(h("button", {
         class: "btn-small danger", type: "button", text: "×",
         onclick: () => { delete target[stat]; pruneStatGroupIfEmpty(entry, group); rerender(); }
@@ -514,10 +516,13 @@
       });
       row.appendChild(s);
       row.appendChild(h("span", { class: "range-label", text: "min" }));
-      row.appendChild(window.statValueControl(stat, range.min, (v) => { range.min = v; }));
+      row.appendChild(window.valueCell(
+        window.statValueControl(stat, range.min, (v) => { range.min = v; }),
+        window.statUnitSlot ? window.statUnitSlot(stat) : null));
       row.appendChild(h("span", { class: "range-label", text: "max" }));
-      row.appendChild(window.statValueControl(stat, range.max, (v) => { range.max = v; }));
-      if (window.statUnitSlot) row.appendChild(window.statUnitSlot(stat));
+      row.appendChild(window.valueCell(
+        window.statValueControl(stat, range.max, (v) => { range.max = v; }),
+        window.statUnitSlot ? window.statUnitSlot(stat) : null));
       row.appendChild(h("button", {
         class: "btn-small danger", type: "button", text: "×",
         onclick: () => { delete target[stat]; pruneStatGroupIfEmpty(entry, "random"); rerender(); }

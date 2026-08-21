@@ -354,8 +354,11 @@
               renameKey(statMap, sk, nv); render(); return true;
             });
             row.appendChild(s);
-            row.appendChild(statValue(sk, statMap[sk], (v) => { statMap[sk] = v; }));
-            if (window.statUnitSlot) row.appendChild(window.statUnitSlot(sk));
+            // 値+単位は forms.js と同じ「総幅固定の値セル」へ (単位の有無で × の縦線がずれない)。
+            const cell = statValue(sk, statMap[sk], (v) => { statMap[sk] = v; });
+            row.appendChild(window.valueCell
+              ? window.valueCell(cell, window.statUnitSlot ? window.statUnitSlot(sk) : null)
+              : cell);
             row.appendChild(h("button", { class: "btn-small danger", type: "button", text: "×", onclick: () => { delete statMap[sk]; render(); } }));
             statRows.appendChild(row);
           }

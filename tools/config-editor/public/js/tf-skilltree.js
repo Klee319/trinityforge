@@ -253,7 +253,8 @@
         const valCtl = window.statValueControl
           ? window.statValueControl(key, map[key], (v) => { map[key] = v == null ? 0 : v; })
           : window.numberInput(map[key], (v) => { map[key] = v == null ? 0 : v; });
-        const multToggle = window.checkboxInput(false, (enabled) => {
+        // 2026-08-22: チェックボックスをやめ、item-stats / セット効果と同じ切替ボタンへ統一した。
+        const multToggle = window.modeToggleButton(false, (enabled) => {
           if (!enabled) return;
           const layerId = firstFreeLayer(obj, multiplierKey, key);
           if (!layerId) {
@@ -269,14 +270,14 @@
           }
           obj[multiplierKey][layerId][key] = 1.0;
           render();
-        });
+        }, "この行を加算モードと乗算モードで切り替えます");
         rows.appendChild(h("div", { class: "stat-row" }, [
-          keySel, valCtl,
-          // item-stat と同じ単位スロット (2文字分の固定幅で行の開始位置を揃える)。
-          window.statUnitSlot ? window.statUnitSlot(key) : null,
-          supportsMultipliers ? h("label", { class: "inline-check", title: "ONにするとこの行を乗算モードへ変更します" }, [
-            multToggle, h("span", { class: "mini-label", text: "乗算" })
-          ]) : null,
+          keySel,
+          // item-stat と同じ「総幅固定の値セル」(値 + 単位)。単位の有無で後続の列がずれない。
+          window.valueCell
+            ? window.valueCell(valCtl, window.statUnitSlot ? window.statUnitSlot(key) : null)
+            : valCtl,
+          supportsMultipliers ? multToggle : null,
           h("button", {
             class: "btn-small danger", type: "button", text: "×",
             onclick: () => { delete map[key]; if (Object.keys(map).length === 0) delete obj[buffsKey]; render(); }
@@ -316,11 +317,11 @@
           render();
           return true;
         }, passesCategoryFilter);
-        const value = h("div", { class: "stat-row" }, [
+        const value = h("span", { class: "mult-input" }, [
           h("span", { class: "mult-prefix", text: "x" }),
           window.numberInput(layer[stat], (v) => { layer[stat] = v == null ? 1 : v; })
         ]);
-        const multToggle = window.checkboxInput(true, (enabled) => {
+        const multToggle = window.modeToggleButton(true, (enabled) => {
           if (enabled) return;
           if (map && Object.prototype.hasOwnProperty.call(map, stat)) {
             alert("このステータスの加算モードは既に設定済みです。先に加算行を削除してください。");
@@ -332,7 +333,7 @@
           delete layer[stat];
           cleanupMultiplierLayer(obj, multiplierKey, layerId);
           render();
-        });
+        }, "この行を加算モードと乗算モードで切り替えます");
         const layerSelect = window.listSelect({
           value: layerId,
           options,
@@ -353,11 +354,9 @@
           }
         });
         rows.appendChild(h("div", { class: "stat-row mult-row" }, [
-          keySel, value,
-          window.statUnitSlot ? window.statUnitSlot(null) : null,
-          h("label", { class: "inline-check" }, [
-            multToggle, h("span", { class: "mini-label", text: "乗算" })
-          ]),
+          keySel,
+          window.valueCell ? window.valueCell(value) : value,
+          multToggle,
           layerSelect,
           h("button", {
             class: "btn-small danger", type: "button", text: "×",
@@ -445,8 +444,11 @@
             ? window.statValueControl(key, mm[key], (v) => { mm[key] = v == null ? 0 : v; })
             : window.numberInput(mm[key], (v) => { mm[key] = v == null ? 0 : v; });
           rows.appendChild(h("div", { class: "stat-row" }, [
-            keySel, valCtl,
-            window.statUnitSlot ? window.statUnitSlot(key) : null,
+            keySel,
+            // 値+単位は item-stats と同じ「総幅固定の値セル」へ。
+            window.valueCell
+              ? window.valueCell(valCtl, window.statUnitSlot ? window.statUnitSlot(key) : null)
+              : valCtl,
             h("button", {
               class: "btn-small danger", type: "button", text: "×",
               onclick: () => { delete mm[key]; cleanupTier(tier); render(); }
