@@ -923,6 +923,13 @@ function validateTfSkillExp(data, errors) {
       }
       continue;
     }
+    // 2026-08-21 新設。ダンジョン内側の倍率。無いと Java 側は 1.0(従来の固定値)へ落ちる。
+    if (skill === "dungeon-exp-rate") {
+      if (!isNumber(section) || section < 0) {
+        errors.push("dungeon-exp-rate: 0以上の数値である必要があります");
+      }
+      continue;
+    }
     if (!isPlainObject(section)) { errors.push(`${skill}: マップである必要があります`); continue; }
     // 2026-08-18: 破壊時バニラEXPのベース量。0以上の数値のみ(負値はEXPが減る向きの寄与になる)。
     // 明示的に検証しないと base-exp のスペルミスが黙って無視され、「設定したのに効かない」になる。

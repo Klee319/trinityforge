@@ -473,6 +473,7 @@
     "prestige_decay_rate": { label: "プレステージ減衰率", desc: "プレステージ後の総合スキル進行へ適用する減衰率。" },
     // skill-exp.yml 直下スカラー・追加セクション (2026-07-27 タスク1: ID表示バグ修正)
     "outside-dungeon-exp-rate": { label: "ダンジョン外EXP倍率", desc: "dungeon-only-exp: false のとき、ダンジョン外で得る戦闘スキルEXP(武器・魔法=討伐、防具=被弾、弓術=命中)に掛かる倍率。ダンジョン内は常に1.0。1.0=ダンジョンと同率、0.25(既定)=ダンジョンの1/4、0.0=完全遮断。dungeon-only-exp: true のときは参照されない。" },
+    "dungeon-exp-rate": { label: "ダンジョン内EXP倍率", desc: "ダンジョン内で得る戦闘スキルEXP(武器・魔法=討伐、防具=被弾)に掛かる倍率。2026-08-21 新設で、それまでは 1.0 固定だった。プレイヤーが体感する『ダンジョンは外の何倍か』はこの値と『ダンジョン外EXP倍率』の【比】なので、片方だけ動かすと比が変わる。出荷値 0.375(ダンジョン外 0.1875 の2倍)。" },
     "exp-mode": { label: "採取EXP算出方式", desc: "MINING/FARMING/WOODCUTTING/DIGGING共通。drop_sum(既定)=ドロップ品(素材側)の値の合計。block_value=ブロックそのものの値をそのまま使う。max=両者の大きい方。" },
     "radius": { label: "同一地点判定半径", desc: "spot-diminishing: 直近window-seconds秒のあいだにこの半径(ブロック)以内で得たEXP回数を数える。" },
     "window-seconds": { label: "判定時間窓(秒)", desc: "spot-diminishing: この秒数のあいだの獲得回数を同一地点判定に使う。" },

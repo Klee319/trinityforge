@@ -1,6 +1,7 @@
 package com.trinityforge.skilltree.runtime;
 
 import com.trinityforge.progression.NativeProgressionService;
+import com.trinityforge.progression.core.SkillId;
 import com.trinityforge.progression.repository.LoadResult;
 import com.trinityforge.skilltree.SkillNode;
 import com.trinityforge.skilltree.SkillTree;
@@ -463,6 +464,17 @@ public final class NativeSkillTreeMenu implements Listener {
             return;
         }
         if (!perkId.equals(session.pendingPerkId)) {
+            // プレステージは「そのツリーの解放済みパークを全部剥がす」ので誤爆の代償が
+            // 通常の解放と桁違いに大きい。確認機構自体は前からあるが、伝える手段が
+            // アイコンの lore だけだったため、スクロール位置や統合版クライアントの描画次第で
+            // 「確認が出ない」ように見えていた(2026-08-21 実サーバ報告)。
+            // ツリーリセット(applyTreeReset)と同じく、チャットにも何が起きるかを出す。
+            player.sendMessage(Component.text(
+                    "「" + prestigeLabel(tree) + "」でプレステージします（" + tier + "回目）。"
+                            + "このツリーの解放済みパークは全て外れ（SPは返却／ロック中のパークは維持）、"
+                            + prestigeLevelNotice(tree)
+                            + " もう一度クリックして確定してください。",
+                    NamedTextColor.YELLOW));
             reopenNextTick(player, session, perkId);
             return;
         }
@@ -475,6 +487,23 @@ public final class NativeSkillTreeMenu implements Listener {
                         ? NamedTextColor.GREEN : NamedTextColor.RED));
         reopenNextTick(player, session.skillId, NativeSkillTreeCanvas.project(tree).start(), null,
                 session.mode, session.page);
+    }
+
+    /** プレステージ枠の表示名(未設定なら生成器と同じ既定名)。 */
+    private static String prestigeLabel(SkillTree tree) {
+        String name = tree.prestige() == null ? null : tree.prestige().name();
+        return name == null || name.isBlank() ? tree.displayName() + " プレステージ" : name;
+    }
+
+    /**
+     * プレステージ後にレベルがどうなるかの一文。POWERだけは0リセットではなく
+     * 他スキルの現在レベルから再導出される({@link NativePerkService} の 2026-08-04 修正)ので、
+     * 同じ文言を出すと嘘になる。
+     */
+    private static String prestigeLevelNotice(SkillTree tree) {
+        return SkillId.POWER.equals(tree.skill())
+                ? "レベルは他スキルの現在レベルから引き直されます。"
+                : "スキルレベルは0に戻ります。";
     }
 
     /**

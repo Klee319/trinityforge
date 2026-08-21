@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 2026-07-26 オーバーワールドEXP開放: {@code dungeon-only-exp} と {@code outside-dungeon-exp-rate} の

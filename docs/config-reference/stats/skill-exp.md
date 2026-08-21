@@ -145,12 +145,22 @@ combat-enabled とも false = 常に倍率1.0(現行挙動そのまま)。「使
 
 ymlヘッダ側にあるためコメント移設の対象外だが、editor保存でymlコメントが消えるのは同じなのでここに控える。
 
-### `dungeon-only-exp` / `outside-dungeon-exp-rate`
+### `dungeon-only-exp` / `dungeon-exp-rate` / `outside-dungeon-exp-rate`
 
 ```
-dungeon-only-exp: false        # 従来 true。true なら従来どおりダンジョン外は完全遮断(rateは無視)
-outside-dungeon-exp-rate: 0.25 # ダンジョン外の戦闘スキルEXP倍率。ダンジョン内は常に 1.0
+dungeon-only-exp: false          # 従来 true。true なら従来どおりダンジョン外は完全遮断(rateは無視)
+dungeon-exp-rate: 0.375          # ダンジョン内の戦闘スキルEXP倍率(2026-08-21 新設。既定 1.0)
+outside-dungeon-exp-rate: 0.1875 # ダンジョン外の戦闘スキルEXP倍率
 ```
+
+**⚠️ プレイヤーが体感する「ダンジョンは外の何倍か」は、この2つの値の比。**
+2026-08-21 のユーザー指示「オーバーワールドの討伐EXPを現在の3/4、ダンジョンを2倍(現在は4倍)」は
+外 `0.25 → 0.1875`(＝3/4)、内 `1.0 → 0.375`(＝外の2倍)として入れた。
+`dungeon-exp-rate` が無かった頃はダンジョン内が **1.0 固定**で、比は常に「外の4倍」だった。
+片方だけ書き換えると比が変わるので、**倍率を決め直すときは必ず2つセットで書く**
+(この関係は `SkillExpWorldRateTest#shippedConfigMakesDungeonExactlyTwiceTheOverworld` が縛る)。
+
+キーを書かなければ `dungeon-exp-rate` は 1.0 へ落ちる ＝ 旧挙動。両方とも [0,1] にクランプされる。
 
 合成規則は `SkillExpConfig.worldExpRate(boolean inDungeonWorld)` の1箇所に閉じている。
 呼び出し側で「フラグを見てから倍率も見る」と書くと、片方を忘れた経路が静かに全額付与になり

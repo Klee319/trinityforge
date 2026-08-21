@@ -567,6 +567,14 @@
             if (v === null || v === "") return;
             working["outside-dungeon-exp-rate"] = v;
           }, { int: false })
+        ]),
+        // 2026-08-21 新設: ダンジョン内側の倍率。外側とセットで「ダンジョンは外の何倍か」が決まる。
+        h("div", { class: "form-field" }, [
+          window.fieldLabelEl("dungeon-exp-rate", { hideKey: true }),
+          window.numberInput(working["dungeon-exp-rate"], (v) => {
+            if (v === null || v === "") return;
+            working["dungeon-exp-rate"] = v;
+          }, { int: false })
         ])
       ]
     ));
