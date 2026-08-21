@@ -1366,7 +1366,8 @@ public final class TrinityForge extends JavaPlugin {
         // combat/mob-overrides.yml の abilities: に従って撃つ。プレイヤー周囲だけを走査する。
         this.mobAbilityTask = new com.trinityforge.combat.MobAbilityTask(this,
                 configManager.mobAbilities(), configManager.mobOverrides(),
-                new com.trinityforge.combat.MobAbilityExecutor(this, combatService),
+                new com.trinityforge.combat.MobAbilityExecutor(this, combatService,
+                        () -> configManager.mobAbilities().elementBias()),
                 new com.trinityforge.combat.MobAbilityCooldowns(),
                 new java.util.Random());
         mobAbilityTask.start();

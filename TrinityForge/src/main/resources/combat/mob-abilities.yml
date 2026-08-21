@@ -96,6 +96,25 @@ global-cooldown-seconds: 12
 require-target: true
 require-line-of-sight: true
 
+# 【技の属性の決め方】(2026-08-21 W-181 「格下レベルのボスにワンパンされる」)
+# 2026-08-21 以前、技のダメージは damage-type の側へ【100%】寄せて解決していた。これはモブの
+# magic-ratio(通常攻撃の物理/魔法の配分)を完全に素通りする経路で、実害が2つあった:
+#   ・magic-ratio の上限 0.45 が効かない。あの上限は「魔法防御を持たないプレイヤーが何発耐えるか」
+#     で校正した安全弁なのに、damage-percent 2.0 の魔法技は実質 magic-ratio 2.0 相当で飛んでいた。
+#     難易度1のダンジョンのボスでも、1発で最大HPの7割以上を奪っていた。
+#   ・コンセプトと逆属性の技が理不尽になる。「敵は物理型(magic-ratio 0.10)」のダンジョンで、
+#     正しく物理防御を積んだプレイヤーが【魔法技1発だけで即死】する。対策のしようが無い。
+#
+# そこで技のダメージも【そのモブの magic-ratio で物理/魔法へ分割する】ようにし、damage-type は
+# 「そこからどれだけ自分の属性側へ引き寄せるか」という偏りに格下げした。実効の魔法割合は
+#     魔法技: r + (1 - r) * bias   /   物理技: r * (1 - bias)      (r = そのモブの magic-ratio)
+# 0 にすると技もモブと完全に同じ配分になり、1 にすると 2026-08-21 以前の挙動へ戻る。
+# 既定 0.35 では magic-ratio 0.10 のダンジョンの魔法技が 41.5% 魔法 / 58.5% 物理になり、
+# 物理防御を積んだプレイヤーにも受け止める余地が残る。
+# 刻印を持たないバニラモブ(magic-ratio 0)でも魔法技は bias ぶんだけ魔法で入るので、
+# ウィザーのビームが完全物理に化けることはない。
+ability-element-bias: 0.35
+
 abilities:
 
   # ---------------------------------------------------------------------------
@@ -105,7 +124,7 @@ abilities:
     display-name: "<red>震脚</red>"
     type: ground_slam
     damage-type: physical
-    damage-percent: 1.4
+    damage-percent: 1.2   # W-181: 1.4 → 1.2(1発で最大HPの4割超を奪わない水準へ)
     cooldown-seconds: 9
     chance: 0.30
     range: 5
@@ -182,7 +201,7 @@ abilities:
     display-name: "<red>突進</red>"
     type: charge
     damage-type: physical
-    damage-percent: 1.6
+    damage-percent: 1.35   # W-181: 1.6 → 1.35(1発で最大HPの4割超を奪わない水準へ)
     cooldown-seconds: 12
     chance: 0.28
     range: 14
@@ -196,7 +215,7 @@ abilities:
     display-name: "<dark_purple>影渡り</dark_purple>"
     type: teleport_strike
     damage-type: physical
-    damage-percent: 1.8
+    damage-percent: 1.4   # W-181: 1.8 → 1.4(1発で最大HPの4割超を奪わない水準へ)
     cooldown-seconds: 16
     chance: 0.25
     range: 20
@@ -252,7 +271,7 @@ abilities:
     display-name: "<light_purple>貫通光</light_purple>"
     type: beam
     damage-type: magical
-    damage-percent: 2.0
+    damage-percent: 1.3   # W-181: 2 → 1.3(1発で最大HPの4割超を奪わない水準へ)
     cooldown-seconds: 15
     chance: 0.25
     range: 22
@@ -347,7 +366,7 @@ abilities:
     damage-type: magical
     # 既存の最大倍率(piercing_beam の 2.0)を超えないこと。避けられる技だからと上げると、
     # 「避けそこねた1回で即死」＝実質ワンショットになり、防具の投資が意味を失う。
-    damage-percent: 2.0
+    damage-percent: 1.3   # W-181: 2 → 1.3(1発で最大HPの4割超を奪わない水準へ)
     cooldown-seconds: 18
     chance: 0.26
     range: 24
@@ -362,7 +381,7 @@ abilities:
     display-name: "<gray>地烈の棘</gray>"
     type: delayed_zone
     damage-type: physical
-    damage-percent: 1.7
+    damage-percent: 1.35   # W-181: 1.7 → 1.35(1発で最大HPの4割超を奪わない水準へ)
     cooldown-seconds: 15
     chance: 0.28
     range: 18

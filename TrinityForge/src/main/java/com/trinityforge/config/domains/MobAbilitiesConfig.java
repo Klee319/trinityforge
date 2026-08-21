@@ -40,6 +40,7 @@ public final class MobAbilitiesConfig implements LoadableConfig {
 
     private volatile boolean requireTarget = DEFAULT_REQUIRE_TARGET;
     private volatile boolean requireLineOfSight = DEFAULT_REQUIRE_LINE_OF_SIGHT;
+    private volatile double elementBias = DEFAULT_ELEMENT_BIAS;
 
     /** 技と技の間に必ず空ける秒数の既定。 */
     public static final double DEFAULT_GLOBAL_COOLDOWN_SECONDS = 12.0;
@@ -51,6 +52,8 @@ public final class MobAbilitiesConfig implements LoadableConfig {
     public static final double MIN_GLOBAL_COOLDOWN_SECONDS = 0.0;
     /** 同、上限（10分）。書き間違いで技が一生出てこないのを防ぐ。 */
     public static final double MAX_GLOBAL_COOLDOWN_SECONDS = 600.0;
+    /** 技が自分の属性へ引き寄せる強さの既定（2026-08-21 W-181）。{@link #elementBias()} 参照。 */
+    public static final double DEFAULT_ELEMENT_BIAS = 0.35;
 
     /** テンプレートID→定義。未定義IDの参照は {@code null} を返す（呼び出し側が読み飛ばす）。 */
     public MobAbility ability(String id) {
@@ -121,6 +124,41 @@ public final class MobAbilitiesConfig implements LoadableConfig {
         return requireLineOfSight;
     }
 
+    /**
+     * <b>技が「自分の属性」へどれだけ引き寄せるか</b> [0,1]（2026-08-21 W-181
+     * 「格下レベルのボスにワンパンされる」）。
+     *
+     * <p>2026-08-21 以前、技のダメージは {@code damage-type} の側へ<b>100%</b>寄せて解決していた。
+     * これはモブの {@code magic-ratio}（通常攻撃の物理/魔法の配分）を<b>完全に素通り</b>する経路で、
+     * 実害が2つあった:
+     * <ul>
+     *   <li><b>magic-ratio の上限 0.45 が効かない。</b> あの上限は
+     *       「魔法防御を持たないプレイヤーが何発耐えるか」で校正した安全弁なのに、
+     *       {@code damage-percent: 2.0} の魔法技は実質 magic-ratio 2.0 相当で飛んでいた。</li>
+     *   <li><b>コンセプトと逆属性の技が理不尽になる。</b>「敵は物理型(magic-ratio 0.10)」の
+     *       ダンジョンで、正しく物理防御を積んだプレイヤーが<b>魔法技1発だけで即死</b>する。
+     *       対策のしようが無い＝属性を選ぶ設計そのものを壊す。</li>
+     * </ul>
+     *
+     * <p>そこで技のダメージも<b>そのモブの magic-ratio で物理/魔法へ分割する</b>ようにし、
+     * {@code damage-type} は「そこからどれだけ自分の属性側へ引き寄せるか」という<b>偏り</b>に
+     * 格下げした。実効の魔法割合は
+     * <pre>
+     *   魔法技: r + (1 - r) * bias
+     *   物理技: r * (1 - bias)
+     * </pre>
+     * （{@code r} = そのモブの magic-ratio）。{@code bias = 0} なら技もモブと完全に同じ配分になり、
+     * {@code bias = 1} なら 2026-08-21 以前の「技は100%その属性」に戻る。
+     * 既定 0.35 では magic-ratio 0.10 のダンジョンの魔法技が 41.5% 魔法／58.5% 物理になり、
+     * 物理防御を積んだプレイヤーにも<b>受け止める余地が残る</b>。
+     *
+     * <p>刻印を持たないバニラモブ（magic-ratio 0）でも魔法技は bias ぶんだけ魔法で入るので、
+     * ウィザーのビームが完全物理に化けることはない。
+     */
+    public double elementBias() {
+        return elementBias;
+    }
+
     @Override
     public boolean load(Plugin plugin) {
         Logger log = plugin.getLogger();
@@ -144,6 +182,8 @@ public final class MobAbilitiesConfig implements LoadableConfig {
         this.requireTarget = yaml.getBoolean("require-target", DEFAULT_REQUIRE_TARGET);
         this.requireLineOfSight =
                 yaml.getBoolean("require-line-of-sight", DEFAULT_REQUIRE_LINE_OF_SIGHT);
+        this.elementBias = Math.max(0.0, Math.min(1.0,
+                yaml.getDouble("ability-element-bias", DEFAULT_ELEMENT_BIAS)));
 
         ParseResult result = parse(yaml.getConfigurationSection("abilities"), log);
         this.abilities = result.abilities();

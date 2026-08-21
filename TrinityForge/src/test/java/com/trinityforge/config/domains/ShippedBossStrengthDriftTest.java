@@ -132,17 +132,25 @@ class ShippedBossStrengthDriftTest {
         return 1.0 + ((n - 1) / (double) (TRIAL_COUNT - 1)) * 0.4;
     }
 
-    /** 柱2 の段階表: モブid -&gt; {HP倍率, 攻撃倍率}。増援は載せない(「変更しない」が仕様)。 */
+    /**
+     * 柱2 の段階表: モブid -&gt; {HP倍率, 攻撃倍率}。増援は載せない(「変更しない」が仕様)。
+     *
+     * <p><b>2026-08-21(W-181「格下レベルのボスにワンパンされる」)で攻撃側だけ下げた。</b>
+     * 1.3/1.4/1.5/1.8 → 1.15/1.20/1.25/1.40、ミニボス 1.2 → 1.10。
+     * 「攻撃力を下げたぶんをHPへ振り替える」方針だが、束縛者は<b>難易度10</b>なので
+     * HP側の逓減梯子(難易度1が最大・10で 1.0)では倍率 1.0 ＝ HPは据え置きになる。
+     * ここで HP 倍率が動いていないのはその帰結であって、書き忘れではない。
+     */
     private static final Map<String, double[]> BINDER_TIER = new LinkedHashMap<>();
 
     static {
-        BINDER_TIER.put("em_id_binder_of_worlds_phase_1", new double[] {2.5, 1.3});
-        BINDER_TIER.put("em_id_binder_of_worlds_phase_2", new double[] {3.0, 1.4});
-        BINDER_TIER.put("em_id_binder_of_worlds_phase_3", new double[] {3.5, 1.5});
-        BINDER_TIER.put("em_id_binder_of_worlds_phase_4", new double[] {6.0, 1.8});
-        BINDER_TIER.put("em_id_binder_of_worlds_phase_1_melee_miniboss", new double[] {1.8, 1.2});
-        BINDER_TIER.put("em_id_binder_of_worlds_phase_1_ranged_miniboss", new double[] {1.8, 1.2});
-        BINDER_TIER.put("em_id_binder_of_worlds_phase_1_status_miniboss", new double[] {1.8, 1.2});
+        BINDER_TIER.put("em_id_binder_of_worlds_phase_1", new double[] {2.5, 1.15});
+        BINDER_TIER.put("em_id_binder_of_worlds_phase_2", new double[] {3.0, 1.2});
+        BINDER_TIER.put("em_id_binder_of_worlds_phase_3", new double[] {3.5, 1.25});
+        BINDER_TIER.put("em_id_binder_of_worlds_phase_4", new double[] {6.0, 1.4});
+        BINDER_TIER.put("em_id_binder_of_worlds_phase_1_melee_miniboss", new double[] {1.8, 1.1});
+        BINDER_TIER.put("em_id_binder_of_worlds_phase_1_ranged_miniboss", new double[] {1.8, 1.1});
+        BINDER_TIER.put("em_id_binder_of_worlds_phase_1_status_miniboss", new double[] {1.8, 1.1});
     }
 
     /**
