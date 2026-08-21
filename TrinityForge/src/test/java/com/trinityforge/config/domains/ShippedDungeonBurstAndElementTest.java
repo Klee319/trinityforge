@@ -47,13 +47,40 @@ class ShippedDungeonBurstAndElementTest {
     /**
      * 技1発が奪ってよい最大の倍率(モブの攻撃力に対する {@code damage-percent} の上限)。
      *
-     * <p>1.2 の根拠: Lv100・品質5 の帯最良装備(最大HP 94)が、最難関ダンジョンの踏破ボスの技を
-     * <b>3.5 発ぶん</b>耐える水準。2026-08-21 の W-181 で 2.0→1.3 まで落とし、
-     * 同日の W-182「耐えられる回数を一律 +1.5 発」でさらに x0.85 して 1.19 が最大になった。
-     * ここを 2.0 に戻すと難易度1のダンジョンでも1発が最大HPの7割を超え、
-     * 「予兆を見て避ける」ではなく「引いたら死ぬ」ゲームになる。
+     * <p><b>2026-08-21 (W-183) から「技の種類ごとの上限」へ変えた</b>。それまでは全種類 1.2 の
+     * 一律上限で、<b>避けようのない技も予告付きの技も同じ重さ</b>だった ── K 指示
+     * 「スキルは攻撃力が高い代わりに対策する要素があると面白い(モーションを見て避けられる、
+     * 盾前提の瀕死攻撃、ビルドで対策できる…)」を数値へ落とすと、<b>避けられる技ほど重く、
+     * 避けられない技ほど軽く</b>でなければならない。上限は次の3段:
+     *
+     * <ul>
+     *   <li>{@code delayed_zone}(足元に印 → 予告後に着弾。見て動けば当たらない) … 2.1</li>
+     *   <li>{@code health-below} を持つ<b>瀕死技</b>(残HPが閾値を割ったときだけ・低確率・長CT。
+     *       盾やダメージ軽減を用意しておく前提の大技) … 2.5</li>
+     *   <li>それ以外(ビーム/突進/踏みつけ/引き寄せ など) … 1.7</li>
+     * </ul>
+     *
+     * <p>{@code aura} だけは1発ではなく「踏み続けた秒数ぶん積む」ので、
+     * {@code damage-percent × duration-seconds} の総量を {@link #MAX_AURA_TOTAL_PERCENT} で見る。
+     *
+     * <p>この段付けを外して一律の大きい値へ戻すと、避けようのない技まで即死級になり
+     * 「予兆を見て避ける」ではなく「引いたら死ぬ」ゲームに戻る。
+     * 特定の技だけ重くしたいなら、まず {@code cooldown-seconds} / {@code chance} を触ること。
      */
-    private static final double MAX_ABILITY_DAMAGE_PERCENT = 1.2;
+    private static final double MAX_ABILITY_DAMAGE_PERCENT = 1.7;
+
+    /** @see #MAX_ABILITY_DAMAGE_PERCENT */
+    private static final double MAX_TELEGRAPHED_DAMAGE_PERCENT = 2.1;
+
+    /** @see #MAX_ABILITY_DAMAGE_PERCENT */
+    private static final double MAX_LAST_STAND_DAMAGE_PERCENT = 2.5;
+
+    /**
+     * {@code aura} の総量({@code damage-percent × duration-seconds})の上限。
+     * 出荷値は 2.10〜2.40。1発ではないので {@link #MAX_ABILITY_DAMAGE_PERCENT} より高くてよいが、
+     * 「立ち位置を直せば途中で降りられる」ぶん瀕死技より下に置く。
+     */
+    private static final double MAX_AURA_TOTAL_PERCENT = 2.6;
 
     /**
      * per-mob のボス係数(攻撃)が収まるべき範囲。
@@ -106,15 +133,37 @@ class ShippedDungeonBurstAndElementTest {
         List<String> over = new ArrayList<>();
         for (String id : abilities.getKeys(false)) {
             double dp = abilities.getDouble(id + ".damage-percent", 0.0);
-            if (dp > MAX_ABILITY_DAMAGE_PERCENT) {
-                over.add(id + "=" + dp);
+            if (dp <= 0.0) {
+                continue;
+            }
+            String type = abilities.getString(id + ".type", "");
+            if ("aura".equals(type)) {
+                // 1発ではなく「踏み続けた秒数ぶん」積むので総量で見る。
+                double seconds = Math.max(1.0, abilities.getDouble(id + ".duration-seconds", 1.0));
+                double total = dp * seconds;
+                if (total > MAX_AURA_TOTAL_PERCENT) {
+                    over.add(id + ": aura 総量 " + dp + " x " + seconds + "秒 = "
+                            + String.format("%.2f", total) + " > " + MAX_AURA_TOTAL_PERCENT);
+                }
+                continue;
+            }
+            boolean lastStand = abilities.getDouble(id + ".health-below", 1.0) < 1.0;
+            double cap = lastStand ? MAX_LAST_STAND_DAMAGE_PERCENT
+                    : "delayed_zone".equals(type) ? MAX_TELEGRAPHED_DAMAGE_PERCENT
+                            : MAX_ABILITY_DAMAGE_PERCENT;
+            if (dp > cap) {
+                over.add(id + "=" + dp + " (type=" + type + (lastStand ? " / 瀕死技" : "")
+                        + " の上限 " + cap + ")");
             }
         }
         assertEquals(List.of(), over,
-                "技の damage-percent が上限 " + MAX_ABILITY_DAMAGE_PERCENT + " を超えている: " + over + "。"
+                "技の damage-percent が種類ごとの上限を超えている: " + over + "。"
                         + "技のダメージは【そのモブの攻撃力 × この倍率】なので、ここを上げると"
                         + "難易度に関係なく全ダンジョンで同時に即死級になる。"
-                        + "2026-08-21 以前は 2.0 で、難易度1のボスでも1発が最大HPの7割を超えていた。"
+                        + "上限は【避けられる技ほど重く】という段付け(delayed_zone "
+                        + MAX_TELEGRAPHED_DAMAGE_PERCENT + " / 瀕死技 " + MAX_LAST_STAND_DAMAGE_PERCENT
+                        + " / その他 " + MAX_ABILITY_DAMAGE_PERCENT + ")。"
+                        + "予告の無い技をこの段の上へ持っていくのは【対策不能な即死】を作ることと同じ。"
                         + "特定の技だけ重くしたいなら、倍率ではなく cooldown-seconds / chance を触ること。");
     }
 

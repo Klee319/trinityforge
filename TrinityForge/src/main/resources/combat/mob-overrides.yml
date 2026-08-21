@@ -177,6 +177,26 @@
 # high-level-from/high-level-per-level)を殺してしまうため —— resistance/defense-rate/
 # damage-reduction は mob-import.yml 側が per-level 0 の定数なので、定数で置き換えても
 # レベル追随を壊さない。
+#
+# 【攻撃ステの型(2026-08-21 W-183)】ダンジョンごとに stats.attack へ1種類だけ「型」を配ってある。
+# 通常攻撃の【総量】は型を配る前と同じ(型が増やしたダメージぶんは attack-power を下げて相殺した)。
+# 変わるのは【どのビルドが有利か】だけ:
+#
+#   貫通型 penetration: 0.8      … 防御率を8割抜く。防御率で受ける重装が不利、最大HPと守備力が効く。
+#   会心型 crit-chance/crit-damage … 30% で会心(x2)。防具強度(会心軽減)を持つ重装が有利、薄い軽装は事故る。
+#   固定型 fixed-damage           … 全ての防御段を貫通する純加算。守備では減らせず最大HPだけが効く。
+#   振れ型 damage-modifier: 1.4   … ダメージが 1.0〜1.4 で振れる。期待値は同じで、上振れの事故だけが増える。
+#
+# 【型と attack-power は2つで1組】。型を消すなら攻撃力も戻すこと(片方だけ触ると難易度が動く)。
+# 型があるので【attack-power の生値でダンジョン同士を比べてはいけない】——
+# 貫通型のダンジョンは同じ強さでも生値が 2 割低く出る。比較するときは型を打ち消した
+# 「素換算」で見ること(ShippedBossStrengthDriftTest#signatureNeutralAttackPower が実装例)。
+#
+# 【技(abilities)の配り方(2026-08-21 W-183)】ボス/中ボスは 3〜5 種を持ち、
+# 【物理と魔法の両方】と【瀕死技(mob-abilities.yml の health-below)】が必ず混ざるようにしてある。
+# 片方の属性だけ盛っても受け切れないようにして、防具の住み分け(軽装=HP/重装=守備)を攻略へ効かせるため。
+# 雑魚には配らない(同時湧きの頭数ぶん AoE が重なって被ダメージが設計不能になる)。
+# 多段フェーズのボスは【最終段だけ】が技を持つ(途中段は残HP割合ですぐ通過するため)。
 # ============================================================================
 
 # ============================================================================
@@ -1071,13 +1091,18 @@ overrides:
       max-health-multiplier: 1.152
       # 【難易度 6/10・推奨戦闘Lv 60】このダンジョン全体の攻撃力倍率(2026-08-14)。
       # 2026-08-21(W-182): 「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にするため係数を解き直した。
+      # 2026-08-21(W-183): 防具を住み分け設計へ引き直したので【同じ耐発数を保つように】もう一度解き直した。
+      #   基準は重装1式(世界を繋ぐ・品質5)。軽装/魔法装は防具側で同じ被ダメージ期待値へ揃えてある。
       # ここは雑魚の耐発数を決める層。ボス・中ボスは per-mob 側で上乗せしている(2つで1組)。
       # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 0.919
-      attack: { magic-ratio: 0.10 }
+      attack-power-multiplier: 0.6883
+      # 【攻撃ステの型】2026-08-21 W-183 —— 固定型: 全ての防御段を貫通する固定ダメージ。守備では減らせないので最大HPだけが効く
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.10, fixed-damage: 2.17 }
     mobs:
       fireworks_level_50_boss_phase_1:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "スパーキー (第2段階)"
@@ -1127,7 +1152,7 @@ overrides:
           max-health-multiplier: 3.627   # W-181: 難易度6 の上乗せ x1.099 を畳み込み済み
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
-        abilities: [shockwave, bull_rush]
+        abilities: [shockwave, bull_rush, quake_spikes, desperation_nova]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -1170,13 +1195,18 @@ overrides:
       max-health-multiplier: 1.327
       # 【難易度 2/10・推奨戦闘Lv 20】このダンジョン全体の攻撃力倍率(2026-08-14)。
       # 2026-08-21(W-182): 「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にするため係数を解き直した。
+      # 2026-08-21(W-183): 防具を住み分け設計へ引き直したので【同じ耐発数を保つように】もう一度解き直した。
+      #   基準は重装1式(世界を繋ぐ・品質5)。軽装/魔法装は防具側で同じ被ダメージ期待値へ揃えてある。
       # ここは雑魚の耐発数を決める層。ボス・中ボスは per-mob 側で上乗せしている(2つで1組)。
       # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 0.851
-      attack: { magic-ratio: 0.45 }
+      attack-power-multiplier: 0.6868
+      # 【攻撃ステの型】2026-08-21 W-183 —— 固定型: 全ての防御段を貫通する固定ダメージ。守備では減らせないので最大HPだけが効く
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.45, fixed-damage: 2.01 }
     mobs:
       halloween_event_boss_mount:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "命知らず (騎乗体)"
@@ -1226,7 +1256,7 @@ overrides:
           max-health-multiplier: 1.087   # W-181: 難易度2 の上乗せ x1.208 を畳み込み済み
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 魔法防御が厚いダンジョンの踏破ボス。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
-        abilities: [piercing_beam, withering_aura]
+        abilities: [piercing_beam, withering_aura, meteor_mark, last_stand_quake]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -1295,6 +1325,8 @@ overrides:
       max-health-multiplier: 1
       # 【難易度 10/10・推奨戦闘Lv 100】このダンジョン全体の攻撃力倍率(2026-08-14)。
       # 2026-08-21(W-182): 「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にするため係数を解き直した。
+      # 2026-08-21(W-183): 防具を住み分け設計へ引き直したので【同じ耐発数を保つように】もう一度解き直した。
+      #   基準は重装1式(世界を繋ぐ・品質5)。軽装/魔法装は防具側で同じ被ダメージ期待値へ揃えてある。
       # ここは雑魚の耐発数を決める層。ボス・中ボスは per-mob 側で上乗せしている(2つで1組)。
       # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
@@ -1307,8 +1339,11 @@ overrides:
       # 1.4 を掛けた結果が丸ごと捨てられる。そのため 7 体には 1.4 を掛けた値を絶対値として
       # 畳み込んである。この倍率を動かすときは 7 体の attack-power も同じ比で直すこと
       # (畳み込み忘れは ShippedBossStrengthDriftTest の束縛者 pin が検出する)。
-      attack-power-multiplier: 1.046
-      attack: { magic-ratio: 0.45 }
+      attack-power-multiplier: 0.8315
+      # 【攻撃ステの型】2026-08-21 W-183 —— 固定型: 全ての防御段を貫通する固定ダメージ。守備では減らせないので最大HPだけが効く
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.45, fixed-damage: 2.42 }
     mobs:
       binder_of_worlds_phase_1_endermite_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "現実を汚す者 (第2段階) (増援)"
@@ -1332,7 +1367,7 @@ overrides:
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
         # 2026-07-31 特殊攻撃: 第2段階は物理の壁。近接で張り付かせて剣闘士の貫通に価値を持たせる
-        abilities: [shockwave, bull_rush]
+        abilities: [shockwave, bull_rush, meteor_mark, last_stand_quake]
         drops: []
       em_id_binder_of_worlds_phase_1_melee_miniboss:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "現実を根こそぎにする者 (第2段階)"
@@ -1425,7 +1460,7 @@ overrides:
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
         # 2026-07-31 特殊攻撃: 第3段階は魔法の壁。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
-        abilities: [piercing_beam, withering_aura]
+        abilities: [piercing_beam, withering_aura, meteor_mark, last_stand_quake]
         drops: []
       em_id_binder_of_worlds_phase_3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "世界を繋ぐ者 (第4段階)"
@@ -1442,7 +1477,7 @@ overrides:
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
         # 2026-07-31 特殊攻撃: 第4段階は総攻撃。増援を呼ぶので守衛のヘイトと軽減が効く
-        abilities: [call_the_horde, shockwave]
+        abilities: [call_the_horde, shockwave, meteor_mark, last_stand_quake, bull_rush]
         drops: []
       em_id_binder_of_worlds_phase_3_enderman_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "現実を屠る者 (第4段階) (増援)"
@@ -1506,7 +1541,7 @@ overrides:
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
         # 2026-07-31 特殊攻撃: 最終段階は全部入り。3職のどれか1つでは足りず、装備と立ち回りの両方を要求する
-        abilities: [piercing_beam, shadow_step, call_the_swarm, shockwave]
+        abilities: [piercing_beam, shadow_step, call_the_swarm, shockwave, meteor_mark, last_stand_quake]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -1538,7 +1573,10 @@ overrides:
       #   旧 101.5 は同レベルのフィールドモブ(Lv100 で 34.8)の 2.92 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
       #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 1 段目) = 44.32。
       #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
-      attack: { magic-ratio: 0.45, attack-power: 36.949 }
+      # 【攻撃ステの型】2026-08-21 W-183 —— 貫通型: 防御率を 80% 抜いてくる。防御率で受ける重装が不利になり、最大HPと守備力が効く
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.45, attack-power: 29.83, penetration: 0.8 }
     mobs:
       enchantment_boss_dark_flame:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "暗黒の炎"
@@ -1561,7 +1599,7 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
         # 技は1つだけにして立ち位置の強制にとどめる。炎を撒いて足場を削る
-        abilities: [ember_spray]
+        abilities: [ember_spray, flare_slam, bull_rush]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -1593,7 +1631,10 @@ overrides:
       #   旧 214.3 は同レベルのフィールドモブ(Lv100 で 34.8)の 6.16 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
       #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 10 段目) = 62.05。
       #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
-      attack: { magic-ratio: 0.10, attack-power: 46.266 }
+      # 【攻撃ステの型】2026-08-21 W-183 —— 振れ型: ダメージが 1.0〜1.4 倍で振れる。期待値は同じだが上振れで事故る(HPの厚みが効く)
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.10, attack-power: 39.661, damage-modifier: 1.4 }
     mobs:
       enchantment_boss_tricky_bones:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "厄介な骨"
@@ -1616,7 +1657,7 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 立ち位置の強制
         # 2026-08-16 試練の梯子: 最終段は3種。凍らせ・背後へ回り・予告付きの降炎で位置を奪う
-        abilities: [frost_field, shadow_step, meteor_mark]
+        abilities: [frost_field, shadow_step, meteor_mark, last_stand_quake]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -1665,7 +1706,10 @@ overrides:
       #   旧 110.7 は同レベルのフィールドモブ(Lv100 で 34.8)の 3.18 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
       #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 2 段目) = 46.29。
       #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
-      attack: { magic-ratio: 0.10, attack-power: 37.267 }
+      # 【攻撃ステの型】2026-08-21 W-183 —— 振れ型: ダメージが 1.0〜1.4 倍で振れる。期待値は同じだが上振れで事故る(HPの厚みが効く)
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.10, attack-power: 32.673, damage-modifier: 1.4 }
     mobs:
       enchantment_boss_energized_bunny:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "帯電したウサギ"
@@ -1688,7 +1732,7 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
         # 技は1つだけにして立ち位置の強制にとどめる。跳ね回る相手。瞬間移動で追わせる
-        abilities: [shadow_step]
+        abilities: [shadow_step, gale_smash, frost_field]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -1720,7 +1764,10 @@ overrides:
       #   旧 120 は同レベルのフィールドモブ(Lv100 で 34.8)の 3.45 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
       #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 3 段目) = 48.26。
       #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
-      attack: { magic-ratio: 0.45, attack-power: 39.239 }
+      # 【攻撃ステの型】2026-08-21 W-183 —— 会心型: 30% で会心(x2)。防具強度(会心軽減)を持つ重装が有利で、薄い軽装は事故る
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.45, attack-power: 37.954, crit-chance: 0.3, crit-damage: 1 }
     mobs:
       enchantment_boss_jealous_block:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "嫉妬するブロック"
@@ -1743,7 +1790,7 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
         # 技は1つだけにして立ち位置の強制にとどめる。動かない塊。近寄った相手だけを弾く
-        abilities: [shockwave]
+        abilities: [shockwave, meteor_mark, bleeding_aura]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -1775,7 +1822,10 @@ overrides:
       #   旧 129.2 は同レベルのフィールドモブ(Lv100 で 34.8)の 3.72 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
       #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 4 段目) = 50.23。
       #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
-      attack: { magic-ratio: 0.10, attack-power: 39.553 }
+      # 【攻撃ステの型】2026-08-21 W-183 —— 貫通型: 防御率を 80% 抜いてくる。防御率で受ける重装が不利になり、最大HPと守備力が効く
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.10, attack-power: 30.909, penetration: 0.8 }
     mobs:
       enchantment_boss_leet_summoner:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "1337 サモナー (召喚体)"
@@ -1798,7 +1848,7 @@ overrides:
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 召喚士。増援を呼ぶのが本体の役
         # 2026-08-16 試練の梯子: 試練4〜6 は2種。増援を呼びつつ足元を割る(棘は予告付き=避けられる)
-        abilities: [call_the_swarm, quake_spikes]
+        abilities: [call_the_swarm, quake_spikes, abyssal_grip]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -1844,7 +1894,10 @@ overrides:
       #   旧 142.2 は同レベルのフィールドモブ(Lv100 で 34.8)の 4.09 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
       #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 5 段目) = 52.2。
       #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
-      attack: { magic-ratio: 0.45, attack-power: 41.41 }
+      # 【攻撃ステの型】2026-08-21 W-183 —— 振れ型: ダメージが 1.0〜1.4 倍で振れる。期待値は同じだが上振れで事故る(HPの厚みが効く)
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.45, attack-power: 36.715, damage-modifier: 1.4 }
     mobs:
       enchantment_boss_loveable_impaler:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "愛らしき串刺し公"
@@ -1867,7 +1920,7 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 串刺し。直線の貫通で位置取りを強制
         # 2026-08-16 試練の梯子: 試練4〜6 は2種。引き寄せてから串刺す(遮蔽に隠れ続けさせない)
-        abilities: [piercing_beam, abyssal_grip]
+        abilities: [piercing_beam, abyssal_grip, bleeding_aura]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -1906,7 +1959,10 @@ overrides:
       #   旧 151.4 は同レベルのフィールドモブ(Lv100 で 34.8)の 4.36 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
       #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 6 段目) = 54.17。
       #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
-      attack: { magic-ratio: 0.10, attack-power: 41.737 }
+      # 【攻撃ステの型】2026-08-21 W-183 —— 振れ型: ダメージが 1.0〜1.4 倍で振れる。期待値は同じだが上振れで事故る(HPの厚みが効く)
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.10, attack-power: 36.535, damage-modifier: 1.4 }
     mobs:
       enchantment_boss_ravegarer:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "レイヴ荒らし"
@@ -1929,7 +1985,7 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 突進役
         # 2026-08-16 試練の梯子: 試練4〜6 は2種。突進で詰めてから吹き飛ばす(密着し続けさせない)
-        abilities: [bull_rush, gale_smash]
+        abilities: [bull_rush, gale_smash, abyssal_grip]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -1961,7 +2017,10 @@ overrides:
       #   旧 164.4 は同レベルのフィールドモブ(Lv100 で 34.8)の 4.73 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
       #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 7 段目) = 56.14。
       #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
-      attack: { magic-ratio: 0.45, attack-power: 43.471 }
+      # 【攻撃ステの型】2026-08-21 W-183 —— 固定型: 全ての防御段を貫通する固定ダメージ。守備では減らせないので最大HPだけが効く
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.45, attack-power: 34.734, fixed-damage: 2.31 }
     mobs:
       enchantment_boss_rock_solid_cold:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "岩のような極寒"
@@ -1984,7 +2043,7 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 氷結。立ち位置の強制
         # 2026-08-16 試練の梯子: 試練7〜9 は3種。凍らせ・足を砕き・足元を割る(逃げ道を順に潰す)
-        abilities: [frost_field, crippling_stomp, quake_spikes]
+        abilities: [frost_field, crippling_stomp, quake_spikes, void_lunge]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -2016,7 +2075,10 @@ overrides:
       #   旧 181 は同レベルのフィールドモブ(Lv100 で 34.8)の 5.21 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
       #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 8 段目) = 58.11。
       #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
-      attack: { magic-ratio: 0.10, attack-power: 44.02 }
+      # 【攻撃ステの型】2026-08-21 W-183 —— 会心型: 30% で会心(x2)。防具強度(会心軽減)を持つ重装が有利で、薄い軽装は事故る
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.10, attack-power: 42.556, crit-chance: 0.3, crit-damage: 1 }
     mobs:
       enchantment_boss_the_firebunger:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "火炎装置"
@@ -2039,7 +2101,7 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 炎属性
         # 2026-08-16 試練の梯子: 試練7〜9 は3種。火の粉で足場を削り、予告付きの降炎と爆風で押し出す
-        abilities: [ember_spray, meteor_mark, gale_smash]
+        abilities: [ember_spray, meteor_mark, gale_smash, searing_lance]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -2071,7 +2133,10 @@ overrides:
       #   旧 195.8 は同レベルのフィールドモブ(Lv100 で 34.8)の 5.63 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
       #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 9 段目) = 60.08。
       #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
-      attack: { magic-ratio: 0.45, attack-power: 45.429 }
+      # 【攻撃ステの型】2026-08-21 W-183 —— 貫通型: 防御率を 80% 抜いてくる。防御率で受ける重装が不利になり、最大HPと守備力が効く
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.45, attack-power: 35.445, penetration: 0.8 }
     mobs:
       enchantment_boss_the_glass_master:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "硝子の達人"
@@ -2094,7 +2159,7 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-02 特殊攻撃(柱2-1 の積み残し): ガラス片を扇状に飛ばす
         # 2026-08-16 試練の梯子: 試練7〜9 は3種。散弾で削り、引き寄せて貫く(遮蔽での膠着を許さない)
-        abilities: [arrow_fan, abyssal_grip, piercing_beam]
+        abilities: [arrow_fan, abyssal_grip, piercing_beam, bleeding_aura]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -2121,13 +2186,18 @@ overrides:
       max-health-multiplier: 1.281
       # 【難易度 3/10・推奨戦闘Lv 30】このダンジョン全体の攻撃力倍率(2026-08-14)。
       # 2026-08-21(W-182): 「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にするため係数を解き直した。
+      # 2026-08-21(W-183): 防具を住み分け設計へ引き直したので【同じ耐発数を保つように】もう一度解き直した。
+      #   基準は重装1式(世界を繋ぐ・品質5)。軽装/魔法装は防具側で同じ被ダメージ期待値へ揃えてある。
       # ここは雑魚の耐発数を決める層。ボス・中ボスは per-mob 側で上乗せしている(2つで1組)。
       # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 0.877
-      attack: { magic-ratio: 0.25 }
+      attack-power-multiplier: 0.7069
+      # 【攻撃ステの型】2026-08-21 W-183 —— 固定型: 全ての防御段を貫通する固定ダメージ。守備では減らせないので最大HPだけが効く
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.25, fixed-damage: 2.03 }
     mobs:
       the_bridge_ancient_guardian_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "古代の守護者 (第1段階)"
@@ -2177,7 +2247,7 @@ overrides:
           max-health-multiplier: 2.24   # W-181: 難易度3 の上乗せ x1.179 を畳み込み済み
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 踏破ボス。増援と足止めで手数を要求し、守衛のヘイトと軽減に価値を持たせる
-        abilities: [call_the_horde, crippling_stomp]
+        abilities: [call_the_horde, crippling_stomp, quake_spikes, desperation_nova, void_lunge]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -2234,13 +2304,18 @@ overrides:
       max-health-multiplier: 1.036
       # 【難易度 9/10・推奨戦闘Lv 90】このダンジョン全体の攻撃力倍率(2026-08-14)。
       # 2026-08-21(W-182): 「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にするため係数を解き直した。
+      # 2026-08-21(W-183): 防具を住み分け設計へ引き直したので【同じ耐発数を保つように】もう一度解き直した。
+      #   基準は重装1式(世界を繋ぐ・品質5)。軽装/魔法装は防具側で同じ被ダメージ期待値へ揃えてある。
       # ここは雑魚の耐発数を決める層。ボス・中ボスは per-mob 側で上乗せしている(2つで1組)。
       # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 1.017
-      attack: { magic-ratio: 0.45 }
+      attack-power-multiplier: 0.9749
+      # 【攻撃ステの型】2026-08-21 W-183 —— 会心型: 30% で会心(x2)。防具強度(会心軽減)を持つ重装が有利で、薄い軽装は事故る
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.45, crit-chance: 0.3, crit-damage: 1 }
     mobs:
       the_cave_boiled_bones_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "煮られた骨 (召喚体)"
@@ -2297,7 +2372,7 @@ overrides:
           max-health-multiplier: 21.504   # W-181: 難易度9 の上乗せ x1.024 を畳み込み済み
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 魔法防御が厚いダンジョンの踏破ボス。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
-        abilities: [piercing_beam, withering_aura]
+        abilities: [piercing_beam, withering_aura, meteor_mark, last_stand_quake]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -2333,13 +2408,18 @@ overrides:
       max-health-multiplier: 1.152
       # 【難易度 6/10・推奨戦闘Lv 60】このダンジョン全体の攻撃力倍率(2026-08-14)。
       # 2026-08-21(W-182): 「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にするため係数を解き直した。
+      # 2026-08-21(W-183): 防具を住み分け設計へ引き直したので【同じ耐発数を保つように】もう一度解き直した。
+      #   基準は重装1式(世界を繋ぐ・品質5)。軽装/魔法装は防具側で同じ被ダメージ期待値へ揃えてある。
       # ここは雑魚の耐発数を決める層。ボス・中ボスは per-mob 側で上乗せしている(2つで1組)。
       # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 0.919
-      attack: { magic-ratio: 0.10 }
+      attack-power-multiplier: 0.7044
+      # 【攻撃ステの型】2026-08-21 W-183 —— 貫通型: 防御率を 80% 抜いてくる。防御率で受ける重装が不利になり、最大HPと守備力が効く
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.10, penetration: 0.8 }
     mobs:
       em_id_the_city_ancient_dwarf:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "古代のドワーフ"
@@ -2401,7 +2481,7 @@ overrides:
           max-health-multiplier: 4.066   # W-181: 難易度6 の上乗せ x1.099 を畳み込み済み
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。衛兵＝盾で弾き飛ばす(密着し続けさせない)
-        abilities: [gale_smash]
+        abilities: [gale_smash, crippling_stomp, withering_aura]
         # 【ドロップ】中ボス(2026-08-14)。
         # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
@@ -2423,7 +2503,7 @@ overrides:
           magical:  { defense-rate: 0.052, resistance: 0.05 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。踏破ボス(物理)と同じ属性で揃える。防衛兵＝足止め役
-        abilities: [crippling_stomp]
+        abilities: [crippling_stomp, quake_spikes, frost_field]
         drops: []
       em_id_the_city_mini_boss_two:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "都市の監視者"
@@ -2440,7 +2520,7 @@ overrides:
           magical:  { defense-rate: 0.052, resistance: 0.05 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。監視者＝遠距離から射る
-        abilities: [arrow_fan]
+        abilities: [arrow_fan, gale_smash, flare_slam]
         drops: []
       em_id_the_city_royal_guard_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "王室の近衛 (第1段階)"
@@ -2490,7 +2570,7 @@ overrides:
           max-health-multiplier: 7.363   # W-181: 難易度6 の上乗せ x1.099 を畳み込み済み
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
-        abilities: [shockwave, bull_rush]
+        abilities: [shockwave, bull_rush, quake_spikes, desperation_nova]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -2519,15 +2599,22 @@ overrides:
       max-health-multiplier: 1.073
       # 【難易度 8/10・推奨戦闘Lv 80】このダンジョン全体の攻撃力倍率(2026-08-14)。
       # 2026-08-21(W-182): 「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にするため係数を解き直した。
+      # 2026-08-21(W-183): 防具を住み分け設計へ引き直したので【同じ耐発数を保つように】もう一度解き直した。
+      #   基準は重装1式(世界を繋ぐ・品質5)。軽装/魔法装は防具側で同じ被ダメージ期待値へ揃えてある。
       # ここは雑魚の耐発数を決める層。ボス・中ボスは per-mob 側で上乗せしている(2つで1組)。
       # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 1.003
-      attack: { magic-ratio: 0.25 }
+      attack-power-multiplier: 0.801
+      # 【攻撃ステの型】2026-08-21 W-183 —— 固定型: 全ての防御段を貫通する固定ダメージ。守備では減らせないので最大HPだけが効く
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.25, fixed-damage: 2.3 }
     mobs:
       the_climb_bone_champion:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [quake_spikes, abyssal_grip]
         display-name: "村の勇者"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -2558,7 +2645,7 @@ overrides:
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 技は【最深段(p2)】に置く。p1 に置くと一番長く戦う段が無技になる
         # (the_climb_undead_beastmaster と同じ規則)。勇者＝踏み込んで薙ぎ払う
-        abilities: [bull_rush, gale_smash]
+        abilities: [bull_rush, gale_smash, abyssal_grip]
         drops: []
       the_climb_bone_champion_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "アンデッドのネズミ (召喚体)"
@@ -2568,6 +2655,8 @@ overrides:
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
         drops: []
       the_climb_flesh_starved_child:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [shockwave, void_lunge]
         display-name: "焼かれた村人"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -2611,6 +2700,8 @@ overrides:
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
         drops: []
       the_climb_skeletal_shadow:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [crippling_stomp, abyssal_grip]
         display-name: "魂の影"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -2746,7 +2837,7 @@ overrides:
         # the_climb_undead_beastmaster.yml の phases が p2:.99999 / p3:.75 / p4:.50 で最深段)。
         # p3 は HP 75% で通過するだけの段階なので、そこに技を置くと一番長く戦う p4 が無技になる。
         # 踏破ボス。増援と足止めで手数を要求し、守衛のヘイトと軽減に価値を持たせる
-        abilities: [call_the_horde, crippling_stomp]
+        abilities: [call_the_horde, crippling_stomp, quake_spikes, void_lunge, desperation_nova]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -2771,6 +2862,8 @@ overrides:
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
         drops: []
       the_climb_undead_guardian:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [quake_spikes, piercing_beam]
         display-name: "村の守護者"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -2803,7 +2896,7 @@ overrides:
           max-health-multiplier: 12.576   # W-181: 難易度8 の上乗せ x1.048 を畳み込み済み
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 技は最深段(p2)へ。守護者＝踏み鳴らして近寄らせない
-        abilities: [shockwave]
+        abilities: [shockwave, quake_spikes, abyssal_grip]
         # 【ドロップ】中ボス(2026-08-14)。
         # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
@@ -2833,13 +2926,18 @@ overrides:
       max-health-multiplier: 1.327
       # 【難易度 2/10・推奨戦闘Lv 20】このダンジョン全体の攻撃力倍率(2026-08-14)。
       # 2026-08-21(W-182): 「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にするため係数を解き直した。
+      # 2026-08-21(W-183): 防具を住み分け設計へ引き直したので【同じ耐発数を保つように】もう一度解き直した。
+      #   基準は重装1式(世界を繋ぐ・品質5)。軽装/魔法装は防具側で同じ被ダメージ期待値へ揃えてある。
       # ここは雑魚の耐発数を決める層。ボス・中ボスは per-mob 側で上乗せしている(2つで1組)。
       # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 0.832
-      attack: { magic-ratio: 0.10 }
+      attack-power-multiplier: 0.6474
+      # 【攻撃ステの型】2026-08-21 W-183 —— 貫通型: 防御率を 80% 抜いてくる。防御率で受ける重装が不利になり、最大HPと守備力が効く
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.10, penetration: 0.8 }
     mobs:
       em_id_the_deep_mines_boom_surprise_ancient_husk:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "古代のハスク"
@@ -2903,7 +3001,7 @@ overrides:
           max-health-multiplier: 3.745   # W-181: 難易度2 の上乗せ x1.208 を畳み込み済み
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
-        abilities: [shockwave, bull_rush]
+        abilities: [shockwave, bull_rush, quake_spikes, desperation_nova]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -2943,7 +3041,7 @@ overrides:
           magical:  { defense-rate: 0.052, resistance: 0.05 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。踏破ボス(物理)と属性を揃える。掘削者＝足元を割る
-        abilities: [quake_spikes]
+        abilities: [quake_spikes, bleeding_aura, frost_field]
         drops: []
       em_id_the_deep_mines_miniboss_foreman:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "現場監督"
@@ -2960,7 +3058,7 @@ overrides:
           magical:  { defense-rate: 0.052, resistance: 0.05 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。監督＝逃がさない(足止め)
-        abilities: [crippling_stomp]
+        abilities: [crippling_stomp, shockwave, frost_field]
         drops: []
       em_id_the_deep_mines_miniboss_greedy_miner:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "強欲な坑夫"
@@ -2977,7 +3075,7 @@ overrides:
           magical:  { defense-rate: 0.052, resistance: 0.05 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。強欲＝掴んで引きずり込む(遠距離で撃たせない)
-        abilities: [abyssal_grip]
+        abilities: [abyssal_grip, crippling_stomp]
         drops: []
       em_id_the_deep_mines_miniboss_twisted_excavator:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "捻じれた掘削機"
@@ -2994,7 +3092,7 @@ overrides:
           magical:  { defense-rate: 0.052, resistance: 0.05 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。掘削機＝腕を振り回して弾き飛ばす
-        abilities: [gale_smash]
+        abilities: [gale_smash, quake_spikes, withering_aura]
         drops: []
       em_id_the_deep_mines_nether_moss:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "ネザーの苔"
@@ -3068,13 +3166,18 @@ overrides:
       max-health-multiplier: 1.193
       # 【難易度 5/10・推奨戦闘Lv 50】このダンジョン全体の攻撃力倍率(2026-08-14)。
       # 2026-08-21(W-182): 「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にするため係数を解き直した。
+      # 2026-08-21(W-183): 防具を住み分け設計へ引き直したので【同じ耐発数を保つように】もう一度解き直した。
+      #   基準は重装1式(世界を繋ぐ・品質5)。軽装/魔法装は防具側で同じ被ダメージ期待値へ揃えてある。
       # ここは雑魚の耐発数を決める層。ボス・中ボスは per-mob 側で上乗せしている(2つで1組)。
       # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 0.896
-      attack: { magic-ratio: 0.10 }
+      attack-power-multiplier: 0.6905
+      # 【攻撃ステの型】2026-08-21 W-183 —— 貫通型: 防御率を 80% 抜いてくる。防御率で受ける重装が不利になり、最大HPと守備力が効く
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.10, penetration: 0.8 }
     mobs:
       the_mines_arachnidian_construct:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "蜘蛛型構造体"
@@ -3091,6 +3194,8 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         drops: []
       the_mines_boss_soulfire_mount_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [shockwave, abyssal_grip]
         display-name: "炭化した村人 (第1段階) (騎乗体)"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -3106,6 +3211,8 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         drops: []
       the_mines_boss_soulfire_mount_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [bleeding_aura, void_lunge]
         display-name: "炭化した村人 (第2段階) (騎乗体)"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -3121,6 +3228,8 @@ overrides:
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
         drops: []
       the_mines_boss_soulfire_mount_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [gale_smash, piercing_beam]
         display-name: "炭化した村人 (第3段階) (騎乗体)"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -3136,6 +3245,8 @@ overrides:
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         drops: []
       the_mines_boss_soulfire_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [gale_smash, frost_field]
         display-name: "注ぎ込まれた魂 (第1段階)"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -3151,6 +3262,8 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         drops: []
       the_mines_boss_soulfire_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [crippling_stomp, withering_aura]
         display-name: "注ぎ込まれた魂 (第2段階)"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -3166,6 +3279,8 @@ overrides:
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
         drops: []
       the_mines_boss_soulfire_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [shockwave, withering_aura]
         display-name: "注ぎ込まれた魂 (第3段階)"
         stats:
           # 【ボス係数】MINIBOSS。scope 直下の難易度倍率にこれが掛かる(倍率は層ごとに掛け算)。
@@ -3245,7 +3360,7 @@ overrides:
           magical:  { defense-rate: 0.052, resistance: 0.05 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。鍛冶師＝炉の火を撒く
-        abilities: [ember_spray]
+        abilities: [ember_spray, gale_smash, withering_aura]
         drops: []
       the_mines_mini_boss_tulpa:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "魂のトゥルパ"
@@ -3262,7 +3377,7 @@ overrides:
           magical:  { defense-rate: 0.052, resistance: 0.05 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。思念体＝そこに居続けさせない
-        abilities: [withering_aura]
+        abilities: [withering_aura, crippling_stomp]
         drops: []
       the_mines_mini_boss_tulpa_reinforcements:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "凝集した思念 (増援)"
@@ -3286,7 +3401,7 @@ overrides:
           magical:  { defense-rate: 0.052, resistance: 0.05 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。予告付きの落着で足を止めさせない
-        abilities: [meteor_mark]
+        abilities: [meteor_mark, crippling_stomp]
         drops: []
       the_mines_mini_boss_tusk_summon_one:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "忍耐の魂 (召喚体)"
@@ -3421,7 +3536,7 @@ overrides:
           max-health-multiplier: 4.388   # W-181: 難易度5 の上乗せ x1.125 を畳み込み済み
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
-        abilities: [shockwave, bull_rush]
+        abilities: [shockwave, bull_rush, quake_spikes, desperation_nova]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -3492,13 +3607,18 @@ overrides:
       max-health-multiplier: 1.193
       # 【難易度 5/10・推奨戦闘Lv 50】このダンジョン全体の攻撃力倍率(2026-08-14)。
       # 2026-08-21(W-182): 「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にするため係数を解き直した。
+      # 2026-08-21(W-183): 防具を住み分け設計へ引き直したので【同じ耐発数を保つように】もう一度解き直した。
+      #   基準は重装1式(世界を繋ぐ・品質5)。軽装/魔法装は防具側で同じ被ダメージ期待値へ揃えてある。
       # ここは雑魚の耐発数を決める層。ボス・中ボスは per-mob 側で上乗せしている(2つで1組)。
       # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 0.914
-      attack: { magic-ratio: 0.45 }
+      attack-power-multiplier: 0.8828
+      # 【攻撃ステの型】2026-08-21 W-183 —— 会心型: 30% で会心(x2)。防具強度(会心軽減)を持つ重装が有利で、薄い軽装は事故る
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.45, crit-chance: 0.3, crit-damage: 1 }
     mobs:
       em_id_the_nether_bell_beam_boss_green_1_speed:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "光を抱く者 (俊敏)"
@@ -3517,7 +3637,7 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ。魔法装甲が厚い個体なので技も魔法側で揃える
         # (踏破ボス void_bell_p3 の [piercing_beam, withering_aura] と同じ属性)。光＝直線
-        abilities: [piercing_beam]
+        abilities: [piercing_beam, withering_aura, crippling_stomp]
         drops: []
       em_id_the_nether_bell_beam_boss_green_2_strength:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "光を抱く者 (剛力)"
@@ -3535,7 +3655,7 @@ overrides:
           magical:  { defense-rate: 0.06, resistance: 0.05 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。予告してから叩き落とす
-        abilities: [meteor_mark]
+        abilities: [meteor_mark, abyssal_grip, gale_smash]
         drops: []
       em_id_the_nether_bell_beam_boss_green_3_night_vision:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "光を抱く者 (暗視)"
@@ -3553,7 +3673,7 @@ overrides:
           magical:  { defense-rate: 0.06, resistance: 0.05 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。留まらせない霧
-        abilities: [withering_aura]
+        abilities: [withering_aura, meteor_mark, bleeding_aura]
         drops: []
       em_id_the_nether_bell_beam_boss_red_1_slow:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "虚無を抱く者 (鈍足)"
@@ -3571,7 +3691,7 @@ overrides:
           magical:  { defense-rate: 0.06, resistance: 0.05 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。鈍足＝凍気
-        abilities: [frost_field]
+        abilities: [frost_field, withering_aura, bleeding_aura]
         drops: []
       em_id_the_nether_bell_beam_boss_red_2_hunger:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "虚無を抱く者 (飢餓)"
@@ -3589,7 +3709,7 @@ overrides:
           magical:  { defense-rate: 0.06, resistance: 0.05 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。虚無＝呑み込む(引き寄せ)
-        abilities: [abyssal_grip]
+        abilities: [abyssal_grip, frost_field, gale_smash]
         drops: []
       em_id_the_nether_bell_beam_boss_red_3_darkness:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "虚無を抱く者 (暗闇)"
@@ -3607,7 +3727,7 @@ overrides:
           magical:  { defense-rate: 0.06, resistance: 0.05 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。暗闇＝背後を取る
-        abilities: [shadow_step]
+        abilities: [shadow_step, flare_slam]
         drops: []
       em_id_the_nether_bell_beam_boss_yellow_1_bogged:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "悲嘆を抱く者 (沼)"
@@ -3625,9 +3745,11 @@ overrides:
           magical:  { defense-rate: 0.06, resistance: 0.05 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。沼＝足を取る
-        abilities: [frost_field]
+        abilities: [frost_field, abyssal_grip, crippling_stomp]
         drops: []
       em_id_the_nether_bell_beam_boss_yellow_1_bogged_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [abyssal_grip, bleeding_aura]
         display-name: "悲嘆を抱く者 (召喚体) (沼)"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -3660,9 +3782,11 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ここだけ物理技なのは意図的。ブリーズ＝風で吹き飛ばすモブなので
         # 見た目と技を一致させた(属性を揃える原則より、この1体は種族の見た目を優先)
-        abilities: [gale_smash]
+        abilities: [gale_smash, abyssal_grip]
         drops: []
       em_id_the_nether_bell_beam_boss_yellow_2_breeze_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [meteor_mark, bleeding_aura]
         display-name: "悲嘆を抱く者 (召喚体) (ブリーズ)"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -3694,9 +3818,11 @@ overrides:
           magical:  { defense-rate: 0.06, resistance: 0.05 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。ウォーデン＝直線の咆哮
-        abilities: [piercing_beam]
+        abilities: [piercing_beam, abyssal_grip, bleeding_aura]
         drops: []
       em_id_the_nether_bell_beam_boss_yellow_3_warden_power_dummy:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [withering_aura, shadow_step]
         display-name: "悲嘆を抱く者 (ウォーデン・出力ダミー)"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -3713,6 +3839,8 @@ overrides:
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
         drops: []
       em_id_the_nether_bell_beam_boss_yellow_3_warden_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [flare_slam, crippling_stomp]
         display-name: "悲嘆を抱く者 (召喚体) (ウォーデン)"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -3779,7 +3907,7 @@ overrides:
           max-health-multiplier: 7.875   # W-181: 難易度5 の上乗せ x1.125 を畳み込み済み
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 魔法防御が厚いダンジョンの踏破ボス。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
-        abilities: [piercing_beam, withering_aura]
+        abilities: [piercing_beam, withering_aura, meteor_mark, last_stand_quake]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -3814,6 +3942,8 @@ overrides:
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
         drops: []
       em_id_the_nether_bell_summon_ancient_corpse:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [frost_field, shockwave]
         display-name: "古代の死骸 (召喚体) (亡骸)"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -3830,6 +3960,8 @@ overrides:
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
         drops: []
       em_id_the_nether_bell_summon_dwarven_corpse_knight:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [flare_slam, bull_rush]
         display-name: "ドワーフの死の騎士 (召喚体) (亡骸)"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -3846,6 +3978,8 @@ overrides:
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
         drops: []
       em_id_the_nether_bell_summon_fossilized_bones:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [frost_field, shockwave]
         display-name: "化石化した骨 (召喚体)"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -3883,6 +4017,8 @@ overrides:
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
         drops: []
       em_id_the_nether_bell_world_wither:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [meteor_mark, searing_lance, last_stand_quake, withering_aura]
         display-name: "虚無のモズ"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -3899,6 +4035,8 @@ overrides:
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
         drops: []
       em_id_the_nether_bell_world_wither_skeleton:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [meteor_mark, bull_rush, abyssal_grip, last_stand_quake]
         display-name: "虚無を歩む者"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -3915,6 +4053,8 @@ overrides:
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
         drops: []
       em_id_the_nether_bell_world_wither_skeleton_sniper:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [meteor_mark, searing_lance, flare_slam, last_stand_quake]
         display-name: "虚無を貫く者"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -3946,13 +4086,18 @@ overrides:
       max-health-multiplier: 1.152
       # 【難易度 6/10・推奨戦闘Lv 60】このダンジョン全体の攻撃力倍率(2026-08-14)。
       # 2026-08-21(W-182): 「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にするため係数を解き直した。
+      # 2026-08-21(W-183): 防具を住み分け設計へ引き直したので【同じ耐発数を保つように】もう一度解き直した。
+      #   基準は重装1式(世界を繋ぐ・品質5)。軽装/魔法装は防具側で同じ被ダメージ期待値へ揃えてある。
       # ここは雑魚の耐発数を決める層。ボス・中ボスは per-mob 側で上乗せしている(2つで1組)。
       # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 0.945
-      attack: { magic-ratio: 0.25 }
+      attack-power-multiplier: 0.92
+      # 【攻撃ステの型】2026-08-21 W-183 —— 会心型: 30% で会心(x2)。防具強度(会心軽減)を持つ重装が有利で、薄い軽装は事故る
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.25, crit-chance: 0.3, crit-damage: 1 }
     mobs:
       em_id_the_nether_wastes_lesser_nether_fiend:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "下級ネザーの魔物"
@@ -3977,7 +4122,7 @@ overrides:
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。技の属性は【そのモブの耐性の逆】に揃える
         # (物理装甲が厚い=魔法が通る敵は物理で殴ってくる)。重い瘴気＝足を止める
-        abilities: [crippling_stomp]
+        abilities: [crippling_stomp, gale_smash, flare_slam]
         drops: []
       em_id_the_nether_wastes_miniboss_2_blind:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "濃い瘴気"
@@ -3994,7 +4139,7 @@ overrides:
           magical:  { defense-rate: 0.286, resistance: 0.388 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。魔法装甲が厚い個体なので技も魔法側で揃える
-        abilities: [withering_aura]
+        abilities: [withering_aura, crippling_stomp]
         drops: []
       em_id_the_nether_wastes_miniboss_2_summon_hard:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "呪術師 (召喚体) (上級)"
@@ -4035,7 +4180,7 @@ overrides:
           max-health-multiplier: 4.396   # W-181: 難易度6 の上乗せ x1.099 を畳み込み済み
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。魔法装甲が厚い個体なので技も魔法側。掴んで毒気の中へ引き込む
-        abilities: [abyssal_grip]
+        abilities: [abyssal_grip, bleeding_aura]
         # 【ドロップ】中ボス(2026-08-14)。
         # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
@@ -4064,7 +4209,7 @@ overrides:
           magical:  { defense-rate: 0.286, resistance: 0.388 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。物理側で揃える。噴き出す棘で足場を奪う
-        abilities: [quake_spikes]
+        abilities: [quake_spikes, bleeding_aura, flare_slam]
         drops: []
       em_id_the_nether_wastes_miniboss_4_summon:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "ネザーの小悪魔 (召喚体)"
@@ -4106,7 +4251,7 @@ overrides:
           max-health-multiplier: 10.99   # W-181: 難易度6 の上乗せ x1.099 を畳み込み済み
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 低難度ダンジョンの踏破ボス。技は1つだけにして立ち位置の強制にとどめる
-        abilities: [frost_field]
+        abilities: [frost_field, quake_spikes, piercing_beam, desperation_nova]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -4198,13 +4343,18 @@ overrides:
       max-health-multiplier: 1.236
       # 【難易度 4/10・推奨戦闘Lv 40】このダンジョン全体の攻撃力倍率(2026-08-14)。
       # 2026-08-21(W-182): 「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にするため係数を解き直した。
+      # 2026-08-21(W-183): 防具を住み分け設計へ引き直したので【同じ耐発数を保つように】もう一度解き直した。
+      #   基準は重装1式(世界を繋ぐ・品質5)。軽装/魔法装は防具側で同じ被ダメージ期待値へ揃えてある。
       # ここは雑魚の耐発数を決める層。ボス・中ボスは per-mob 側で上乗せしている(2つで1組)。
       # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 0.9
-      attack: { magic-ratio: 0.25 }
+      attack-power-multiplier: 0.8773
+      # 【攻撃ステの型】2026-08-21 W-183 —— 会心型: 30% で会心(x2)。防具強度(会心軽減)を持つ重装が有利で、薄い軽装は事故る
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.25, crit-chance: 0.3, crit-damage: 1 }
     mobs:
       the_palace_old_stone_king_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "古き石の王 (第1段階)"
@@ -4254,7 +4404,7 @@ overrides:
           max-health-multiplier: 3.456   # W-181: 難易度4 の上乗せ x1.152 を畳み込み済み
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 踏破ボス。増援と足止めで手数を要求し、守衛のヘイトと軽減に価値を持たせる
-        abilities: [call_the_horde, crippling_stomp]
+        abilities: [call_the_horde, crippling_stomp, quake_spikes, desperation_nova, void_lunge]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -4297,13 +4447,18 @@ overrides:
       max-health-multiplier: 1.073
       # 【難易度 8/10・推奨戦闘Lv 80】このダンジョン全体の攻撃力倍率(2026-08-14)。
       # 2026-08-21(W-182): 「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にするため係数を解き直した。
+      # 2026-08-21(W-183): 防具を住み分け設計へ引き直したので【同じ耐発数を保つように】もう一度解き直した。
+      #   基準は重装1式(世界を繋ぐ・品質5)。軽装/魔法装は防具側で同じ被ダメージ期待値へ揃えてある。
       # ここは雑魚の耐発数を決める層。ボス・中ボスは per-mob 側で上乗せしている(2つで1組)。
       # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 0.981
-      attack: { magic-ratio: 0.10 }
+      attack-power-multiplier: 0.8443
+      # 【攻撃ステの型】2026-08-21 W-183 —— 振れ型: ダメージが 1.0〜1.4 倍で振れる。期待値は同じだが上振れで事故る(HPの厚みが効く)
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.10, damage-modifier: 1.4 }
     mobs:
       LiftAirFiller:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "昇降機の送気装置"
@@ -4497,6 +4652,8 @@ overrides:
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
         drops: []
       em_id_the_quarry_quarry_smith:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [bleeding_aura, flare_slam]
         display-name: "雷の鍛冶師"
         stats:
           # 【ボス係数】MINIBOSS。scope 直下の難易度倍率にこれが掛かる(倍率は層ごとに掛け算)。
@@ -4520,6 +4677,8 @@ overrides:
         drops:
           - { item: "custom:thread_mana_amplify", chance: 0.2, min: 1, max: 1 }
       em_id_the_quarry_royal_wizard_five:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [gale_smash, piercing_beam]
         display-name: "王室の術士"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -4559,6 +4718,8 @@ overrides:
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops: []
       em_id_the_quarry_royal_wizard_four:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [gale_smash, piercing_beam]
         display-name: "王室の速射術士"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -4574,6 +4735,8 @@ overrides:
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
         drops: []
       em_id_the_quarry_royal_wizard_one:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [gale_smash, void_lunge]
         display-name: "王室の織成術士"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -4589,6 +4752,8 @@ overrides:
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
         drops: []
       em_id_the_quarry_royal_wizard_three:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [shockwave, flare_slam]
         display-name: "王室の詠唱術士"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -4604,6 +4769,8 @@ overrides:
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
         drops: []
       em_id_the_quarry_royal_wizard_two:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [bleeding_aura, void_lunge]
         display-name: "王室の招霊術士"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -4634,13 +4801,18 @@ overrides:
       max-health-multiplier: 1.281
       # 【難易度 3/10・推奨戦闘Lv 30】このダンジョン全体の攻撃力倍率(2026-08-14)。
       # 2026-08-21(W-182): 「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にするため係数を解き直した。
+      # 2026-08-21(W-183): 防具を住み分け設計へ引き直したので【同じ耐発数を保つように】もう一度解き直した。
+      #   基準は重装1式(世界を繋ぐ・品質5)。軽装/魔法装は防具側で同じ被ダメージ期待値へ揃えてある。
       # ここは雑魚の耐発数を決める層。ボス・中ボスは per-mob 側で上乗せしている(2つで1組)。
       # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 0.85
-      attack: { magic-ratio: 0.10 }
+      attack-power-multiplier: 0.7391
+      # 【攻撃ステの型】2026-08-21 W-183 —— 振れ型: ダメージが 1.0〜1.4 倍で振れる。期待値は同じだが上振れで事故る(HPの厚みが効く)
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.10, damage-modifier: 1.4 }
     mobs:
       the_castle_arcane_knight:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "秘術の騎士"
@@ -4762,7 +4934,7 @@ overrides:
         # the_castle_charlemagne_p1.yml の phases が p2:0.80 / p3:0.50 / p4:0.30 で最深段。
         # p4 だけが dropsEliteMobsLoot: true)。p3 は HP 50% で通過するだけの段階。
         # 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
-        abilities: [shockwave, bull_rush]
+        abilities: [shockwave, bull_rush, quake_spikes, desperation_nova]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -4780,6 +4952,8 @@ overrides:
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
         drops: []
       the_castle_ser_prancelot_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [gale_smash, abyssal_grip]
         display-name: "跳ねるランスロット卿 (第1段階)"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -4809,7 +4983,7 @@ overrides:
           magical:  { defense-rate: 0.068, resistance: 0.05 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 技は最深段(p2)へ。騎乗突撃の騎士なので突進(物理側で揃える)
-        abilities: [bull_rush]
+        abilities: [bull_rush, shockwave, withering_aura]
         drops: []
 
   # north_pole_minidungeon (DYNAMIC_DUNGEON) — custombosses/the_north_pole / 8体
@@ -4827,13 +5001,18 @@ overrides:
       max-health-multiplier: 1.112
       # 【難易度 7/10・推奨戦闘Lv 70】このダンジョン全体の攻撃力倍率(2026-08-14)。
       # 2026-08-21(W-182): 「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にするため係数を解き直した。
+      # 2026-08-21(W-183): 防具を住み分け設計へ引き直したので【同じ耐発数を保つように】もう一度解き直した。
+      #   基準は重装1式(世界を繋ぐ・品質5)。軽装/魔法装は防具側で同じ被ダメージ期待値へ揃えてある。
       # ここは雑魚の耐発数を決める層。ボス・中ボスは per-mob 側で上乗せしている(2つで1組)。
       # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 0.957
-      attack: { magic-ratio: 0.45 }
+      attack-power-multiplier: 0.845
+      # 【攻撃ステの型】2026-08-21 W-183 —— 振れ型: ダメージが 1.0〜1.4 倍で振れる。期待値は同じだが上振れで事故る(HPの厚みが効く)
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.45, damage-modifier: 1.4 }
     mobs:
       northpole_elf:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "工房のエルフ"
@@ -4850,6 +5029,8 @@ overrides:
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
         drops: []
       northpole_jack_frost:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [meteor_mark, searing_lance, last_stand_quake, abyssal_grip]
         display-name: "ジャックフロスト"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -4865,6 +5046,8 @@ overrides:
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
         drops: []
       northpole_krampus:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [meteor_mark, searing_lance, flare_slam, last_stand_quake]
         display-name: "クランプス"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -4880,6 +5063,8 @@ overrides:
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
         drops: []
       northpole_mrs_claus:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
+        abilities: [meteor_mark, searing_lance, withering_aura, last_stand_quake]
         display-name: "クロース夫人"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -4912,7 +5097,7 @@ overrides:
           max-health-multiplier: 22.533   # W-181: 難易度7 の上乗せ x1.073 を畳み込み済み
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 低難度ダンジョンの踏破ボス。技は1つだけにして立ち位置の強制にとどめる
-        abilities: [frost_field]
+        abilities: [frost_field, meteor_mark, last_stand_quake, searing_lance]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -4956,13 +5141,18 @@ overrides:
       max-health-multiplier: 1.112
       # 【難易度 7/10・推奨戦闘Lv 70】このダンジョン全体の攻撃力倍率(2026-08-14)。
       # 2026-08-21(W-182): 「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にするため係数を解き直した。
+      # 2026-08-21(W-183): 防具を住み分け設計へ引き直したので【同じ耐発数を保つように】もう一度解き直した。
+      #   基準は重装1式(世界を繋ぐ・品質5)。軽装/魔法装は防具側で同じ被ダメージ期待値へ揃えてある。
       # ここは雑魚の耐発数を決める層。ボス・中ボスは per-mob 側で上乗せしている(2つで1組)。
       # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 0.966
-      attack: { magic-ratio: 0.25 }
+      attack-power-multiplier: 0.7736
+      # 【攻撃ステの型】2026-08-21 W-183 —— 貫通型: 防御率を 80% 抜いてくる。防御率で受ける重装が不利になり、最大HPと守備力が効く
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.25, penetration: 0.8 }
     mobs:
       sewer_tier_10:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "潜むもの"
@@ -5000,7 +5190,7 @@ overrides:
           magical:  { defense-rate: 0.336, resistance: 0.396 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 下水道の各層ボスは1種ずつ。重力ギミックの層＝吹き飛ばし
-        abilities: [gale_smash]
+        abilities: [gale_smash, crippling_stomp, flare_slam]
         drops: []
       sewer_tier_20_water:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "密輸業者"
@@ -5024,7 +5214,7 @@ overrides:
           magical:  { defense-rate: 0.336, resistance: 0.396 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。英雄＝踏み込んで斬る
-        abilities: [bull_rush]
+        abilities: [bull_rush, quake_spikes, abyssal_grip]
         drops: []
       sewer_tier_20_wither_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "萎びた死骸"
@@ -5041,7 +5231,7 @@ overrides:
           magical:  { defense-rate: 0.336, resistance: 0.396 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。ウィザー層＝枯死の霧
-        abilities: [withering_aura]
+        abilities: [withering_aura, quake_spikes]
         drops: []
       sewer_tier_30_ice_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "氷の亡霊"
@@ -5058,7 +5248,7 @@ overrides:
           magical:  { defense-rate: 0.336, resistance: 0.396 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。氷の層＝凍気
-        abilities: [frost_field]
+        abilities: [frost_field, quake_spikes]
         drops: []
       sewer_tier_30_invisibility_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "影の射手"
@@ -5075,7 +5265,7 @@ overrides:
           magical:  { defense-rate: 0.336, resistance: 0.396 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。透明化の層＝背後を取る
-        abilities: [shadow_step]
+        abilities: [shadow_step, shockwave, withering_aura]
         drops: []
       sewer_tier_30_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "下水道の獣"
@@ -5113,7 +5303,7 @@ overrides:
           magical:  { defense-rate: 0.336, resistance: 0.396 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。暗闇の層＝闇に引きずり込む
-        abilities: [abyssal_grip]
+        abilities: [abyssal_grip, gale_smash]
         drops: []
       sewer_tier_40_darkness_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "影 (増援)"
@@ -5137,7 +5327,7 @@ overrides:
           magical:  { defense-rate: 0.336, resistance: 0.396 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。炎の層＝火の粉
-        abilities: [ember_spray]
+        abilities: [ember_spray, bleeding_aura, flare_slam]
         drops: []
       sewer_tier_40_fire_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "焔 (増援)"
@@ -5161,7 +5351,7 @@ overrides:
           magical:  { defense-rate: 0.336, resistance: 0.396 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。毒の層＝留まらせない霧
-        abilities: [withering_aura]
+        abilities: [withering_aura, bleeding_aura]
         drops: []
       sewer_tier_40_poison_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "堕ちた庭師 (増援)"
@@ -5199,7 +5389,7 @@ overrides:
           magical:  { defense-rate: 0.336, resistance: 0.396 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。雷の層＝落ちる位置を予告してから撃つ
-        abilities: [meteor_mark]
+        abilities: [meteor_mark, bleeding_aura]
         drops: []
       sewer_tier_50_ravager_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "下水道の異形"
@@ -5216,7 +5406,7 @@ overrides:
           magical:  { defense-rate: 0.336, resistance: 0.396 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。ラヴェジャー種＝突進
-        abilities: [bull_rush]
+        abilities: [bull_rush, crippling_stomp, flare_slam]
         drops: []
       sewer_tier_50_spider_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "古代の這うもの"
@@ -5233,7 +5423,7 @@ overrides:
           magical:  { defense-rate: 0.336, resistance: 0.396 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。蜘蛛＝群れを呼ぶ
-        abilities: [call_the_swarm]
+        abilities: [call_the_swarm, quake_spikes, piercing_beam]
         drops: []
       sewer_tier_50_spider_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "小蜘蛛 (増援)"
@@ -5260,7 +5450,7 @@ overrides:
           max-health-multiplier: 10.301   # W-181: 難易度7 の上乗せ x1.073 を畳み込み済み
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。水の層＝水中へ引きずり込む
-        abilities: [abyssal_grip]
+        abilities: [abyssal_grip, gale_smash]
         # 【ドロップ】中ボス(2026-08-14)。
         # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
@@ -5299,7 +5489,7 @@ overrides:
           max-health-multiplier: 19.314   # W-181: 難易度7 の上乗せ x1.073 を畳み込み済み
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 踏破ボス。増援と足止めで手数を要求し、守衛のヘイトと軽減に価値を持たせる
-        abilities: [call_the_horde, crippling_stomp]
+        abilities: [call_the_horde, crippling_stomp, quake_spikes, piercing_beam, desperation_nova]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -5335,13 +5525,18 @@ overrides:
       max-health-multiplier: 1.236
       # 【難易度 4/10・推奨戦闘Lv 40】このダンジョン全体の攻撃力倍率(2026-08-14)。
       # 2026-08-21(W-182): 「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にするため係数を解き直した。
+      # 2026-08-21(W-183): 防具を住み分け設計へ引き直したので【同じ耐発数を保つように】もう一度解き直した。
+      #   基準は重装1式(世界を繋ぐ・品質5)。軽装/魔法装は防具側で同じ被ダメージ期待値へ揃えてある。
       # ここは雑魚の耐発数を決める層。ボス・中ボスは per-mob 側で上乗せしている(2つで1組)。
       # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 0.873
-      attack: { magic-ratio: 0.10 }
+      attack-power-multiplier: 0.655
+      # 【攻撃ステの型】2026-08-21 W-183 —— 固定型: 全ての防御段を貫通する固定ダメージ。守備では減らせないので最大HPだけが効く
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.10, fixed-damage: 2.07 }
     mobs:
       the_steamworks_clk_wrx702_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "CLK-WRx702 (第1段階)"
@@ -5458,7 +5653,7 @@ overrides:
         # p5:0.30 / p6:0.10 / p7:0.03 の6段で、p7 が最深段かつ dropsEliteMobsLoot: true)。
         # p3 は HP 80% で通過するだけの段階なので、そこに技を置くと本番の p7 が無技になる。
         # 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
-        abilities: [shockwave, bull_rush]
+        abilities: [shockwave, bull_rush, quake_spikes, desperation_nova]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -5512,13 +5707,18 @@ overrides:
       max-health-multiplier: 1.375
       # 【難易度 1/10・推奨戦闘Lv 10】このダンジョン全体の攻撃力倍率(2026-08-14)。
       # 2026-08-21(W-182): 「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にするため係数を解き直した。
+      # 2026-08-21(W-183): 防具を住み分け設計へ引き直したので【同じ耐発数を保つように】もう一度解き直した。
+      #   基準は重装1式(世界を繋ぐ・品質5)。軽装/魔法装は防具側で同じ被ダメージ期待値へ揃えてある。
       # ここは雑魚の耐発数を決める層。ボス・中ボスは per-mob 側で上乗せしている(2つで1組)。
       # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
       # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
       # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
       # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
-      attack-power-multiplier: 0.834
-      attack: { magic-ratio: 0.45 }
+      attack-power-multiplier: 0.8124
+      # 【攻撃ステの型】2026-08-21 W-183 —— 会心型: 30% で会心(x2)。防具強度(会心軽減)を持つ重装が有利で、薄い軽装は事故る
+      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
+      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
+      attack: { magic-ratio: 0.45, crit-chance: 0.3, crit-damage: 1 }
     mobs:
       dark_cathedral_tier_75_area_folk:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "深淵のクトゥルフ信徒 (エリア)"
@@ -5587,7 +5787,7 @@ overrides:
           magical:  { defense-rate: 0.418, resistance: 0.529 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 魔法防御が厚いダンジョンの踏破ボス。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
-        abilities: [piercing_beam, withering_aura]
+        abilities: [piercing_beam, withering_aura, meteor_mark, last_stand_quake]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -5658,7 +5858,7 @@ overrides:
           magical:  { defense-rate: 0.286, resistance: 0.388 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。魔法装甲が厚い個体なので技も魔法側(踏破ボスと同じ属性)
-        abilities: [meteor_mark]
+        abilities: [meteor_mark, flare_slam, shockwave]
         drops: []
       dark_cathedral_tier_75_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "クトゥルフの落とし子 (増援)"

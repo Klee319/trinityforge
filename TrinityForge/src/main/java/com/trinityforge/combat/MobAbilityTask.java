@@ -204,6 +204,7 @@ public final class MobAbilityTask implements Runnable {
             return List.of();
         }
         double distanceSquared = mob.getLocation().distanceSquared(target.getLocation());
+        double healthFraction = healthFractionOf(mob);
         List<MobAbility> out = new ArrayList<>();
         for (String id : ids) {
             MobAbility ability = abilitiesConfig.ability(id);
@@ -213,12 +214,37 @@ public final class MobAbilityTask implements Runnable {
             if (distanceSquared > ability.range() * ability.range()) {
                 continue;
             }
+            // 残HPの門(health-below / health-above)。「瀕死になると出す大技」を作るための条件で、
+            // ここで落とすと【その技だけ】が候補から消える(他の技は今までどおり撃てる)。
+            if (!ability.allowedAtHealth(healthFraction)) {
+                continue;
+            }
             if (!cooldowns.ready(mob.getUniqueId(), ability.id())) {
                 continue;
             }
             out.add(ability);
         }
         return out;
+    }
+
+    /**
+     * 残HP割合（{@code getHealth() / GENERIC_MAX_HEALTH}）。
+     *
+     * <p>最大HPを読めない個体では {@code NaN} を返し、{@link MobAbility#allowedAtHealth(double)}
+     * 側で<b>門を課さない</b>扱いにする。MockBukkit は属性を実装していないことがあり、
+     * ここで 0 を返すと「常に瀕死」と誤判定して瀕死技が常時発動する。
+     */
+    private static double healthFractionOf(LivingEntity mob) {
+        org.bukkit.attribute.AttributeInstance max;
+        try {
+            max = mob.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+        } catch (Throwable ignored) {
+            return Double.NaN;
+        }
+        if (max == null || max.getValue() <= 0.0) {
+            return Double.NaN;
+        }
+        return mob.getHealth() / max.getValue();
     }
 
     /**

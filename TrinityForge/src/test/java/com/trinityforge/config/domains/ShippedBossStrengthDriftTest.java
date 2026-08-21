@@ -1,6 +1,7 @@
 package com.trinityforge.config.domains;
 
 import com.trinityforge.combat.AttackStats;
+import com.trinityforge.combat.ComponentDamageCalculator;
 import com.trinityforge.combat.DefenseStats;
 import com.trinityforge.mobs.MobIdNormalizer;
 import com.trinityforge.mobs.MobProfile;
@@ -149,6 +150,93 @@ class ShippedBossStrengthDriftTest {
     private static final double TRIAL_BAND_MAX = 1.00;
 
     /**
+     * 【2026-08-21 W-183】この帯を <b>{@code attack.attack-power} の生値では測れなくなった</b>。
+     *
+     * <p>W-183 でダンジョンごとに<b>攻撃ステの型</b>(貫通 {@code penetration} / 会心
+     * {@code crit-chance}+{@code crit-damage} / 固定 {@code fixed-damage} / 振れ
+     * {@code damage-modifier})を配り、型が増やしたダメージぶんだけ {@code attack-power} を
+     * <b>下げて相殺</b>してある。生値だけ見ると貫通型の試練1が 36.9 → 29.8 まで落ちて
+     * 「弱体化した」ように見えるが、実際に飛んでくるダメージは変わっていない。
+     *
+     * <p>そこで比較の前に<b>型を打ち消して「素の攻撃力」へ換算する</b>
+     * ({@link #signatureNeutralAttackPower})。基準になる防御は下の合成防御 ——
+     * Lv100 の重装1式(世界を繋ぐ・品質5)を丸めた固定値で、
+     * <b>わざと {@code item-stats.yml} を読まない</b>。読むと防具を触るたびにこの梯子が動き、
+     * 「試練が置き去りになった」のか「防具が変わった」のか区別できなくなる。
+     */
+    private static final DefenseStats TRIAL_REFERENCE_PHYSICAL_DEFENSE =
+            new DefenseStats(0.3486, 0.1627, 0.1396, 9.525, 0.826);
+    /** @see #TRIAL_REFERENCE_PHYSICAL_DEFENSE */
+    private static final DefenseStats TRIAL_REFERENCE_MAGICAL_DEFENSE =
+            new DefenseStats(0.3486, 0.0, 0.1396, 4.524, 0.826);
+    /** 出荷 {@code combat/damage.yml} の {@code physical.min-component-damage}。 */
+    private static final double TRIAL_MIN_COMPONENT_DAMAGE = 1.0;
+
+    /**
+     * {@code stats.attack} の1枚を {@link AttackStats} へ写す({@code attack-power} が既定ダメージ)。
+     */
+    private static AttackStats trialAttackStats(ConfigurationSection attack) {
+        return new AttackStats(
+                attack.getDouble("attack-power", 0.0),
+                attack.getDouble("flat-bonus-damage", 0.0),
+                attack.getDouble("percent-bonus-damage", 0.0),
+                attack.getDouble("crit-chance", 0.0),
+                attack.getDouble("crit-damage", 0.0),
+                attack.getDouble("penetration", 0.0),
+                attack.getDouble("damage-modifier", 1.0),
+                attack.getDouble("fixed-damage", 0.0),
+                attack.getDouble("magic-ratio", 0.0));
+    }
+
+    /** {@code defaultDamage} だけ差し替えた同じ型の {@link AttackStats}。 */
+    private static AttackStats withDefaultDamage(AttackStats source, double defaultDamage) {
+        return new AttackStats(defaultDamage, source.flatBonusDamage(), source.percentBonusDamage(),
+                source.critChance(), source.critDamage(), source.penetration(),
+                source.damageModifier(), source.fixedDamage(), source.magicRatio());
+    }
+
+    /**
+     * 合成防御に対する1発の期待ダメージ。{@code SymmetricCombatService} と同じく
+     * <b>{@code defaultDamage} だけを magic-ratio で割る</b>(固定追加・固定ダメージ・会心・貫通は
+     * 両成分にそのまま乗る)。{@code damage-modifier} の抽選は中央値({@code unitRandom = 0.5})で固定する。
+     */
+    private static double trialExpectedDamage(AttackStats attack) {
+        double magicRatio = Math.max(0.0, Math.min(1.0, attack.magicRatio()));
+        AttackStats physical = withDefaultDamage(attack, attack.defaultDamage() * (1 - magicRatio));
+        AttackStats magical = withDefaultDamage(attack, attack.defaultDamage() * magicRatio);
+        double normal = ComponentDamageCalculator.compute(
+                        physical, TRIAL_REFERENCE_PHYSICAL_DEFENSE, false, TRIAL_MIN_COMPONENT_DAMAGE, 0.5)
+                + ComponentDamageCalculator.compute(
+                        magical, TRIAL_REFERENCE_MAGICAL_DEFENSE, false, TRIAL_MIN_COMPONENT_DAMAGE, 0.5);
+        double critical = ComponentDamageCalculator.compute(
+                        physical, TRIAL_REFERENCE_PHYSICAL_DEFENSE, true, TRIAL_MIN_COMPONENT_DAMAGE, 0.5)
+                + ComponentDamageCalculator.compute(
+                        magical, TRIAL_REFERENCE_MAGICAL_DEFENSE, true, TRIAL_MIN_COMPONENT_DAMAGE, 0.5);
+        double critChance = attack.critChance();
+        return (1 - critChance) * normal + critChance * critical;
+    }
+
+    /**
+     * 型を打ち消した「素の攻撃力」。同じ magic-ratio の素の攻撃で同じ期待ダメージを出す
+     * {@code attack-power} を二分探索で求める。型が無い scope ではそのまま {@code attack-power} を返す。
+     */
+    private static double signatureNeutralAttackPower(AttackStats attack) {
+        AttackStats plain = new AttackStats(0, 0, 0, 0, 0, 0, 1.0, 0, attack.magicRatio());
+        double goal = trialExpectedDamage(attack);
+        double low = 0.0;
+        double high = 500.0;
+        for (int i = 0; i < 200; i++) {
+            double mid = (low + high) / 2;
+            if (trialExpectedDamage(withDefaultDamage(plain, mid)) < goal) {
+                low = mid;
+            } else {
+                high = mid;
+            }
+        }
+        return (low + high) / 2;
+    }
+
+    /**
      * 柱2 の段階表: モブid -&gt; {HP倍率, 攻撃倍率}。増援は載せない(「変更しない」が仕様)。
      *
      * <p><b>2026-08-21 に攻撃側だけ2度下げた。</b> W-181(ワンパン是正)で
@@ -224,52 +312,65 @@ class ShippedBossStrengthDriftTest {
             new LinkedHashMap<>();
 
     static {
-        // 物理寄り(物理 defense-rate .418) — shockwave + bull_rush
-        List<String> phys = List.of("shockwave", "bull_rush");
-        putBoss("em_id_the_mines", "the_mines_soulweaver_daine_p3", phys);
-        putBoss("em_id_the_deep_mines", "em_id_the_deep_mines_boss_the_pursuer_p3", phys);
-        putBoss("em_id_the_quarry", "LiftStateFinishDungeon", phys);
-        putBoss("em_id_the_city", "em_id_the_city_royal_guard_p3", phys);
-        putBoss("em_knight_castle", "the_castle_charlemagne_p4", phys);
-        putBoss("em_steamworks_lair", "the_steamworks_clk_wrx702_p7", phys);
-        putBoss("em_fireworks", "fireworks_level_50_boss_phase_3", phys);
-        // 魔法寄り(魔法 defense-rate .418) — piercing_beam + withering_aura
-        List<String> magic = List.of("piercing_beam", "withering_aura");
-        putBoss("em_id_the_cave", "the_cave_boiler_p3", magic);
-        putBoss("em_id_the_nether_bell", "em_id_the_nether_bell_boss_void_bell_p3", magic);
-        putBoss("em_the_dark_cathedral", "dark_cathedral_tier_75_boss_phase_3", magic);
-        putBoss("em_hallosseum", "halloween_event_boss_p2", magic);
-        // 均等 — call_the_horde + crippling_stomp
-        List<String> even = List.of("call_the_horde", "crippling_stomp");
-        putBoss("em_id_the_bridge", "the_bridge_ancient_guardian_p3", even);
-        putBoss("em_id_the_climb", "the_climb_undead_beastmaster_p4", even);
-        putBoss("em_id_the_palace", "the_palace_old_stone_king_p3", even);
-        putBoss("em_sewer_maze", "sewer_tier_70_boss", even);
-        // 低難度 — frost_field 1つだけ
-        List<String> easy = List.of("frost_field");
-        putBoss("em_north_pole", "northpole_santa_claus", easy);
-        putBoss("em_id_the_nether_wastes", "em_id_the_nether_wastes_miniboss_5_shroud_p2", easy);
-        // エンチャント試練1〜10。技の数を【試練の番号とともに増やす梯子】にしてある(2026-08-16、K指示):
-        // 1〜3 = 1種 / 4〜6 = 2種 / 7〜10 = 3種。単調性そのものは
-        // ShippedMobAbilityAssignmentTest#enchantmentTrialAbilityCountIsMonotonic が別途固定する。
-        // 課題ごとに要求ビルドが入れ替わるダンジョン群なので、技もボスの性格に合わせて散らしてある。
-        putBoss("em_id_enchantment_challenge_1", "enchantment_boss_dark_flame", List.of("ember_spray"));
-        putBoss("em_id_enchantment_challenge_2", "enchantment_boss_energized_bunny", List.of("shadow_step"));
-        putBoss("em_id_enchantment_challenge_3", "enchantment_boss_jealous_block", List.of("shockwave"));
+        // 【2026-08-21 W-183】1体あたりの技を 1〜2 種から 3〜5 種へ増やし、
+        // どのボスにも【物理と魔法の両方】と【瀕死技(health-below)】が混ざるようにした。
+        // 狙いは「片方の防御だけ盛れば全部受かる」を無くすこと ── 属性を散らすと
+        // 重装/軽装/魔法装の住み分け(W-183 の防具引き直し)がそのままダンジョン攻略へ効いてくる。
+        // 属性配分(物理寄り/魔法寄り/均等/低難度)という元の骨格は維持している。
+        putBoss("em_id_the_mines", "the_mines_soulweaver_daine_p3",
+                List.of("shockwave", "bull_rush", "quake_spikes", "desperation_nova"));
+        putBoss("em_id_the_deep_mines", "em_id_the_deep_mines_boss_the_pursuer_p3",
+                List.of("shockwave", "bull_rush", "quake_spikes", "desperation_nova"));
+        putBoss("em_id_the_quarry", "LiftStateFinishDungeon",
+                List.of("shockwave", "bull_rush"));
+        putBoss("em_id_the_city", "em_id_the_city_royal_guard_p3",
+                List.of("shockwave", "bull_rush", "quake_spikes", "desperation_nova"));
+        putBoss("em_knight_castle", "the_castle_charlemagne_p4",
+                List.of("shockwave", "bull_rush", "quake_spikes", "desperation_nova"));
+        putBoss("em_steamworks_lair", "the_steamworks_clk_wrx702_p7",
+                List.of("shockwave", "bull_rush", "quake_spikes", "desperation_nova"));
+        putBoss("em_fireworks", "fireworks_level_50_boss_phase_3",
+                List.of("shockwave", "bull_rush", "quake_spikes", "desperation_nova"));
+        putBoss("em_id_the_cave", "the_cave_boiler_p3",
+                List.of("piercing_beam", "withering_aura", "meteor_mark", "last_stand_quake"));
+        putBoss("em_id_the_nether_bell", "em_id_the_nether_bell_boss_void_bell_p3",
+                List.of("piercing_beam", "withering_aura", "meteor_mark", "last_stand_quake"));
+        putBoss("em_the_dark_cathedral", "dark_cathedral_tier_75_boss_phase_3",
+                List.of("piercing_beam", "withering_aura", "meteor_mark", "last_stand_quake"));
+        putBoss("em_hallosseum", "halloween_event_boss_p2",
+                List.of("piercing_beam", "withering_aura", "meteor_mark", "last_stand_quake"));
+        putBoss("em_id_the_bridge", "the_bridge_ancient_guardian_p3",
+                List.of("call_the_horde", "crippling_stomp", "quake_spikes", "desperation_nova", "void_lunge"));
+        putBoss("em_id_the_climb", "the_climb_undead_beastmaster_p4",
+                List.of("call_the_horde", "crippling_stomp", "quake_spikes", "void_lunge", "desperation_nova"));
+        putBoss("em_id_the_palace", "the_palace_old_stone_king_p3",
+                List.of("call_the_horde", "crippling_stomp", "quake_spikes", "desperation_nova", "void_lunge"));
+        putBoss("em_sewer_maze", "sewer_tier_70_boss",
+                List.of("call_the_horde", "crippling_stomp", "quake_spikes", "piercing_beam", "desperation_nova"));
+        putBoss("em_north_pole", "northpole_santa_claus",
+                List.of("frost_field", "meteor_mark", "last_stand_quake", "searing_lance"));
+        putBoss("em_id_the_nether_wastes", "em_id_the_nether_wastes_miniboss_5_shroud_p2",
+                List.of("frost_field", "quake_spikes", "piercing_beam", "desperation_nova"));
+        putBoss("em_id_enchantment_challenge_1", "enchantment_boss_dark_flame",
+                List.of("ember_spray", "flare_slam", "bull_rush"));
+        putBoss("em_id_enchantment_challenge_2", "enchantment_boss_energized_bunny",
+                List.of("shadow_step", "gale_smash", "frost_field"));
+        putBoss("em_id_enchantment_challenge_3", "enchantment_boss_jealous_block",
+                List.of("shockwave", "meteor_mark", "bleeding_aura"));
         putBoss("em_id_enchantment_challenge_4", "enchantment_boss_leet_summoner",
-                List.of("call_the_swarm", "quake_spikes"));
+                List.of("call_the_swarm", "quake_spikes", "abyssal_grip"));
         putBoss("em_id_enchantment_challenge_5", "enchantment_boss_loveable_impaler",
-                List.of("piercing_beam", "abyssal_grip"));
+                List.of("piercing_beam", "abyssal_grip", "bleeding_aura"));
         putBoss("em_id_enchantment_challenge_6", "enchantment_boss_ravegarer",
-                List.of("bull_rush", "gale_smash"));
+                List.of("bull_rush", "gale_smash", "abyssal_grip"));
         putBoss("em_id_enchantment_challenge_7", "enchantment_boss_rock_solid_cold",
-                List.of("frost_field", "crippling_stomp", "quake_spikes"));
+                List.of("frost_field", "crippling_stomp", "quake_spikes", "void_lunge"));
         putBoss("em_id_enchantment_challenge_8", "enchantment_boss_the_firebunger",
-                List.of("ember_spray", "meteor_mark", "gale_smash"));
+                List.of("ember_spray", "meteor_mark", "gale_smash", "searing_lance"));
         putBoss("em_id_enchantment_challenge_9", "enchantment_boss_the_glass_master",
-                List.of("arrow_fan", "abyssal_grip", "piercing_beam"));
+                List.of("arrow_fan", "abyssal_grip", "piercing_beam", "bleeding_aura"));
         putBoss("em_id_enchantment_challenge_10", "enchantment_boss_tricky_bones",
-                List.of("frost_field", "shadow_step", "meteor_mark"));
+                List.of("frost_field", "shadow_step", "meteor_mark", "last_stand_quake"));
     }
 
     private static void putBoss(String world, String mobId, List<String> abilities) {
@@ -301,8 +402,17 @@ class ShippedBossStrengthDriftTest {
      * the_nether_wastes ミニボス4 / the_nether_bell ビームボス9 / sewer 各層ボス12 /
      * wood_league 節目(5波ごとのミニボス・10波ごとのボス)10 / the_castle ser_prancelot_p2 1 /
      * dark_cathedral black_philip 1。
+     *
+     * <p><b>2026-08-21 (W-183) に 99 → 129 へ引き上げた</b>。「ボスや中ボスは属性の違う技を
+     * 撃ったり、種類の違う技を撃ったりしたほうが攻略し甲斐がある」という K 指示を受けて、
+     * <b>技を持たないまま残っていたボス／中ボス 30 体に配った</b>(the_nether_bell 10 /
+     * the_mines 6 / the_quarry 6 / the_climb 4 / north_pole 3 / knight_castle 1)。
+     * <b>差し引きではなく純増</b>である ── 途中フェーズ側は同じ W-183 の中で
+     * {@link #noIntermediatePhaseOfAClearBossCarriesAbilities} に合わせて外してあり、
+     * 「二重掲載で数が増えた」ではないことはそちらの緑が保証する。
+     * 雑魚に付けない方針は変わっていない(同時湧きの頭数ぶん AoE が重なるため)。
      */
-    private static final int EXPECTED_ABILITY_CARRIER_COUNT = 99;
+    private static final int EXPECTED_ABILITY_CARRIER_COUNT = 129;
 
     // === 読み込みヘルパ(出荷リソースの bytes をそのまま使う。写しを手書きしない) ===
 
@@ -608,31 +718,35 @@ class ShippedBossStrengthDriftTest {
         double ramp = rampAt(RAMP_ATTACK_BASE, RAMP_ATTACK_GROWTH, TRIAL_PLAYER_LEVEL);
 
         List<String> problems = new ArrayList<>();
+        double previousNeutral = 0.0;
         for (int n = 1; n <= TRIAL_COUNT; n++) {
             String world = "em_id_enchantment_challenge_" + n;
             ConfigurationSection stats = yaml.getConfigurationSection("overrides." + world + ".stats");
-            if (stats == null || !stats.isSet("attack.attack-power")) {
+            ConfigurationSection attack = stats == null ? null : stats.getConfigurationSection("attack");
+            if (attack == null || !attack.isSet("attack-power")) {
                 problems.add(world + ": scope 直下の attack.attack-power が無い");
                 continue;
             }
             double ladder = ramp * trialDifficultyFactor(n);
-            double actual = stats.getDouble("attack.attack-power");
-            double share = actual / ladder;
+            // 生値ではなく【攻撃ステの型を打ち消した素の攻撃力】で測る(理由は
+            // TRIAL_REFERENCE_PHYSICAL_DEFENSE の javadoc)。
+            double neutral = signatureNeutralAttackPower(trialAttackStats(attack));
+            double raw = attack.getDouble("attack-power");
+            double share = neutral / ladder;
             if (share < TRIAL_BAND_MIN || share > TRIAL_BAND_MAX) {
-                problems.add(world + ": " + actual + " (梯子の " + String.format("%.3f", share)
+                problems.add(world + ": 素換算 " + String.format("%.2f", neutral)
+                        + " (生値 " + raw + ") が梯子の " + String.format("%.3f", share)
                         + " 倍。許容 " + TRIAL_BAND_MIN + "〜" + TRIAL_BAND_MAX
                         + " / 梯子 = 共通ランプ Lv" + TRIAL_PLAYER_LEVEL + " "
                         + String.format("%.2f", ramp) + " × 難易度係数 "
                         + String.format("%.4f", trialDifficultyFactor(n)) + ")");
             }
-            if (n > 1) {
-                double prev = yaml.getDouble("overrides.em_id_enchantment_challenge_"
-                        + (n - 1) + ".stats.attack.attack-power");
-                if (actual <= prev) {
-                    problems.add(world + ": 攻撃力 " + actual + " が試練" + (n - 1) + " の " + prev
-                            + " を上回っていない(梯子が単調でない)");
-                }
+            if (n > 1 && neutral <= previousNeutral) {
+                problems.add(world + ": 素換算 " + String.format("%.2f", neutral)
+                        + " が試練" + (n - 1) + " の " + String.format("%.2f", previousNeutral)
+                        + " を上回っていない(梯子が単調でない)");
             }
+            previousNeutral = neutral;
         }
         assertEquals(List.of(), problems,
                 "エンチャント試練の攻撃力が梯子から外れている: " + problems + "。"
@@ -640,7 +754,10 @@ class ShippedBossStrengthDriftTest {
                         + "ランプや他ダンジョンの攻撃力を動かしたら、ここも同じ尺度へ揃え直すこと。"
                         + "帯で見ているのは 2026-08-21(W-182)で【耐えられる回数を一律 +1.5 発】に"
                         + "したため —— 強い敵ほど大きく削る必要があり、梯子は攻撃力ではなく"
-                        + "耐発数の側で等間隔になっている。");
+                        + "耐発数の側で等間隔になっている。"
+                        + "【生値そのものを比べてはいけない】—— W-183 でダンジョンごとに攻撃ステの型を"
+                        + "配り、型が乗せたダメージぶん attack-power を下げて相殺してあるので、"
+                        + "生値は型によって 20% 前後ずれる。");
     }
 
     /**
@@ -757,7 +874,7 @@ class ShippedBossStrengthDriftTest {
     }
 
     @Test
-    @DisplayName("abilities を持つモブの総数が 99(既存49 + 2026-08-16 のミニボス/節目ボス50)")
+    @DisplayName("abilities を持つモブの総数が 129(既存99 + 2026-08-21 W-183 のボス/中ボス30)")
     void abilityCarrierCountIsPinned() throws IOException {
         assertEquals(EXPECTED_ABILITY_CARRIER_COUNT, allAbilityUsages().size(),
                 "abilities を持つモブの数が変わった。内訳は【既存49】(default のバニラモブ9 + "

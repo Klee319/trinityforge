@@ -234,7 +234,10 @@ public final class MobAbilitiesConfig implements LoadableConfig {
                         parseEffects(entry.getMapList("effects")),
                         entry.getString("particle", ""),
                         entry.getInt("particle-count", 0),
-                        entry.getString("sound", "")));
+                        entry.getString("sound", ""),
+                        // 残HP割合の門。既定は「制限なし」＝ 2026-08-21 以前の挙動。
+                        entry.getDouble("health-below", 1.0),
+                        entry.getDouble("health-above", 0.0)));
             }
         }
         return new ParseResult(Map.copyOf(parsed), skipped);
