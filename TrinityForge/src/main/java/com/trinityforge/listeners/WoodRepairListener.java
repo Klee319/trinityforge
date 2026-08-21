@@ -136,7 +136,12 @@ public final class WoodRepairListener implements Listener {
             return;
         }
 
-        int repairAmount = Math.min(targetMeta.getDamage(), mat.durability());
+        // 回復量の上限は「今の損傷」だが、その損傷自体が max_damage を超えていることがある
+        // (上の applyRepair の javadoc 参照)。素の getDamage() を使うと、超過分まで
+        // 「回復できる量」として数えてしまい、素材1個で無駄に消費される。
+        int repairAmount = Math.min(
+                ItemMetaRepair.clampDamage(target, targetMeta, targetMeta.getDamage()),
+                mat.durability());
         ItemStack repaired = target.clone();
         ItemMetaRepair.applyRepair(repaired, repairAmount);
         event.setCurrentItem(repaired);
@@ -150,13 +155,54 @@ public final class WoodRepairListener implements Listener {
         player.sendActionBar(Component.text("装備を修繕しました。", NamedTextColor.GREEN));
     }
 
-    private static final class ItemMetaRepair {
-        private static void applyRepair(ItemStack stack, int amount) {
+    static final class ItemMetaRepair {
+
+        /**
+         * {@code stack} の損傷を {@code amount} だけ回復する。
+         *
+         * <p><b>上限側もクランプする</b>(2026-08-21、実サーバログの
+         * {@code IllegalArgumentException: Damage cannot exceed max damage} —— 修繕クリックのたびに
+         * {@code InventoryClickEvent} が TF の中で落ちていた)。
+         * 引き算しかしていないのに上限を超えるのは、<b>元の {@code damage} が既に
+         * その装備の {@code max_damage} を超えている</b>ため。1.21 では最大耐久が
+         * {@code max_damage} コンポーネントで決まり、TF は {@code item-stats.yml} の
+         * {@code durability} から個体ごとに書き込む ── その値を下げる方向へ調整すると、
+         * <b>既に配られている個体は「damage &gt; max_damage」のまま残る</b>。
+         * Bukkit の {@code setDamage} はその値を弾くので、下限だけ見る実装では
+         * <b>回復量がいくらであっても必ず落ちる</b>。
+         *
+         * <p>落ちた場所が {@code event.setCancelled(true)} より手前なので、症状は例外ログと
+         * 「修繕したのに何も起きず、素材だけ普通に持ち替わる」になる。
+         */
+        static void applyRepair(ItemStack stack, int amount) {
             if (!(stack.getItemMeta() instanceof Damageable d)) {
                 return;
             }
-            d.setDamage(Math.max(0, d.getDamage() - amount));
+            d.setDamage(clampDamage(stack, d, d.getDamage() - amount));
             stack.setItemMeta(d);
+        }
+
+        /** {@code damage} を {@code [0, その装備の最大耐久]} へ収める。 */
+        static int clampDamage(ItemStack stack, Damageable meta, int damage) {
+            return Math.max(0, Math.min(maxDamageOf(stack, meta), damage));
+        }
+
+        /**
+         * その装備の最大耐久。{@code max_damage} コンポーネントを持っていればそちら
+         * (TF は個体ごとに書き込む)、無ければ素材の既定値。
+         *
+         * <p>どちらも 0 以下(＝耐久の概念が無いアイテム)なら {@link Integer#MAX_VALUE} を返して
+         * クランプを効かせない ── そういうアイテムは {@code setDamage} 自体が上限を持たない。
+         */
+        private static int maxDamageOf(ItemStack stack, Damageable meta) {
+            if (meta.hasMaxDamage()) {
+                int custom = meta.getMaxDamage();
+                if (custom > 0) {
+                    return custom;
+                }
+            }
+            int vanilla = stack.getType().getMaxDurability();
+            return vanilla > 0 ? vanilla : Integer.MAX_VALUE;
         }
     }
 }
