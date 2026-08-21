@@ -1256,7 +1256,7 @@ overrides:
           max-health-multiplier: 1.087   # W-181: 難易度2 の上乗せ x1.208 を畳み込み済み
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 魔法防御が厚いダンジョンの踏破ボス。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
-        abilities: [piercing_beam, withering_aura, meteor_mark, last_stand_quake]
+        abilities: [piercing_beam, withering_aura, meteor_mark, crippling_stomp]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -2247,7 +2247,7 @@ overrides:
           max-health-multiplier: 2.24   # W-181: 難易度3 の上乗せ x1.179 を畳み込み済み
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 踏破ボス。増援と足止めで手数を要求し、守衛のヘイトと軽減に価値を持たせる
-        abilities: [call_the_horde, crippling_stomp, quake_spikes, desperation_nova, void_lunge]
+        abilities: [call_the_horde, crippling_stomp, quake_spikes, abyssal_grip, void_lunge]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -3001,7 +3001,7 @@ overrides:
           max-health-multiplier: 3.745   # W-181: 難易度2 の上乗せ x1.208 を畳み込み済み
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
-        abilities: [shockwave, bull_rush, quake_spikes, desperation_nova]
+        abilities: [shockwave, bull_rush, quake_spikes, abyssal_grip]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -3536,7 +3536,7 @@ overrides:
           max-health-multiplier: 4.388   # W-181: 難易度5 の上乗せ x1.125 を畳み込み済み
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
-        abilities: [shockwave, bull_rush, quake_spikes, desperation_nova]
+        abilities: [shockwave, bull_rush, quake_spikes, piercing_beam]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -3907,7 +3907,7 @@ overrides:
           max-health-multiplier: 7.875   # W-181: 難易度5 の上乗せ x1.125 を畳み込み済み
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 魔法防御が厚いダンジョンの踏破ボス。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
-        abilities: [piercing_beam, withering_aura, meteor_mark, last_stand_quake]
+        abilities: [piercing_beam, withering_aura, meteor_mark, shadow_step]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -4018,7 +4018,7 @@ overrides:
         drops: []
       em_id_the_nether_bell_world_wither:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
-        abilities: [meteor_mark, searing_lance, last_stand_quake, withering_aura]
+        abilities: [meteor_mark, searing_lance, gale_smash, withering_aura]
         display-name: "虚無のモズ"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -4036,7 +4036,7 @@ overrides:
         drops: []
       em_id_the_nether_bell_world_wither_skeleton:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
-        abilities: [meteor_mark, bull_rush, abyssal_grip, last_stand_quake]
+        abilities: [meteor_mark, bull_rush, abyssal_grip, crippling_stomp]
         display-name: "虚無を歩む者"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -4054,7 +4054,7 @@ overrides:
         drops: []
       em_id_the_nether_bell_world_wither_skeleton_sniper:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
-        abilities: [meteor_mark, searing_lance, flare_slam, last_stand_quake]
+        abilities: [meteor_mark, searing_lance, flare_slam, arrow_fan]
         display-name: "虚無を貫く者"
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
@@ -4404,7 +4404,7 @@ overrides:
           max-health-multiplier: 3.456   # W-181: 難易度4 の上乗せ x1.152 を畳み込み済み
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 踏破ボス。増援と足止めで手数を要求し、守衛のヘイトと軽減に価値を持たせる
-        abilities: [call_the_horde, crippling_stomp, quake_spikes, desperation_nova, void_lunge]
+        abilities: [call_the_horde, crippling_stomp, quake_spikes, frost_field, void_lunge]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -4934,7 +4934,7 @@ overrides:
         # the_castle_charlemagne_p1.yml の phases が p2:0.80 / p3:0.50 / p4:0.30 で最深段。
         # p4 だけが dropsEliteMobsLoot: true)。p3 は HP 50% で通過するだけの段階。
         # 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
-        abilities: [shockwave, bull_rush, quake_spikes, desperation_nova]
+        abilities: [shockwave, bull_rush, quake_spikes, flare_slam]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -5653,7 +5653,7 @@ overrides:
         # p5:0.30 / p6:0.10 / p7:0.03 の6段で、p7 が最深段かつ dropsEliteMobsLoot: true)。
         # p3 は HP 80% で通過するだけの段階なので、そこに技を置くと本番の p7 が無技になる。
         # 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
-        abilities: [shockwave, bull_rush, quake_spikes, desperation_nova]
+        abilities: [shockwave, bull_rush, quake_spikes, ember_spray]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -5787,7 +5787,7 @@ overrides:
           magical:  { defense-rate: 0.418, resistance: 0.529 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 魔法防御が厚いダンジョンの踏破ボス。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
-        abilities: [piercing_beam, withering_aura, meteor_mark, last_stand_quake]
+        abilities: [piercing_beam, withering_aura, meteor_mark, gale_smash]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。

@@ -119,6 +119,38 @@ class ShippedDungeonBurstAndElementTest {
      *       ここのHPを動かしてもプレイ体験は1ミリも変わらない。</li>
      * </ul>
      */
+    /**
+     * 瀕死技({@code health-below} を持つ技)を配ってよいスコープ ＝ <b>難易度6以上のダンジョン</b>。
+     *
+     * <p>2026-08-21(W-184) の K 指示「瀕死技は難易度6以降だけでいいかも」。W-183 で瀕死技を
+     * 全難易度の踏破ボスへ配ったが、<b>難易度1〜5 は「盾やダメージ軽減を用意しておく」という
+     * 前提知識そのものが無い帯</b>で、対策のしようがない大技になっていた
+     * (難易度1 の闇の大聖堂にも 2.1 倍の {@code last_stand_quake} が乗っていた)。
+     *
+     * <p>低難易度側は<b>技の本数を減らさず</b>、同じ属性を埋める通常技へ差し替えてある。
+     * 減らすと「どのボスも物理と魔法の両方を持つ」(W-183 の防具住み分けを攻略へ効かせる骨格)が
+     * 崩れて、片側の防御だけ盛れば受かるボスに戻る。
+     *
+     * <p>難易度は出荷 yml では<b>コメントにしか無い</b>(スコープ直下の {@code max-health-multiplier} は
+     * 難易度の逆順の梯子なので、そこから復元すると梯子を触った瞬間にこの検査が意味を変える)。
+     * だからここへ<b>名前で</b>書き出している。ダンジョンを増やしたらこの集合も更新すること。
+     */
+    private static final Set<String> LAST_STAND_ALLOWED_SCOPES = Set.of(
+            "em_fireworks",                    // 難易度 6
+            "em_id_the_city",                  // 難易度 6
+            "em_id_the_nether_wastes",         // 難易度 6
+            "em_id_enchantment_challenge_6",   // 難易度 6
+            "em_north_pole",                   // 難易度 7
+            "em_sewer_maze",                   // 難易度 7
+            "em_id_enchantment_challenge_7",   // 難易度 7
+            "em_id_the_climb",                 // 難易度 8
+            "em_id_the_quarry",                // 難易度 8
+            "em_id_enchantment_challenge_8",   // 難易度 8
+            "em_id_the_cave",                  // 難易度 9
+            "em_id_enchantment_challenge_9",   // 難易度 9
+            "em_id_binder_of_worlds",          // 難易度 10
+            "em_id_enchantment_challenge_10"); // 難易度 10
+
     private static final Set<String> LADDERLESS_SCOPES = Set.of("default", "em_adventurers_guild");
 
     // ---------------------------------------------------------------- 技
@@ -165,6 +197,60 @@ class ShippedDungeonBurstAndElementTest {
                         + " / その他 " + MAX_ABILITY_DAMAGE_PERCENT + ")。"
                         + "予告の無い技をこの段の上へ持っていくのは【対策不能な即死】を作ることと同じ。"
                         + "特定の技だけ重くしたいなら、倍率ではなく cooldown-seconds / chance を触ること。");
+    }
+
+    @Test
+    @DisplayName("瀕死技が出るのは難易度6以上のダンジョンだけ(低難易度に対策不能な大技を置かない)")
+    void lastStandAbilitiesOnlyAppearInHighDifficultyDungeons() throws IOException {
+        ConfigurationSection templates =
+                loadShippedYaml(MobAbilitiesConfig.PATH).getConfigurationSection("abilities");
+        assertNotNull(templates, "combat/mob-abilities.yml の abilities: が読めていない");
+
+        Set<String> lastStand = new TreeSet<>();
+        for (String id : templates.getKeys(false)) {
+            if (templates.getDouble(id + ".health-below", 1.0) < 1.0
+                    || templates.getDouble(id + ".health-above", 0.0) > 0.0) {
+                lastStand.add(id);
+            }
+        }
+        assertTrue(!lastStand.isEmpty(),
+                "health-below / health-above を持つ技が1つも無い。瀕死技の枠ごと消えている。");
+
+        List<String> stray = new ArrayList<>();
+        Set<String> used = new TreeSet<>();
+        ConfigurationSection overrides = overridesSection();
+        for (String world : overrides.getKeys(false)) {
+            ConfigurationSection mobs = overrides.getConfigurationSection(world + ".mobs");
+            if (mobs == null) {
+                continue;
+            }
+            for (String mobId : mobs.getKeys(false)) {
+                for (String id : mobs.getStringList(mobId + ".abilities")) {
+                    if (!lastStand.contains(id)) {
+                        continue;
+                    }
+                    if (LAST_STAND_ALLOWED_SCOPES.contains(world)) {
+                        used.add(world);
+                    } else {
+                        stray.add(world + "/" + mobId + "=" + id);
+                    }
+                }
+            }
+        }
+
+        assertEquals(List.of(), stray,
+                "難易度6未満のダンジョンに瀕死技が乗っている: " + stray + "。"
+                        + "瀕死技は【盾やダメージ軽減を用意しておく前提】の 2.3〜2.5 倍の大技で、"
+                        + "その前提知識が無い低難易度帯では対策不能な事故にしかならない。"
+                        + "低難易度へ技を足したいなら、同じ属性を埋める通常技(上限 "
+                        + MAX_ABILITY_DAMAGE_PERCENT + ")を使うこと ── "
+                        + "【本数は減らさない】。減らすと『どのボスも物理と魔法の両方を持つ』が崩れ、"
+                        + "片側の防御だけ盛れば受かるボスに戻る。"
+                        + "許可スコープは " + LAST_STAND_ALLOWED_SCOPES);
+
+        assertTrue(!used.isEmpty(),
+                "瀕死技を実際に配っているダンジョンが1つも無い。テンプレートだけ残って"
+                        + "出荷 yml から配り忘れている(＝この機構が丸ごと死んでいる)。");
     }
 
     @Test

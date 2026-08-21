@@ -313,38 +313,42 @@ class ShippedBossStrengthDriftTest {
 
     static {
         // 【2026-08-21 W-183】1体あたりの技を 1〜2 種から 3〜5 種へ増やし、
-        // どのボスにも【物理と魔法の両方】と【瀕死技(health-below)】が混ざるようにした。
+        // どのボスにも【物理と魔法の両方】が混ざるようにした。
+        // 【2026-08-21 W-184】瀕死技(health-below)は【難易度6以上のダンジョンだけ】に絞った(K指示)。
+        //   低難易度側は技の本数を減らさず、同じ属性を埋める通常技へ差し替えてある
+        //   ── 減らすと「物理と魔法の両方」が崩れて片側の防御だけで受かるボスに戻る。
+        //   縛りそのものは ShippedDungeonBurstAndElementTest が固定している。
         // 狙いは「片方の防御だけ盛れば全部受かる」を無くすこと ── 属性を散らすと
         // 重装/軽装/魔法装の住み分け(W-183 の防具引き直し)がそのままダンジョン攻略へ効いてくる。
         // 属性配分(物理寄り/魔法寄り/均等/低難度)という元の骨格は維持している。
         putBoss("em_id_the_mines", "the_mines_soulweaver_daine_p3",
-                List.of("shockwave", "bull_rush", "quake_spikes", "desperation_nova"));
+                List.of("shockwave", "bull_rush", "quake_spikes", "piercing_beam"));
         putBoss("em_id_the_deep_mines", "em_id_the_deep_mines_boss_the_pursuer_p3",
-                List.of("shockwave", "bull_rush", "quake_spikes", "desperation_nova"));
+                List.of("shockwave", "bull_rush", "quake_spikes", "abyssal_grip"));
         putBoss("em_id_the_quarry", "LiftStateFinishDungeon",
                 List.of("shockwave", "bull_rush"));
         putBoss("em_id_the_city", "em_id_the_city_royal_guard_p3",
                 List.of("shockwave", "bull_rush", "quake_spikes", "desperation_nova"));
         putBoss("em_knight_castle", "the_castle_charlemagne_p4",
-                List.of("shockwave", "bull_rush", "quake_spikes", "desperation_nova"));
+                List.of("shockwave", "bull_rush", "quake_spikes", "flare_slam"));
         putBoss("em_steamworks_lair", "the_steamworks_clk_wrx702_p7",
-                List.of("shockwave", "bull_rush", "quake_spikes", "desperation_nova"));
+                List.of("shockwave", "bull_rush", "quake_spikes", "ember_spray"));
         putBoss("em_fireworks", "fireworks_level_50_boss_phase_3",
                 List.of("shockwave", "bull_rush", "quake_spikes", "desperation_nova"));
         putBoss("em_id_the_cave", "the_cave_boiler_p3",
                 List.of("piercing_beam", "withering_aura", "meteor_mark", "last_stand_quake"));
         putBoss("em_id_the_nether_bell", "em_id_the_nether_bell_boss_void_bell_p3",
-                List.of("piercing_beam", "withering_aura", "meteor_mark", "last_stand_quake"));
+                List.of("piercing_beam", "withering_aura", "meteor_mark", "shadow_step"));
         putBoss("em_the_dark_cathedral", "dark_cathedral_tier_75_boss_phase_3",
-                List.of("piercing_beam", "withering_aura", "meteor_mark", "last_stand_quake"));
+                List.of("piercing_beam", "withering_aura", "meteor_mark", "gale_smash"));
         putBoss("em_hallosseum", "halloween_event_boss_p2",
-                List.of("piercing_beam", "withering_aura", "meteor_mark", "last_stand_quake"));
+                List.of("piercing_beam", "withering_aura", "meteor_mark", "crippling_stomp"));
         putBoss("em_id_the_bridge", "the_bridge_ancient_guardian_p3",
-                List.of("call_the_horde", "crippling_stomp", "quake_spikes", "desperation_nova", "void_lunge"));
+                List.of("call_the_horde", "crippling_stomp", "quake_spikes", "abyssal_grip", "void_lunge"));
         putBoss("em_id_the_climb", "the_climb_undead_beastmaster_p4",
                 List.of("call_the_horde", "crippling_stomp", "quake_spikes", "void_lunge", "desperation_nova"));
         putBoss("em_id_the_palace", "the_palace_old_stone_king_p3",
-                List.of("call_the_horde", "crippling_stomp", "quake_spikes", "desperation_nova", "void_lunge"));
+                List.of("call_the_horde", "crippling_stomp", "quake_spikes", "frost_field", "void_lunge"));
         putBoss("em_sewer_maze", "sewer_tier_70_boss",
                 List.of("call_the_horde", "crippling_stomp", "quake_spikes", "piercing_beam", "desperation_nova"));
         putBoss("em_north_pole", "northpole_santa_claus",
