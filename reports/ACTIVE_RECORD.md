@@ -3446,6 +3446,20 @@ config-editor **1403 件・失敗 25**（品質まわりの 41 件は全緑。�
 乗算・アドオン・スレッド系は1件も無い）。ArsPaper フォーク **489 / 失敗0**。
 editor **1417 / 失敗24**（同上。W-185 時点の 26 から減っている）。
 
+#### 付随して確定したこと: フォークの `libs/TrinityForge.jar` は commit/push する
+
+`docs/agent-context/forks-and-mobs.md` の記述が食い違っていた（「ArsPaper は public なので
+commit/push しない」vs「再生成した jar は commit するところまでが手順」）。
+2026-08-22 のユーザー判断で **「commit/push する」に統一**（文書も修正済み）。
+
+理由は、しないと**フォークの HEAD が「新APIを呼ぶソース + 旧APIしか無い jar」でコンパイル不能に
+固定される**こと。ワーキングツリーでは jar が更新済みなので通ってしまい気づけない。
+TF のソース自体がすでに public なので、thin jar を public フォークへ置いても秘密の漏洩にはならない。
+
+⚠️ **HEAD 単体のコンパイル検証で分かったこと**: ArsPaper の HEAD は jar を入れた後もまだ落ちる。
+ただし残っているのは `ThreadGui#createButtonFrom`（`BaseGui` 側の未コミット変更が要る）の2件で、
+**他セッションの WIP 由来**。W-186 の API（`AddonCombatStats#encodeLayered`）は解決している。
+
 #### ⚠️ 配備（ユーザー作業）
 
 **jar 2本の差し替えが必須**（TF 本体・ArsPaper とも公開APIと読み取りが変わっている）。

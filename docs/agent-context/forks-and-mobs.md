@@ -35,9 +35,15 @@
   `trinityforge` という名前の remote は存在しない・上流（本家 ArsNouveau 等）への参照も無い。
   つまり ArsPaper では「push 先は `origin`」が正しい（EliteMobsの命名規約をそのまま適用すると
   「pushしてはいけない」と誤読する）。ArsPaper本体リポジトリ(`Klee319/ArsPaper`)も
-  **public**（`gh repo view Klee319/ArsPaper --json visibility` で確認）なので、
-  `libs/TrinityForge.jar`（tracked）は他フォークと同じ理由でcommit/pushしないこと
-  （既にhistory上commit済みで`git status`上は`M`として出るが、追加のcommitに含めない）。
+  **public**（`gh repo view Klee319/ArsPaper --json visibility` で確認）。
+  **⚠️ `libs/TrinityForge.jar` の扱いは 2026-08-22 に「commit/push する」へ確定した（ユーザー判断）。**
+  2026-08-03 のこの位置には「public なので commit/push しない」と書いてあったが、
+  それだと**フォークの HEAD が「新APIを呼ぶソース + 旧APIしか無い jar」でコンパイル不能に
+  固定される**（ワーキングツリーでは jar が更新済みなので通ってしまい気づけない。
+  下の「再生成した `libs/TrinityForge.jar` は…」節と真正面から矛盾していた）。
+  TF のソース自体がすでに public リポジトリにあるので、thin jar を public フォークへ置いても
+  秘密の漏洩にはならない、という整理で後者を採る。**TF の public API を変えたら、
+  フォークのソース変更と同じ波で jar も commit/push すること。**
 
 ## EliteMobs フォーク
 
