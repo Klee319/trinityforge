@@ -11,6 +11,7 @@ import com.trinityforge.stats.MaterialLists;
 import com.trinityforge.stats.RecipeIngredient;
 import com.trinityforge.stats.RecipeSpec;
 import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -169,7 +170,12 @@ public final class BedrockRecipeExporter {
                 continue;
             }
             String id = entry.key().toString();
-            forward(id, entry.template(), spec, catalog).ifPresentOrElse(
+            Optional<BedrockRecipeTable.ItemRef> result = resultRef(entry);
+            if (result.isEmpty()) {
+                skipped.add(id);
+                continue;
+            }
+            forward(id, result.get(), spec, catalog).ifPresentOrElse(
                     recipe -> {
                         if (recipe.needsBedrockFix()) {
                             recipes.add(recipe);
@@ -190,11 +196,41 @@ public final class BedrockRecipeExporter {
         return BedrockRecipeTable.Table.of(SOURCE, recipes, skipped);
     }
 
-    /** 正レシピ。結果は必ずエントリ自身 ({@code CatalogRecipeRegistrar#buildResult} の前提と同じ)。 */
+    /**
+     * レシピの結果アイテム。解決できなければ {@code empty}(＝そのレシピは表へ載せない)。
+     *
+     * <p><b>{@code entry.template()} を直に触ってはいけない。</b>
+     * {@code progression/crafting-features.yml} の {@code added-recipes} は結果になる
+     * カタログエントリを持たないので <b>{@code template} が {@code null} で
+     * {@code fixedResult} だけを持つ</b>
+     * ({@link CatalogRecipeRegistrar.RegisteredRecipe} の javadoc が明記している契約)。
+     * ここを踏むと表の書き出しが丸ごと NPE で落ち、<b>スミス台も含めた統合版の補正が全部無効</b>に
+     * なる ── 2026-08-21 に実サーバで実際に起きた
+     * ({@code Cannot invoke "ItemTemplate.material()" because "template" is null})。
+     * 出荷カタログだけを通すテストでは {@code added-recipes} を経由しないので緑のまま抜けた。
+     *
+     * <p>{@code fixedResult} は素のバニラ {@link ItemStack}
+     * ({@code new ItemStack(result, amount)}) なので CMD は持たない。個数は spec ではなく
+     * <b>スタック自身</b>から採る ── registrar が個数を焼き込んだ後の値がこれだから。
+     */
+    private static Optional<BedrockRecipeTable.ItemRef> resultRef(
+            CatalogRecipeRegistrar.RegisteredRecipe entry) {
+        ItemTemplate template = entry.template();
+        if (template != null) {
+            return Optional.of(new BedrockRecipeTable.ItemRef(
+                    template.material(), template.customModelData(), Math.max(1, entry.spec().amount())));
+        }
+        ItemStack fixed = entry.fixedResult();
+        if (fixed == null || fixed.getType().isAir()) {
+            return Optional.empty();
+        }
+        return Optional.of(new BedrockRecipeTable.ItemRef(
+                fixed.getType(), null, Math.max(1, fixed.getAmount())));
+    }
+
+    /** 正レシピ。結果は {@link #resultRef} が解決済みのものを受け取る。 */
     private static Optional<BedrockRecipeTable.Recipe> forward(
-            String id, ItemTemplate template, RecipeSpec spec, CustomItemResolver catalog) {
-        BedrockRecipeTable.ItemRef result = new BedrockRecipeTable.ItemRef(
-                template.material(), template.customModelData(), Math.max(1, spec.amount()));
+            String id, BedrockRecipeTable.ItemRef result, RecipeSpec spec, CustomItemResolver catalog) {
         if (spec.type() == RecipeSpec.Type.SHAPED) {
             return shaped(id, spec, catalog, result);
         }
@@ -207,6 +243,11 @@ public final class BedrockRecipeExporter {
      */
     private static Optional<BedrockRecipeTable.Recipe> reverse(
             String id, ItemTemplate template, RecipeSpec spec, CustomItemResolver catalog) {
+        if (template == null) {
+            // added-recipes には「圧縮された側のカタログエントリ」が無いので逆レシピを組めない。
+            // forward と違って fixedResult で代用もできない(素材枠に置く物が決まらない)。
+            return Optional.empty();
+        }
         RecipeIngredient ingredient = spec.reversibleIngredient();
         if (ingredient == null) {
             return Optional.empty();

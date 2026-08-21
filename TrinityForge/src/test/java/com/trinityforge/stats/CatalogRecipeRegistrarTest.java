@@ -22,6 +22,7 @@ import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -83,6 +84,103 @@ class CatalogRecipeRegistrarTest {
         ItemAssembler assembler = mock(ItemAssembler.class);
         when(assembler.assemble(any(), any(), anyLong(), anyInt())).thenReturn(0);
         return new ItemFactory(assembler);
+    }
+
+    /**
+     * 出荷の形をそのまま写した {@code added-recipe}: 2×2 のスクラップ 4 個 → 素の銅インゴット 1 個。
+     */
+    private static com.trinityforge.config.domains.CraftingFeaturesConfig.AddedRecipe scrapToIngot() {
+        return new com.trinityforge.config.domains.CraftingFeaturesConfig.AddedRecipe(
+                Material.COPPER_INGOT, 1,
+                RecipeSpec.shaped(List.of("ii", "ii"),
+                        Map.of('i', RecipeIngredient.ofCatalog("copper_ingot_scrap")), 1));
+    }
+
+    /**
+     * <b>2026-08-21 の実サーバ障害の回帰テスト。</b>
+     *
+     * <p>{@code added-recipes} は結果になるカタログエントリを持たないので、registrar は
+     * {@code template} を {@code null} にして {@code fixedResult} だけを載せる
+     * ({@link CatalogRecipeRegistrar.RegisteredRecipe} の javadoc に書かれた契約)。
+     * 書き出し側がこれを破って {@code template.material()} を直に呼んでいたため、実サーバで
+     * 表の書き出しが<b>丸ごと NPE で落ちた</b>
+     * ({@code Cannot invoke "ItemTemplate.material()" because "template" is null})。
+     * 落ちるのは 1 件ではなく<b>表そのもの</b>なので、スミス台を含む統合版の補正が全部無効になる。
+     *
+     * <p>出荷 {@code added-recipes} は 7 件とも {@code custom:} 素材(スクラップ→インゴット)＝
+     * <b>補正が最も要るレシピ群</b>。出荷カタログだけを通す {@code ShippedBedrockRecipeTableTest}
+     * はこの経路を通らないので緑のまま抜けた。だから「registrar に登録させてから書き出す」
+     * 実経路をここで通す。
+     */
+    @Test
+    void anAddedRecipeIsExportedToBedrockInsteadOfBringingTheWholeTableDown(@TempDir File tempDir)
+            throws IOException {
+        ItemCatalogConfig catalog = loadCatalog(tempDir, """
+                items:
+                  copper_ingot_scrap:
+                    material: COPPER_INGOT
+                    custom-model-data: 5001
+                """);
+        CatalogRecipeRegistrar registrar = new CatalogRecipeRegistrar(
+                fakePlugin(tempDir), catalog, factoryWithMockAssembler(),
+                () -> List.of(scrapToIngot()));
+
+        registrar.registerAll();
+
+        com.trinityforge.bedrock.BedrockRecipeTable.Table table =
+                com.trinityforge.bedrock.BedrockRecipeExporter.build(
+                        registrar.allRegistered(), registrar.allCompletableSmithing(), catalog);
+
+        assertEquals(1, table.recipes().size(),
+                "added-recipes は素材がカスタムなので表に載るはず。skipped=" + table.skipped());
+        com.trinityforge.bedrock.BedrockRecipeTable.Recipe recipe = table.recipes().get(0);
+        assertEquals(new com.trinityforge.bedrock.BedrockRecipeTable.ItemRef(
+                        Material.COPPER_INGOT, null, 1), recipe.result(),
+                "結果は fixedResult 由来の素のバニラ品(CMD なし)");
+        assertTrue(recipe.slots().stream().allMatch(slot -> slot.items().equals(List.of(
+                        com.trinityforge.bedrock.BedrockRecipeTable.ItemRef.of(
+                                Material.COPPER_INGOT, 5001)))),
+                "素材の CMD を落としたら表を出す意味が無い: " + recipe.slots());
+    }
+
+    /**
+     * カタログ由来のレシピと混在しても、どちらも落ちないこと。
+     *
+     * <p>障害の本体は「1 件が例外を投げると<b>表全体</b>が書き出されない」ことなので、
+     * 混在させて初めて元の壊れ方を再現できる。
+     */
+    @Test
+    void anAddedRecipeDoesNotTakeCatalogRecipesDownWithIt(@TempDir File tempDir) throws IOException {
+        ItemCatalogConfig catalog = loadCatalog(tempDir, """
+                items:
+                  copper_ingot_scrap:
+                    material: COPPER_INGOT
+                    custom-model-data: 5001
+                  copper_ingot_scrap_9x:
+                    material: COPPER_INGOT
+                    custom-model-data: 5002
+                    recipe:
+                      method: workbench
+                      type: shaped
+                      shape:
+                        - iii
+                        - iii
+                        - iii
+                      ingredients:
+                        i: custom:copper_ingot_scrap
+                """);
+        CatalogRecipeRegistrar registrar = new CatalogRecipeRegistrar(
+                fakePlugin(tempDir), catalog, factoryWithMockAssembler(),
+                () -> List.of(scrapToIngot()));
+
+        registrar.registerAll();
+
+        com.trinityforge.bedrock.BedrockRecipeTable.Table table =
+                com.trinityforge.bedrock.BedrockRecipeExporter.build(
+                        registrar.allRegistered(), registrar.allCompletableSmithing(), catalog);
+
+        assertEquals(2, table.recipes().size(),
+                "added-recipes とカタログレシピの両方が載るはず。skipped=" + table.skipped());
     }
 
     private static int countTrinityForgeCatalogRecipes() {
