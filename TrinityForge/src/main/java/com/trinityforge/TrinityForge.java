@@ -890,11 +890,19 @@ public final class TrinityForge extends JavaPlugin {
                         this, configManager.itemCatalog(), itemFactory);
         getServer().getPluginManager().registerEvents(catalogGui, this);
         this.catalogCommand = new com.trinityforge.command.CatalogCommand(catalogGui);
+        // パーティクルシード報酬の実体配布(2026-08-21)。着手前は special: [seed_*] を付与しても
+        // そのIDを読む処理が1つも無く、アイテムも案内も出ないため「解放しても何も起きない」状態だった。
+        com.trinityforge.progression.ParticleSeedDelivery particleSeedDelivery =
+                new com.trinityforge.progression.ParticleSeedDelivery(
+                        configManager.specialRewards(), crossPluginItemResolver, getLogger());
+        collectionService.setParticleSeedDelivery(particleSeedDelivery);
         // 特殊報酬の運営付与/剥奪 (2026-07-27)。アチーブ/図鑑ティアと同じ「直接付与」枠を触る。
         this.specialRewardCommand = new com.trinityforge.command.SpecialRewardCommand(
-                configManager.specialRewards(), specialRewardService, perkAttributeApplier);
+                configManager.specialRewards(), specialRewardService, perkAttributeApplier,
+                particleSeedDelivery);
         getServer().getPluginManager().registerEvents(
-                new com.trinityforge.listeners.ParticleSeedListener(configManager.specialRewards()), this);
+                new com.trinityforge.listeners.ParticleSeedListener(
+                        configManager.specialRewards(), specialRewardService), this);
         // special-rewards.yml から削除された報酬IDをプレイヤーPDCの保持分からも掃除する(2026-07-28)。
         // オフラインPDCは触れないため参加時が唯一の掃除機会 + /trinityforge reload 後のオンライン全員一括。
         this.specialRewardPruneListener = new com.trinityforge.listeners.SpecialRewardPruneListener(
@@ -909,6 +917,7 @@ public final class TrinityForge extends JavaPlugin {
         // AchievementService の構築時点では両方とも既に組み上がっているが、循環を避けるため
         // コンストラクタ引数ではなく setter で渡す。
         achievementService.setLevelSources(skillLevelSource, combatService::combatLevelOf);
+        achievementService.setParticleSeedDelivery(particleSeedDelivery);
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.AchievementListener(achievementService), this);
         // 2026-08-16: type: gear-use(その武器でダメージを与えた / その防具を着て被弾した)の記録側。

@@ -3,6 +3,7 @@ package com.trinityforge.listeners;
 import com.trinityforge.config.domains.SpecialRewardsConfig;
 import com.trinityforge.pdc.ItemData;
 import com.trinityforge.progression.ParticleEffectService;
+import com.trinityforge.progression.SpecialRewardService;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -40,15 +41,25 @@ public final class ParticleSeedListener implements Listener {
     private static final long THROTTLE_MILLIS = 5L * 50L;
 
     private final SpecialRewardsConfig config;
+    private final SpecialRewardService rewards;
     private final ConcurrentHashMap<UUID, Long> lastTriggerMillis = new ConcurrentHashMap<>();
 
-    public ParticleSeedListener(SpecialRewardsConfig config) {
+    /**
+     * @param rewards シードIDの保有判定。<b>必須</b>(null を許す fail-soft にしない) ──
+     *                ここを省略できる形にすると「配線を忘れた回だけ誰でも刻印できる」という、
+     *                エラーもログも出ない穴になる。呼び出し側は本番も試験も1箇所ずつしかない。
+     */
+    public ParticleSeedListener(SpecialRewardsConfig config, SpecialRewardService rewards) {
         this.config = Objects.requireNonNull(config, "config");
+        this.rewards = Objects.requireNonNull(rewards, "rewards");
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPrepareCraft(PrepareItemCraftEvent event) {
         if (config.particleSeeds().isEmpty()) {
+            return;
+        }
+        if (!(event.getView().getPlayer() instanceof Player player)) {
             return;
         }
         CraftingInventory inventory = event.getInventory();
@@ -64,9 +75,9 @@ public final class ParticleSeedListener implements Listener {
         }
         ItemStack a = matrix[filled.get(0)];
         ItemStack b = matrix[filled.get(1)];
-        Result result = resolve(a, b);
+        Result result = resolve(player, a, b);
         if (result == null) {
-            result = resolve(b, a);
+            result = resolve(player, b, a);
         }
         if (result == null) {
             return;
@@ -81,15 +92,32 @@ public final class ParticleSeedListener implements Listener {
         inventory.setResult(stamped);
     }
 
-    /** {@code tool} がツール/武器、{@code seedCandidate} が定義済みシードに一致すれば結果を返す。 */
-    private Result resolve(ItemStack tool, ItemStack seedCandidate) {
+    /**
+     * {@code tool} がツール/武器、{@code seedCandidate} が<b>{@code player} が解放済みの</b>シードに
+     * 一致すれば結果を返す。
+     *
+     * <p><b>保有判定を入れる理由</b>(2026-08-21 実サーバ報告「パーティクルシードを入手しても実装が
+     * ないのでは？」): 着手前はここが保有を一切見ておらず、出荷 {@code seed-item} は
+     * ブレイズパウダー・青氷・銅インゴットといった<b>誰でも手に入るバニラ材</b>だったので、
+     * アチーブメント報酬の {@code special: [seed_*]} は<b>持っていても持っていなくても結果が同じ</b>
+     * ＝実質何も付与していなかった。ここが報酬IDの唯一の読み手になる。
+     *
+     * <p>一致しても未解放なら {@code continue} で次のシードを見る({@code return null} にしない) ──
+     * 同じ {@code seed-item} を共有するシードが2つ定義されたとき、解放済みの方まで巻き添えで
+     * 使えなくなるため。
+     */
+    private Result resolve(Player player, ItemStack tool, ItemStack seedCandidate) {
         if (tool == null || tool.getType().isAir() || !ParticleSeedMatcher.isToolOrWeapon(tool.getType())) {
             return null;
         }
         for (Map.Entry<String, SpecialRewardsConfig.ParticleSeed> entry : config.particleSeeds().entrySet()) {
-            if (ParticleSeedMatcher.matchesSeed(seedCandidate, entry.getValue().seedItem())) {
-                return new Result(tool, entry.getValue());
+            if (!ParticleSeedMatcher.matchesSeed(seedCandidate, entry.getValue().seedItem())) {
+                continue;
             }
+            if (!rewards.isUnlocked(player, entry.getKey())) {
+                continue;
+            }
+            return new Result(tool, entry.getValue());
         }
         return null;
     }
