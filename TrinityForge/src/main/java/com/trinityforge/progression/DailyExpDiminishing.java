@@ -344,47 +344,120 @@ public final class DailyExpDiminishing {
         }
     }
 
-    /** 蓄積量から表示用スナップショットを組む純関数。 */
+    /**
+     * 蓄積量から表示用スナップショットを組む純関数（強制解除の期限を考えない版）。
+     *
+     * <p><b>プレイヤーへ出す数字にはこちらを使わない。</b> 期限を知らないので
+     * 「等倍まで」が実際より長く出る（理由は {@link #statusOf(Settings, double, double)}）。
+     * 蓄積量だけから決まる部分を確かめたい試験や、期限を持たない呼び出し用。
+     */
     public static Status statusOf(Settings settings, double accumulated) {
-        double multiplier = multiplierFor(settings, accumulated);
-        return new Status(multiplier, Math.max(0.0, accumulated),
-                untilNextStep(settings, accumulated),
-                millisUntilNextImprovement(settings, accumulated),
-                millisUntilFullRecovery(settings, accumulated));
+        return statusOf(settings, accumulated, -1.0);
     }
 
-    /** そのプレイヤー・スキルの現在の表示用スナップショット（状態は進めない）。 */
+    /**
+     * 蓄積量と<b>強制解除までの残り時間</b>から表示用スナップショットを組む純関数。
+     *
+     * <p><b>なぜ残り時間を渡すのか</b>（2026-08-21 実サーバ報告「24時間経験値減衰の仕様に関して
+     * 正しく時間経過でリセットされているが表示が前のデータのまま？なのか、リセットまで24時間を
+     * 超えているらしい」）: 回復の見積り（{@link #millisUntilFullRecovery}）は指数減衰だけを解いた値で、
+     * <b>W-154 の「発動から24時間で強制解除」を1つも見ていなかった</b>。指数減衰は
+     * {@code 窓 × ln(蓄積 / perAmount)} なので、出荷設定（窓24h・perAmount 10万）では
+     * 蓄積30万で26時間、100万で55時間と<b>平然と24時間を超える数字が出る</b> ──
+     * 実際には遅くとも発動から24時間で等倍へ戻るのに、画面には「等倍まで55時間」と出ていた。
+     * 減衰そのものは正しく動いていたので、<b>ズレていたのは表示だけ</b>。
+     *
+     * <p>期限が有効なら「指数減衰での見積り」と「解除までの残り」の<b>早い方</b>を採る。
+     * 倍率が下がっているのに指数側が答えを出せない場合（下限に張り付いていて段が動かない等）は
+     * 解除までの残りをそのまま使う ── 期限があるかぎり必ずその時刻には戻るため。
+     *
+     * @param millisUntilForcedRelease 強制解除までの残りミリ秒。負なら期限なし（従来どおり）
+     */
+    public static Status statusOf(Settings settings, double accumulated, double millisUntilForcedRelease) {
+        double multiplier = multiplierFor(settings, accumulated);
+        double untilImproved = millisUntilNextImprovement(settings, accumulated);
+        double untilFull = millisUntilFullRecovery(settings, accumulated);
+        if (multiplier < 1.0 && millisUntilForcedRelease >= 0.0) {
+            untilImproved = soonerOf(untilImproved, millisUntilForcedRelease);
+            untilFull = soonerOf(untilFull, millisUntilForcedRelease);
+        }
+        return new Status(multiplier, Math.max(0.0, accumulated),
+                untilNextStep(settings, accumulated), untilImproved, untilFull);
+    }
+
+    /** 見積り {@code estimate}（負 = 出せない）と期限 {@code deadline} の早い方。 */
+    private static double soonerOf(double estimate, double deadline) {
+        return estimate < 0.0 ? deadline : Math.min(estimate, deadline);
+    }
+
+    /**
+     * そのプレイヤー・スキルの現在の表示用スナップショット（状態は進めない）。
+     *
+     * <p>蓄積量と強制解除までの残りを<b>同じロックの中で</b>読む。別々に読むと、
+     * 間に付与が挟まったときに「解除間近なのに蓄積は解除後の値」のような、実在しない組み合わせが出る。
+     */
     public Status status(Settings settings, UUID playerId, String skillId) {
-        return statusOf(settings, accumulated(settings, playerId, skillId));
+        Window window = windowOf(playerId, skillId);
+        if (settings == null || window == null) {
+            return statusOf(settings, 0.0);
+        }
+        long now = clock.getAsLong();
+        synchronized (window) {
+            if (isExpired(settings, window, now)) {
+                return statusOf(settings, 0.0);
+            }
+            return statusOf(settings, decayedAmount(settings, window, now),
+                    millisUntilForcedRelease(settings, window, now));
+        }
     }
 
     /** 現在の蓄積量（減衰を適用した値。状態は進めない）。表示・デバッグ用。 */
     public double accumulated(Settings settings, UUID playerId, String skillId) {
-        if (settings == null || playerId == null || skillId == null) {
-            return 0.0;
-        }
-        Map<String, Window> perSkill = windows.get(playerId);
-        if (perSkill == null) {
-            return 0.0;
-        }
-        Window window = perSkill.get(skillId);
-        if (window == null) {
+        Window window = windowOf(playerId, skillId);
+        if (settings == null || window == null) {
             return 0.0;
         }
         long now = clock.getAsLong();
         synchronized (window) {
             // 期限切れ（W-154）は「もう蓄積は無い」と読む。ここで見ないと、表示だけが
             // 解除前の倍率を出し続け、実際の付与（consumeDetailed 側で解除される）と食い違う。
-            if (settings.lockReleaseMillis() > 0.0 && window.locked
-                    && now - window.lockedAtMillis >= settings.lockReleaseMillis()) {
-                return 0.0;
-            }
-            long elapsed = Math.max(0L, now - window.updatedAtMillis);
-            if (elapsed <= 0L || window.amount <= 0.0) {
-                return window.amount;
-            }
-            return window.amount * Math.exp(-((double) elapsed) / settings.windowMillis());
+            return isExpired(settings, window, now) ? 0.0 : decayedAmount(settings, window, now);
         }
+    }
+
+    /** 追跡中の {@link Window}。無ければ {@code null}。 */
+    private Window windowOf(UUID playerId, String skillId) {
+        if (playerId == null || skillId == null) {
+            return null;
+        }
+        Map<String, Window> perSkill = windows.get(playerId);
+        return perSkill == null ? null : perSkill.get(skillId);
+    }
+
+    /** 強制解除（W-154）の期限を過ぎているか。{@code window} のロックを持って呼ぶこと。 */
+    private static boolean isExpired(Settings settings, Window window, long now) {
+        return settings.lockReleaseMillis() > 0.0 && window.locked
+                && now - window.lockedAtMillis >= settings.lockReleaseMillis();
+    }
+
+    /**
+     * 強制解除までの残りミリ秒。期限が無い／まだ発動していないなら {@code -1}。
+     * {@code window} のロックを持って呼ぶこと。
+     */
+    private static double millisUntilForcedRelease(Settings settings, Window window, long now) {
+        if (settings.lockReleaseMillis() <= 0.0 || !window.locked) {
+            return -1.0;
+        }
+        return Math.max(0.0, settings.lockReleaseMillis() - (double) (now - window.lockedAtMillis));
+    }
+
+    /** 最終更新から {@code now} までの指数減衰を適用した蓄積量。{@code window} のロックを持って呼ぶこと。 */
+    private static double decayedAmount(Settings settings, Window window, long now) {
+        long elapsed = Math.max(0L, now - window.updatedAtMillis);
+        if (elapsed <= 0L || window.amount <= 0.0) {
+            return window.amount;
+        }
+        return window.amount * Math.exp(-((double) elapsed) / settings.windowMillis());
     }
 
     /** 退出時などにプレイヤーの状態を捨てる（メモリを有界に保つ）。 */

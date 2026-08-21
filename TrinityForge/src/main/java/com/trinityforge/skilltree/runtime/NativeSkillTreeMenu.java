@@ -627,8 +627,12 @@ public final class NativeSkillTreeMenu implements Listener {
      * 1つも無かった</b>ため「なんとなくEXPが渋い」としか分からなかった。段が離散なのは
      * 「あと何EXPで落ちるか数えられるように」という設計なので、その数字をここで出す。
      *
-     * <p><b>⚠ 回復までの時間は「オンラインのまま、そのスキルを稼がずにいる」前提の目安</b>。
-     * 蓄積は永続化しておらず退出時に捨てられるので、再ログインすると表示より早く戻る。
+     * <p><b>⚠ 回復までの時間は「そのスキルを稼がずにいる」前提の目安</b>。蓄積は 2026-08-18 から
+     * 永続化されており、オフライン時間も同じ式で減衰するので、ログアウトして待っても同じだけ掛かる
+     * （それ以前の「再ログインで即リセット」はもう起きない）。
+     * 表示する時間には W-154 の強制解除（発動から {@code lock-release-hours}）も織り込んである
+     * ── 2026-08-21 まではここが指数減衰だけの見積りで、出荷設定では平然と 24 時間を超える数字を
+     * 出していた（実際には遅くとも 24 時間で等倍へ戻る）。
      */
     private List<Component> dailyRateLore(java.util.UUID playerId, String skillId) {
         com.trinityforge.progression.DailyExpDiminishing.Status status =
