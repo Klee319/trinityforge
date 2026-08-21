@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -250,6 +251,22 @@ class WeaponTierParityTest {
         }
     }
 
+    /**
+     * {@code damage-modifier} の実効端点。<b>未設定は 0 ではなく中立の 1.0</b>。
+     *
+     * <p>{@link #stat} は未設定キーを 0.0 で返すが、{@code damage-modifier} の 0 は
+     * 「毎撃 ×0〜×1 のサイコロ」という<b>実在する強い減衰</b>を意味するので、
+     * そのまま期待値へ通すと未設定の武器が ×0.5 に化ける（本番では
+     * {@code AttackStatBridge} が未設定を中立端点へ変換している）。
+     */
+    private static double damageModifierEndpoint(ConfigurationSection item) {
+        ConfigurationSection fixed = item.getConfigurationSection("fixed");
+        ConfigurationSection random = item.getConfigurationSection("random");
+        boolean authored = (fixed != null && fixed.isSet("damage-modifier"))
+                || (random != null && random.getConfigurationSection("damage-modifier") != null);
+        return authored ? stat(item, "damage-modifier") : 1.0;
+    }
+
     /** {@code fixed} と {@code random}（min/max の中央＝期待値）を足した実効値。品質0で評価する。 */
     private static double stat(ConfigurationSection item, String name) {
         double v = 0.0;
@@ -333,11 +350,11 @@ class WeaponTierParityTest {
             double rate = "wand".equals(type) && cooldown > 0
                     ? 1.0 / cooldown
                     : (attackSpeed > 0 ? Math.min(attackSpeed, MAX_RATE) : MAX_RATE);
-            double modifier = stat(item, "damage-modifier");
+            double modifier = damageModifierEndpoint(item);
             double perHit = stat(item, "attack-power")
                     * (1 + PER_LEVEL * level)
                     * (1 + stat(item, "crit-chance") * stat(item, "crit-damage"))
-                    * ((Math.min(1, 1 + modifier) + Math.max(1, 1 + modifier)) / 2.0)
+                    * expectedDamageModifier(modifier)
                     + stat(item, "fixed-damage");
             // 出血は victim ごとに1件しか持たず(BleedService は Map#put で上書き)、
             // tick-interval 20 tick で bleed-damage を刻む。毎秒2発当たる前提では常に更新
@@ -625,6 +642,43 @@ class WeaponTierParityTest {
             }
         }
         return out;
+    }
+
+    /**
+     * この検査ファイルの実効DPS模型が、{@code damage-modifier} を<b>実装と同じ意味</b>で
+     * 扱っていることを固定する。
+     *
+     * <p>⚠ 2026-08-21 まで、ここの模型は {@code (min(1, 1+補正) + max(1, 1+補正)) / 2} ＝
+     * <b>補正を「1 への上乗せ」として扱っていた</b>（0.30 に対し真値 0.65 ではなく 1.15）。
+     * 誤差がほぼ全武器に一様に効くので<b>武器種どうしの比を見る帯は破綻せず</b>、
+     * 壊れたまま何度もこの表を再較正していた。実際、直したところで
+     * <b>戦鎚が意図より 1.4〜5.4% 強い</b>のが表に出て 14 本を下げ直している。
+     *
+     * <p>ユーザーの言葉での仕様: 「90% なら 0.9〜1 倍のダメージ。1 倍を超えるのは補正が
+     * 100% 以上の場合で、130% なら 1〜1.3 倍のランダムダメージ」。
+     */
+    @Test
+    @DisplayName("実効DPS模型のダメージ補正が実装と同じ意味(端点。90%なら0.9〜1.0倍)")
+    void theDpsModelReadsDamageModifierTheSameWayTheGameDoes() {
+        // 90% -> 0.9〜1.0 の一様分布 -> 期待 0.95。1 を超えるのは 100% 超のときだけ。
+        assertEquals(0.95, expectedDamageModifier(0.90), 1e-9);
+        assertEquals(1.00, expectedDamageModifier(1.00), 1e-9);
+        assertEquals(1.15, expectedDamageModifier(1.30), 1e-9, "130% は 1.0〜1.3 倍");
+        assertEquals(0.65, expectedDamageModifier(0.30), 1e-9, "旧模型はここで 1.15 を返していた");
+
+        // 模型が実装から離れないよう、両端を実装そのものと突き合わせる。
+        for (double authored : new double[] {0.30, 0.53, 0.65, 0.84, 0.98, 1.00, 1.30}) {
+            double lo = ComponentDamageCalculator.rollDamageModifierMultiplier(authored, 0.0);
+            double hi = ComponentDamageCalculator.rollDamageModifierMultiplier(authored, 1.0);
+            assertEquals((lo + hi) / 2.0, expectedDamageModifier(authored), 1e-9,
+                    "端点 " + authored + " で実装のロール幅 [" + lo + ", " + hi + "] と食い違っている");
+        }
+
+        // 未設定は 0（＝毎撃 ×0〜×1 の強い減衰）ではなく中立の 1.0。
+        YamlConfiguration bare = new YamlConfiguration();
+        bare.createSection("fixed").set("attack-power", 100.0);
+        assertEquals(1.0, damageModifierEndpoint(bare), 1e-9,
+                "damage-modifier 未設定の武器が ×0.5 に化けている");
     }
 
     /**
