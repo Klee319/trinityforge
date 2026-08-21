@@ -2,6 +2,7 @@ package com.trinityforge.config.domains;
 
 import com.trinityforge.config.LoadableConfig;
 import com.trinityforge.mobs.ConversionPolicy.Ramp;
+import com.trinityforge.mobs.LevelTierDropEntry;
 import com.trinityforge.mobs.MobIdNormalizer;
 import com.trinityforge.mobs.MobOverrideDropEntry;
 import com.trinityforge.mobs.MobOverrideEntry;
@@ -826,12 +827,20 @@ public final class MobOverridesConfig implements LoadableConfig {
                 }
             }
             try {
-                double chance = clamp01(requireDouble(map, "chance"));
+                // 2026-08-21: chance-by-level(ダンジョンのレベルで落ちやすさを変える)。
+                // 書いてあれば chance: は省略でき、その場合は曲線の上端を素の chance として扱う
+                // (MobDropRoller#isProgressionDrop の「chance>=1.0 は確定ドロップ」判定が
+                //  drop.chance() を読むので、曲線だけ書いて chance を 0 にすると確定判定が壊れる)。
+                LevelTierDropEntry.ChanceCurve curve = parseDropChanceCurve(
+                        map.get("chance-by-level"), scopeName + "." + mobId, log);
+                double chance = map.get("chance") == null && curve != null
+                        ? curve.toChance()
+                        : clamp01(requireDouble(map, "chance"));
                 int min = requireInt(map, "min");
                 int max = requireInt(map, "max");
                 drops.add(catalogId != null
-                        ? MobOverrideDropEntry.ofCatalog(catalogId, chance, min, max)
-                        : MobOverrideDropEntry.ofMaterial(material, chance, min, max));
+                        ? MobOverrideDropEntry.ofCatalog(catalogId, chance, min, max, curve)
+                        : MobOverrideDropEntry.ofMaterial(material, chance, min, max, curve));
             } catch (IllegalArgumentException ex) {
                 log.warning("[" + PATH + "] " + scopeName + "." + mobId + " drops for " + token + " invalid ("
                         + ex.getMessage() + "); skipped");
@@ -839,6 +848,39 @@ public final class MobOverridesConfig implements LoadableConfig {
             }
         }
         return new DropsResult(drops, skipped);
+    }
+
+    /**
+     * {@code chance-by-level: { from-level, from-chance, to-level, to-chance }} の読み取り(2026-08-21)。
+     * 形が不正なら<b>警告して null</b>(= 素の {@code chance} にフォールバック)。ここで例外を投げると
+     * 1エントリの書き間違いでそのモブのドロップ表が丸ごと落ちる。
+     */
+    private static LevelTierDropEntry.ChanceCurve parseDropChanceCurve(Object raw, String context, Logger log) {
+        if (raw == null) {
+            return null;
+        }
+        if (!(raw instanceof Map<?, ?> map)) {
+            log.warning("[" + PATH + "] " + context + " drops 'chance-by-level' must be a mapping; ignored");
+            return null;
+        }
+        Object fromLevel = map.get("from-level");
+        Object fromChance = map.get("from-chance");
+        Object toLevel = map.get("to-level");
+        Object toChance = map.get("to-chance");
+        if (!(fromLevel instanceof Number fl) || !(fromChance instanceof Number fc)
+                || !(toLevel instanceof Number tl) || !(toChance instanceof Number tc)) {
+            log.warning("[" + PATH + "] " + context + " drops 'chance-by-level' needs numeric"
+                    + " from-level/from-chance/to-level/to-chance; ignored");
+            return null;
+        }
+        try {
+            return new LevelTierDropEntry.ChanceCurve(fl.intValue(), clamp01(fc.doubleValue()),
+                    tl.intValue(), clamp01(tc.doubleValue()));
+        } catch (IllegalArgumentException ex) {
+            log.warning("[" + PATH + "] " + context + " drops 'chance-by-level' invalid ("
+                    + ex.getMessage() + "); ignored");
+            return null;
+        }
     }
 
     private static double requireDouble(Map<?, ?> raw, String field) {

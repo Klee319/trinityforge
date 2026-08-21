@@ -105,4 +105,32 @@ public final class AddonCombatStats {
         }
         return parse(raw);
     }
+
+    /**
+     * 乗算レイヤのレイヤID。{@code PlayerCombatAggregate} は「レイヤ内は Σ(v-1) を合算し、
+     * レイヤ同士は乗算」するので、アドオン由来の倍率を1レイヤに束ねるための固定ID。
+     */
+    public static final String MULTIPLIER_LAYER_ID = "addon";
+
+    /**
+     * The player's addon <b>multiplier</b> contribution (empty when unset or blank): canonical stat key
+     * → 倍率の増分(0.1 = +10%)。{@link PdcKeys#PLAYER_ADDON_COMBAT_MULTIPLIERS} を {@link #parse} で
+     * 読むだけなので、コーデックは加算チャネルと完全に共通。Never throws。
+     *
+     * <p>加算チャネル({@link #read})と違い、この値は総合値へ<b>掛かる</b>。フォークが
+     * {@code thread-sets.yml} の {@code mode: multiply} を集計してここへ書く。
+     */
+    public static Map<String, Double> readMultipliers(Player player) {
+        if (player == null) {
+            return Map.of();
+        }
+        String raw;
+        try {
+            raw = player.getPersistentDataContainer()
+                    .get(PdcKeys.PLAYER_ADDON_COMBAT_MULTIPLIERS, PersistentDataType.STRING);
+        } catch (RuntimeException wrongTypeStored) {
+            return Map.of();
+        }
+        return parse(raw);
+    }
 }

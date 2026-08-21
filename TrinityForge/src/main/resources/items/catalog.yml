@@ -92,7 +92,7 @@
 items:
   thread_angler:
     external-source: arspaper
-    material: COAST_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <blue>潮読みのスレッド</blue>
     custom-model-data: 300025
     bind-type: TRADEABLE
@@ -103,7 +103,7 @@ items:
       - <color:dark_purple>水面のわずかな乱れが、すべてを語る</color>
   thread_apiarist:
     external-source: arspaper
-    material: DUNE_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <yellow>養蜂のスレッド</yellow>
     custom-model-data: 300042
     bind-type: TRADEABLE
@@ -114,7 +114,7 @@ items:
       - <color:dark_purple>恐れる者に、蜜は渡らない</color>
   thread_appraiser:
     external-source: arspaper
-    material: COAST_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <gold>鑑識のスレッド</gold>
     custom-model-data: 300044
     bind-type: TRADEABLE
@@ -125,7 +125,7 @@ items:
       - <color:dark_purple>見る目が値を決める</color>
   thread_artisan:
     external-source: arspaper
-    material: TIDE_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <gold>匠のスレッド</gold>
     custom-model-data: 300020
     bind-type: TRADEABLE
@@ -136,7 +136,7 @@ items:
       - <color:dark_purple>同じ材料でも、手が違えば別物になる</color>
   thread_backpack:
     external-source: arspaper
-    material: SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <dark_green>バックパックのスレッド</dark_green>
     custom-model-data: 300016
     bind-type: TRADEABLE
@@ -147,7 +147,7 @@ items:
       - <color:dark_purple>準備から冒険ははじまっている</color>
   thread_concussion:
     external-source: arspaper
-    material: WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <dark_aqua>昏倒のスレッド</dark_aqua>
     custom-model-data: 300036
     bind-type: TRADEABLE
@@ -158,7 +158,7 @@ items:
       - <color:dark_purple>意識を刈り取るのに、刃は要らない</color>
   thread_conduit_power:
     external-source: arspaper
-    material: EYE_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <aqua>コンジットパワーのスレッド</aqua>
     custom-model-data: 300009
     bind-type: TRADEABLE
@@ -181,7 +181,7 @@ items:
       ingredients: []
   thread_damage_mana_recovery:
     external-source: arspaper
-    material: WILD_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <dark_red>攻撃マナ回復のスレッド</dark_red>
     custom-model-data: 300013
     bind-type: TRADEABLE
@@ -192,7 +192,7 @@ items:
       - <color:dark_purple>攻撃こそ最大の防御</color>
   thread_diligence:
     external-source: arspaper
-    material: RIB_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <green>研鑽のスレッド</green>
     custom-model-data: 300029
     bind-type: TRADEABLE
@@ -203,7 +203,7 @@ items:
       - <color:dark_purple>より善い一日になりますように</color>
   thread_dolphins_grace:
     external-source: arspaper
-    material: COAST_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <dark_aqua>イルカの好意のスレッド</dark_aqua>
     custom-model-data: 300008
     bind-type: TRADEABLE
@@ -225,7 +225,7 @@ items:
       ingredients: []
   thread_empty:
     external-source: arspaper
-    material: WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <gray>空のスレッド</gray>
     custom-model-data: 300001
     bind-type: TRADEABLE
@@ -247,7 +247,7 @@ items:
       ingredients: []
   thread_endurance:
     external-source: arspaper
-    material: SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <gold>持久のスレッド</gold>
     custom-model-data: 300033
     bind-type: TRADEABLE
@@ -258,7 +258,7 @@ items:
       - <color:dark_purple>まだ歩けるかい？</color>
   thread_excavation:
     external-source: arspaper
-    material: NETHERITE_UPGRADE_SMITHING_TEMPLATE
+    material: STRING
     display-name: <dark_gray>削岩のスレッド</dark_gray>
     custom-model-data: 300045
     bind-type: TRADEABLE
@@ -269,7 +269,7 @@ items:
       - <color:dark_purple>削り方を知るもののみ持つ</color>
   thread_experience:
     external-source: arspaper
-    material: SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <green>経験のスレッド</green>
     custom-model-data: 300030
     bind-type: TRADEABLE
@@ -280,7 +280,7 @@ items:
       - <color:dark_purple>刻み込まれた繊維の記憶</color>
   thread_fire_resistance:
     external-source: arspaper
-    material: SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <red>耐火のスレッド</red>
     custom-model-data: 300007
     bind-type: TRADEABLE
@@ -291,7 +291,7 @@ items:
       - <color:dark_purple>炎の中へ</color>
   thread_flight:
     external-source: arspaper
-    material: SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <white>飛行のスレッド</white>
     custom-model-data: 300015
     bind-type: TRADEABLE
@@ -302,7 +302,7 @@ items:
       - <color:dark_purple>彼方からの贈り物</color>
   thread_gourmet:
     external-source: arspaper
-    material: WILD_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <red>美食のスレッド</red>
     custom-model-data: 300034
     bind-type: TRADEABLE
@@ -313,7 +313,7 @@ items:
       - <color:dark_purple>良い一日は良い食事から</color>
   thread_harvest:
     external-source: arspaper
-    material: EYE_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <yellow>実りのスレッド</yellow>
     custom-model-data: 300026
     bind-type: TRADEABLE
@@ -324,7 +324,7 @@ items:
       - <color:dark_purple>手間を惜しまぬ者への恩返し</color>
   thread_health_boost:
     external-source: arspaper
-    material: RIB_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <red>体力増強のスレッド</red>
     custom-model-data: 300011
     bind-type: TRADEABLE
@@ -335,7 +335,7 @@ items:
       - <color:dark_purple>まだ、耐えられる</color>
   thread_herder:
     external-source: arspaper
-    material: SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <green>牧人のスレッド</green>
     custom-model-data: 300043
     bind-type: TRADEABLE
@@ -346,7 +346,7 @@ items:
       - <color:dark_purple>群れは、急かした者から離れていく</color>
   thread_hero_of_the_village:
     external-source: arspaper
-    material: HOST_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <green>村の英雄のスレッド</green>
     custom-model-data: 300010
     bind-type: TRADEABLE
@@ -357,7 +357,7 @@ items:
       - <color:dark_purple>いい取引だ！</color>
   thread_hit_mana_recovery:
     external-source: arspaper
-    material: SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <gold>被弾マナ回復のスレッド</gold>
     custom-model-data: 300012
     bind-type: TRADEABLE
@@ -380,7 +380,7 @@ items:
       ingredients: []
   thread_jump_boost:
     external-source: arspaper
-    material: SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <green>跳躍のスレッド</green>
     custom-model-data: 300005
     bind-type: TRADEABLE
@@ -402,7 +402,7 @@ items:
       ingredients: []
   thread_luck:
     external-source: arspaper
-    material: RAISER_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <gold>幸運のスレッド</gold>
     custom-model-data: 300040
     bind-type: TRADEABLE
@@ -413,7 +413,7 @@ items:
       - <color:dark_purple>運は、探しに行った者のところへ来る</color>
   thread_mana_amplify:
     external-source: arspaper
-    material: FLOW_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <blue>マナ増幅のスレッド</blue>
     custom-model-data: 300017
     bind-type: TRADEABLE
@@ -424,7 +424,7 @@ items:
       - <color:dark_purple>器を広げれば、届く場所も広がる</color>
   thread_mana_boost:
     external-source: arspaper
-    material: WARD_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <blue>マナ最大値上昇のスレッド</blue>
     custom-model-data: 300003
     bind-type: TRADEABLE
@@ -446,7 +446,7 @@ items:
       ingredients: []
   thread_mana_circulate:
     external-source: arspaper
-    material: BOLT_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <aqua>循環のスレッド</aqua>
     custom-model-data: 300018
     bind-type: TRADEABLE
@@ -468,7 +468,7 @@ items:
       ingredients: []
   thread_mana_regen:
     external-source: arspaper
-    material: TIDE_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <aqua>マナ回復速度上昇のスレッド</aqua>
     custom-model-data: 300002
     bind-type: TRADEABLE
@@ -479,7 +479,7 @@ items:
       - <color:dark_purple>祈りは届く</color>
   thread_marksman:
     external-source: arspaper
-    material: WARD_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <dark_green>射手のスレッド</dark_green>
     custom-model-data: 300038
     bind-type: TRADEABLE
@@ -490,7 +490,7 @@ items:
       - <color:dark_purple>一射を軽んじる者に明日は無い</color>
   thread_mending_flesh:
     external-source: arspaper
-    material: FLOW_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <red>治癒のスレッド</red>
     custom-model-data: 300032
     bind-type: TRADEABLE
@@ -501,7 +501,7 @@ items:
       - <color:dark_purple>傷は塞がる。だが、記憶は残る</color>
   thread_miner:
     external-source: arspaper
-    material: SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <dark_gray>豊鉱のスレッド</dark_gray>
     custom-model-data: 300024
     bind-type: TRADEABLE
@@ -512,7 +512,7 @@ items:
       - <color:dark_purple>見る目があるじゃないか</color>
   thread_night_vision:
     external-source: arspaper
-    material: DUNE_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <dark_aqua>暗視のスレッド</dark_aqua>
     custom-model-data: 300006
     bind-type: TRADEABLE
@@ -535,7 +535,7 @@ items:
       ingredients: []
   thread_perfumer:
     external-source: arspaper
-    material: SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <light_purple>調香のスレッド</light_purple>
     custom-model-data: 300041
     bind-type: TRADEABLE
@@ -546,7 +546,7 @@ items:
       - <color:dark_purple>今日はこの香りで</color>
   thread_ritualist:
     external-source: arspaper
-    material: WARD_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <light_purple>儀式師のスレッド</light_purple>
     custom-model-data: 300021
     bind-type: TRADEABLE
@@ -557,7 +557,7 @@ items:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_salvage:
     external-source: arspaper
-    material: SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <gray>解体のスレッド</gray>
     custom-model-data: 300023
     bind-type: TRADEABLE
@@ -568,7 +568,7 @@ items:
       - <color:dark_purple>壊し方を知る者は、作り方も知っている</color>
   thread_scholar:
     external-source: arspaper
-    material: DUNE_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <dark_purple>選書のスレッド</dark_purple>
     custom-model-data: 300031
     bind-type: TRADEABLE
@@ -579,7 +579,7 @@ items:
       - <color:dark_purple>棚から一冊を選ぶのも、技のうち</color>
   thread_slow_falling:
     external-source: arspaper
-    material: VEX_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <white>浮遊のスレッド</white>
     custom-model-data: 300039
     bind-type: TRADEABLE
@@ -590,7 +590,7 @@ items:
       - <color:dark_purple>落ちるのではなく、降りるのだ</color>
   thread_source_thrift:
     external-source: arspaper
-    material: WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <dark_aqua>源流節約のスレッド</dark_aqua>
     custom-model-data: 300019
     bind-type: TRADEABLE
@@ -601,7 +601,7 @@ items:
       - <color:dark_purple>流れを読む者は溺れない</color>
   thread_speed:
     external-source: arspaper
-    material: RAISER_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <white>迅速のスレッド</white>
     custom-model-data: 300004
     bind-type: TRADEABLE
@@ -623,7 +623,7 @@ items:
       ingredients: []
   thread_spell_cost_down:
     external-source: arspaper
-    material: VEX_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <yellow>詠唱効率のスレッド</yellow>
     custom-model-data: 300014
     bind-type: TRADEABLE
@@ -634,7 +634,7 @@ items:
       - <color:dark_purple>質よりも手数で</color>
   thread_spoils:
     external-source: arspaper
-    material: SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <gold>戦利品のスレッド</gold>
     custom-model-data: 300028
     bind-type: TRADEABLE
@@ -645,7 +645,7 @@ items:
       - <color:dark_purple>働き者に祝福を</color>
   thread_swiftcast:
     external-source: arspaper
-    material: TIDE_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <yellow>速攻のスレッド</yellow>
     custom-model-data: 300037
     bind-type: TRADEABLE
@@ -656,7 +656,7 @@ items:
       - <color:dark_purple>先に動いた方が、生き残る</color>
   thread_thorn:
     external-source: arspaper
-    material: BOLT_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <dark_red>棘のスレッド</dark_red>
     custom-model-data: 300035
     bind-type: TRADEABLE
@@ -667,7 +667,7 @@ items:
       - <color:dark_purple>痛みは生の証明</color>
   thread_thrift:
     external-source: arspaper
-    material: RAISER_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <yellow>倹約のスレッド</yellow>
     custom-model-data: 300022
     bind-type: TRADEABLE
@@ -678,7 +678,7 @@ items:
       - <color:dark_purple>捨てるところなど、どこにもない</color>
   thread_timber:
     external-source: arspaper
-    material: HOST_ARMOR_TRIM_SMITHING_TEMPLATE
+    material: STRING
     display-name: <dark_green>年輪のスレッド</dark_green>
     custom-model-data: 300027
     bind-type: TRADEABLE
@@ -699,6 +699,290 @@ items:
       source: 5000
       type: shapeless
       ingredients: []
+  thread_better_fortune:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>いいことがおきますように</color>
+    display-name: <color:red>開運のスレッド</color>
+    custom-model-data: 100023
+  thread_gacha:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:#ff0000>7</color><color:#ffa500>7</color><color:yellow>7</color><color:#008000>7</color><color:#0000ff>7</color><color:#000080>7</color><color:#800080>7</color>
+    display-name: <color:#ff0000>ガ</color><color:#ffa500>チ</color><color:#ffff00>ャ</color><color:#008000>ス</color><color:#0000ff>レ</color><color:#000080>ッ</color><color:#800080>ド</color>
+    custom-model-data: 100024
+  thread_role_luck:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>レッツ上振れ！</color>
+    display-name: ロール運のスレッド
+    custom-model-data: 100025
+  thread_role_effeciency:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>効率よく生きよう</color>
+    display-name: ロール効率のスレッド
+    custom-model-data: 100026
+  thread_blindness:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>虫の息の君は何を望む？</color>
+    display-name: 崩命のスレッド
+    custom-model-data: 100027
+  thread_translate:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>直りやすくなっただろう？</color>
+    display-name: 流転のスレッド
+    custom-model-data: 100028
+  thread_swordsman:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>剣と噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>振り抜くたび、間合いが身体に馴染んでいく</color>
+    display-name: <color:white>剣士のスレッド</color>
+    custom-model-data: 300046
+  thread_berserker:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>戦斧と噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>守りを捨てた者にだけ見える線がある</color>
+    display-name: <color:dark_red>狂戦士のスレッド</color>
+    custom-model-data: 300047
+  thread_lancer:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>槍と噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>穂先は鎧の継ぎ目しか見ていない</color>
+    display-name: <color:aqua>槍衾のスレッド</color>
+    custom-model-data: 300048
+  thread_reaper:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>鎌と噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>一度で仕留めなくていい。刈るのだから</color>
+    display-name: <color:dark_purple>刈り手のスレッド</color>
+    custom-model-data: 300049
+  thread_crusher:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>ウォーハンマーと噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>斬れないなら、潰せばいい</color>
+    display-name: <color:gray>打擲のスレッド</color>
+    custom-model-data: 300050
+  thread_assassin:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>短剣と噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>二撃目が要るなら、それは失敗だ</color>
+    display-name: <color:dark_gray>暗殺者のスレッド</color>
+    custom-model-data: 300051
+  thread_duelist:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>レイピアと噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>避けた分だけ、こちらの番が来る</color>
+    display-name: <color:light_purple>決闘者のスレッド</color>
+    custom-model-data: 300052
+  thread_titan:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>大斧と噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>重さは、それだけで理屈になる</color>
+    display-name: <color:gold>巨戟のスレッド</color>
+    custom-model-data: 300053
+  thread_greatsword:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>大剣と噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>受けて、返す。それだけを繰り返す</color>
+    display-name: <color:blue>大剣士のスレッド</color>
+    custom-model-data: 300054
+  thread_longshot:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>弓と噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>風は読むものではなく、待つものだ</color>
+    display-name: <color:green>遠矢のスレッド</color>
+    custom-model-data: 300055
+  thread_tidecaller:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>トライデントと噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>投げた先から、潮が返ってくる</color>
+    display-name: <color:dark_aqua>潮呼びのスレッド</color>
+    custom-model-data: 300056
+  thread_earthshaker:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>メイスと噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>落ちる高さが、そのまま威力になる</color>
+    display-name: <color:yellow>震撼のスレッド</color>
+    custom-model-data: 300057
+  thread_bolter:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>クロスボウと噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>狙う時間があるなら、外す理由がない</color>
+    display-name: <color:dark_green>弩手のスレッド</color>
+    custom-model-data: 300058
+  thread_spellblade:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>杖・触媒と噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>詠唱の終わりと斬撃の始まりを重ねる</color>
+    display-name: <color:dark_purple>呪刃のスレッド</color>
+    custom-model-data: 300059
+  thread_onslaught:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>手数だけが解決する場面は、たしかにある</color>
+    display-name: <color:red>猛攻のスレッド</color>
+    custom-model-data: 300060
+  thread_precision:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>同じ場所を、もう一度</color>
+    display-name: <color:aqua>精確のスレッド</color>
+    custom-model-data: 300061
+  thread_execution:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>倒れかけた相手にこそ、手を抜かない</color>
+    display-name: <color:dark_red>追撃のスレッド</color>
+    custom-model-data: 300062
+  thread_piercer:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>硬さは、通り道を知らないだけ</color>
+    display-name: <color:white>穿孔のスレッド</color>
+    custom-model-data: 300063
+  thread_hemorrhage:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>傷は、放っておくほど深くなる</color>
+    display-name: <color:dark_red>流血のスレッド</color>
+    custom-model-data: 300064
+  thread_bulwark:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>退かないと決めた場所が、陣になる</color>
+    display-name: <color:gray>堅陣のスレッド</color>
+    custom-model-data: 300065
+  thread_aegis:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>見えない矢にも、盾は要る</color>
+    display-name: <color:blue>抗魔のスレッド</color>
+    custom-model-data: 300066
+  thread_ironhide:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>皮膚が先に覚えて、身体が後から従う</color>
+    display-name: <color:gold>鉄皮のスレッド</color>
+    custom-model-data: 300067
+  thread_evasion:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>当たらなければ、勘定に入らない</color>
+    display-name: <color:dark_aqua>疾影のスレッド</color>
+    custom-model-data: 300068
+  thread_resilience:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>折れないことは、勝つことの一部だ</color>
+    display-name: <color:green>剛靭のスレッド</color>
+    custom-model-data: 300069
   wooden_halberd:
     material: WOODEN_SWORD
     display-name: 木の<b>ハルバード</b>
@@ -7252,60 +7536,6 @@ items:
       - ""
       - <dark_gray><italic>刃を研ぐ音で、次の一本が決まる。</italic></dark_gray>
       - <gray>木こりだけが使える装飾品。オフハンドに持つと一括伐採のCTが縮む。</gray>
-  thread_better_fortune:
-    external-source: arspaper
-    material: EYE_ARMOR_TRIM_SMITHING_TEMPLATE
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>いいことがおきますように</color>
-    display-name: <color:red>開運のスレッド</color>
-    custom-model-data: 100023
-  thread_gacha:
-    external-source: arspaper
-    material: HOST_ARMOR_TRIM_SMITHING_TEMPLATE
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:#ff0000>7</color><color:#ffa500>7</color><color:yellow>7</color><color:#008000>7</color><color:#0000ff>7</color><color:#000080>7</color><color:#800080>7</color>
-    display-name: <color:#ff0000>ガ</color><color:#ffa500>チ</color><color:#ffff00>ャ</color><color:#008000>ス</color><color:#0000ff>レ</color><color:#000080>ッ</color><color:#800080>ド</color>
-    custom-model-data: 100024
-  thread_role_luck:
-    external-source: arspaper
-    material: RIB_ARMOR_TRIM_SMITHING_TEMPLATE
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>レッツ上振れ！</color>
-    display-name: ロール運のスレッド
-    custom-model-data: 100025
-  thread_role_effeciency:
-    external-source: arspaper
-    material: SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>効率よく生きよう</color>
-    display-name: ロール効率のスレッド
-    custom-model-data: 100026
-  thread_blindness:
-    external-source: arspaper
-    material: WILD_ARMOR_TRIM_SMITHING_TEMPLATE
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>虫の息の君は何を望む？</color>
-    display-name: 崩命のスレッド
-    custom-model-data: 100027
-  thread_translate:
-    external-source: arspaper
-    material: VEX_ARMOR_TRIM_SMITHING_TEMPLATE
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>直りやすくなっただろう？</color>
-    display-name: 流転のスレッド
-    custom-model-data: 100028
   skill_node_lock:
     material: AMETHYST_SHARD
     display-name: <color:gold>スキルノードの楔</color>
@@ -8625,3 +8855,27 @@ _editor:
     thread_role_effeciency: thread
     thread_blindness: thread
     thread_translate: thread
+    thread_swordsman: thread
+    thread_berserker: thread
+    thread_lancer: thread
+    thread_reaper: thread
+    thread_crusher: thread
+    thread_assassin: thread
+    thread_duelist: thread
+    thread_titan: thread
+    thread_greatsword: thread
+    thread_longshot: thread
+    thread_tidecaller: thread
+    thread_earthshaker: thread
+    thread_bolter: thread
+    thread_spellblade: thread
+    thread_onslaught: thread
+    thread_precision: thread
+    thread_execution: thread
+    thread_piercer: thread
+    thread_hemorrhage: thread
+    thread_bulwark: thread
+    thread_aegis: thread
+    thread_ironhide: thread
+    thread_evasion: thread
+    thread_resilience: thread

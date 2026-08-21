@@ -296,6 +296,1150 @@
 # 下はバニラ装備・ツールとTFネイティブ品の個別ステータス定義。
 
 items:
+  STRING#300004:
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300005:
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300006:
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300007:
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300008:
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300009:
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300010:
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300011:
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300015:
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300039:
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300040:
+    per-quality:
+      loot-luck: 0.15
+    random:
+      loot-luck:
+        min: 0.2
+        max: 4
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300002:
+    per-quality:
+      mana-regen: 0.3
+    random:
+      mana-regen:
+        min: 0.4
+        max: 9
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300003:
+    per-quality:
+      mana-bonus: 3
+    random:
+      mana-bonus:
+        min: 4
+        max: 72
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300012:
+    per-quality:
+      hit-mana-recovery: 0.3
+    random:
+      hit-mana-recovery:
+        min: 0.4
+        max: 9
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300013:
+    per-quality:
+      damage-mana-recovery: 0.2
+    random:
+      damage-mana-recovery:
+        min: 0.4
+        max: 7.2
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300014:
+    per-quality:
+      mana-cost-reduction-percent: 0.004
+    random:
+      mana-cost-reduction-percent:
+        min: 0.007
+        max: 0.094
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300017:
+    per-quality:
+      mana-bonus: 4
+    random:
+      mana-bonus:
+        min: 6
+        max: 99
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300018:
+    per-quality:
+      mana-regen: 0.4
+    random:
+      mana-regen:
+        min: 0.8
+        max: 12.6
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300016:
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300019:
+    per-quality:
+      source-cost-reduction: 0.004
+    random:
+      source-cost-reduction:
+        min: 0.007
+        max: 0.094
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300022:
+    per-quality:
+      material-refund-chance: 0.004
+    random:
+      material-refund-chance:
+        min: 0.007
+        max: 0.094
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300023:
+    per-quality:
+      disassembly-return-bonus: 0.004
+    random:
+      disassembly-return-bonus:
+        min: 0.007
+        max: 0.094
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300024:
+    per-quality:
+      mining-fortune: 0.005
+    random:
+      mining-fortune:
+        min: 0.009
+        max: 0.112
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300026:
+    per-quality:
+      harvest-extra-drop-chance: 0.005
+      planted-crop-growth-bonus: 0.1
+    random:
+      harvest-extra-drop-chance:
+        min: 0.009
+        max: 0.112
+      planted-crop-growth-bonus:
+        min: 0.025
+        max: 0.2
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300027:
+    per-quality:
+      woodcutting-extra-drop-chance: 0.005
+    random:
+      woodcutting-extra-drop-chance:
+        min: 0.009
+        max: 0.112
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300029:
+    per-quality:
+      skill-exp-bonus: 0.004
+    random:
+      skill-exp-bonus:
+        min: 0.007
+        max: 0.094
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300033:
+    per-quality:
+      hunger-save-chance: 0.005
+    random:
+      hunger-save-chance:
+        min: 0.009
+        max: 0.112
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300034:
+    per-quality:
+      food-restore-bonus: 0.02
+    random:
+      food-restore-bonus:
+        min: 0.036
+        max: 0.558
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300028:
+    per-quality:
+      mob-drop-bonus: 0.006
+    random:
+      mob-drop-bonus:
+        min: 0.011
+        max: 0.14
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300030:
+    per-quality:
+      vanilla-exp-bonus: 0.006
+    random:
+      vanilla-exp-bonus:
+        min: 0.011
+        max: 0.14
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300042:
+    per-quality:
+      hive-harvest-fortune: 0.005
+    random:
+      hive-harvest-fortune:
+        min: 0.009
+        max: 0.112
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300043:
+    per-quality:
+      breeding-extra-child-chance: 0.005
+      bred-animal-growth-bonus: 0.1
+    random:
+      breeding-extra-child-chance:
+        min: 0.009
+        max: 0.112
+      bred-animal-growth-bonus:
+        min: 0.025
+        max: 0.2
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300045:
+    per-quality:
+      gathering-efficiency: 0.06
+    random:
+      gathering-efficiency:
+        min: 0.1
+        max: 2
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300020:
+    per-quality:
+      workbench-quality-bonus: 0.12
+    random:
+      workbench-quality-bonus:
+        min: 0.2
+        max: 3.8
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300021:
+    per-quality:
+      ritual-quality-bonus: 0.12
+    random:
+      ritual-quality-bonus:
+        min: 0.2
+        max: 3.8
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300031:
+    per-quality:
+      enchant-luck: 0.2
+    random:
+      enchant-luck:
+        min: 0.4
+        max: 5.6
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300025:
+    per-quality:
+      fishing-luck: 0.005
+    random:
+      fishing-luck:
+        min: 0.009
+        max: 0.112
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300041:
+    per-quality:
+      potion-quality-bonus: 0.12
+    random:
+      potion-quality-bonus:
+        min: 0.2
+        max: 3.8
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300044:
+    per-quality:
+      mob-drop-quality: 0.06
+    random:
+      mob-drop-quality:
+        min: 0.1
+        max: 2
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#100023:
+    fixed:
+      loot-luck: 1
+    per-quality:
+      loot-luck: 0.1
+    random:
+      loot-luck:
+        min: 1
+        max: 5
+  STRING#100024:
+    fixed:
+      gacha-rate-bonus: 0.01
+    per-quality:
+      gacha-rate-bonus: 0.005
+    random:
+      gacha-rate-bonus:
+        min: 0.01
+        max: 0.1
+  STRING#100025:
+    fixed:
+      craft-roll-up-bonus: 1
+    per-quality:
+      craft-roll-up-bonus: 1
+    random:
+      craft-roll-up-bonus:
+        min: 1
+        max: 5
+  STRING#100026:
+    fixed:
+      craft-roll-down-reduction: 5
+    per-quality:
+      craft-roll-down-reduction: 2
+    random:
+      craft-roll-down-reduction:
+        min: -10
+        max: 10
+  STRING#300032:
+    per-quality:
+      health-regen-bonus: 0.006
+    random:
+      health-regen-bonus:
+        min: 0.011
+        max: 0.14
+      phys-flat-defense:
+        min: 0.2
+        max: 3.6
+      damage-reduction:
+        min: 0.002
+        max: 0.02
+      magic-resistance:
+        min: 0.002
+        max: 0.031
+      armor-strength:
+        min: 0.003
+        max: 0.038
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        phys-flat-defense: 0.45
+        damage-reduction: 0.45
+        magic-resistance: 0.45
+        armor-strength: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300035:
+    per-quality:
+      reflect-percent: 0.006
+    random:
+      reflect-percent:
+        min: 0.011
+        max: 0.14
+      bleed-chance:
+        min: 0.002
+        max: 0.045
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      crit-damage:
+        min: 0.004
+        max: 0.076
+      damage-reduction:
+        min: 0.002
+        max: 0.02
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        bleed-chance: 0.45
+        percent-bonus-damage: 0.45
+        crit-damage: 0.45
+        damage-reduction: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300036:
+    per-quality:
+      stun-chance: 0.003
+    random:
+      stun-chance:
+        min: 0.006
+        max: 0.074
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      crit-chance:
+        min: 0.002
+        max: 0.038
+      penetration:
+        min: 0.002
+        max: 0.038
+      armor-strength:
+        min: 0.003
+        max: 0.038
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        percent-bonus-damage: 0.45
+        crit-chance: 0.45
+        penetration: 0.45
+        armor-strength: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300037:
+    per-quality:
+      cooldown-reduction: 0.006
+    random:
+      cooldown-reduction:
+        min: 0.011
+        max: 0.14
+      crit-damage:
+        min: 0.004
+        max: 0.076
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      magic-resistance:
+        min: 0.002
+        max: 0.031
+      penetration:
+        min: 0.002
+        max: 0.038
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-damage: 0.45
+        percent-bonus-damage: 0.45
+        magic-resistance: 0.45
+        penetration: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300038:
+    per-quality:
+      ammo-save-chance: 0.006
+    random:
+      ammo-save-chance:
+        min: 0.011
+        max: 0.14
+      crit-damage:
+        min: 0.004
+        max: 0.076
+      penetration:
+        min: 0.002
+        max: 0.038
+      crit-chance:
+        min: 0.002
+        max: 0.038
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-damage: 0.45
+        penetration: 0.45
+        crit-chance: 0.45
+        percent-bonus-damage: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300001:
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300046:
+    per-quality:
+      percent-bonus-damage: 0.0012
+    random:
+      percent-bonus-damage:
+        min: 0.002
+        max: 0.018
+      crit-chance:
+        min: 0.002
+        max: 0.038
+      penetration:
+        min: 0.002
+        max: 0.038
+      armor-strength:
+        min: 0.003
+        max: 0.038
+      phys-flat-defense:
+        min: 0.2
+        max: 3.6
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-chance: 0.45
+        penetration: 0.45
+        armor-strength: 0.45
+        phys-flat-defense: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300047:
+    per-quality:
+      crit-damage: 0.0032
+    random:
+      crit-damage:
+        min: 0.008
+        max: 0.068
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      bleed-chance:
+        min: 0.002
+        max: 0.045
+      penetration:
+        min: 0.002
+        max: 0.038
+      damage-reduction:
+        min: 0.002
+        max: 0.02
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        percent-bonus-damage: 0.45
+        bleed-chance: 0.45
+        penetration: 0.45
+        damage-reduction: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300048:
+    per-quality:
+      penetration: 0.0016
+    random:
+      penetration:
+        min: 0.004
+        max: 0.034
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      crit-chance:
+        min: 0.002
+        max: 0.038
+      phys-resistance:
+        min: 0.002
+        max: 0.031
+      phys-flat-defense:
+        min: 0.2
+        max: 3.6
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        percent-bonus-damage: 0.45
+        crit-chance: 0.45
+        phys-resistance: 0.45
+        phys-flat-defense: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300049:
+    per-quality:
+      bleed-chance: 0.0019
+    random:
+      bleed-chance:
+        min: 0.005
+        max: 0.04
+      crit-damage:
+        min: 0.004
+        max: 0.076
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      magic-resistance:
+        min: 0.002
+        max: 0.031
+      dodge-chance:
+        min: 0.001
+        max: 0.016
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-damage: 0.45
+        percent-bonus-damage: 0.45
+        magic-resistance: 0.45
+        dodge-chance: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300050:
+    per-quality:
+      armor-strength: 0.0016
+    random:
+      armor-strength:
+        min: 0.004
+        max: 0.034
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      penetration:
+        min: 0.002
+        max: 0.038
+      phys-flat-defense:
+        min: 0.2
+        max: 3.6
+      damage-reduction:
+        min: 0.002
+        max: 0.02
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        percent-bonus-damage: 0.45
+        penetration: 0.45
+        phys-flat-defense: 0.45
+        damage-reduction: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300051:
+    per-quality:
+      crit-chance: 0.0016
+    random:
+      crit-chance:
+        min: 0.004
+        max: 0.034
+      crit-damage:
+        min: 0.004
+        max: 0.076
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      dodge-chance:
+        min: 0.001
+        max: 0.016
+      penetration:
+        min: 0.002
+        max: 0.038
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-damage: 0.45
+        percent-bonus-damage: 0.45
+        dodge-chance: 0.45
+        penetration: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300052:
+    per-quality:
+      dodge-chance: 0.0007
+    random:
+      dodge-chance:
+        min: 0.001
+        max: 0.014
+      crit-chance:
+        min: 0.002
+        max: 0.038
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      phys-resistance:
+        min: 0.002
+        max: 0.031
+      penetration:
+        min: 0.002
+        max: 0.038
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-chance: 0.45
+        percent-bonus-damage: 0.45
+        phys-resistance: 0.45
+        penetration: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300053:
+    per-quality:
+      percent-bonus-damage: 0.0012
+    random:
+      percent-bonus-damage:
+        min: 0.002
+        max: 0.018
+      crit-damage:
+        min: 0.004
+        max: 0.076
+      armor-strength:
+        min: 0.003
+        max: 0.038
+      phys-flat-defense:
+        min: 0.2
+        max: 3.6
+      damage-reduction:
+        min: 0.002
+        max: 0.02
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-damage: 0.45
+        armor-strength: 0.45
+        phys-flat-defense: 0.45
+        damage-reduction: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300054:
+    per-quality:
+      damage-reduction: 0.0008
+    random:
+      damage-reduction:
+        min: 0.002
+        max: 0.018
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      crit-damage:
+        min: 0.004
+        max: 0.076
+      phys-flat-defense:
+        min: 0.2
+        max: 3.6
+      armor-strength:
+        min: 0.003
+        max: 0.038
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        percent-bonus-damage: 0.45
+        crit-damage: 0.45
+        phys-flat-defense: 0.45
+        armor-strength: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300055:
+    per-quality:
+      crit-damage: 0.0032
+    random:
+      crit-damage:
+        min: 0.008
+        max: 0.068
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      penetration:
+        min: 0.002
+        max: 0.038
+      crit-chance:
+        min: 0.002
+        max: 0.038
+      dodge-chance:
+        min: 0.001
+        max: 0.016
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        percent-bonus-damage: 0.45
+        penetration: 0.45
+        crit-chance: 0.45
+        dodge-chance: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300056:
+    per-quality:
+      magic-resistance: 0.0013
+    random:
+      magic-resistance:
+        min: 0.003
+        max: 0.028
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      crit-chance:
+        min: 0.002
+        max: 0.038
+      magic-flat-defense:
+        min: 0.2
+        max: 3.6
+      penetration:
+        min: 0.002
+        max: 0.038
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        percent-bonus-damage: 0.45
+        crit-chance: 0.45
+        magic-flat-defense: 0.45
+        penetration: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300057:
+    per-quality:
+      percent-bonus-damage: 0.0012
+    random:
+      percent-bonus-damage:
+        min: 0.002
+        max: 0.018
+      armor-strength:
+        min: 0.003
+        max: 0.038
+      phys-flat-defense:
+        min: 0.2
+        max: 3.6
+      crit-damage:
+        min: 0.004
+        max: 0.076
+      damage-reduction:
+        min: 0.002
+        max: 0.02
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        armor-strength: 0.45
+        phys-flat-defense: 0.45
+        crit-damage: 0.45
+        damage-reduction: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300058:
+    per-quality:
+      penetration: 0.0016
+    random:
+      penetration:
+        min: 0.004
+        max: 0.034
+      crit-damage:
+        min: 0.004
+        max: 0.076
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      crit-chance:
+        min: 0.002
+        max: 0.038
+      magic-resistance:
+        min: 0.002
+        max: 0.031
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-damage: 0.45
+        percent-bonus-damage: 0.45
+        crit-chance: 0.45
+        magic-resistance: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300059:
+    per-quality:
+      percent-bonus-damage: 0.0012
+    random:
+      percent-bonus-damage:
+        min: 0.002
+        max: 0.018
+      magic-resistance:
+        min: 0.002
+        max: 0.031
+      magic-flat-defense:
+        min: 0.2
+        max: 3.6
+      penetration:
+        min: 0.002
+        max: 0.038
+      crit-damage:
+        min: 0.004
+        max: 0.076
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        magic-resistance: 0.45
+        magic-flat-defense: 0.45
+        penetration: 0.45
+        crit-damage: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300060:
+    per-quality:
+      percent-bonus-damage: 0.0012
+    random:
+      percent-bonus-damage:
+        min: 0.002
+        max: 0.018
+      crit-chance:
+        min: 0.002
+        max: 0.038
+      crit-damage:
+        min: 0.004
+        max: 0.076
+      penetration:
+        min: 0.002
+        max: 0.038
+      bleed-chance:
+        min: 0.002
+        max: 0.045
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-chance: 0.45
+        crit-damage: 0.45
+        penetration: 0.45
+        bleed-chance: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300061:
+    per-quality:
+      crit-chance: 0.0016
+    random:
+      crit-chance:
+        min: 0.004
+        max: 0.034
+      crit-damage:
+        min: 0.004
+        max: 0.076
+      penetration:
+        min: 0.002
+        max: 0.038
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      dodge-chance:
+        min: 0.001
+        max: 0.016
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-damage: 0.45
+        penetration: 0.45
+        percent-bonus-damage: 0.45
+        dodge-chance: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300062:
+    per-quality:
+      crit-damage: 0.0032
+    random:
+      crit-damage:
+        min: 0.008
+        max: 0.068
+      crit-chance:
+        min: 0.002
+        max: 0.038
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      penetration:
+        min: 0.002
+        max: 0.038
+      bleed-chance:
+        min: 0.002
+        max: 0.045
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-chance: 0.45
+        percent-bonus-damage: 0.45
+        penetration: 0.45
+        bleed-chance: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300063:
+    per-quality:
+      penetration: 0.0016
+    random:
+      penetration:
+        min: 0.004
+        max: 0.034
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      crit-chance:
+        min: 0.002
+        max: 0.038
+      armor-strength:
+        min: 0.003
+        max: 0.038
+      phys-flat-defense:
+        min: 0.2
+        max: 3.6
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        percent-bonus-damage: 0.45
+        crit-chance: 0.45
+        armor-strength: 0.45
+        phys-flat-defense: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300064:
+    per-quality:
+      bleed-chance: 0.0019
+    random:
+      bleed-chance:
+        min: 0.005
+        max: 0.04
+      crit-damage:
+        min: 0.004
+        max: 0.076
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      penetration:
+        min: 0.002
+        max: 0.038
+      magic-resistance:
+        min: 0.002
+        max: 0.031
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-damage: 0.45
+        percent-bonus-damage: 0.45
+        penetration: 0.45
+        magic-resistance: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300065:
+    per-quality:
+      damage-reduction: 0.0008
+    random:
+      damage-reduction:
+        min: 0.002
+        max: 0.018
+      phys-flat-defense:
+        min: 0.2
+        max: 3.6
+      magic-flat-defense:
+        min: 0.2
+        max: 3.6
+      armor-strength:
+        min: 0.003
+        max: 0.038
+      phys-resistance:
+        min: 0.002
+        max: 0.031
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        phys-flat-defense: 0.45
+        magic-flat-defense: 0.45
+        armor-strength: 0.45
+        phys-resistance: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300066:
+    per-quality:
+      magic-resistance: 0.0013
+    random:
+      magic-resistance:
+        min: 0.003
+        max: 0.028
+      magic-flat-defense:
+        min: 0.2
+        max: 3.6
+      damage-reduction:
+        min: 0.002
+        max: 0.02
+      armor-strength:
+        min: 0.003
+        max: 0.038
+      dodge-chance:
+        min: 0.001
+        max: 0.016
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        magic-flat-defense: 0.45
+        damage-reduction: 0.45
+        armor-strength: 0.45
+        dodge-chance: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300067:
+    per-quality:
+      phys-resistance: 0.0013
+    random:
+      phys-resistance:
+        min: 0.003
+        max: 0.028
+      phys-flat-defense:
+        min: 0.2
+        max: 3.6
+      damage-reduction:
+        min: 0.002
+        max: 0.02
+      armor-strength:
+        min: 0.003
+        max: 0.038
+      magic-resistance:
+        min: 0.002
+        max: 0.031
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        phys-flat-defense: 0.45
+        damage-reduction: 0.45
+        armor-strength: 0.45
+        magic-resistance: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300068:
+    per-quality:
+      dodge-chance: 0.0007
+    random:
+      dodge-chance:
+        min: 0.001
+        max: 0.014
+      crit-chance:
+        min: 0.002
+        max: 0.038
+      phys-resistance:
+        min: 0.002
+        max: 0.031
+      magic-resistance:
+        min: 0.002
+        max: 0.031
+      damage-reduction:
+        min: 0.002
+        max: 0.02
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-chance: 0.45
+        phys-resistance: 0.45
+        magic-resistance: 0.45
+        damage-reduction: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300069:
+    per-quality:
+      armor-strength: 0.0016
+    random:
+      armor-strength:
+        min: 0.004
+        max: 0.034
+      damage-reduction:
+        min: 0.002
+        max: 0.02
+      phys-flat-defense:
+        min: 0.2
+        max: 3.6
+      magic-flat-defense:
+        min: 0.2
+        max: 3.6
+      phys-resistance:
+        min: 0.002
+        max: 0.031
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        damage-reduction: 0.45
+        phys-flat-defense: 0.45
+        magic-flat-defense: 0.45
+        phys-resistance: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
   WOODEN_SWORD:
     fixed:
       attack-power: 63
@@ -11286,1325 +12430,10 @@ items:
     offhand-stats-apply: true
     use-level-requirement: 45
     use-role: woodcutter
-  WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300001:
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300035:
-    per-quality:
-      reflect-percent: 0.006
-    random:
-      reflect-percent:
-        min: 0.011
-        max: 0.14
-      bleed-chance:
-        min: 0.002
-        max: 0.045
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      crit-damage:
-        min: 0.004
-        max: 0.076
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        bleed-chance: 0.45
-        percent-bonus-damage: 0.45
-        crit-damage: 0.45
-        damage-reduction: 0.45
-        reflect-percent: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300036:
-    per-quality:
-      stun-chance: 0.003
-    random:
-      stun-chance:
-        min: 0.006
-        max: 0.074
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      crit-chance:
-        min: 0.002
-        max: 0.038
-      penetration:
-        min: 0.002
-        max: 0.038
-      armor-strength:
-        min: 0.003
-        max: 0.038
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        percent-bonus-damage: 0.45
-        crit-chance: 0.45
-        penetration: 0.45
-        armor-strength: 0.45
-        stun-chance: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300038:
-    per-quality:
-      ammo-save-chance: 0.006
-    random:
-      ammo-save-chance:
-        min: 0.011
-        max: 0.14
-      crit-damage:
-        min: 0.004
-        max: 0.076
-      penetration:
-        min: 0.002
-        max: 0.038
-      crit-chance:
-        min: 0.002
-        max: 0.038
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        crit-damage: 0.45
-        penetration: 0.45
-        crit-chance: 0.45
-        percent-bonus-damage: 0.45
-        ammo-save-chance: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300037:
-    per-quality:
-      cooldown-reduction: 0.006
-    random:
-      cooldown-reduction:
-        min: 0.011
-        max: 0.14
-      crit-damage:
-        min: 0.004
-        max: 0.076
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      penetration:
-        min: 0.002
-        max: 0.038
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        crit-damage: 0.45
-        percent-bonus-damage: 0.45
-        magic-resistance: 0.45
-        penetration: 0.45
-        cooldown-reduction: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300028:
-    per-quality:
-      mob-drop-bonus: 0.006
-    random:
-      mob-drop-bonus:
-        min: 0.011
-        max: 0.14
-      crit-damage:
-        min: 0.004
-        max: 0.076
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      crit-chance:
-        min: 0.002
-        max: 0.038
-      penetration:
-        min: 0.002
-        max: 0.038
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        crit-damage: 0.45
-        percent-bonus-damage: 0.45
-        crit-chance: 0.45
-        penetration: 0.45
-        mob-drop-bonus: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300011:
-    per-quality:
-      phys-flat-defense: 0.2
-    random:
-      phys-flat-defense:
-        min: 0.6
-        max: 9.4
-      magic-flat-defense:
-        min: 0.2
-        max: 3.6
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      phys-resistance:
-        min: 0.002
-        max: 0.031
-      armor-strength:
-        min: 0.003
-        max: 0.038
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        magic-flat-defense: 0.45
-        damage-reduction: 0.45
-        phys-resistance: 0.45
-        armor-strength: 0.45
-        phys-flat-defense: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300033:
-    per-quality:
-      hunger-save-chance: 0.005
-    random:
-      hunger-save-chance:
-        min: 0.009
-        max: 0.112
-      phys-resistance:
-        min: 0.002
-        max: 0.031
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
-      armor-strength:
-        min: 0.003
-        max: 0.038
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        phys-resistance: 0.45
-        magic-resistance: 0.45
-        phys-flat-defense: 0.45
-        armor-strength: 0.45
-        hunger-save-chance: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300007:
-    per-quality:
-      magic-resistance: 0.0015
-    random:
-      magic-resistance:
-        min: 0.006
-        max: 0.076
-      magic-flat-defense:
-        min: 0.2
-        max: 3.6
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      phys-resistance:
-        min: 0.002
-        max: 0.031
-      armor-strength:
-        min: 0.003
-        max: 0.038
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        magic-flat-defense: 0.45
-        damage-reduction: 0.45
-        phys-resistance: 0.45
-        armor-strength: 0.45
-        magic-resistance: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  EYE_ARMOR_TRIM_SMITHING_TEMPLATE#300009:
-    per-quality:
-      magic-flat-defense: 0.2
-    random:
-      magic-flat-defense:
-        min: 0.6
-        max: 9.4
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      armor-strength:
-        min: 0.003
-        max: 0.038
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
-      dodge-chance:
-        min: 0.002
-        max: 0.023
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        magic-resistance: 0.45
-        armor-strength: 0.45
-        phys-flat-defense: 0.45
-        dodge-chance: 0.45
-        magic-flat-defense: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300032:
-    per-quality:
-      health-regen-bonus: 0.006
-    random:
-      health-regen-bonus:
-        min: 0.011
-        max: 0.14
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      armor-strength:
-        min: 0.003
-        max: 0.038
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        phys-flat-defense: 0.45
-        damage-reduction: 0.45
-        magic-resistance: 0.45
-        armor-strength: 0.45
-        health-regen-bonus: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  VEX_ARMOR_TRIM_SMITHING_TEMPLATE#300039:
-    per-quality:
-      dodge-chance: 0.001
-    random:
-      dodge-chance:
-        min: 0.004
-        max: 0.056
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
-      magic-flat-defense:
-        min: 0.2
-        max: 3.6
-      armor-strength:
-        min: 0.003
-        max: 0.038
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        damage-reduction: 0.45
-        phys-flat-defense: 0.45
-        magic-flat-defense: 0.45
-        armor-strength: 0.45
-        dodge-chance: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300002:
-    per-quality:
-      mana-regen: 0.3
-    random:
-      mana-regen:
-        min: 0.4
-        max: 9
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      crit-chance:
-        min: 0.002
-        max: 0.038
-      magic-flat-defense:
-        min: 0.2
-        max: 3.6
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        magic-resistance: 0.45
-        crit-chance: 0.45
-        magic-flat-defense: 0.45
-        percent-bonus-damage: 0.45
-        mana-regen: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300003:
-    per-quality:
-      mana-bonus: 3
-    random:
-      mana-bonus:
-        min: 4
-        max: 72
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      armor-strength:
-        min: 0.003
-        max: 0.038
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        magic-resistance: 0.45
-        percent-bonus-damage: 0.45
-        damage-reduction: 0.45
-        armor-strength: 0.45
-        mana-bonus: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300012:
-    per-quality:
-      hit-mana-recovery: 0.3
-    random:
-      hit-mana-recovery:
-        min: 0.4
-        max: 9
-      phys-resistance:
-        min: 0.002
-        max: 0.031
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      magic-flat-defense:
-        min: 0.2
-        max: 3.6
-      dodge-chance:
-        min: 0.002
-        max: 0.023
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        phys-resistance: 0.45
-        damage-reduction: 0.45
-        magic-flat-defense: 0.45
-        dodge-chance: 0.45
-        hit-mana-recovery: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  WILD_ARMOR_TRIM_SMITHING_TEMPLATE#300013:
-    per-quality:
-      damage-mana-recovery: 0.2
-    random:
-      damage-mana-recovery:
-        min: 0.4
-        max: 7.2
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      crit-chance:
-        min: 0.002
-        max: 0.038
-      penetration:
-        min: 0.002
-        max: 0.038
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        percent-bonus-damage: 0.45
-        crit-chance: 0.45
-        penetration: 0.45
-        magic-resistance: 0.45
-        damage-mana-recovery: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  VEX_ARMOR_TRIM_SMITHING_TEMPLATE#300014:
-    per-quality:
-      mana-cost-reduction-percent: 0.004
-    random:
-      mana-cost-reduction-percent:
-        min: 0.007
-        max: 0.094
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      crit-damage:
-        min: 0.004
-        max: 0.076
-      crit-chance:
-        min: 0.002
-        max: 0.038
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        percent-bonus-damage: 0.45
-        crit-damage: 0.45
-        crit-chance: 0.45
-        magic-resistance: 0.45
-        mana-cost-reduction-percent: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300017:
-    per-quality:
-      mana-bonus: 4
-    random:
-      mana-bonus:
-        min: 6
-        max: 99
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      crit-chance:
-        min: 0.002
-        max: 0.038
-      crit-damage:
-        min: 0.004
-        max: 0.076
-      penetration:
-        min: 0.002
-        max: 0.038
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        percent-bonus-damage: 0.45
-        crit-chance: 0.45
-        crit-damage: 0.45
-        penetration: 0.45
-        mana-bonus: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300018:
-    per-quality:
-      mana-regen: 0.4
-    random:
-      mana-regen:
-        min: 0.8
-        max: 12.6
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      magic-flat-defense:
-        min: 0.2
-        max: 3.6
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      crit-damage:
-        min: 0.004
-        max: 0.076
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        percent-bonus-damage: 0.45
-        magic-flat-defense: 0.45
-        magic-resistance: 0.45
-        crit-damage: 0.45
-        mana-regen: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300019:
-    per-quality:
-      source-cost-reduction: 0.004
-    random:
-      source-cost-reduction:
-        min: 0.007
-        max: 0.094
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      magic-flat-defense:
-        min: 0.2
-        max: 3.6
-      phys-resistance:
-        min: 0.002
-        max: 0.031
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        magic-resistance: 0.45
-        damage-reduction: 0.45
-        magic-flat-defense: 0.45
-        phys-resistance: 0.45
-        source-cost-reduction: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300031:
-    per-quality:
-      enchant-luck: 0.2
-    random:
-      enchant-luck:
-        min: 0.4
-        max: 5.6
-      crit-damage:
-        min: 0.004
-        max: 0.076
-      magic-flat-defense:
-        min: 0.2
-        max: 3.6
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        crit-damage: 0.45
-        magic-flat-defense: 0.45
-        magic-resistance: 0.45
-        percent-bonus-damage: 0.45
-        enchant-luck: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300004:
-    per-quality:
-      dodge-chance: 0.001
-    random:
-      dodge-chance:
-        min: 0.004
-        max: 0.056
-      crit-chance:
-        min: 0.002
-        max: 0.038
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      phys-resistance:
-        min: 0.002
-        max: 0.031
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        crit-chance: 0.45
-        percent-bonus-damage: 0.45
-        damage-reduction: 0.45
-        phys-resistance: 0.45
-        dodge-chance: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300005:
-    per-quality:
-      crit-chance: 0.002
-    random:
-      crit-chance:
-        min: 0.007
-        max: 0.094
-      dodge-chance:
-        min: 0.002
-        max: 0.023
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      crit-damage:
-        min: 0.004
-        max: 0.076
-      penetration:
-        min: 0.002
-        max: 0.038
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        dodge-chance: 0.45
-        percent-bonus-damage: 0.45
-        crit-damage: 0.45
-        penetration: 0.45
-        crit-chance: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300008:
-    per-quality:
-      dodge-chance: 0.001
-    random:
-      dodge-chance:
-        min: 0.004
-        max: 0.056
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      magic-flat-defense:
-        min: 0.2
-        max: 3.6
-      phys-resistance:
-        min: 0.002
-        max: 0.031
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        magic-resistance: 0.45
-        damage-reduction: 0.45
-        magic-flat-defense: 0.45
-        phys-resistance: 0.45
-        dodge-chance: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300006:
-    per-quality:
-      crit-chance: 0.002
-    random:
-      crit-chance:
-        min: 0.007
-        max: 0.094
-      penetration:
-        min: 0.002
-        max: 0.038
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      dodge-chance:
-        min: 0.002
-        max: 0.023
-      crit-damage:
-        min: 0.004
-        max: 0.076
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        penetration: 0.45
-        percent-bonus-damage: 0.45
-        dodge-chance: 0.45
-        crit-damage: 0.45
-        crit-chance: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300015:
-    per-quality:
-      dodge-chance: 0.001
-    random:
-      dodge-chance:
-        min: 0.004
-        max: 0.056
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      phys-resistance:
-        min: 0.002
-        max: 0.031
-      magic-flat-defense:
-        min: 0.2
-        max: 3.6
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        damage-reduction: 0.45
-        magic-resistance: 0.45
-        phys-resistance: 0.45
-        magic-flat-defense: 0.45
-        dodge-chance: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300016:
-    per-quality:
-      phys-flat-defense: 0.2
-    random:
-      phys-flat-defense:
-        min: 0.6
-        max: 9.4
-      magic-flat-defense:
-        min: 0.2
-        max: 3.6
-      armor-strength:
-        min: 0.003
-        max: 0.038
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      phys-resistance:
-        min: 0.002
-        max: 0.031
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        magic-flat-defense: 0.45
-        armor-strength: 0.45
-        damage-reduction: 0.45
-        phys-resistance: 0.45
-        phys-flat-defense: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300020:
-    per-quality:
-      workbench-quality-bonus: 0.12
-    random:
-      workbench-quality-bonus:
-        min: 0.2
-        max: 3.8
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
-      magic-flat-defense:
-        min: 0.2
-        max: 3.6
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      phys-resistance:
-        min: 0.002
-        max: 0.031
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        phys-flat-defense: 0.45
-        magic-flat-defense: 0.45
-        damage-reduction: 0.45
-        phys-resistance: 0.45
-        workbench-quality-bonus: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300021:
-    per-quality:
-      ritual-quality-bonus: 0.12
-    random:
-      ritual-quality-bonus:
-        min: 0.2
-        max: 3.8
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      armor-strength:
-        min: 0.003
-        max: 0.038
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      dodge-chance:
-        min: 0.002
-        max: 0.023
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        magic-resistance: 0.45
-        armor-strength: 0.45
-        damage-reduction: 0.45
-        dodge-chance: 0.45
-        ritual-quality-bonus: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300022:
-    per-quality:
-      material-refund-chance: 0.004
-    random:
-      material-refund-chance:
-        min: 0.007
-        max: 0.094
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      phys-resistance:
-        min: 0.002
-        max: 0.031
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        damage-reduction: 0.45
-        phys-resistance: 0.45
-        magic-resistance: 0.45
-        phys-flat-defense: 0.45
-        material-refund-chance: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300023:
-    per-quality:
-      disassembly-return-bonus: 0.004
-    random:
-      disassembly-return-bonus:
-        min: 0.007
-        max: 0.094
-      armor-strength:
-        min: 0.003
-        max: 0.038
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      magic-flat-defense:
-        min: 0.2
-        max: 3.6
-      phys-resistance:
-        min: 0.002
-        max: 0.031
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        armor-strength: 0.45
-        damage-reduction: 0.45
-        magic-flat-defense: 0.45
-        phys-resistance: 0.45
-        disassembly-return-bonus: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300024:
-    per-quality:
-      mining-fortune: 0.005
-    random:
-      mining-fortune:
-        min: 0.009
-        max: 0.112
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
-      armor-strength:
-        min: 0.003
-        max: 0.038
-      penetration:
-        min: 0.002
-        max: 0.038
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        percent-bonus-damage: 0.45
-        phys-flat-defense: 0.45
-        armor-strength: 0.45
-        penetration: 0.45
-        mining-fortune: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300025:
-    per-quality:
-      fishing-luck: 0.005
-    random:
-      fishing-luck:
-        min: 0.009
-        max: 0.112
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      magic-flat-defense:
-        min: 0.2
-        max: 3.6
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      armor-strength:
-        min: 0.003
-        max: 0.038
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        magic-resistance: 0.45
-        magic-flat-defense: 0.45
-        damage-reduction: 0.45
-        armor-strength: 0.45
-        fishing-luck: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  EYE_ARMOR_TRIM_SMITHING_TEMPLATE#300026:
-    per-quality:
-      harvest-extra-drop-chance: 0.005
-    random:
-      harvest-extra-drop-chance:
-        min: 0.009
-        max: 0.112
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      armor-strength:
-        min: 0.003
-        max: 0.038
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        phys-flat-defense: 0.45
-        damage-reduction: 0.45
-        armor-strength: 0.45
-        magic-resistance: 0.45
-        harvest-extra-drop-chance: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300027:
-    per-quality:
-      woodcutting-extra-drop-chance: 0.005
-    random:
-      woodcutting-extra-drop-chance:
-        min: 0.009
-        max: 0.112
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      armor-strength:
-        min: 0.003
-        max: 0.038
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
-      crit-chance:
-        min: 0.002
-        max: 0.038
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        percent-bonus-damage: 0.45
-        armor-strength: 0.45
-        phys-flat-defense: 0.45
-        crit-chance: 0.45
-        woodcutting-extra-drop-chance: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300029:
-    per-quality:
-      skill-exp-bonus: 0.004
-    random:
-      skill-exp-bonus:
-        min: 0.007
-        max: 0.094
-      phys-resistance:
-        min: 0.002
-        max: 0.031
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      armor-strength:
-        min: 0.003
-        max: 0.038
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        phys-resistance: 0.45
-        magic-resistance: 0.45
-        armor-strength: 0.45
-        phys-flat-defense: 0.45
-        skill-exp-bonus: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  WILD_ARMOR_TRIM_SMITHING_TEMPLATE#300034:
-    per-quality:
-      food-restore-bonus: 0.02
-    random:
-      food-restore-bonus:
-        min: 0.036
-        max: 0.558
-      magic-flat-defense:
-        min: 0.2
-        max: 3.6
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      phys-resistance:
-        min: 0.002
-        max: 0.031
-      armor-strength:
-        min: 0.003
-        max: 0.038
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        magic-flat-defense: 0.45
-        damage-reduction: 0.45
-        phys-resistance: 0.45
-        armor-strength: 0.45
-        food-restore-bonus: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300030:
-    per-quality:
-      vanilla-exp-bonus: 0.006
-    random:
-      vanilla-exp-bonus:
-        min: 0.011
-        max: 0.14
-      crit-chance:
-        min: 0.002
-        max: 0.038
-      crit-damage:
-        min: 0.004
-        max: 0.076
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        crit-chance: 0.45
-        crit-damage: 0.45
-        percent-bonus-damage: 0.45
-        magic-resistance: 0.45
-        vanilla-exp-bonus: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300040:
-    per-quality:
-      loot-luck: 0.15
-    random:
-      loot-luck:
-        min: 0.2
-        max: 4
-      crit-damage:
-        min: 0.004
-        max: 0.076
-      dodge-chance:
-        min: 0.002
-        max: 0.023
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      bleed-chance:
-        min: 0.002
-        max: 0.045
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        crit-damage: 0.45
-        dodge-chance: 0.45
-        percent-bonus-damage: 0.45
-        bleed-chance: 0.45
-        loot-luck: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300010:
-    per-quality:
-      percent-bonus-damage: 0.002
-    random:
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.03
-      crit-damage:
-        min: 0.004
-        max: 0.076
-      crit-chance:
-        min: 0.002
-        max: 0.038
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        crit-damage: 0.45
-        crit-chance: 0.45
-        phys-flat-defense: 0.45
-        damage-reduction: 0.45
-        percent-bonus-damage: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300041:
-    per-quality:
-      potion-quality-bonus: 0.12
-    random:
-      potion-quality-bonus:
-        min: 0.2
-        max: 3.8
-      magic-flat-defense:
-        min: 0.2
-        max: 3.6
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      armor-strength:
-        min: 0.003
-        max: 0.038
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        magic-flat-defense: 0.45
-        magic-resistance: 0.45
-        damage-reduction: 0.45
-        armor-strength: 0.45
-        potion-quality-bonus: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300042:
-    per-quality:
-      hive-harvest-fortune: 0.005
-    random:
-      hive-harvest-fortune:
-        min: 0.009
-        max: 0.112
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
-      dodge-chance:
-        min: 0.001
-        max: 0.016
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        phys-flat-defense: 0.45
-        dodge-chance: 0.45
-        damage-reduction: 0.45
-        magic-resistance: 0.45
-        hive-harvest-fortune: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300043:
-    per-quality:
-      breeding-extra-child-chance: 0.005
-    random:
-      breeding-extra-child-chance:
-        min: 0.009
-        max: 0.112
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
-      phys-resistance:
-        min: 0.002
-        max: 0.023
-      armor-strength:
-        min: 0.003
-        max: 0.038
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        phys-flat-defense: 0.45
-        phys-resistance: 0.45
-        armor-strength: 0.45
-        damage-reduction: 0.45
-        breeding-extra-child-chance: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300044:
-    per-quality:
-      mob-drop-quality: 0.06
-    random:
-      mob-drop-quality:
-        min: 0.1
-        max: 2
-      crit-chance:
-        min: 0.002
-        max: 0.038
-      crit-damage:
-        min: 0.004
-        max: 0.076
-      penetration:
-        min: 0.002
-        max: 0.038
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        crit-chance: 0.45
-        crit-damage: 0.45
-        penetration: 0.45
-        percent-bonus-damage: 0.45
-        mob-drop-quality: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  NETHERITE_UPGRADE_SMITHING_TEMPLATE#300045:
-    per-quality:
-      gathering-efficiency: 0.06
-    random:
-      gathering-efficiency:
-        min: 0.1
-        max: 2
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      armor-strength:
-        min: 0.003
-        max: 0.038
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
-      crit-chance:
-        min: 0.002
-        max: 0.038
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        percent-bonus-damage: 0.45
-        armor-strength: 0.45
-        phys-flat-defense: 0.45
-        crit-chance: 0.45
-        gathering-efficiency: 1
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  EYE_ARMOR_TRIM_SMITHING_TEMPLATE#100023:
-    fixed:
-      loot-luck: 1
-    per-quality:
-      loot-luck: 0.1
-    random:
-      loot-luck:
-        min: 1
-        max: 5
-  HOST_ARMOR_TRIM_SMITHING_TEMPLATE#100024:
-    fixed:
-      gacha-rate-bonus: 0.01
-    per-quality:
-      gacha-rate-bonus: 0.005
-    random:
-      gacha-rate-bonus:
-        min: 0.01
-        max: 0.1
-  RIB_ARMOR_TRIM_SMITHING_TEMPLATE#100025:
-    fixed:
-      craft-roll-up-bonus: 1
-    per-quality:
-      craft-roll-up-bonus: 1
-    random:
-      craft-roll-up-bonus:
-        min: 1
-        max: 5
-  SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#100026:
-    fixed:
-      craft-roll-down-reduction: 5
-    per-quality:
-      craft-roll-down-reduction: 2
-    random:
-      craft-roll-down-reduction:
-        min: -10
-        max: 10
-  WILD_ARMOR_TRIM_SMITHING_TEMPLATE#100027:
+  STRING#100027:
     fixed:
       move-speed: 0.01
-  VEX_ARMOR_TRIM_SMITHING_TEMPLATE#100028:
+  STRING#100028:
     fixed:
       hidden-saturation-bonus: 0.05
   # 盾(2026-08-20 / W-163)。それまで盾には TF のステが1つも無く、
@@ -13200,71 +13029,121 @@ _editor:
       - id: cat_20260802_thread_ambient
         label: 常時効果系
         itemIds:
-          - RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300004
-          - SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300005
-          - DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300006
-          - SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300007
-          - COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300008
-          - EYE_ARMOR_TRIM_SMITHING_TEMPLATE#300009
-          - HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300010
-          - RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300011
-          - SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300015
-          - VEX_ARMOR_TRIM_SMITHING_TEMPLATE#300039
-          - RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300040
-          - SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300016
+          - STRING#300004
+          - STRING#300005
+          - STRING#300006
+          - STRING#300007
+          - STRING#300008
+          - STRING#300009
+          - STRING#300010
+          - STRING#300011
+          - STRING#300015
+          - STRING#300039
+          - STRING#300040
+          - STRING#300016
       - id: cat_20260802_thread_mana
         label: マナ系
         itemIds:
-          - TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300002
-          - WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300003
-          - SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300012
-          - WILD_ARMOR_TRIM_SMITHING_TEMPLATE#300013
-          - VEX_ARMOR_TRIM_SMITHING_TEMPLATE#300014
-          - FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300017
-          - BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300018
+          - STRING#300002
+          - STRING#300003
+          - STRING#300012
+          - STRING#300013
+          - STRING#300014
+          - STRING#300017
+          - STRING#300018
+          - STRING#100028
       - id: cat_20260802_thread_utility
         label: 品質系
         itemIds:
-          - TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300020
-          - WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300021
-          - COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300025
-          - SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300041
-          - COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300044
-          - DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300031
-          - EYE_ARMOR_TRIM_SMITHING_TEMPLATE#100023
-          - HOST_ARMOR_TRIM_SMITHING_TEMPLATE#100024
-          - RIB_ARMOR_TRIM_SMITHING_TEMPLATE#100025
-          - SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#100026
+          - STRING#300020
+          - STRING#300021
+          - STRING#300025
+          - STRING#300041
+          - STRING#300044
+          - STRING#300031
+          - STRING#100023
+          - STRING#100024
+          - STRING#100025
+          - STRING#100026
       - id: cat_1786620805575
         label: 効率系
         itemIds:
-          - RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300022
-          - SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300028
-          - SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300030
-          - WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300019
-          - SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300023
-          - RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300029
-          - SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300033
-          - WILD_ARMOR_TRIM_SMITHING_TEMPLATE#300034
-          - NETHERITE_UPGRADE_SMITHING_TEMPLATE#300045
-          - DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300042
-          - SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300043
-          - HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300027
-          - EYE_ARMOR_TRIM_SMITHING_TEMPLATE#300026
-          - SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300024
+          - STRING#300022
+          - STRING#300028
+          - STRING#300030
+          - STRING#300019
+          - STRING#300023
+          - STRING#300029
+          - STRING#300033
+          - STRING#300034
+          - STRING#300045
+          - STRING#300042
+          - STRING#300043
+          - STRING#300027
+          - STRING#300026
+          - STRING#300024
+          - STRING#100027
       - id: cat_20260802_thread_combat
         label: 戦闘系
         itemIds:
-          - FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300032
-          - BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300035
-          - WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300036
-          - TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300037
-          - WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300038
+          - STRING#300046
+          - STRING#300047
+          - STRING#300048
+          - STRING#300049
+          - STRING#300050
+          - STRING#300051
+          - STRING#300052
+          - STRING#300053
+          - STRING#300054
+          - STRING#300055
+          - STRING#300056
+          - STRING#300057
+          - STRING#300058
+          - STRING#300059
+          - STRING#300060
+          - STRING#300061
+          - STRING#300062
+          - STRING#300063
+          - STRING#300064
+          - STRING#300065
+          - STRING#300066
+          - STRING#300067
+          - STRING#300068
+          - STRING#300069
+          - STRING#300032
+          - STRING#300035
+          - STRING#300036
+          - STRING#300037
+          - STRING#300038
       - id: cat_20260802_thread_base
         label: 無強化
         itemIds:
-          - WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300001
+          - STRING#300001
   itemTabs:
+    STRING#300046: thread
+    STRING#300047: thread
+    STRING#300048: thread
+    STRING#300049: thread
+    STRING#300050: thread
+    STRING#300051: thread
+    STRING#300052: thread
+    STRING#300053: thread
+    STRING#300054: thread
+    STRING#300055: thread
+    STRING#300056: thread
+    STRING#300057: thread
+    STRING#300058: thread
+    STRING#300059: thread
+    STRING#300060: thread
+    STRING#300061: thread
+    STRING#300062: thread
+    STRING#300063: thread
+    STRING#300064: thread
+    STRING#300065: thread
+    STRING#300066: thread
+    STRING#300067: thread
+    STRING#300068: thread
+    STRING#300069: thread
     DIAMOND_SWORD#1111: weapon
     NETHERITE_SWORD#112: weapon
     NETHERITE_SWORD#5720: weapon
@@ -13674,57 +13553,57 @@ _editor:
     NETHERITE_CHESTPLATE#5611: armor
     NETHERITE_LEGGINGS#5611: armor
     NETHERITE_BOOTS#5611: armor
-    RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300004: thread
-    SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300005: thread
-    DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300006: thread
-    SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300007: thread
-    COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300008: thread
-    EYE_ARMOR_TRIM_SMITHING_TEMPLATE#300009: thread
-    HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300010: thread
-    RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300011: thread
-    SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300015: thread
-    VEX_ARMOR_TRIM_SMITHING_TEMPLATE#300039: thread
-    RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300040: thread
-    SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300041: thread
-    DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300042: thread
-    SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300043: thread
-    COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300044: thread
-    NETHERITE_UPGRADE_SMITHING_TEMPLATE#300045: thread
-    TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300002: thread
-    WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300003: thread
-    SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300012: thread
-    WILD_ARMOR_TRIM_SMITHING_TEMPLATE#300013: thread
-    VEX_ARMOR_TRIM_SMITHING_TEMPLATE#300014: thread
-    FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300017: thread
-    BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300018: thread
-    SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300016: thread
-    WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300019: thread
-    TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300020: thread
-    WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300021: thread
-    RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300022: thread
-    SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300023: thread
-    DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300031: thread
-    SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300024: thread
-    COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300025: thread
-    EYE_ARMOR_TRIM_SMITHING_TEMPLATE#300026: thread
-    HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300027: thread
-    RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300029: thread
-    SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300033: thread
-    WILD_ARMOR_TRIM_SMITHING_TEMPLATE#300034: thread
-    SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300028: thread
-    SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300030: thread
-    FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300032: thread
-    BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300035: thread
-    WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300036: thread
-    TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300037: thread
-    WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300038: thread
-    WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300001: thread
-    EYE_ARMOR_TRIM_SMITHING_TEMPLATE#100023: thread
-    HOST_ARMOR_TRIM_SMITHING_TEMPLATE#100024: thread
-    RIB_ARMOR_TRIM_SMITHING_TEMPLATE#100025: thread
-    SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#100026: thread
-    WILD_ARMOR_TRIM_SMITHING_TEMPLATE#100027: thread
-    VEX_ARMOR_TRIM_SMITHING_TEMPLATE#100028: thread
+    STRING#300004: thread
+    STRING#300005: thread
+    STRING#300006: thread
+    STRING#300007: thread
+    STRING#300008: thread
+    STRING#300009: thread
+    STRING#300010: thread
+    STRING#300011: thread
+    STRING#300015: thread
+    STRING#300039: thread
+    STRING#300040: thread
+    STRING#300041: thread
+    STRING#300042: thread
+    STRING#300043: thread
+    STRING#300044: thread
+    STRING#300045: thread
+    STRING#300002: thread
+    STRING#300003: thread
+    STRING#300012: thread
+    STRING#300013: thread
+    STRING#300014: thread
+    STRING#300017: thread
+    STRING#300018: thread
+    STRING#300016: thread
+    STRING#300019: thread
+    STRING#300020: thread
+    STRING#300021: thread
+    STRING#300022: thread
+    STRING#300023: thread
+    STRING#300031: thread
+    STRING#300024: thread
+    STRING#300025: thread
+    STRING#300026: thread
+    STRING#300027: thread
+    STRING#300029: thread
+    STRING#300033: thread
+    STRING#300034: thread
+    STRING#300028: thread
+    STRING#300030: thread
+    STRING#300032: thread
+    STRING#300035: thread
+    STRING#300036: thread
+    STRING#300037: thread
+    STRING#300038: thread
+    STRING#300001: thread
+    STRING#100023: thread
+    STRING#100024: thread
+    STRING#100025: thread
+    STRING#100026: thread
+    STRING#100027: thread
+    STRING#100028: thread
   orders:
     weapon:
       - DIAMOND_SWORD#1111
@@ -14143,52 +14022,52 @@ _editor:
       - NETHERITE_BOOTS#5611
     spellbook: []
     thread:
-      - RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300004
-      - SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300005
-      - DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300006
-      - SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300007
-      - COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300008
-      - EYE_ARMOR_TRIM_SMITHING_TEMPLATE#300009
-      - HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300010
-      - RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300011
-      - SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300015
-      - VEX_ARMOR_TRIM_SMITHING_TEMPLATE#300039
-      - RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300040
-      - TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300002
-      - WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300003
-      - SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300012
-      - WILD_ARMOR_TRIM_SMITHING_TEMPLATE#300013
-      - VEX_ARMOR_TRIM_SMITHING_TEMPLATE#300014
-      - FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300017
-      - BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300018
-      - SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300016
-      - WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300019
-      - TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300020
-      - WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300021
-      - RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300022
-      - SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300023
-      - DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300031
-      - SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300024
-      - COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300025
-      - EYE_ARMOR_TRIM_SMITHING_TEMPLATE#300026
-      - HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300027
-      - RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300029
-      - SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300033
-      - WILD_ARMOR_TRIM_SMITHING_TEMPLATE#300034
-      - SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300028
-      - SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300030
-      - FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300032
-      - BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300035
-      - WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300036
-      - TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300037
-      - WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300038
-      - WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300001
-      - SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300041
-      - DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300042
-      - SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300043
-      - COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300044
-      - NETHERITE_UPGRADE_SMITHING_TEMPLATE#300045
-      - EYE_ARMOR_TRIM_SMITHING_TEMPLATE#100023
-      - HOST_ARMOR_TRIM_SMITHING_TEMPLATE#100024
-      - RIB_ARMOR_TRIM_SMITHING_TEMPLATE#100025
-      - SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#100026
+      - STRING#300004
+      - STRING#300005
+      - STRING#300006
+      - STRING#300007
+      - STRING#300008
+      - STRING#300009
+      - STRING#300010
+      - STRING#300011
+      - STRING#300015
+      - STRING#300039
+      - STRING#300040
+      - STRING#300002
+      - STRING#300003
+      - STRING#300012
+      - STRING#300013
+      - STRING#300014
+      - STRING#300017
+      - STRING#300018
+      - STRING#300016
+      - STRING#300019
+      - STRING#300022
+      - STRING#300023
+      - STRING#300024
+      - STRING#300026
+      - STRING#300027
+      - STRING#300029
+      - STRING#300033
+      - STRING#300034
+      - STRING#300028
+      - STRING#300030
+      - STRING#300042
+      - STRING#300043
+      - STRING#300045
+      - STRING#300020
+      - STRING#300021
+      - STRING#300031
+      - STRING#300025
+      - STRING#300041
+      - STRING#300044
+      - STRING#100023
+      - STRING#100024
+      - STRING#100025
+      - STRING#100026
+      - STRING#300032
+      - STRING#300035
+      - STRING#300036
+      - STRING#300037
+      - STRING#300038
+      - STRING#300001

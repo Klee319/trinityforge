@@ -1924,6 +1924,38 @@
           ]));
           const statKeys = Object.keys(stats);
           statKeys.forEach((st) => {
+            // 2026-08-21 乗算モード: 値は「数値(加算)」か「{ mode: "multiply", value }(乗算)」の
+            // どちらか。乗算は総合値に掛かる割合なので、加算モードのステ種別に関係なく必ず % 入力にする
+            // (攻撃力のような実数ステでも「+10%」と入れたいのがこのモードの目的)。
+            const isMultiply = stats[st] != null && typeof stats[st] === "object"
+              && String(stats[st].mode) === "multiply";
+            const rawValue = isMultiply ? Number(stats[st].value) || 0 : stats[st];
+            const modeSelect = h("select", {
+              class: "mode-select",
+              title: "加算 = 総合値へそのまま足す / 乗算 = 総合値へ割合で掛ける(攻撃力など帯で桁が変わるステはこちら)",
+              onchange: (e) => {
+                const next = e.target.value;
+                const current = isMultiply ? (Number(stats[st].value) || 0) : (Number(stats[st]) || 0);
+                stats[st] = next === "multiply" ? { mode: "multiply", value: current } : current;
+                render();
+              }
+            });
+            [["add", "加算"], ["multiply", "乗算(%)"]].forEach(([v, label]) => {
+              const opt = h("option", { value: v, text: label });
+              if ((v === "multiply") === isMultiply) opt.selected = true;
+              modeSelect.appendChild(opt);
+            });
+            const valueControl = isMultiply
+              // 乗算は「倍率の増分」を保存する(0.1 = +10%)。しきい値をまたいで素直に足し合わせられる
+              // 表現なので、fork 側の累積しきい値式とそのまま噛み合う。
+              ? window.rateValueControl(rawValue, (v) => {
+                  stats[st] = { mode: "multiply", value: v == null ? 0 : v };
+                }, { blankWhenEmpty: false })
+              // 2026-08-12: 素の numberInput だと %ステ(dodge-chance 等)が割合のまま
+              // 「0.03」と出て単位も付かなかった(statUnitSlot は %ステに空スロットを返す。
+              // % は statValueControl の pct-suffix が出す前提のため)。他の全ステ行と同じく
+              // statValueControl に通して「3 %」入力・割合保存へ揃える。
+              : window.statValueControl(st, rawValue, (v) => { stats[st] = v == null ? 0 : v; });
             card.appendChild(h("div", { class: "stat-row" }, [
               window.statSelect(st, (nv) => {
                 if (!nv || nv === st) return false;
@@ -1932,12 +1964,9 @@
                 render();
                 return true;
               }),
-              // 2026-08-12: 素の numberInput だと %ステ(dodge-chance 等)が割合のまま
-              // 「0.03」と出て単位も付かなかった(statUnitSlot は %ステに空スロットを返す。
-              // % は statValueControl の pct-suffix が出す前提のため)。他の全ステ行と同じく
-              // statValueControl に通して「3 %」入力・割合保存へ揃える。
-              window.statValueControl(st, stats[st], (v) => { stats[st] = v == null ? 0 : v; }),
-              window.statUnitSlot(st),
+              modeSelect,
+              valueControl,
+              isMultiply ? h("span", { class: "unit-suffix unit-slot", text: "", title: "" }) : window.statUnitSlot(st),
               h("button", {
                 class: "btn-small danger", type: "button", text: "×",
                 onclick: () => { delete stats[st]; pruneNode(); render(); }

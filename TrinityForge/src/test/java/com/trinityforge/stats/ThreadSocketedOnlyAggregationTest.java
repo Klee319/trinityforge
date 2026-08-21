@@ -77,10 +77,16 @@ class ThreadSocketedOnlyAggregationTest {
 
     /** スレッドの CMD 帯。 */
     private static final int THREAD_CMD_MIN = 300001;
-    private static final int THREAD_CMD_MAX = 300045;
+    private static final int THREAD_CMD_MAX = 300069;
 
-    /** 節ごと消えたことに気づくための下限(45種 - 空のスレッド1種)。 */
-    private static final int MIN_EXPECTED_THREADS = 44;
+    /**
+     * 節ごと消えたことに気づくための下限。
+     *
+     * <p>2026-08-21 時点でステを持つスレッドは 57 種(全 69 種 - ステ節を持たない 12 種)。
+     * ステを持たないのは「空」と常時効果系 11 種で、効果はフォーク側(ポーション効果 / 飛行 /
+     * バックパック)が配るため item-stats にはエントリだけがある。50 は余裕を見た下限。
+     */
+    private static final int MIN_EXPECTED_THREADS = 50;
 
     private ServerMock server;
 

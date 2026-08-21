@@ -21,13 +21,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 出荷 {@code stats/item-stats.yml} のスレッド45種(CMD 300001-300045)の厳選定義を固定する
+ * 出荷 {@code stats/item-stats.yml} のスレッド69種(CMD 300001-300069)の厳選定義を固定する
  * (2026-08-03 ユーザー指摘「一部スレッドが名称と効果が一致していない(マナ増幅のスレッドなど)」)。
  *
  * <h2>なぜ机上で落とす必要があるのか</h2>
  * <p>スレッドの「性格」は<b>どこにも宣言されていない</b>。名前と CustomModelData は
- * ArsPaper フォークの {@code ThreadType} enum、効果は TF 側のこの yml、セット効果は
- * フォークの {@code thread-sets.yml} という<b>3ファイルに分かれていて相互参照が無い</b>。
+ * ArsPaper フォークの {@code ThreadType} enum / {@code threads.yml}、効果は TF 側のこの yml、
+ * セット効果はフォークの {@code thread-sets.yml} という<b>3ファイルに分かれていて相互参照が無い</b>。
  * そのため「マナ増幅のスレッドの主ステが会心ダメージ」のような食い違いが起きても、
  * <b>起動もテストも通り、ゲーム内で数値を見比べるまで誰も気づかない</b>。
  * 実際に 2026-08-02 の40種化ではテーマ割り当てが名称とほぼ無関係になっていて、
@@ -36,7 +36,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>そこで<b>この表が主ステの唯一の宣言</b>になる。スレッドを増やす・テーマを変えるときは
  * ここを直すのが先で、yml だけ直すとこのテストが落ちる。
  *
- * <h2>組み立ての規約(45件で統一。崩すと厳選が機能しなくなる)</h2>
+ * <h2>2026-08-21: スレッドを3種類に分けた(ユーザー指示)</h2>
+ * <p>指示は「非戦闘系効果のスレッド(常時効果系含む)から戦闘関連ステータスの効果を削除」。
+ * それまでは<b>全45種が一律で「主ステ + 戦闘サブ4種」</b>だったため、採取・制作・マナのスレッドを
+ * 挿すだけで会心や貫通が付いてきていた ── 名前と効果が食い違うだけでなく、戦闘スレッドを選ぶ
+ * 意味そのものが消えていた。そこで {@link Kind} で3種類に分け、規約を種類ごとに変える。
+ *
+ * <ul>
+ *   <li>{@link Kind#COMBAT} … 戦闘そのものが正体のスレッド。<b>従来の規約をそのまま維持</b>
+ *       (主ステ1件 + {@code random} 5件 + サブ4種を各 0.45 で確率付与)。</li>
+ *   <li>{@link Kind#DOMAIN} … 採取・制作・マナなど非戦闘のスレッド。<b>主ステ(と、名称が2軸を
+ *       指す場合のみその2軸)だけ</b>を持ち、{@code advanced} ブロックは持たない
+ *       (0.45 の確率付与は戦闘サブ専用の仕組みだったため、サブが消えると置き場所が無い)。</li>
+ *   <li>{@link Kind#STATLESS} … 常時ポーション効果・飛行・バックパックのスレッド。
+ *       <b>ステ節を1つも持たない</b>。名称の効果はフォーク側({@code ThreadType} のポーション効果 /
+ *       飛行フラグ / バックパック)が配っており、以前はそこへ「近い戦闘軸」を無理に足していた。</li>
+ * </ul>
+ *
+ * <p>この分類は {@link #nonCombatThreadsCarryNoCombatStats()} が実データで検査する ──
+ * 「DOMAIN / STATLESS のスレッドに ATTACK / DEFENSE チャネルのステが1件でもあれば落ちる」。
+ * 表を書き換えただけでは通らないので、逆流(誰かが戦闘サブを足し戻す)をここで止められる。
+ *
+ * <h2>組み立ての規約(COMBAT のみ。崩すと厳選が機能しなくなる)</h2>
  * <ul>
  *   <li>{@code per-quality:} は<b>主ステ1件だけ</b>(品質0..9で伸びる軸)。</li>
  *   <li>{@code random:} は<b>主ステ + サブ4種</b>の5件。主ステは {@code random} の先頭。</li>
@@ -83,94 +104,132 @@ class ShippedThreadItemStatsTest {
     private static final String ITEM_STATS = "src/main/resources/stats/item-stats.yml";
     private static final String LORE = "src/main/resources/stats/lore.yml";
 
-    /** サブステの付与確率。45件で統一(平均1.8種が付く)。 */
+    /** サブステの付与確率(COMBAT のみ。平均1.8種が付く)。 */
     private static final double GRANT_CHANCE = 0.45;
 
+    /** スレッドの CMD 帯。増種したらここを伸ばす。 */
+    private static final int THREAD_CMD_MIN = 300001;
+    private static final int THREAD_CMD_MAX = 300069;
+
+    /** スレッドの種類。規約が種類ごとに違う(クラス Javadoc 参照)。 */
+    private enum Kind {
+        /** 戦闘そのものが正体。主ステ + 戦闘サブ4種。 */
+        COMBAT,
+        /** 採取・制作・マナなど非戦闘。主ステ(名称が2軸を指すならその2軸)だけ。 */
+        DOMAIN,
+        /** 効果をフォーク側(ポーション/飛行/バックパック)が配るのでステ節を持たない。 */
+        STATLESS
+    }
+
     /**
-     * CMD → (スレッド名, 主ステ)。名称に対応する軸を主ステに据えるのがこの表の役目。
+     * CMD → (スレッド名, 主ステ, 種類)。名称に対応する軸を主ステに据えるのがこの表の役目。
      *
-     * <p>常時ポーション効果・飛行・バックパックのスレッドは<b>名称の効果を別経路で既に配っている</b>
-     * (フォークの {@code ThreadType} のポーション効果 / 飛行フラグ / バックパック)ため、
-     * 主ステは「その効果に近い戦闘軸」を据えている。ステ語彙側に対応キーが無いものも同じ扱い:
-     * 例えば体力増強の {@code max-health} と迅速の {@code move-speed} は上の「選んではいけないキー」に
-     * 当たるので使えない。
-     *
-     * <p><b>フォークの {@code thread-sets.yml} のしきい値1段目と同じキーに揃えてある</b>
-     * (2026-08-03 追加24種はそこで名称どおりの軸を配っている)。同じ軸に揃えると
-     * 「1個挿しただけの効果」と「集めたときの効果」が同じ方向に伸びる。
+     * <p><b>フォークの {@code thread-sets.yml} のしきい値1段目と同じキーに揃えてある</b>。
+     * 同じ軸に揃えると「1個挿しただけの効果」と「集めたときの効果」が同じ方向に伸びる。
      * <b>この一致は機械では検査できない</b> ── フォークのリソースは {@code .gitignore} 除外で
      * ワークツリーに存在しないことがあるため、TF 側のテストからは読めない。片方だけ直すと静かにずれる。
      */
     private static final Map<Integer, Thread> THREADS = threads();
 
-    private record Thread(String name, String primary) {
+    private record Thread(String name, String primary, Kind kind) {
+        static Thread domain(String name, String primary) {
+            return new Thread(name, primary, Kind.DOMAIN);
+        }
+
+        static Thread combat(String name, String primary) {
+            return new Thread(name, primary, Kind.COMBAT);
+        }
+
+        static Thread statless(String name) {
+            return new Thread(name, null, Kind.STATLESS);
+        }
     }
 
     private static Map<Integer, Thread> threads() {
         Map<Integer, Thread> m = new LinkedHashMap<>();
+        // --- 効果を持たない「空のスレッド」 ---
+        m.put(300001, Thread.statless("空"));
         // --- マナ・魔法系 ---
-        m.put(300002, new Thread("マナ回復速度上昇", "mana-regen"));
-        m.put(300003, new Thread("マナ最大値上昇", "mana-bonus"));
-        m.put(300012, new Thread("被弾マナ回復", "hit-mana-recovery"));
-        m.put(300013, new Thread("攻撃マナ回復", "damage-mana-recovery"));
-        m.put(300014, new Thread("詠唱効率", "mana-cost-reduction-percent"));
-        m.put(300017, new Thread("マナ増幅", "mana-bonus"));
-        m.put(300018, new Thread("循環", "mana-regen"));
-        m.put(300019, new Thread("源流節約", "source-cost-reduction"));
+        m.put(300002, Thread.domain("マナ回復速度上昇", "mana-regen"));
+        m.put(300003, Thread.domain("マナ最大値上昇", "mana-bonus"));
+        m.put(300012, Thread.domain("被弾マナ回復", "hit-mana-recovery"));
+        m.put(300013, Thread.domain("攻撃マナ回復", "damage-mana-recovery"));
+        m.put(300014, Thread.domain("詠唱効率", "mana-cost-reduction-percent"));
+        m.put(300017, Thread.domain("マナ増幅", "mana-bonus"));
+        m.put(300018, Thread.domain("循環", "mana-regen"));
+        m.put(300019, Thread.domain("源流節約", "source-cost-reduction"));
         // --- 制作系 ---
-        m.put(300020, new Thread("匠", "workbench-quality-bonus"));
-        m.put(300021, new Thread("儀式師", "ritual-quality-bonus"));
-        m.put(300022, new Thread("倹約", "material-refund-chance"));
-        m.put(300023, new Thread("解体", "disassembly-return-bonus"));
-        m.put(300031, new Thread("選書", "enchant-luck"));
+        m.put(300020, Thread.domain("匠", "workbench-quality-bonus"));
+        m.put(300021, Thread.domain("儀式師", "ritual-quality-bonus"));
+        m.put(300022, Thread.domain("倹約", "material-refund-chance"));
+        m.put(300023, Thread.domain("解体", "disassembly-return-bonus"));
+        m.put(300031, Thread.domain("選書", "enchant-luck"));
         // --- 採取・生活系 ---
-        m.put(300024, new Thread("豊鉱", "mining-fortune"));
-        m.put(300025, new Thread("潮読み", "fishing-luck"));
-        m.put(300026, new Thread("実り", "harvest-extra-drop-chance"));
-        m.put(300027, new Thread("年輪", "woodcutting-extra-drop-chance"));
-        m.put(300029, new Thread("研鑽", "skill-exp-bonus"));
-        m.put(300033, new Thread("持久", "hunger-save-chance"));
-        m.put(300034, new Thread("美食", "food-restore-bonus"));
-        // --- 戦闘系 ---
-        m.put(300028, new Thread("戦利品", "mob-drop-bonus"));
-        m.put(300030, new Thread("経験", "vanilla-exp-bonus"));
-        m.put(300032, new Thread("治癒", "health-regen-bonus"));
-        m.put(300035, new Thread("棘", "reflect-percent"));
-        m.put(300036, new Thread("昏倒", "stun-chance"));
-        m.put(300037, new Thread("速攻", "cooldown-reduction"));
-        m.put(300038, new Thread("射手", "ammo-save-chance"));
-        m.put(300040, new Thread("幸運", "loot-luck"));
+        m.put(300024, Thread.domain("豊鉱", "mining-fortune"));
+        m.put(300025, Thread.domain("潮読み", "fishing-luck"));
+        m.put(300026, Thread.domain("実り", "harvest-extra-drop-chance"));
+        m.put(300027, Thread.domain("年輪", "woodcutting-extra-drop-chance"));
+        m.put(300029, Thread.domain("研鑽", "skill-exp-bonus"));
+        m.put(300033, Thread.domain("持久", "hunger-save-chance"));
+        m.put(300034, Thread.domain("美食", "food-restore-bonus"));
+        // --- 戦闘に隣接するが効果はドロップ/経験値側(=非戦闘扱い) ---
+        m.put(300028, Thread.domain("戦利品", "mob-drop-bonus"));
+        m.put(300030, Thread.domain("経験", "vanilla-exp-bonus"));
+        m.put(300040, Thread.domain("幸運", "loot-luck"));
+        m.put(300041, Thread.domain("調香", "potion-quality-bonus"));
+        m.put(300042, Thread.domain("養蜂", "hive-harvest-fortune"));
+        m.put(300043, Thread.domain("牧人", "breeding-extra-child-chance"));
+        m.put(300044, Thread.domain("鑑識", "mob-drop-quality"));
+        m.put(300045, Thread.domain("削岩", "gathering-efficiency"));
+        // --- 戦闘系(2026-08-21 以前からの5種) ---
+        m.put(300032, Thread.combat("治癒", "health-regen-bonus"));
+        m.put(300035, Thread.combat("棘", "reflect-percent"));
+        m.put(300036, Thread.combat("昏倒", "stun-chance"));
+        m.put(300037, Thread.combat("速攻", "cooldown-reduction"));
+        m.put(300038, Thread.combat("射手", "ammo-save-chance"));
         // --- 常時効果系(名称の効果はポーション/飛行/バックパックで配っている) ---
-        m.put(300004, new Thread("迅速", "dodge-chance"));
-        m.put(300005, new Thread("跳躍", "crit-chance"));
-        m.put(300006, new Thread("暗視", "crit-chance"));
-        m.put(300007, new Thread("耐火", "magic-resistance"));
-        m.put(300008, new Thread("イルカの好意", "dodge-chance"));
-        m.put(300009, new Thread("コンジットパワー", "magic-flat-defense"));
-        // 2026-08-14: 主ステを attack-power から percent-bonus-damage へ振り替えた(案E)。
-        // attack-power は「武器の基本ダメージを置き換える」実数ステで、値が帯に依存しない。
-        // 厳選q15上限で 25*15 + 1116 = 1491 になり、Lv20 帯の最強剣(699.5)を1本で超えていた。
-        // さらに PlayerStatAggregator#isWornOnlyArmor は HEAD/CHEST/LEGS/FEET しか true にせず、
-        // スレッドの材質(鍛冶型/陶器の欠片/旗の模様)は false なので「装備に挿さず手に持つだけで」
-        // メインハンド寄与として合算される ── Lv20 では素手で握るだけで最強剣の 5.33 倍 DPS だった。
-        // percent-bonus-damage は「与えた最終ダメージの割合」なので、(1) 装備が伸びれば自動で伸び、
-        // (2) 手に持っただけなら素手の基本ダメージ(1.0)の割合にしかならないので穴が同時に塞がる。
-        m.put(300010, new Thread("村の英雄", "percent-bonus-damage"));
-        m.put(300011, new Thread("体力増強", "phys-flat-defense"));
-        m.put(300015, new Thread("飛行", "dodge-chance"));
-        m.put(300016, new Thread("バックパック", "phys-flat-defense"));
-        m.put(300039, new Thread("浮遊", "dodge-chance"));
-        // --- 2026-08-03 追加: レシピを持たない5種(ガチャ景品専用) ---
-        m.put(300041, new Thread("調香", "potion-quality-bonus"));
-        m.put(300042, new Thread("養蜂", "hive-harvest-fortune"));
-        m.put(300043, new Thread("牧人", "breeding-extra-child-chance"));
-        m.put(300044, new Thread("鑑識", "mob-drop-quality"));
-        m.put(300045, new Thread("削岩", "gathering-efficiency"));
+        // 2026-08-21: ここに据えていた「近い戦闘軸」(dodge-chance / crit-chance など)を全部外した。
+        // ポーション効果で速くなるスレッドが会心も配る理由が無く、戦闘スレッドと役割が被っていた。
+        m.put(300004, Thread.statless("迅速"));
+        m.put(300005, Thread.statless("跳躍"));
+        m.put(300006, Thread.statless("暗視"));
+        m.put(300007, Thread.statless("耐火"));
+        m.put(300008, Thread.statless("イルカの好意"));
+        m.put(300009, Thread.statless("コンジットパワー"));
+        m.put(300010, Thread.statless("村の英雄"));
+        m.put(300011, Thread.statless("体力増強"));
+        m.put(300015, Thread.statless("飛行"));
+        m.put(300016, Thread.statless("バックパック"));
+        m.put(300039, Thread.statless("浮遊"));
+        // --- 2026-08-21 追加: 戦闘系24種 ---
+        // 前半14種は武器アーキタイプとの「デザイナーズコンボ」、後半10種は汎用。
+        // 主ステは武器の性格に寄せてある(短剣=会心率、弩=貫通、大剣=被ダメ軽減…)。
+        m.put(300046, Thread.combat("剣士", "percent-bonus-damage"));
+        m.put(300047, Thread.combat("狂戦士", "crit-damage"));
+        m.put(300048, Thread.combat("槍衾", "penetration"));
+        m.put(300049, Thread.combat("刈り手", "bleed-chance"));
+        m.put(300050, Thread.combat("打擲", "armor-strength"));
+        m.put(300051, Thread.combat("暗殺者", "crit-chance"));
+        m.put(300052, Thread.combat("決闘者", "dodge-chance"));
+        m.put(300053, Thread.combat("巨戟", "percent-bonus-damage"));
+        m.put(300054, Thread.combat("大剣士", "damage-reduction"));
+        m.put(300055, Thread.combat("遠矢", "crit-damage"));
+        m.put(300056, Thread.combat("潮呼び", "magic-resistance"));
+        m.put(300057, Thread.combat("震撼", "percent-bonus-damage"));
+        m.put(300058, Thread.combat("弩手", "penetration"));
+        m.put(300059, Thread.combat("呪刃", "percent-bonus-damage"));
+        m.put(300060, Thread.combat("猛攻", "percent-bonus-damage"));
+        m.put(300061, Thread.combat("精確", "crit-chance"));
+        m.put(300062, Thread.combat("追撃", "crit-damage"));
+        m.put(300063, Thread.combat("穿孔", "penetration"));
+        m.put(300064, Thread.combat("流血", "bleed-chance"));
+        m.put(300065, Thread.combat("堅陣", "damage-reduction"));
+        m.put(300066, Thread.combat("抗魔", "magic-resistance"));
+        m.put(300067, Thread.combat("鉄皮", "phys-resistance"));
+        m.put(300068, Thread.combat("疾影", "dodge-chance"));
+        m.put(300069, Thread.combat("剛靭", "armor-strength"));
         return Map.copyOf(m);
     }
-
-    /** 効果を持たない「空のスレッド」。ステ節を一切持たないことだけを確認する。 */
-    private static final int EMPTY_CMD = 300001;
 
     private static ConfigurationSection items() {
         File file = new File(ITEM_STATS);
@@ -192,7 +251,7 @@ class ShippedThreadItemStatsTest {
             } catch (NumberFormatException ignored) {
                 continue;
             }
-            if (cmd < 300001 || cmd > 300045) continue;
+            if (cmd < THREAD_CMD_MIN || cmd > THREAD_CMD_MAX) continue;
             ConfigurationSection entry = items.getConfigurationSection(key);
             assertNotNull(entry, key + " のエントリが節になっていない");
             assertFalse(out.containsKey(cmd), "CMD " + cmd + " のエントリが2件ある(材質違いの重複): " + key);
@@ -202,12 +261,11 @@ class ShippedThreadItemStatsTest {
     }
 
     @Test
-    @DisplayName("スレッド45種(300001-300045)が漏れなく1件ずつ定義されている")
+    @DisplayName("スレッド69種(300001-300069)が漏れなく1件ずつ定義されている")
     void everyThreadHasExactlyOneEntry() {
         Map<Integer, ConfigurationSection> entries = threadEntries(items());
 
         Set<Integer> expected = new TreeSet<>(THREADS.keySet());
-        expected.add(EMPTY_CMD);
         Set<Integer> missing = new TreeSet<>(expected);
         missing.removeAll(entries.keySet());
         Set<Integer> unexpected = new TreeSet<>(entries.keySet());
@@ -219,19 +277,58 @@ class ShippedThreadItemStatsTest {
         assertEquals(Set.of(), unexpected,
                 "この表に無い CMD のスレッドが yml にある。増種したなら THREADS へ追記して"
                         + "主ステを宣言すること(宣言が無いと名称と効果の食い違いを検出できない): " + unexpected);
-        assertEquals(45, entries.size(), "スレッドの総数が45件でない");
+        assertEquals(THREADS.size(), entries.size(), "スレッドの総数が " + THREADS.size() + " 件でない");
     }
 
     @Test
-    @DisplayName("空のスレッドはステ節を一切持たない")
-    void emptyThreadHasNoStats() {
-        ConfigurationSection entry = threadEntries(items()).get(EMPTY_CMD);
-        assertNotNull(entry, "空のスレッド(300001)が見つからない");
-        for (String section : List.of("fixed", "per-quality", "random", "advanced")) {
-            assertFalse(entry.contains(section),
-                    "空のスレッドに " + section + " がある。効果を持たないことが仕様なので、"
-                            + "ここへ書くと『空』が最強のスレッドになる");
+    @DisplayName("ステを持たないスレッド(常時効果系・空)はステ節を一切持たない")
+    void statlessThreadsHaveNoStats() {
+        Map<Integer, ConfigurationSection> entries = threadEntries(items());
+        List<String> offenders = new ArrayList<>();
+
+        for (Map.Entry<Integer, Thread> declared : THREADS.entrySet()) {
+            if (declared.getValue().kind() != Kind.STATLESS) continue;
+            ConfigurationSection entry = entries.get(declared.getKey());
+            if (entry == null) continue; // 件数は別テストが見る
+            for (String section : List.of("fixed", "per-quality", "random", "advanced")) {
+                if (entry.contains(section)) {
+                    offenders.add(declared.getValue().name() + "のスレッド(" + declared.getKey()
+                            + ") に " + section + " がある");
+                }
+            }
         }
+
+        assertEquals(List.of(), offenders,
+                "効果をフォーク側(ポーション効果/飛行/バックパック)が配るスレッドに item-stats のステがある。"
+                        + "ここへ書くと『名前と関係ないステが付いてくる』スレッドに戻る: " + offenders);
+    }
+
+    @Test
+    @DisplayName("非戦闘スレッドは戦闘ステ(ATTACK/DEFENSE)を1件も配らない — 2026-08-21 のユーザー指示")
+    void nonCombatThreadsCarryNoCombatStats() {
+        Map<Integer, ConfigurationSection> entries = threadEntries(items());
+        List<String> offenders = new ArrayList<>();
+
+        for (Map.Entry<Integer, Thread> declared : THREADS.entrySet()) {
+            if (declared.getValue().kind() == Kind.COMBAT) continue;
+            ConfigurationSection entry = entries.get(declared.getKey());
+            if (entry == null) continue;
+            for (String section : List.of("fixed", "per-quality", "random")) {
+                ConfigurationSection block = entry.getConfigurationSection(section);
+                if (block == null) continue;
+                for (String stat : block.getKeys(false)) {
+                    if (StatVocabulary.isAttack(stat) || StatVocabulary.isDefense(stat)) {
+                        offenders.add(declared.getValue().name() + "のスレッド(" + declared.getKey()
+                                + ")." + section + "." + stat);
+                    }
+                }
+            }
+        }
+
+        assertEquals(List.of(), offenders,
+                "採取・制作・マナ・常時効果のスレッドに戦闘ステが混ざっている。"
+                        + "全種が一律で戦闘サブ4種を配っていた状態へ戻ると、戦闘系スレッドを選ぶ意味が"
+                        + "消える(2026-08-21 のユーザー指示で剥がした): " + offenders);
     }
 
     @Test
@@ -241,15 +338,21 @@ class ShippedThreadItemStatsTest {
         List<String> wrong = new ArrayList<>();
 
         for (Map.Entry<Integer, Thread> declared : THREADS.entrySet()) {
+            Thread thread = declared.getValue();
+            if (thread.kind() == Kind.STATLESS) continue;
             ConfigurationSection entry = entries.get(declared.getKey());
             if (entry == null) continue; // 件数は別テストが見る
-            Thread thread = declared.getValue();
 
             ConfigurationSection perQuality = entry.getConfigurationSection("per-quality");
             assertNotNull(perQuality, thread.name() + "のスレッド(" + declared.getKey() + ")に per-quality が無い");
             List<String> pqKeys = new ArrayList<>(perQuality.getKeys(false));
-            assertEquals(1, pqKeys.size(),
-                    thread.name() + "のスレッドの per-quality が1件でない(主ステ1件だけが規約): " + pqKeys);
+            assertFalse(pqKeys.isEmpty(),
+                    thread.name() + "のスレッドの per-quality が空(主ステが伸びない)");
+            if (thread.kind() == Kind.COMBAT) {
+                assertEquals(1, pqKeys.size(),
+                        thread.name() + "のスレッドの per-quality が1件でない(戦闘系は主ステ1件だけが規約): "
+                                + pqKeys);
+            }
 
             List<String> randomKeys = new ArrayList<>(randomSection(entry, thread).getKeys(false));
             String primary = randomKeys.isEmpty() ? "(なし)" : randomKeys.get(0);
@@ -266,14 +369,44 @@ class ShippedThreadItemStatsTest {
     }
 
     @Test
-    @DisplayName("組み立ての規約: 主ステ+サブ4種 / サブは各0.45の確率付与 / 主ステは確率ゲートしない")
+    @DisplayName("非戦闘スレッドは per-quality と random が同じ軸だけを持つ(サブ枠も確率付与も無い)")
+    void domainThreadsOnlyRollTheirOwnAxis() {
+        Map<Integer, ConfigurationSection> entries = threadEntries(items());
+        List<String> offenders = new ArrayList<>();
+
+        for (Map.Entry<Integer, Thread> declared : THREADS.entrySet()) {
+            Thread thread = declared.getValue();
+            if (thread.kind() != Kind.DOMAIN) continue;
+            ConfigurationSection entry = entries.get(declared.getKey());
+            if (entry == null) continue;
+            String where = thread.name() + "のスレッド(" + declared.getKey() + ")";
+
+            Set<String> pqKeys = new LinkedHashSet<>(entry.getConfigurationSection("per-quality").getKeys(false));
+            Set<String> randomKeys = new LinkedHashSet<>(randomSection(entry, thread).getKeys(false));
+            if (!pqKeys.equals(randomKeys)) {
+                offenders.add(where + ": per-quality=" + pqKeys + " と random=" + randomKeys + " が一致しない");
+            }
+            if (entry.contains("advanced")) {
+                // 0.45 の確率付与は戦闘サブ4種のための仕組み。サブが無いのに残っていると、
+                // 主ステが「確率で付くステ」の色でロアに出る(LoreColorRules)。
+                offenders.add(where + ": advanced ブロックが残っている(サブ枠が無いので置き場所が無い)");
+            }
+        }
+
+        assertEquals(List.of(), offenders,
+                "非戦闘スレッドの形が規約から外れている: " + offenders);
+    }
+
+    @Test
+    @DisplayName("戦闘系の組み立て規約: 主ステ+サブ4種 / サブは各0.45の確率付与 / 主ステは確率ゲートしない")
     void rollLayoutFollowsTheSharedConvention() {
         Map<Integer, ConfigurationSection> entries = threadEntries(items());
 
         for (Map.Entry<Integer, Thread> declared : THREADS.entrySet()) {
+            Thread thread = declared.getValue();
+            if (thread.kind() != Kind.COMBAT) continue;
             ConfigurationSection entry = entries.get(declared.getKey());
             if (entry == null) continue;
-            Thread thread = declared.getValue();
             String where = thread.name() + "のスレッド(" + declared.getKey() + ")";
 
             ConfigurationSection random = randomSection(entry, thread);
@@ -311,13 +444,30 @@ class ShippedThreadItemStatsTest {
                             + "確率付与しても何も起きない)");
             for (String key : grantKeys) {
                 assertEquals(GRANT_CHANCE, grants.getDouble(key), 1e-9,
-                        where + " の grant-chances." + key + " が 0.45 でない(45件で揃える)");
+                        where + " の grant-chances." + key + " が 0.45 でない(戦闘系で揃える)");
             }
-
-            assertFalse(entry.getBoolean("offhand-stats-apply", false),
-                    where + " の offhand-stats-apply が true。スレッド自体をオフハンドに持つだけで"
-                            + "ステが乗る(装着させる意味が消える)");
         }
+    }
+
+    @Test
+    @DisplayName("ステを持つスレッドは offhand-stats-apply が false(オフハンドに持つだけで効く穴)")
+    void statfulThreadsNeverApplyFromTheOffhand() {
+        Map<Integer, ConfigurationSection> entries = threadEntries(items());
+        List<String> offenders = new ArrayList<>();
+
+        for (Map.Entry<Integer, Thread> declared : THREADS.entrySet()) {
+            Thread thread = declared.getValue();
+            if (thread.kind() == Kind.STATLESS) continue;
+            ConfigurationSection entry = entries.get(declared.getKey());
+            if (entry == null) continue;
+            if (entry.getBoolean("offhand-stats-apply", false)) {
+                offenders.add(thread.name() + "のスレッド(" + declared.getKey() + ")");
+            }
+        }
+
+        assertEquals(List.of(), offenders,
+                "offhand-stats-apply が true のスレッドがある。スレッド自体をオフハンドに持つだけで"
+                        + "ステが乗る(装着させる意味が消える): " + offenders);
     }
 
     @Test
@@ -330,6 +480,7 @@ class ShippedThreadItemStatsTest {
 
         List<String> offenders = new ArrayList<>();
         for (Map.Entry<Integer, Thread> declared : THREADS.entrySet()) {
+            if (declared.getValue().primary() == null) continue;
             String canonical = StatKeys.canonical(declared.getValue().primary());
             if (projected.contains(canonical)) {
                 offenders.add(declared.getValue().name() + "→" + declared.getValue().primary());
@@ -345,6 +496,7 @@ class ShippedThreadItemStatsTest {
     void primaryStatIsReadableThroughTheAddonChannel() {
         List<String> offenders = new ArrayList<>();
         for (Map.Entry<Integer, Thread> declared : THREADS.entrySet()) {
+            if (declared.getValue().primary() == null) continue;
             if (StatVocabulary.isAttribute(declared.getValue().primary())) {
                 offenders.add(declared.getValue().name() + "→" + declared.getValue().primary());
             }
@@ -368,6 +520,7 @@ class ShippedThreadItemStatsTest {
 
         List<String> unknown = new ArrayList<>();
         for (Map.Entry<Integer, Thread> declared : THREADS.entrySet()) {
+            if (declared.getValue().primary() == null) continue;
             if (!vocabulary.contains(StatKeys.canonical(declared.getValue().primary()))) {
                 unknown.add(declared.getValue().name() + "→" + declared.getValue().primary());
             }

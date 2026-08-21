@@ -345,6 +345,12 @@ public final class PlayerStatAggregator {
         PerkBuffs perkBuffs = perkBuffResolver.buffsFor(player.getUniqueId(), mainhandContributor);
         mergeMultipliers(multipliers, perkBuffs.multipliers());
         Map<String, Double> addon = AddonCombatStats.read(player);
+        // アドオン(スレッドのセット効果「乗算モード」)の倍率を1レイヤとして合流させる。
+        // 加算チャネル(addon)とは別物 —— こちらは加算合算が終わった総合値に掛かる。
+        Map<String, Double> addonMultipliers = AddonCombatStats.readMultipliers(player);
+        if (!addonMultipliers.isEmpty()) {
+            mergeMultipliers(multipliers, Map.of(AddonCombatStats.MULTIPLIER_LAYER_ID, addonMultipliers));
+        }
 
         // ソース3〜6(パーク general / 役職 attack・defense / 永続バフ / base-stats)は
         // #nonItemContribution へ切り出し済み(2026-07-26 マナ系ステ穴埋め、フォークの

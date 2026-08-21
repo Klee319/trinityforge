@@ -1514,7 +1514,7 @@ achievements:
     hidden: true
     icon: WHITE_WOOL
     lore:
-      - <gray>45 種すべてのスレッドを集めた。</gray>
+      - <gray>69 種すべてのスレッドを集めた。</gray>
       - <dark_gray>数値の厳選はここから始まる(集めるだけなら終わりではない)。</dark_gray>
     trigger:
       type: static
@@ -1566,7 +1566,31 @@ achievements:
           - thread_herder
           - thread_appraiser
           - thread_excavation
-        threshold: 45
+          - thread_swordsman
+          - thread_berserker
+          - thread_lancer
+          - thread_reaper
+          - thread_crusher
+          - thread_assassin
+          - thread_duelist
+          - thread_titan
+          - thread_greatsword
+          - thread_longshot
+          - thread_tidecaller
+          - thread_earthshaker
+          - thread_bolter
+          - thread_spellblade
+          - thread_onslaught
+          - thread_precision
+          - thread_execution
+          - thread_piercer
+          - thread_hemorrhage
+          - thread_bulwark
+          - thread_aegis
+          - thread_ironhide
+          - thread_evasion
+          - thread_resilience
+        threshold: 69
         percent: false
     broadcast: true
     rewards:

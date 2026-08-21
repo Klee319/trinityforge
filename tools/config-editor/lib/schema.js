@@ -1223,7 +1223,21 @@ function validateArsThreadSets(data, errors) {
       if (!/^\d+$/.test(String(n)) || Number(n) < 1) errors.push(`thread-sets.${tname}.thresholds: しきい値キー "${n}" は1以上の整数である必要があります`);
       if (!isPlainObject(statMap)) { errors.push(`thread-sets.${tname}.thresholds.${n}: ステのマップである必要があります`); continue; }
       for (const [stat, val] of Object.entries(statMap)) {
-        if (!isNumber(val)) errors.push(`thread-sets.${tname}.thresholds.${n}.${stat}: 数値である必要があります`);
+        // 2026-08-21: 乗算モード。数値 = 加算モード(従来)、{ mode: "multiply", value: 0.1 } = 総合値を ×1.1。
+        // 攻撃力のように帯(進行度)で桁が変わるステは固定値で配ると低帯だけ極端に強くなるため、
+        // 割合で配れるこの形が要る(fork ThreadSetConfig / TF PlayerCombatAggregate の乗算レイヤ)。
+        if (isNumber(val)) continue;
+        if (!isPlainObject(val)) {
+          errors.push(`thread-sets.${tname}.thresholds.${n}.${stat}: 数値、または { mode, value } のマップである必要があります`);
+          continue;
+        }
+        if (!isNumber(val.value)) {
+          errors.push(`thread-sets.${tname}.thresholds.${n}.${stat}.value: 数値である必要があります`);
+        }
+        if (val.mode !== undefined && val.mode !== null
+            && String(val.mode) !== "multiply" && String(val.mode) !== "add") {
+          errors.push(`thread-sets.${tname}.thresholds.${n}.${stat}.mode: "multiply" または "add" である必要があります`);
+        }
       }
     }
   }
@@ -1598,7 +1612,16 @@ function validateMobDrops(drops, prefix, errors) {
     if (!isValidMobDropItemToken(d.material)) {
       errors.push(`${p}.material: Material名または custom:<カタログID> である必要があります`);
     }
-    if (!isNumber(d.chance) || d.chance < 0 || d.chance > 1) errors.push(`${p}.chance: 0.0〜1.0の数値である必要があります`);
+    // 2026-08-21: chance-by-level(ダンジョンのレベルで落ちやすさを変える)。
+    // これを書いた行は chance: を省略できる —— Java 側 MobOverridesConfig#parseDrops が
+    // 曲線の上端(to-chance)を素の chance として採用する。逆に両方無い行はロールできない。
+    validateLevelDropChanceCurve(d["chance-by-level"], p, errors);
+    const hasCurve = isPlainObject(d["chance-by-level"]);
+    if (d.chance === undefined || d.chance === null) {
+      if (!hasCurve) errors.push(`${p}.chance: 0.0〜1.0の数値である必要があります(chance-by-level を書くなら省略可)`);
+    } else if (!isNumber(d.chance) || d.chance < 0 || d.chance > 1) {
+      errors.push(`${p}.chance: 0.0〜1.0の数値である必要があります`);
+    }
     if (!isNonNegInteger(d.min)) errors.push(`${p}.min: 0以上の整数である必要があります`);
     if (!isNonNegInteger(d.max)) errors.push(`${p}.max: 0以上の整数である必要があります`);
     if (isNonNegInteger(d.min) && isNonNegInteger(d.max) && d.min > d.max) {

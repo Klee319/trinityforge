@@ -467,6 +467,30 @@ categories:
         - thread_thrift
         - thread_timber
         - thread_translate
+        - thread_swordsman
+        - thread_berserker
+        - thread_lancer
+        - thread_reaper
+        - thread_crusher
+        - thread_assassin
+        - thread_duelist
+        - thread_titan
+        - thread_greatsword
+        - thread_longshot
+        - thread_tidecaller
+        - thread_earthshaker
+        - thread_bolter
+        - thread_spellblade
+        - thread_onslaught
+        - thread_precision
+        - thread_execution
+        - thread_piercer
+        - thread_hemorrhage
+        - thread_bulwark
+        - thread_aegis
+        - thread_ironhide
+        - thread_evasion
+        - thread_resilience
     material_tf:
       display-name: TF素材
       # 2026-08-18: thread_* 51件がここと thread カテゴリの両方に入っていて図鑑で二重に

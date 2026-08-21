@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * <b>スレッド(CMD 300001-300045)のダメージ寄与が「帯に比例する」ことを固定する</b>
+ * <b>スレッド(CMD 300001-300069)のダメージ寄与が「帯に比例する」ことを固定する</b>
  * 回帰テスト(2026-08-14 案E、2026-08-14 に導出方式へ作り直し)。
  *
  * <h2>何が壊れていたか</h2>
@@ -126,8 +126,13 @@ class ShippedThreadBandIndependenceTest {
     /** 帯を 188 倍変えても倍率がこの範囲でしか動かないこと。割合系だけなら誤差は 1e-12 未満。 */
     private static final double TOLERANCE = 1.0e-6;
 
-    /** 節ごと消えたことに気づくための下限(45種 - 空のスレッド1種)。 */
-    private static final int MIN_EXPECTED_THREADS = 44;
+    /**
+     * 節ごと消えたことに気づくための下限。
+     *
+     * <p>2026-08-21 時点でステを持つスレッドは 57 種(全 69 種 - ステ節を持たない 12 種)。
+     * 常時効果系 11 種と「空」はステを1つも持たないので、ここには数えられない。
+     */
+    private static final int MIN_EXPECTED_THREADS = 50;
 
     /**
      * モデルが解釈するダメージ入力キー(canonical)。
@@ -378,21 +383,41 @@ class ShippedThreadBandIndependenceTest {
     }
 
     /**
-     * フォークの {@code ThreadType} から CMD → スレッド id。フォークが無い環境では {@code null}
+     * フォークの CMD → スレッド id。フォークが無い環境では {@code null}
      * (このリポジトリの規約: {@code SummonedMobPdcKeyContractTest} と同じく突き合わせは持っている環境だけ)。
+     *
+     * <p><b>2種類の宣言を両方読む</b>。{@code ThreadType} の enum 定数は<b>唯一の登録経路ではない</b> ──
+     * W-102 以降、{@code ThreadConfig#registerIfUnknown} が {@code threads.yml} の
+     * {@code display_name} / {@code custom-model-data} / {@code material} を読んで
+     * {@code ThreadType.register(...)} を呼ぶので、<b>enum に定数を足さずに増種できる</b>
+     * (2026-08-21 の戦闘系24種はこの経路)。enum だけを見ると新種が丸ごと視界から消え、
+     * 「CMD に対応する ThreadType が見つからない」で落ちるか、上限とセット効果を
+     * 一切考慮しないモデルで<b>緑になってしまう</b>。
      */
     private static Map<Integer, String> threadIdByCmd() throws IOException {
-        Path source = FORK_MAIN.resolve(Path.of("java", "com", "arspaper", "item", "ThreadType.java"));
-        if (!Files.isRegularFile(source)) {
+        Path enumSource = FORK_MAIN.resolve(Path.of("java", "com", "arspaper", "item", "ThreadType.java"));
+        Path yamlSource = FORK_MAIN.resolve(Path.of("resources", "threads.yml"));
+        if (!Files.isRegularFile(enumSource) || !Files.isRegularFile(yamlSource)) {
             return null;
         }
         Map<Integer, String> out = new LinkedHashMap<>();
-        Matcher matcher = THREAD_TYPE_DECL.matcher(Files.readString(source, StandardCharsets.UTF_8));
+        Matcher matcher = THREAD_TYPE_DECL.matcher(Files.readString(enumSource, StandardCharsets.UTF_8));
         while (matcher.find()) {
             out.put(Integer.parseInt(matcher.group(2)), matcher.group(1));
         }
+        ConfigurationSection threads = YamlConfiguration.loadConfiguration(yamlSource.toFile())
+                .getConfigurationSection("threads");
+        assertNotNull(threads, "フォークの threads.yml に threads: が無い");
+        for (String id : threads.getKeys(false)) {
+            ConfigurationSection entry = threads.getConfigurationSection(id);
+            if (entry == null) continue;
+            int cmd = entry.getInt("custom-model-data", entry.getInt("custom_model_data", 0));
+            if (cmd > 0) {
+                out.putIfAbsent(cmd, id);
+            }
+        }
         assertTrue(out.size() >= MIN_EXPECTED_THREADS,
-                "ThreadType から CMD を " + out.size() + " 件しか読めていない(宣言の形が変わった?)");
+                "ThreadType / threads.yml から CMD を " + out.size() + " 件しか読めていない(宣言の形が変わった?)");
         return out;
     }
 
@@ -465,7 +490,7 @@ class ShippedThreadBandIndependenceTest {
     void everyThreadScalesWithTheEquipmentBand() {
         Map<Integer, Map<String, Double>> threads = threadStats();
         assertTrue(threads.size() >= MIN_EXPECTED_THREADS,
-                "スレッドが " + threads.size() + " 件しか読めていない。CMD 帯(300001-300045)か"
+                "スレッドが " + threads.size() + " 件しか読めていない。CMD 帯(300001-300069)か"
                         + "節の構造が変わっていないか確認すること(期待: " + MIN_EXPECTED_THREADS + " 件以上)");
 
         TreeMap<String, String> offenders = new TreeMap<>();
@@ -584,7 +609,7 @@ class ShippedThreadBandIndependenceTest {
             } catch (NumberFormatException ignored) {
                 continue;
             }
-            if (cmd < 300001 || cmd > 300045) continue;
+            if (cmd < 300001 || cmd > 300069) continue;
             ConfigurationSection entry = items.getConfigurationSection(key);
             if (entry == null) continue;
 

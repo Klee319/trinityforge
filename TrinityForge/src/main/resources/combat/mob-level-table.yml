@@ -332,6 +332,10 @@ tiers:
       - { material: "custom:thread_spell_cost_down", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [EVOKER], where: field }
       # 速攻のスレッド(子ゾンビ限定)
       - { material: "custom:thread_swiftcast", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [ZOMBIE], where: field, baby: true }
+      # 猛攻のスレッド(PILLAGER)
+      - { material: "custom:thread_onslaught", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [PILLAGER], where: field }
+      # 堅陣のスレッド(ZOMBIE)
+      - { material: "custom:thread_bulwark", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [ZOMBIE], where: field, baby: false }
       #
       # 【ガチャ券【I】】ダンジョン内の討伐のみ(where: dungeon)。1個固定なのでドロップ増加ステは
       #   確率側に乗る。難易度D のダンジョンは推奨Lv = D×10 なので、実質 p = 0.005×D
@@ -469,6 +473,10 @@ tiers:
       - { material: "custom:thread_spell_cost_down", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [EVOKER], where: field }
       # 速攻のスレッド(子ゾンビ限定)
       - { material: "custom:thread_swiftcast", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [ZOMBIE], where: field, baby: true }
+      # 猛攻のスレッド(PILLAGER)
+      - { material: "custom:thread_onslaught", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [PILLAGER], where: field }
+      # 堅陣のスレッド(ZOMBIE)
+      - { material: "custom:thread_bulwark", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [ZOMBIE], where: field, baby: false }
       #
       # 【ガチャ券【I】】ダンジョン内の討伐のみ(where: dungeon)。1個固定なのでドロップ増加ステは
       #   確率側に乗る。難易度D のダンジョンは推奨Lv = D×10 なので、実質 p = 0.005×D
@@ -606,6 +614,10 @@ tiers:
       - { material: "custom:thread_spell_cost_down", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [EVOKER], where: field }
       # 速攻のスレッド(子ゾンビ限定)
       - { material: "custom:thread_swiftcast", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [ZOMBIE], where: field, baby: true }
+      # 猛攻のスレッド(PILLAGER)
+      - { material: "custom:thread_onslaught", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [PILLAGER], where: field }
+      # 堅陣のスレッド(ZOMBIE)
+      - { material: "custom:thread_bulwark", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [ZOMBIE], where: field, baby: false }
       #
       # 【ガチャ券【I】】ダンジョン内の討伐のみ(where: dungeon)。1個固定なのでドロップ増加ステは
       #   確率側に乗る。難易度D のダンジョンは推奨Lv = D×10 なので、実質 p = 0.005×D
@@ -758,6 +770,10 @@ tiers:
       - { material: "custom:thread_spell_cost_down", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [EVOKER], where: field }
       # 速攻のスレッド(子ゾンビ限定)
       - { material: "custom:thread_swiftcast", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [ZOMBIE], where: field, baby: true }
+      # 猛攻のスレッド(PILLAGER)
+      - { material: "custom:thread_onslaught", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [PILLAGER], where: field }
+      # 堅陣のスレッド(ZOMBIE)
+      - { material: "custom:thread_bulwark", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [ZOMBIE], where: field, baby: false }
       #
       # 【ガチャ券【I】】ダンジョン内の討伐のみ(where: dungeon)。1個固定なのでドロップ増加ステは
       #   確率側に乗る。難易度D のダンジョンは推奨Lv = D×10 なので、実質 p = 0.005×D
@@ -901,6 +917,10 @@ tiers:
       - { material: "custom:thread_spell_cost_down", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [EVOKER], where: field }
       # 速攻のスレッド(子ゾンビ限定)
       - { material: "custom:thread_swiftcast", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [ZOMBIE], where: field, baby: true }
+      # 猛攻のスレッド(PILLAGER)
+      - { material: "custom:thread_onslaught", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [PILLAGER], where: field }
+      # 堅陣のスレッド(ZOMBIE)
+      - { material: "custom:thread_bulwark", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [ZOMBIE], where: field, baby: false }
       #
       # 【ガチャ券【I】】ダンジョン内の討伐のみ(where: dungeon)。1個固定なのでドロップ増加ステは
       #   確率側に乗る。難易度D のダンジョンは推奨Lv = D×10 なので、実質 p = 0.005×D
@@ -1044,6 +1064,10 @@ tiers:
       - { material: "custom:thread_spell_cost_down", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [EVOKER], where: field }
       # 速攻のスレッド(子ゾンビ限定)
       - { material: "custom:thread_swiftcast", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [ZOMBIE], where: field, baby: true }
+      # 猛攻のスレッド(PILLAGER)
+      - { material: "custom:thread_onslaught", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [PILLAGER], where: field }
+      # 堅陣のスレッド(ZOMBIE)
+      - { material: "custom:thread_bulwark", chance: 0.01, chance-by-level: { from-level: 1, from-chance: 0.01, to-level: 100, to-chance: 0.10 }, min: 1, max: 1, mobs: [ZOMBIE], where: field, baby: false }
       #
       # 【ガチャ券【I】】ダンジョン内の討伐のみ(where: dungeon)。1個固定なのでドロップ増加ステは
       #   確率側に乗る。難易度D のダンジョンは推奨Lv = D×10 なので、実質 p = 0.005×D

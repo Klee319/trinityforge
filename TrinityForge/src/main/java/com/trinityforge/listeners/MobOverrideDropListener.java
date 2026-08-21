@@ -174,7 +174,9 @@ public final class MobOverrideDropListener implements Listener {
             // 2026-08-13: ドロップ増加ステの効かせ方はドロップの形で分かれる。
             // 1個固定(=レアドロップ)は抽選確率を上げ、それ以外は個数を足す。
             boolean singleFixed = MobDropRoller.isSingleFixed(drop.min(), drop.max());
-            double chance = drop.chance() * dropMultiplier;
+            // 2026-08-21: chance-by-level があればモブのレベルで補間した確率を使う(無ければ素の chance)。
+            // ダンジョンは踏破先ほど高レベルなので、「奥のダンジョンほど落ちる」を config だけで書ける。
+            double chance = drop.chanceAt(mobData.level()) * dropMultiplier;
             if (singleFixed) {
                 chance = MobDropRoller.boostedChance(chance, dropBonus);
             }

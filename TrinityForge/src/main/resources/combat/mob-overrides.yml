@@ -466,7 +466,13 @@ overrides:
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 闘技場の節目ミニボスは1種。魔法装甲が厚い個体なので技も魔法側
         abilities: [ember_spray]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_spellblade", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       wood_league_wave_16_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "ブヒ氏のファン (近接)"
         stats:
@@ -602,7 +608,13 @@ overrides:
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 闘技場の節目ミニボスは1種。予告付きの棘で立ち位置を強制
         abilities: [quake_spikes]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_lancer", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       wood_league_wave_26_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場のゾンビ (第26波)"
         stats:
@@ -738,7 +750,13 @@ overrides:
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 闘技場の節目ミニボスは1種(魔法側)。道化＝引きずり込む悪戯
         abilities: [abyssal_grip]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_duelist", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       wood_league_wave_36_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場のゾンビ (第36波)"
         stats:
@@ -895,7 +913,13 @@ overrides:
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 闘技場の節目ミニボスは1種。名前どおり刃を扇状に撒く
         abilities: [arrow_fan]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_reaper", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       wood_league_wave_46_healer:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場の治癒師 (第46波)"
         stats:
@@ -1032,7 +1056,13 @@ overrides:
         # 2026-08-16 特殊攻撃: 闘技場の節目(5波ごとのミニボス/10波ごとのボス)だけに1種ずつ置く。
         # 雑魚(_melee/_ranged)には付けない —— 同時湧きの頭数ぶん AoE が重なり、波の被ダメが読めなくなるため
         abilities: [bull_rush]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_swordsman", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       wood_league_wave_6_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場のゾンビ (第6波)"
         stats:
@@ -1164,7 +1194,7 @@ overrides:
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
           - { item: "custom:dungeon_seal_fireworks", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:thread_thrift", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_thrift", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       fireworks_phase_2_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "ブーミ (第3段階) (増援)"
         stats:
@@ -1268,7 +1298,7 @@ overrides:
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
           - { item: "custom:dungeon_seal_hallosseum", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:thread_harvest", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_harvest", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       halloween_event_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "不気味なスケルトン (増援)"
         stats:
@@ -1384,7 +1414,13 @@ overrides:
         # ミニボス3種はスレッド厳選の触媒(現実の芯)を落とす。再抽選の回数がここで決まる。
         # 2026-07-31 特殊攻撃: 足を止めさせる係
         abilities: [crippling_stomp]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_berserker", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       em_id_binder_of_worlds_phase_1_melee_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "現実を荒らす者 (第2段階) (増援)"
         stats:
@@ -1414,7 +1450,13 @@ overrides:
         # ミニボス3種はスレッド厳選の触媒(現実の芯)を落とす。再抽選の回数がここで決まる。
         # 2026-07-31 特殊攻撃: 遮蔽を使わせる係
         abilities: [arrow_fan]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_longshot", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       em_id_binder_of_worlds_phase_1_ranged_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "現実を滅ぼす者 (第2段階) (増援)"
         stats:
@@ -1437,7 +1479,13 @@ overrides:
         # ミニボス3種はスレッド厳選の触媒(現実の芯)を落とす。再抽選の回数がここで決まる。
         # 2026-07-31 特殊攻撃: 立ち位置を強制する係
         abilities: [frost_field]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_hemorrhage", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       em_id_binder_of_worlds_phase_1_status_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "現実を破る者 (第2段階) (増援)"
         stats:
@@ -1550,7 +1598,7 @@ overrides:
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
           - { item: "custom:dungeon_seal_binder", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:thread_flight", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_flight", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
           - { item: "custom:binder_fragment", chance: 1.0, min: 1, max: 1 }
 
   # enchantment_challenge_1_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_1 / 1体
@@ -2259,7 +2307,7 @@ overrides:
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
           - { item: "custom:dungeon_seal_bridge", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:thread_hero_of_the_village", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_hero_of_the_village", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       the_bridge_corpse_dummy:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "ドワーフの死骸 (亡骸)"
         stats:
@@ -2384,7 +2432,7 @@ overrides:
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
           - { item: "custom:dungeon_seal_cave", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:thread_salvage", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_salvage", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       the_cave_broiled_miner:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "焼かれた坑夫"
         stats:
@@ -2487,7 +2535,7 @@ overrides:
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
-          - { item: "custom:thread_thorn", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_thorn", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       em_id_the_city_mini_boss_three:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "都市の防衛兵"
         stats:
@@ -2504,7 +2552,13 @@ overrides:
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。踏破ボス(物理)と同じ属性で揃える。防衛兵＝足止め役
         abilities: [crippling_stomp, quake_spikes, frost_field]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_aegis", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       em_id_the_city_mini_boss_two:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "都市の監視者"
         stats:
@@ -2521,7 +2575,13 @@ overrides:
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。監視者＝遠距離から射る
         abilities: [arrow_fan, gale_smash, flare_slam]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_greatsword", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       em_id_the_city_royal_guard_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "王室の近衛 (第1段階)"
         stats:
@@ -2582,7 +2642,7 @@ overrides:
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
           - { item: "custom:dungeon_seal_city", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:thread_source_thrift", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_source_thrift", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
 
   # the_climb_dungeon (DYNAMIC_DUNGEON) — custombosses/em_id_the_climb / 24体
   # ▼コンセプト: 【通る武器=魔法】(物理装甲が厚い) — 登攀路のアンデッドと獣使い。骨は打撃を滑らせる
@@ -2846,7 +2906,7 @@ overrides:
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
           - { item: "custom:dungeon_seal_climb", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:thread_health_boost", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_health_boost", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       the_climb_undead_beastmaster_summon_p4:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "蘇生した獣 (第4段階) (召喚体)"
         stats:
@@ -2902,7 +2962,7 @@ overrides:
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
-          - { item: "custom:thread_endurance", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_endurance", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       the_climb_undead_warrior:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "かつての防衛兵"
         stats:
@@ -3018,7 +3078,7 @@ overrides:
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
           - { item: "custom:dungeon_seal_deep_mines", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:thread_excavation", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_excavation", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       em_id_the_deep_mines_experienced_miner:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "熟練の坑夫"
         stats:
@@ -3042,7 +3102,13 @@ overrides:
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。踏破ボス(物理)と属性を揃える。掘削者＝足元を割る
         abilities: [quake_spikes, bleeding_aura, frost_field]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_piercer", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       em_id_the_deep_mines_miniboss_foreman:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "現場監督"
         stats:
@@ -3059,7 +3125,13 @@ overrides:
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。監督＝逃がさない(足止め)
         abilities: [crippling_stomp, shockwave, frost_field]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_crusher", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       em_id_the_deep_mines_miniboss_greedy_miner:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "強欲な坑夫"
         stats:
@@ -3076,7 +3148,13 @@ overrides:
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。強欲＝掴んで引きずり込む(遠距離で撃たせない)
         abilities: [abyssal_grip, crippling_stomp]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_execution", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       em_id_the_deep_mines_miniboss_twisted_excavator:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "捻じれた掘削機"
         stats:
@@ -3093,7 +3171,13 @@ overrides:
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。掘削機＝腕を振り回して弾き飛ばす
         abilities: [gale_smash, quake_spikes, withering_aura]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_earthshaker", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       em_id_the_deep_mines_nether_moss:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "ネザーの苔"
         stats:
@@ -3302,7 +3386,7 @@ overrides:
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
-          - { item: "custom:thread_herder", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_herder", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       the_mines_crusty_bones:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "干からびた骨"
         stats:
@@ -3361,7 +3445,13 @@ overrides:
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。鍛冶師＝炉の火を撒く
         abilities: [ember_spray, gale_smash, withering_aura]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_resilience", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       the_mines_mini_boss_tulpa:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "魂のトゥルパ"
         stats:
@@ -3378,7 +3468,13 @@ overrides:
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。思念体＝そこに居続けさせない
         abilities: [withering_aura, crippling_stomp]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_evasion", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       the_mines_mini_boss_tulpa_reinforcements:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "凝集した思念 (増援)"
         stats:
@@ -3402,7 +3498,13 @@ overrides:
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。予告付きの落着で足を止めさせない
         abilities: [meteor_mark, crippling_stomp]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_titan", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       the_mines_mini_boss_tusk_summon_one:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "忍耐の魂 (召喚体)"
         stats:
@@ -3548,7 +3650,7 @@ overrides:
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
           - { item: "custom:dungeon_seal_mines", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:thread_miner", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_miner", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       the_mines_soulweaver_reinforcements:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "魂の裂片 (増援)"
         stats:
@@ -3919,7 +4021,7 @@ overrides:
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
           - { item: "custom:dungeon_seal_nether_bell", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:thread_experience", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_experience", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       em_id_the_nether_bell_corpse_phase_1:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "腐らざる者 (第2段階) (亡骸)"
         stats:
@@ -4123,7 +4225,13 @@ overrides:
         # 2026-08-16 特殊攻撃: ミニボスは1種。技の属性は【そのモブの耐性の逆】に揃える
         # (物理装甲が厚い=魔法が通る敵は物理で殴ってくる)。重い瘴気＝足を止める
         abilities: [crippling_stomp, gale_smash, flare_slam]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_ironhide", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       em_id_the_nether_wastes_miniboss_2_blind:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "濃い瘴気"
         stats:
@@ -4140,7 +4248,13 @@ overrides:
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。魔法装甲が厚い個体なので技も魔法側で揃える
         abilities: [withering_aura, crippling_stomp]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_assassin", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       em_id_the_nether_wastes_miniboss_2_summon_hard:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "呪術師 (召喚体) (上級)"
         stats:
@@ -4186,7 +4300,7 @@ overrides:
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
-          - { item: "custom:thread_apiarist", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_apiarist", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       em_id_the_nether_wastes_miniboss_3_summon:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "強化された骨組み (召喚体)"
         stats:
@@ -4210,7 +4324,13 @@ overrides:
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。物理側で揃える。噴き出す棘で足場を奪う
         abilities: [quake_spikes, bleeding_aura, flare_slam]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_tidecaller", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       em_id_the_nether_wastes_miniboss_4_summon:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "ネザーの小悪魔 (召喚体)"
         stats:
@@ -4232,7 +4352,13 @@ overrides:
           physical: { defense-rate: 0.052, resistance: 0.05 }
           magical:  { defense-rate: 0.286, resistance: 0.388 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_bolter", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       em_id_the_nether_wastes_miniboss_5_shroud_p2:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "黒曜石の帳 (第2段階)"
         stats:
@@ -4263,7 +4389,7 @@ overrides:
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
           - { item: "custom:dungeon_seal_nether_wastes", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:thread_backpack", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_backpack", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       em_id_the_nether_wastes_miniboss_5_summon:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "黒曜石の猟犬 (召喚体)"
         stats:
@@ -4416,7 +4542,7 @@ overrides:
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
           - { item: "custom:dungeon_seal_palace", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:thread_luck", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_luck", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       the_palace_old_stone_king_summon_1:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "石の守護者 (召喚体) (1体目)"
         stats:
@@ -4503,7 +4629,7 @@ overrides:
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
           - { item: "custom:dungeon_seal_quarry", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:thread_diligence", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_diligence", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       LiftStateFour:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "昇降機の管理者 (段階4)"
         stats:
@@ -4675,7 +4801,7 @@ overrides:
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
-          - { item: "custom:thread_mana_amplify", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_mana_amplify", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       em_id_the_quarry_royal_wizard_five:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         # 2026-08-21 W-183: 属性の違う技を撃ち分けさせる(片側の防御だけで全部受からないように)
         abilities: [gale_smash, piercing_beam]
@@ -4943,7 +5069,7 @@ overrides:
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
           - { item: "custom:dungeon_seal_knight_castle", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:thread_damage_mana_recovery", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_damage_mana_recovery", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       the_castle_cowardly_knight:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "臆病な騎士"
         stats:
@@ -5109,7 +5235,7 @@ overrides:
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
           - { item: "custom:dungeon_seal_north_pole", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:thread_fire_resistance", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_fire_resistance", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
           - { item: "ENCHANTED_GOLDEN_APPLE", chance: 0.1, min: 1, max: 1 }
       northpole_skeleton_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "お仕置きリストの魂 (召喚体)"
@@ -5456,7 +5582,7 @@ overrides:
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
-          - { item: "custom:thread_mending_flesh", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_mending_flesh", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       sewer_tier_50_water_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "ピラニアの王子 (増援)"
         stats:
@@ -5501,7 +5627,7 @@ overrides:
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
           - { item: "custom:dungeon_seal_sewer_maze", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:thread_mana_regen", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_mana_regen", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       sewer_tier_70_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "溺死せし者 (増援)"
         stats:
@@ -5662,7 +5788,7 @@ overrides:
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
           - { item: "custom:dungeon_seal_steamworks", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:thread_spoils", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_spoils", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       the_steamworks_gnasuran_electrohead:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "グナスラの電気頭"
         stats:
@@ -5799,7 +5925,7 @@ overrides:
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
           - { item: "custom:dungeon_seal_dark_cathedral", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:thread_gourmet", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:thread_gourmet", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       dark_cathedral_tier_75_boss_phase_display:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "クトゥルフの狂信者"
         stats:
@@ -5859,7 +5985,13 @@ overrides:
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: ミニボスは1種。魔法装甲が厚い個体なので技も魔法側(踏破ボスと同じ属性)
         abilities: [meteor_mark, flare_slam, shockwave]
-        drops: []
+        # 【ドロップ】中ボス(2026-08-21)。戦闘系スレッド24種の割り当て先として、
+        # ドロップ未設定だった中ボスを優先して埋めた(ユーザー指示)。
+        # chance-by-level: 推奨Lv10 のダンジョンで 1% → Lv100 で 30%。ダンジョンを進める意味を確率差で作る。
+        # min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。
+        drops:
+          - { item: "custom:thread_precision", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       dark_cathedral_tier_75_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "クトゥルフの落とし子 (増援)"
         stats:

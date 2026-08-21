@@ -222,6 +222,11 @@ class PlayerPdcPrimitiveTypeAuditTest {
         // PlayerData を経由しないプレイヤー PDC。書き手のクラスと同じ型で書く。
         player.getPersistentDataContainer().set(
                 PdcKeys.PLAYER_ADDON_COMBAT_STATS, PersistentDataType.STRING, "attack-power=5;defense-rate=0.1");
+        // スレッドのセット効果「乗算モード」(2026-08-21)。加算チャネルと同じ STRING コーデックで、
+        // 値は倍率の増分(0.1 = +10%)。同期されないと、資源サーバで組んだセット効果の割合分だけが
+        // メインへ戻った瞬間に消える(加算分は残るので「なぜか弱い」としか見えない)。
+        player.getPersistentDataContainer().set(
+                PdcKeys.PLAYER_ADDON_COMBAT_MULTIPLIERS, PersistentDataType.STRING, "attack-power=0.25");
         player.getPersistentDataContainer().set(
                 PdcKeys.PLAYER_DIGGING_DURABILITY_ACCUM, PersistentDataType.LONG, 1234L);
     }

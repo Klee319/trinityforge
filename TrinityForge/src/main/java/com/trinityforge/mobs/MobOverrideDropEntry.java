@@ -22,8 +22,13 @@ import java.util.Objects;
  * @param chance    per-death roll chance [0,1]
  * @param min       minimum stack size (inclusive), &gt;= 0
  * @param max       maximum stack size (inclusive), &gt;= {@code min}
+ * @param chanceByLevel {@code chance-by-level:} — 討伐したモブのレベルで確率を線形補間するカーブ
+ *                      (2026-08-21)。{@code null} なら {@code chance} をそのまま使う。
+ *                      型は {@link LevelTierDropEntry.ChanceCurve} を<b>そのまま再利用</b>する ——
+ *                      同じ意味の曲線を2つ持つと片方だけ直す事故が起きるため新設しない。
  */
-public record MobOverrideDropEntry(Material material, String catalogId, double chance, int min, int max) {
+public record MobOverrideDropEntry(Material material, String catalogId, double chance, int min, int max,
+                                   LevelTierDropEntry.ChanceCurve chanceByLevel) {
 
     public MobOverrideDropEntry {
         int itemSet = (material != null ? 1 : 0) + (catalogId != null ? 1 : 0);
@@ -45,11 +50,33 @@ public record MobOverrideDropEntry(Material material, String catalogId, double c
     }
 
     public static MobOverrideDropEntry ofMaterial(Material material, double chance, int min, int max) {
-        return new MobOverrideDropEntry(Objects.requireNonNull(material, "material"), null, chance, min, max);
+        return ofMaterial(material, chance, min, max, null);
     }
 
     public static MobOverrideDropEntry ofCatalog(String catalogId, double chance, int min, int max) {
-        return new MobOverrideDropEntry(null, Objects.requireNonNull(catalogId, "catalogId"), chance, min, max);
+        return ofCatalog(catalogId, chance, min, max, null);
+    }
+
+    /** 2026-08-21: {@code chance-by-level} 込み。 */
+    public static MobOverrideDropEntry ofMaterial(Material material, double chance, int min, int max,
+                                                  LevelTierDropEntry.ChanceCurve chanceByLevel) {
+        return new MobOverrideDropEntry(Objects.requireNonNull(material, "material"), null,
+                chance, min, max, chanceByLevel);
+    }
+
+    /** 2026-08-21: {@code chance-by-level} 込み。 */
+    public static MobOverrideDropEntry ofCatalog(String catalogId, double chance, int min, int max,
+                                                 LevelTierDropEntry.ChanceCurve chanceByLevel) {
+        return new MobOverrideDropEntry(null, Objects.requireNonNull(catalogId, "catalogId"),
+                chance, min, max, chanceByLevel);
+    }
+
+    /**
+     * 討伐したモブのレベルにおけるドロップ確率(2026-08-21)。{@code chance-by-level:} が無ければ
+     * {@link #chance()} をそのまま返す(後方互換)。{@link LevelTierDropEntry#chanceAt(int)} と同じ規則。
+     */
+    public double chanceAt(int level) {
+        return chanceByLevel == null ? chance : chanceByLevel.chanceAt(level);
     }
 
     public boolean isCustom() {

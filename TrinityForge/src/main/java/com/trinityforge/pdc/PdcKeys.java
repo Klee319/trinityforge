@@ -221,6 +221,20 @@ public final class PdcKeys {
      * so no JSON dependency); TF owns the codec so the fork writes the exact format TF reads. */
     public static final NamespacedKey PLAYER_ADDON_COMBAT_STATS = key("addon_combat_stats");
     /**
+     * アドオン(ArsPaper のスレッド・セット効果「乗算モード」)が書き込む<b>乗算レイヤ</b>
+     * ({@code AddonCombatStats#readMultipliers})。{@link #PLAYER_ADDON_COMBAT_STATS} と同じ
+     * {@code "key=value;key=value"} コーデックだが、値の意味が違う ——
+     * <b>こちらは「倍率の増分 Σ(v-1)」</b>で、{@code 0.1} = その総合ステを +10%。
+     *
+     * <p><b>なぜ加算チャネルと分けるか</b>: 攻撃力のように帯(進行度)で桁が変わるステを
+     * 固定値で配ると、装備が弱い低帯ほど相対的に巨大になり帯バランスが壊れる
+     * ({@code ShippedThreadBandIndependenceTest} が固定している性質)。割合で配れば
+     * 「スレッド1本ぶんのダメージ倍率」が帯に依らず一定になる。TF 側は
+     * {@code PlayerCombatAggregate#multiplierFor} の既存の乗算レイヤへ 1 レイヤとして
+     * 合流させるだけなので、加算合算 → 乗算 → stat-cap という既存の順序をそのまま使う。
+     */
+    public static final NamespacedKey PLAYER_ADDON_COMBAT_MULTIPLIERS = key("addon_combat_multipliers");
+    /**
      * コレクション図鑑 (M7): 発見済みエントリID ({@code item:<catalogId>} / {@code mob:<ENTITY_TYPE>})
      * の集合。{@link #PLAYER_HELD_PERKS} と同じ 0x1F 結合 STRING コーデック。
      */
