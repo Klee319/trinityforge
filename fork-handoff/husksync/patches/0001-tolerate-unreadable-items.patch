@@ -1,0 +1,51 @@
+diff --git a/bukkit/src/main/java/net/william278/husksync/data/BukkitSerializer.java b/bukkit/src/main/java/net/william278/husksync/data/BukkitSerializer.java
+index 29fa91c..fcdf552 100644
+--- a/bukkit/src/main/java/net/william278/husksync/data/BukkitSerializer.java
++++ b/bukkit/src/main/java/net/william278/husksync/data/BukkitSerializer.java
+@@ -39,6 +39,8 @@ import org.jetbrains.annotations.ApiStatus;
+ import org.jetbrains.annotations.NotNull;
+ import org.jetbrains.annotations.Nullable;
+ 
++import java.util.logging.Level;
++
+ import java.util.ArrayList;
+ import java.util.List;
+ 
+@@ -130,7 +132,24 @@ public class BukkitSerializer {
+             if (mcVersion.compareTo(getPlugin().getMinecraftVersion()) < 0) {
+                 return upgradeItemStacks((NBTCompound) tag, mcVersion);
+             }
+-            return NBT.itemStackArrayFromNBT(tag);
++            try {
++                return NBT.itemStackArrayFromNBT(tag);
++            } catch (Throwable e) {
++                // TrinityForge patch: one item this server cannot rebuild (typically an enchantment
++                // or component registered by a datapack that is installed on another backend but not
++                // here) makes the whole array throw. The caller catches that and skips the ENTIRE
++                // data type, so the player arrives with no inventory at all -- a total loss caused by
++                // a single stack. Fall back to the per-slot reader, which already degrades a single
++                // unreadable stack to AIR, so only the offending slot is lost.
++                getPlugin().log(Level.WARNING, String.format(
++                        "Could not read an item array in one pass (%s); falling back to a per-slot"
++                                + " read so only the unreadable stack(s) are dropped instead of the"
++                                + " whole inventory. This usually means a datapack that registers"
++                                + " items/enchantments/components is present on another server but"
++                                + " not on this one.",
++                        e.getMessage()), e);
++                return upgradeItemStacks((NBTCompound) tag, mcVersion);
++            }
+         }
+ 
+         @NotNull
+@@ -155,6 +174,11 @@ public class BukkitSerializer {
+                     try {
+                         upgraded = NBT.itemStackFromNBT(item);
+                     } catch (Throwable e2) {
++                        // TrinityForge patch: 黙って AIR にすると「何が消えたか」が永久に分からない。
++                        // 落とすスロットと NBT をログに残す(返却・復元の判断材料になる)。
++                        getPlugin().log(Level.WARNING, String.format(
++                                "Dropping an item this server cannot rebuild (slot %d): %s",
++                                slot, item), e2);
+                         upgraded = new ItemStack(Material.AIR);
+                     }
+                 }

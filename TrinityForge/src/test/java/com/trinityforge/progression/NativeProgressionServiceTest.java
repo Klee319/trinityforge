@@ -149,8 +149,18 @@ class NativeProgressionServiceTest {
         assertEquals(2.0, sum, 1e-6, "1000 cycles at decayRate=0.5 must have converged to (essentially) 1/0.5=2.0");
     }
 
+    /**
+     * 出荷configの方針を固定する（2026-08-21 ユーザー決定）。
+     *
+     * <p>{@code prestige_decay_rate} は <b>0（減衰なし）</b>に倒してある。プレステージ後の再到達でも
+     * レベルアップ1回あたりのPOWER EXPは初回と同じで、そのぶん {@code power.max_level} を
+     * 「全15スキル×Lv100×2周」ぶんの供給に合わせて広げてある（{@code NativeSkillCatalogTest} 参照）。
+     * 減衰の<b>機構</b>自体は上の {@code prestigePowerDecayMultiplier} の単体テストで押さえてあるので、
+     * ここは「出荷configで実際にどちらが効いているか」だけを見る。
+     * 減衰を再び有効にするなら、それは設計判断なのでこのテストを意図的に落として書き換えること。
+     */
     @Test
-    void grantExpAppliesLessPowerExpTheMoreTimesASkillHasBeenPrestiged() throws Exception {
+    void shippedConfigGrantsTheSamePowerExpNoMatterHowManyTimesASkillHasBeenPrestiged() throws Exception {
         NativeSkillCatalog catalog = NativeSkillCatalog.load(getClass().getClassLoader());
         try (SqliteProgressionRepository repository =
                      new SqliteProgressionRepository("jdbc:sqlite::memory:")) {
@@ -180,12 +190,11 @@ class NativeProgressionServiceTest {
             service.grantExp(prestigedTwice, SkillId.MINING, oneMiningLevel);
             double tier2PowerExp = service.progress(prestigedTwice, SkillId.POWER).orElseThrow().totalExp();
 
-            assertTrue(tier1PowerExp < tier0PowerExp,
-                    "1 prior prestige of the SAME skill must grant less POWER exp than never having prestiged");
-            assertTrue(tier2PowerExp < tier1PowerExp,
-                    "2 prior prestiges must grant even less than 1 (monotonically decreasing)");
-            assertEquals(tier0PowerExp * 0.5, tier1PowerExp, 1e-6);
-            assertEquals(tier0PowerExp * 0.25, tier2PowerExp, 1e-6);
+            assertEquals(tier0PowerExp, tier1PowerExp, 1e-6,
+                    "出荷configは減衰なし: 1回プレステージ後の再到達も初回と同じPOWER EXPでなければならない"
+                            + "（ここが減ると『プレステージするとSPの入りが遅くなる』の再発）");
+            assertEquals(tier0PowerExp, tier2PowerExp, 1e-6,
+                    "出荷configは減衰なし: 2回目以降も等倍でなければならない");
         }
     }
 

@@ -53,10 +53,53 @@ class NativeSkillCatalogTest {
     }
 
     @Test
-    void powerSkill_maxLevelIs160() {
-        // 2026-07-25 PRG-08: 256は現行のPOWER EXP供給(15スキル×Lv100×exp_gain)では到達不能な表記だった
+    void powerSkill_maxLevelIs242() {
+        // 2026-07-25 PRG-08: 256は当時のPOWER EXP供給(15スキル×Lv100×exp_gain)では到達不能な表記だった
         // (監査推定でL≈92止まり)。exp_gain引き上げ後の実効到達点(L≈160)に max_level を合わせた。
-        assertEquals(160, CATALOG.get(SkillId.POWER).maxLevel());
+        // 2026-08-21(ユーザー決定): プレステージ減衰を撤廃(prestige_decay_rate: 0)したので供給が2倍になった。
+        // 「全スキルを1回ずつプレステージする」= 15スキル×Lv100×2周ぶんの供給に合わせて上限を引き上げる。
+        assertEquals(242, CATALOG.get(SkillId.POWER).maxLevel());
+    }
+
+    @Test
+    void powerCap_matchesTheSupplyOfOnePrestigeCycleForEverySkill() {
+        // 数値そのものではなく「供給量と上限の関係」を固定する。max_level だけ動かして
+        // exp_gain を据え置く(またはその逆)と SP 供給の設計が黙ってズレるので、両方を1つの式で縛る。
+        SkillCatalogEntry power = CATALOG.get(SkillId.POWER);
+        double expPerSkillLevel = power.rate("power.exp_per_skill_level", -1.0);
+        assertTrue(expPerSkillLevel > 0.0,
+                "power.exp_per_skill_level が読めていない(既定値へフォールバックしている)");
+
+        int nonPowerSkills = 0;
+        int levelsPerSkill = 0;
+        for (String skillId : SkillId.ALL) {
+            if (SkillId.POWER.equals(skillId)) continue;
+            nonPowerSkills++;
+            levelsPerSkill = CATALOG.get(skillId).maxLevel();
+        }
+        // 初回到達 + プレステージ1回ぶんの再到達 = 2周
+        double supply = nonPowerSkills * levelsPerSkill * expPerSkillLevel * 2.0;
+
+        int reached = levelReachedWith(power, supply);
+        assertTrue(reached >= power.maxLevel(),
+                "全スキル1回プレステージ想定の供給(" + supply + "EXP)では POWER "
+                        + power.maxLevel() + " に届かない(到達 " + reached + ")");
+        assertTrue(reached <= power.maxLevel() + 10,
+                "上限が供給に対して低すぎる(到達 " + reached + " / 上限 " + power.maxLevel()
+                        + ")。上限に張り付いた後の周回が丸ごと無報酬になる");
+    }
+
+    /** {@code entry} の曲線に {@code totalExp} を流し込んだときに到達するレベル(上限で頭打ちしない)。 */
+    private static int levelReachedWith(SkillCatalogEntry entry, double totalExp) {
+        int level = 0;
+        double remaining = totalExp;
+        while (level < 10_000) {
+            long cost = entry.curve().expRequiredAt(level);
+            if (cost <= 0L || remaining < cost) break;
+            remaining -= cost;
+            level++;
+        }
+        return level;
     }
 
     // ---- formula evaluation spot-checks ----
