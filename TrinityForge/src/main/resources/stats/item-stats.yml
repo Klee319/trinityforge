@@ -7428,6 +7428,7 @@ items:
       magic-flat-defense: 4.5
       mana-regen: 1.2
       move-speed: -0.002
+      max-health: 0.52
     per-quality:
       durability: 18
     use-level-requirement: 20
@@ -7440,6 +7441,9 @@ items:
       phys-resistance:
         min: 0.004
         max: 0.007
+      max-health:
+        min: 0
+        max: 0.15
   LEATHER_CHESTPLATE#200002:
     fixed:
       defense-rate: 0.09
@@ -7451,6 +7455,7 @@ items:
       magic-flat-defense: 12
       mana-regen: 1.2
       move-speed: -0.004
+      max-health: 1.36
     per-quality:
       durability: 26
     use-level-requirement: 20
@@ -7463,6 +7468,9 @@ items:
       phys-resistance:
         min: 0.01
         max: 0.019
+      max-health:
+        min: 0
+        max: 0.43
   LEATHER_LEGGINGS#200003:
     fixed:
       defense-rate: 0.06
@@ -7473,6 +7481,7 @@ items:
       magic-resistance: 0.039
       magic-flat-defense: 8.8
       mana-regen: 1.2
+      max-health: 1.02
     per-quality:
       durability: 25
     use-level-requirement: 20
@@ -7485,6 +7494,9 @@ items:
       phys-resistance:
         min: 0.008
         max: 0.014
+      max-health:
+        min: 0
+        max: 0.33
   LEATHER_BOOTS#200004:
     fixed:
       defense-rate: 0.03
@@ -7496,6 +7508,7 @@ items:
       magic-resistance: 0.02
       magic-flat-defense: 4.5
       mana-regen: 1.2
+      max-health: 0.52
     per-quality:
       durability: 21
     use-level-requirement: 20
@@ -7508,6 +7521,9 @@ items:
       phys-resistance:
         min: 0.004
         max: 0.007
+      max-health:
+        min: 0
+        max: 0.19
   LEATHER_HELMET#200011:
     fixed:
       defense-rate: 0.03
@@ -7520,6 +7536,7 @@ items:
       magic-flat-defense: 5.8
       mana-regen: 2.4
       move-speed: -0.002
+      max-health: 1.03
     per-quality:
       durability: 30
     use-level-requirement: 40
@@ -7532,6 +7549,9 @@ items:
       phys-resistance:
         min: 0.009
         max: 0.018
+      max-health:
+        min: 0
+        max: 0.34
   LEATHER_CHESTPLATE#200012:
     fixed:
       defense-rate: 0.09
@@ -7543,6 +7563,7 @@ items:
       magic-flat-defense: 16
       mana-regen: 2.4
       move-speed: -0.004
+      max-health: 2.79
     per-quality:
       durability: 44
     use-level-requirement: 40
@@ -7555,6 +7576,9 @@ items:
       phys-resistance:
         min: 0.025
         max: 0.047
+      max-health:
+        min: 0
+        max: 0.82
   LEATHER_LEGGINGS#200013:
     fixed:
       defense-rate: 0.06
@@ -7565,6 +7589,7 @@ items:
       magic-resistance: 0.07
       magic-flat-defense: 12
       mana-regen: 2.4
+      max-health: 2.11
     per-quality:
       durability: 41
     use-level-requirement: 40
@@ -7577,6 +7602,9 @@ items:
       phys-resistance:
         min: 0.019
         max: 0.035
+      max-health:
+        min: 0
+        max: 0.62
   LEATHER_BOOTS#200014:
     fixed:
       defense-rate: 0.03
@@ -7588,6 +7616,7 @@ items:
       magic-resistance: 0.035
       magic-flat-defense: 5.8
       mana-regen: 2.4
+      max-health: 1.03
     per-quality:
       durability: 35
     use-level-requirement: 40
@@ -7600,6 +7629,9 @@ items:
       phys-resistance:
         min: 0.009
         max: 0.018
+      max-health:
+        min: 0
+        max: 0.34
   LEATHER_HELMET#200021:
     fixed:
       defense-rate: 0.03
@@ -7612,6 +7644,7 @@ items:
       magic-flat-defense: 6.7
       mana-regen: 3.6
       move-speed: -0.002
+      max-health: 1.68
     per-quality:
       durability: 48
     use-level-requirement: 60
@@ -7624,6 +7657,9 @@ items:
       phys-resistance:
         min: 0.02
         max: 0.037
+      max-health:
+        min: 0
+        max: 0.52
   LEATHER_CHESTPLATE#200022:
     fixed:
       defense-rate: 0.09
@@ -7635,6 +7671,7 @@ items:
       magic-flat-defense: 18
       mana-regen: 3.6
       move-speed: -0.004
+      max-health: 4.8
     per-quality:
       durability: 70
     use-level-requirement: 60
@@ -7647,6 +7684,9 @@ items:
       phys-resistance:
         min: 0.053
         max: 0.098
+      max-health:
+        min: 0
+        max: 1.44
   LEATHER_LEGGINGS#200023:
     fixed:
       defense-rate: 0.06
@@ -7657,6 +7697,7 @@ items:
       magic-resistance: 0.109
       magic-flat-defense: 14
       mana-regen: 3.6
+      max-health: 3.36
     per-quality:
       durability: 66
     use-level-requirement: 60
@@ -7669,6 +7710,9 @@ items:
       phys-resistance:
         min: 0.039
         max: 0.073
+      max-health:
+        min: 0
+        max: 1.08
   LEATHER_BOOTS#200024:
     fixed:
       defense-rate: 0.03
@@ -7680,6 +7724,7 @@ items:
       magic-resistance: 0.055
       magic-flat-defense: 6.7
       mana-regen: 3.6
+      max-health: 1.76
     per-quality:
       durability: 56
     use-level-requirement: 60
@@ -7692,6 +7737,9 @@ items:
       phys-resistance:
         min: 0.02
         max: 0.037
+      max-health:
+        min: 0
+        max: 0.6
   LEATHER_HELMET#200031:
     fixed:
       defense-rate: 0.03
@@ -7703,6 +7751,7 @@ items:
       magic-resistance: 0.01
       magic-flat-defense: 2.8
       mana-regen: 2
+      max-health: 0
     per-quality:
       durability: 18
     use-level-requirement: 20
@@ -7715,6 +7764,9 @@ items:
       phys-resistance:
         min: 0.002
         max: 0.005
+      max-health:
+        min: 0
+        max: 0.38
   LEATHER_CHESTPLATE#200032:
     fixed:
       defense-rate: 0.06
@@ -7725,6 +7777,7 @@ items:
       magic-resistance: 0.027
       magic-flat-defense: 7.4
       mana-regen: 2
+      max-health: 0
     per-quality:
       durability: 26
     use-level-requirement: 20
@@ -7737,6 +7790,9 @@ items:
       phys-resistance:
         min: 0.007
         max: 0.012
+      max-health:
+        min: 0
+        max: 1.07
   LEATHER_LEGGINGS#200033:
     fixed:
       defense-rate: 0.045
@@ -7747,6 +7803,7 @@ items:
       magic-resistance: 0.02
       magic-flat-defense: 5.5
       mana-regen: 2
+      max-health: 0
     per-quality:
       durability: 25
     use-level-requirement: 20
@@ -7759,6 +7816,9 @@ items:
       phys-resistance:
         min: 0.005
         max: 0.009
+      max-health:
+        min: 0
+        max: 0.83
   LEATHER_BOOTS#200034:
     fixed:
       defense-rate: 0.03
@@ -7770,6 +7830,7 @@ items:
       magic-resistance: 0.01
       magic-flat-defense: 2.8
       mana-regen: 2
+      max-health: 0
     per-quality:
       durability: 21
     use-level-requirement: 20
@@ -7782,6 +7843,9 @@ items:
       phys-resistance:
         min: 0.002
         max: 0.005
+      max-health:
+        min: 0
+        max: 0.48
   LEATHER_HELMET#200041:
     fixed:
       defense-rate: 0.03
@@ -7793,6 +7857,7 @@ items:
       magic-resistance: 0.02
       magic-flat-defense: 4.3
       mana-regen: 4
+      max-health: 0
     per-quality:
       durability: 30
     use-level-requirement: 40
@@ -7805,6 +7870,9 @@ items:
       phys-resistance:
         min: 0.006
         max: 0.012
+      max-health:
+        min: 0
+        max: 0.85
   LEATHER_CHESTPLATE#200042:
     fixed:
       defense-rate: 0.06
@@ -7815,6 +7883,7 @@ items:
       magic-resistance: 0.054
       magic-flat-defense: 11
       mana-regen: 4
+      max-health: 0
     per-quality:
       durability: 44
     use-level-requirement: 40
@@ -7827,6 +7896,9 @@ items:
       phys-resistance:
         min: 0.017
         max: 0.031
+      max-health:
+        min: 0
+        max: 2.04
   LEATHER_LEGGINGS#200043:
     fixed:
       defense-rate: 0.045
@@ -7837,6 +7909,7 @@ items:
       magic-resistance: 0.041
       magic-flat-defense: 8
       mana-regen: 4
+      max-health: 0
     per-quality:
       durability: 41
     use-level-requirement: 40
@@ -7849,6 +7922,9 @@ items:
       phys-resistance:
         min: 0.012
         max: 0.023
+      max-health:
+        min: 0
+        max: 1.54
   LEATHER_BOOTS#200044:
     fixed:
       defense-rate: 0.03
@@ -7860,6 +7936,7 @@ items:
       magic-resistance: 0.02
       magic-flat-defense: 4.3
       mana-regen: 4
+      max-health: 0
     per-quality:
       durability: 35
     use-level-requirement: 40
@@ -7872,6 +7949,9 @@ items:
       phys-resistance:
         min: 0.006
         max: 0.012
+      max-health:
+        min: 0
+        max: 0.85
   LEATHER_HELMET#200051:
     fixed:
       defense-rate: 0.03
@@ -7883,6 +7963,7 @@ items:
       magic-resistance: 0.032
       magic-flat-defense: 4.9
       mana-regen: 6
+      max-health: 0
     per-quality:
       durability: 48
     use-level-requirement: 60
@@ -7895,6 +7976,9 @@ items:
       phys-resistance:
         min: 0.013
         max: 0.024
+      max-health:
+        min: 0
+        max: 1.3
   LEATHER_CHESTPLATE#200052:
     fixed:
       defense-rate: 0.06
@@ -7905,6 +7989,7 @@ items:
       magic-resistance: 0.085
       magic-flat-defense: 13
       mana-regen: 6
+      max-health: 0
     per-quality:
       durability: 70
     use-level-requirement: 60
@@ -7917,6 +8002,9 @@ items:
       phys-resistance:
         min: 0.034
         max: 0.064
+      max-health:
+        min: 0
+        max: 3.6
   LEATHER_LEGGINGS#200053:
     fixed:
       defense-rate: 0.045
@@ -7927,6 +8015,7 @@ items:
       magic-resistance: 0.064
       magic-flat-defense: 10
       mana-regen: 6
+      max-health: 0
     per-quality:
       durability: 66
     use-level-requirement: 60
@@ -7939,6 +8028,9 @@ items:
       phys-resistance:
         min: 0.026
         max: 0.048
+      max-health:
+        min: 0
+        max: 2.7
   LEATHER_BOOTS#200054:
     fixed:
       defense-rate: 0.03
@@ -7950,6 +8042,7 @@ items:
       magic-resistance: 0.032
       magic-flat-defense: 4.9
       mana-regen: 6
+      max-health: 0
     per-quality:
       durability: 56
     use-level-requirement: 60
@@ -7962,6 +8055,9 @@ items:
       phys-resistance:
         min: 0.013
         max: 0.024
+      max-health:
+        min: 0
+        max: 1.5
   LEATHER_HELMET#200241:
     fixed:
       defense-rate: 0.03
@@ -7973,6 +8069,7 @@ items:
       magic-resistance: 0.038
       magic-flat-defense: 5.9
       mana-regen: 8
+      max-health: 0
     per-quality:
       durability: 77
     use-level-requirement: 80
@@ -7985,6 +8082,9 @@ items:
       phys-resistance:
         min: 0.016
         max: 0.03
+      max-health:
+        min: 0
+        max: 2.2
   LEATHER_CHESTPLATE#200242:
     fixed:
       defense-rate: 0.06
@@ -7995,6 +8095,7 @@ items:
       magic-resistance: 0.1
       magic-flat-defense: 16
       mana-regen: 8
+      max-health: 0
     per-quality:
       durability: 112
     use-level-requirement: 80
@@ -8007,6 +8108,9 @@ items:
       phys-resistance:
         min: 0.043
         max: 0.08
+      max-health:
+        min: 0
+        max: 6.4
   LEATHER_LEGGINGS#200243:
     fixed:
       defense-rate: 0.045
@@ -8017,6 +8121,7 @@ items:
       magic-resistance: 0.075
       magic-flat-defense: 12
       mana-regen: 8
+      max-health: 0
     per-quality:
       durability: 106
     use-level-requirement: 80
@@ -8029,6 +8134,9 @@ items:
       phys-resistance:
         min: 0.033
         max: 0.06
+      max-health:
+        min: 0
+        max: 4.5
   LEATHER_BOOTS#200244:
     fixed:
       defense-rate: 0.03
@@ -8040,6 +8148,7 @@ items:
       magic-resistance: 0.038
       magic-flat-defense: 5.9
       mana-regen: 8
+      max-health: 0
     per-quality:
       durability: 90
     use-level-requirement: 80
@@ -8052,6 +8161,9 @@ items:
       phys-resistance:
         min: 0.016
         max: 0.03
+      max-health:
+        min: 0
+        max: 2.3
   LEATHER_HELMET#200251:
     fixed:
       defense-rate: 0.03
@@ -8063,6 +8175,7 @@ items:
       magic-resistance: 0.043
       magic-flat-defense: 7
       mana-regen: 10
+      max-health: 0
     per-quality:
       durability: 123
     use-level-requirement: 100
@@ -8075,6 +8188,9 @@ items:
       phys-resistance:
         min: 0.019
         max: 0.036
+      max-health:
+        min: 0
+        max: 2.8
   LEATHER_CHESTPLATE#200252:
     fixed:
       defense-rate: 0.06
@@ -8085,6 +8201,7 @@ items:
       magic-resistance: 0.114
       magic-flat-defense: 18
       mana-regen: 10
+      max-health: 0
     per-quality:
       durability: 179
     use-level-requirement: 100
@@ -8097,6 +8214,9 @@ items:
       phys-resistance:
         min: 0.052
         max: 0.096
+      max-health:
+        min: 0
+        max: 7.7
   LEATHER_LEGGINGS#200253:
     fixed:
       defense-rate: 0.045
@@ -8107,6 +8227,7 @@ items:
       magic-resistance: 0.086
       magic-flat-defense: 13
       mana-regen: 10
+      max-health: 0
     per-quality:
       durability: 170
     use-level-requirement: 100
@@ -8119,6 +8240,9 @@ items:
       phys-resistance:
         min: 0.04
         max: 0.072
+      max-health:
+        min: 0
+        max: 6.1
   LEATHER_BOOTS#200254:
     fixed:
       defense-rate: 0.03
@@ -8130,6 +8254,7 @@ items:
       magic-resistance: 0.043
       magic-flat-defense: 7
       mana-regen: 10
+      max-health: 0
     per-quality:
       durability: 144
     use-level-requirement: 100
@@ -8142,6 +8267,9 @@ items:
       phys-resistance:
         min: 0.019
         max: 0.036
+      max-health:
+        min: 0
+        max: 2.8
   LEATHER_HELMET#200061:
     fixed:
       defense-rate: 0.015
@@ -8153,6 +8281,7 @@ items:
       magic-resistance: 0.007
       magic-flat-defense: 1.7
       mana-regen: 1.2
+      max-health: 0
     per-quality:
       durability: 18
     use-level-requirement: 20
@@ -8165,6 +8294,9 @@ items:
       phys-resistance:
         min: 0.002
         max: 0.005
+      max-health:
+        min: 0
+        max: 0.23
   LEATHER_CHESTPLATE#200062:
     fixed:
       defense-rate: 0.03
@@ -8175,6 +8307,7 @@ items:
       magic-resistance: 0.017
       magic-flat-defense: 4.5
       mana-regen: 1.2
+      max-health: 0
     per-quality:
       durability: 26
     use-level-requirement: 20
@@ -8187,6 +8320,9 @@ items:
       phys-resistance:
         min: 0.007
         max: 0.012
+      max-health:
+        min: 0
+        max: 0.64
   LEATHER_LEGGINGS#200063:
     fixed:
       defense-rate: 0.015
@@ -8197,6 +8333,7 @@ items:
       magic-resistance: 0.013
       magic-flat-defense: 3.3
       mana-regen: 1.2
+      max-health: 0
     per-quality:
       durability: 25
     use-level-requirement: 20
@@ -8209,6 +8346,9 @@ items:
       phys-resistance:
         min: 0.005
         max: 0.009
+      max-health:
+        min: 0
+        max: 0.5
   LEATHER_BOOTS#200064:
     fixed:
       defense-rate: 0.015
@@ -8220,6 +8360,7 @@ items:
       magic-resistance: 0.007
       magic-flat-defense: 1.7
       mana-regen: 1.2
+      max-health: 0
     per-quality:
       durability: 21
     use-level-requirement: 20
@@ -8232,6 +8373,9 @@ items:
       phys-resistance:
         min: 0.002
         max: 0.005
+      max-health:
+        min: 0
+        max: 0.29
   LEATHER_HELMET#200071:
     fixed:
       defense-rate: 0.015
@@ -8243,6 +8387,7 @@ items:
       magic-resistance: 0.013
       magic-flat-defense: 2.6
       mana-regen: 2.4
+      max-health: 0
     per-quality:
       durability: 30
     use-level-requirement: 40
@@ -8255,6 +8400,9 @@ items:
       phys-resistance:
         min: 0.006
         max: 0.012
+      max-health:
+        min: 0
+        max: 0.51
   LEATHER_CHESTPLATE#200072:
     fixed:
       defense-rate: 0.03
@@ -8265,6 +8413,7 @@ items:
       magic-resistance: 0.034
       magic-flat-defense: 7
       mana-regen: 2.4
+      max-health: 0
     per-quality:
       durability: 44
     use-level-requirement: 40
@@ -8277,6 +8426,9 @@ items:
       phys-resistance:
         min: 0.017
         max: 0.031
+      max-health:
+        min: 0
+        max: 1.22
   LEATHER_LEGGINGS#200073:
     fixed:
       defense-rate: 0.015
@@ -8287,6 +8439,7 @@ items:
       magic-resistance: 0.026
       magic-flat-defense: 5.4
       mana-regen: 2.4
+      max-health: 0
     per-quality:
       durability: 41
     use-level-requirement: 40
@@ -8299,6 +8452,9 @@ items:
       phys-resistance:
         min: 0.012
         max: 0.023
+      max-health:
+        min: 0
+        max: 0.92
   LEATHER_BOOTS#200074:
     fixed:
       defense-rate: 0.015
@@ -8310,6 +8466,7 @@ items:
       magic-resistance: 0.013
       magic-flat-defense: 2.6
       mana-regen: 2.4
+      max-health: 0
     per-quality:
       durability: 35
     use-level-requirement: 40
@@ -8322,6 +8479,9 @@ items:
       phys-resistance:
         min: 0.006
         max: 0.012
+      max-health:
+        min: 0
+        max: 0.51
   LEATHER_HELMET#200081:
     fixed:
       defense-rate: 0.015
@@ -8333,6 +8493,7 @@ items:
       magic-resistance: 0.023
       magic-flat-defense: 3
       mana-regen: 3.6
+      max-health: 0
     per-quality:
       durability: 48
     use-level-requirement: 60
@@ -8345,6 +8506,9 @@ items:
       phys-resistance:
         min: 0.013
         max: 0.024
+      max-health:
+        min: 0
+        max: 0.78
   LEATHER_CHESTPLATE#200082:
     fixed:
       defense-rate: 0.03
@@ -8355,6 +8519,7 @@ items:
       magic-resistance: 0.061
       magic-flat-defense: 7.9
       mana-regen: 3.6
+      max-health: 0
     per-quality:
       durability: 70
     use-level-requirement: 60
@@ -8367,6 +8532,9 @@ items:
       phys-resistance:
         min: 0.034
         max: 0.064
+      max-health:
+        min: 0
+        max: 2.16
   LEATHER_LEGGINGS#200083:
     fixed:
       defense-rate: 0.015
@@ -8377,6 +8545,7 @@ items:
       magic-resistance: 0.046
       magic-flat-defense: 6.1
       mana-regen: 3.6
+      max-health: 0
     per-quality:
       durability: 66
     use-level-requirement: 60
@@ -8389,6 +8558,9 @@ items:
       phys-resistance:
         min: 0.026
         max: 0.048
+      max-health:
+        min: 0
+        max: 1.62
   LEATHER_BOOTS#200084:
     fixed:
       defense-rate: 0.015
@@ -8400,6 +8572,7 @@ items:
       magic-resistance: 0.023
       magic-flat-defense: 3
       mana-regen: 3.6
+      max-health: 0
     per-quality:
       durability: 56
     use-level-requirement: 60
@@ -8412,6 +8585,9 @@ items:
       phys-resistance:
         min: 0.013
         max: 0.024
+      max-health:
+        min: 0
+        max: 0.9
   LEATHER_HELMET#200201:
     fixed:
       defense-rate: 0.03
@@ -8424,6 +8600,7 @@ items:
       magic-flat-defense: 7.9
       mana-regen: 4.8
       move-speed: -0.002
+      max-health: 2.56
     per-quality:
       durability: 77
     use-level-requirement: 80
@@ -8436,6 +8613,9 @@ items:
       phys-resistance:
         min: 0.025
         max: 0.046
+      max-health:
+        min: 0
+        max: 0.88
   LEATHER_CHESTPLATE#200202:
     fixed:
       defense-rate: 0.09
@@ -8447,6 +8627,7 @@ items:
       magic-flat-defense: 22
       mana-regen: 4.8
       move-speed: -0.004
+      max-health: 6.8
     per-quality:
       durability: 112
     use-level-requirement: 80
@@ -8459,6 +8640,9 @@ items:
       phys-resistance:
         min: 0.066
         max: 0.123
+      max-health:
+        min: 0
+        max: 2.56
   LEATHER_LEGGINGS#200203:
     fixed:
       defense-rate: 0.06
@@ -8469,6 +8653,7 @@ items:
       magic-resistance: 0.129
       magic-flat-defense: 16
       mana-regen: 4.8
+      max-health: 5.2
     per-quality:
       durability: 106
     use-level-requirement: 80
@@ -8481,6 +8666,9 @@ items:
       phys-resistance:
         min: 0.049
         max: 0.091
+      max-health:
+        min: 0
+        max: 1.8
   LEATHER_BOOTS#200204:
     fixed:
       defense-rate: 0.03
@@ -8492,6 +8680,7 @@ items:
       magic-resistance: 0.065
       magic-flat-defense: 7.9
       mana-regen: 4.8
+      max-health: 2.56
     per-quality:
       durability: 90
     use-level-requirement: 80
@@ -8504,6 +8693,9 @@ items:
       phys-resistance:
         min: 0.025
         max: 0.046
+      max-health:
+        min: 0
+        max: 0.92
   LEATHER_HELMET#200211:
     fixed:
       defense-rate: 0.03
@@ -8516,6 +8708,7 @@ items:
       magic-flat-defense: 9.3
       mana-regen: 6
       move-speed: -0.002
+      max-health: 3.28
     per-quality:
       durability: 123
     use-level-requirement: 100
@@ -8528,6 +8721,9 @@ items:
       phys-resistance:
         min: 0.03
         max: 0.055
+      max-health:
+        min: 0
+        max: 1.12
   LEATHER_CHESTPLATE#200212:
     fixed:
       defense-rate: 0.09
@@ -8539,6 +8735,7 @@ items:
       magic-flat-defense: 25
       mana-regen: 6
       move-speed: -0.004
+      max-health: 8.8
     per-quality:
       durability: 179
     use-level-requirement: 100
@@ -8551,6 +8748,9 @@ items:
       phys-resistance:
         min: 0.079
         max: 0.148
+      max-health:
+        min: 0
+        max: 3.08
   LEATHER_LEGGINGS#200213:
     fixed:
       defense-rate: 0.06
@@ -8561,6 +8761,7 @@ items:
       magic-resistance: 0.147
       magic-flat-defense: 19
       mana-regen: 6
+      max-health: 6.4
     per-quality:
       durability: 170
     use-level-requirement: 100
@@ -8573,6 +8774,9 @@ items:
       phys-resistance:
         min: 0.059
         max: 0.109
+      max-health:
+        min: 0
+        max: 2.44
   LEATHER_BOOTS#200214:
     fixed:
       defense-rate: 0.03
@@ -8584,6 +8788,7 @@ items:
       magic-resistance: 0.074
       magic-flat-defense: 9.3
       mana-regen: 6
+      max-health: 3.28
     per-quality:
       durability: 144
     use-level-requirement: 100
@@ -8596,6 +8801,9 @@ items:
       phys-resistance:
         min: 0.03
         max: 0.055
+      max-health:
+        min: 0
+        max: 1.12
   LEATHER_HELMET#200221:
     fixed:
       defense-rate: 0.015
@@ -8607,6 +8815,7 @@ items:
       magic-resistance: 0.027
       magic-flat-defense: 3.7
       mana-regen: 4.8
+      max-health: 0
     per-quality:
       durability: 77
     use-level-requirement: 80
@@ -8619,6 +8828,9 @@ items:
       phys-resistance:
         min: 0.016
         max: 0.03
+      max-health:
+        min: 0
+        max: 1.32
   LEATHER_CHESTPLATE#200222:
     fixed:
       defense-rate: 0.03
@@ -8629,6 +8841,7 @@ items:
       magic-resistance: 0.072
       magic-flat-defense: 9.8
       mana-regen: 4.8
+      max-health: 0
     per-quality:
       durability: 112
     use-level-requirement: 80
@@ -8641,6 +8854,9 @@ items:
       phys-resistance:
         min: 0.043
         max: 0.08
+      max-health:
+        min: 0
+        max: 3.84
   LEATHER_LEGGINGS#200223:
     fixed:
       defense-rate: 0.015
@@ -8651,6 +8867,7 @@ items:
       magic-resistance: 0.054
       magic-flat-defense: 7.2
       mana-regen: 4.8
+      max-health: 0
     per-quality:
       durability: 106
     use-level-requirement: 80
@@ -8663,6 +8880,9 @@ items:
       phys-resistance:
         min: 0.033
         max: 0.06
+      max-health:
+        min: 0
+        max: 2.7
   LEATHER_BOOTS#200224:
     fixed:
       defense-rate: 0.015
@@ -8674,6 +8894,7 @@ items:
       magic-resistance: 0.027
       magic-flat-defense: 3.7
       mana-regen: 4.8
+      max-health: 0
     per-quality:
       durability: 90
     use-level-requirement: 80
@@ -8686,6 +8907,9 @@ items:
       phys-resistance:
         min: 0.016
         max: 0.03
+      max-health:
+        min: 0
+        max: 1.38
   LEATHER_HELMET#200231:
     fixed:
       defense-rate: 0.015
@@ -8697,6 +8921,7 @@ items:
       magic-resistance: 0.031
       magic-flat-defense: 4.3
       mana-regen: 6
+      max-health: 0
     per-quality:
       durability: 123
     use-level-requirement: 100
@@ -8709,6 +8934,9 @@ items:
       phys-resistance:
         min: 0.019
         max: 0.036
+      max-health:
+        min: 0
+        max: 1.68
   LEATHER_CHESTPLATE#200232:
     fixed:
       defense-rate: 0.03
@@ -8719,6 +8947,7 @@ items:
       magic-resistance: 0.082
       magic-flat-defense: 12
       mana-regen: 6
+      max-health: 0
     per-quality:
       durability: 179
     use-level-requirement: 100
@@ -8731,6 +8960,9 @@ items:
       phys-resistance:
         min: 0.052
         max: 0.096
+      max-health:
+        min: 0
+        max: 4.62
   LEATHER_LEGGINGS#200233:
     fixed:
       defense-rate: 0.015
@@ -8741,6 +8973,7 @@ items:
       magic-resistance: 0.062
       magic-flat-defense: 8.7
       mana-regen: 6
+      max-health: 0
     per-quality:
       durability: 170
     use-level-requirement: 100
@@ -8753,6 +8986,9 @@ items:
       phys-resistance:
         min: 0.04
         max: 0.072
+      max-health:
+        min: 0
+        max: 3.66
   LEATHER_BOOTS#200234:
     fixed:
       defense-rate: 0.015
@@ -8764,6 +9000,7 @@ items:
       magic-resistance: 0.031
       magic-flat-defense: 4.3
       mana-regen: 6
+      max-health: 0
     per-quality:
       durability: 144
     use-level-requirement: 100
@@ -8776,6 +9013,9 @@ items:
       phys-resistance:
         min: 0.019
         max: 0.036
+      max-health:
+        min: 0
+        max: 1.68
   NETHERITE_SWORD#5600:
     fixed:
       attack-power: 30240

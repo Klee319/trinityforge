@@ -47,32 +47,41 @@ class ShippedDungeonBurstAndElementTest {
     /**
      * 技1発が奪ってよい最大の倍率(モブの攻撃力に対する {@code damage-percent} の上限)。
      *
-     * <p>1.4 の根拠: Lv100・品質5 の帯最良装備(最大HP 94・物理守備 8.2・魔法守備 3.9)に対して、
-     * 最難関ダンジョンの踏破ボス(攻撃力 87)が撃っても<b>最大HPの 65% 前後</b>に収まる水準。
+     * <p>1.2 の根拠: Lv100・品質5 の帯最良装備(最大HP 94)が、最難関ダンジョンの踏破ボスの技を
+     * <b>3.5 発ぶん</b>耐える水準。2026-08-21 の W-181 で 2.0→1.3 まで落とし、
+     * 同日の W-182「耐えられる回数を一律 +1.5 発」でさらに x0.85 して 1.19 が最大になった。
      * ここを 2.0 に戻すと難易度1のダンジョンでも1発が最大HPの7割を超え、
      * 「予兆を見て避ける」ではなく「引いたら死ぬ」ゲームになる。
      */
-    private static final double MAX_ABILITY_DAMAGE_PERCENT = 1.4;
+    private static final double MAX_ABILITY_DAMAGE_PERCENT = 1.2;
 
     /**
-     * per-mob のボス係数(攻撃)として出荷 yml に存在してよい値の全体。
+     * per-mob のボス係数(攻撃)が収まるべき範囲。
      *
-     * <p>2026-08-20(W-179)の 1.3(BOSS)/1.2(MINIBOSS・EVENTBOSS)と、束縛者の段階表
-     * 1.3/1.4/1.5/1.8 を、2026-08-21(W-181)で一律に下げたもの:
-     * <b>1.3→1.15 / 1.2→1.10 / 1.4→1.20 / 1.5→1.25 / 1.8→1.40</b>。
-     * 「攻撃力を下げたぶんをHPへ振り替える」のが W-181 の方針なので、
+     * <p>下限 1.0 の意味は<b>「ボスは自分の配下の雑魚より弱くならない」</b>。
+     * 2026-08-20(W-179)以前は 121 体すべてが係数なし＝雑魚と完全同値だった。
+     * 上限 1.45 は束縛者の最終段階(1.4 系)を含む幅。
+     *
+     * <p>値が 1.15 のようなキリのよい数字ではなく 1.106 のような半端な数なのは、
+     * 2026-08-21(W-182)で<b>「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にする係数を
+     * モブ単位で解いた</b>結果。<b>手で丸めないこと</b>(丸めると耐発数がずれる)。
+     * 「攻撃力を下げたぶんをHPへ振り替える」のが方針なので、
      * <b>ここを戻すなら HP 側の梯子({@link #everyDungeonScopeCarriesTheHpLadder})も一緒に戻すこと</b>。
      */
-    private static final Set<Double> ALLOWED_BOSS_ATTACK_MULTIPLIERS = Set.of(1.1, 1.15, 1.2, 1.25, 1.4);
+    private static final double MIN_BOSS_ATTACK_MULTIPLIER = 1.0;
+
+    /** @see #MIN_BOSS_ATTACK_MULTIPLIER */
+    private static final double MAX_BOSS_ATTACK_MULTIPLIER = 1.45;
 
     /**
      * 属性の「尖り」の下限。物理と魔法で通りやすさが何倍違えば、属性を選ぶ意味があると見なすか。
      *
-     * <p>1.35 は「正しい属性を選ぶと与ダメージが 35% 増える」という体感できる下限。
-     * 意図的に弱点を持たない<b>物魔両方</b>のモブ(左右完全対称)はこの検査から外す ——
-     * そこは「どちらでも同じだけ通る代わりに全体的に硬い」という別の設計だから。
+     * <p>1.70 は「正しい属性を選ぶと与ダメージが 7 割増える」という下限。2026-08-21 の W-181 では
+     * 1.35 だったが、同日 W-182 で<b>「該当の耐性量が少し少ない」</b>という指摘を受けて引き上げた。
+     * 左右完全対称のモブは検査から外す —— ダンジョンのモブは W-182 で全体が型付けされたので、
+     * ここに残るのは {@code default} スコープ(フィールドの汎用モブ)だけ。
      */
-    private static final double MIN_ELEMENT_RATIO = 1.35;
+    private static final double MIN_ELEMENT_RATIO = 1.70;
 
     /**
      * 難易度の梯子を持たないスコープ。
@@ -156,18 +165,24 @@ class ShippedDungeonBurstAndElementTest {
     @Test
     @DisplayName("per-mob のボス係数(攻撃)が W-181 で下げた値の範囲に収まっている")
     void perMobBossAttackMultipliersStayOnTheLoweredTier() throws IOException {
-        Set<Double> found = new TreeSet<>();
+        List<String> stray = new ArrayList<>();
         forEachMob((world, mobId, stats) -> {
-            if (stats.isSet("attack-power-multiplier")) {
-                found.add(stats.getDouble("attack-power-multiplier"));
+            if (!stats.isSet("attack-power-multiplier")) {
+                return;
+            }
+            double v = stats.getDouble("attack-power-multiplier");
+            if (v < MIN_BOSS_ATTACK_MULTIPLIER || v > MAX_BOSS_ATTACK_MULTIPLIER) {
+                stray.add(world + "/" + mobId + "=" + v);
             }
         });
-        List<Double> stray = found.stream().filter((v) -> !ALLOWED_BOSS_ATTACK_MULTIPLIERS.contains(v)).toList();
         assertEquals(List.of(), stray,
-                "per-mob のボス係数(攻撃)に想定外の値がある: " + stray
-                        + " (許可されているのは " + new TreeSet<>(ALLOWED_BOSS_ATTACK_MULTIPLIERS) + ")。"
-                        + "2026-08-21(W-181)で 1.3→1.15 / 1.2→1.10 / 1.4→1.20 / 1.5→1.25 / 1.8→1.40 へ"
-                        + "下げ、そのぶんを HP 側(スコープ直下の max-health-multiplier)へ振り替えた。"
+                "per-mob のボス係数(攻撃)が範囲 [" + MIN_BOSS_ATTACK_MULTIPLIER + ", "
+                        + MAX_BOSS_ATTACK_MULTIPLIER + "] を外れている: " + stray + "。"
+                        + "1.0 未満はボスが配下の雑魚より弱いという意味になる(W-179 以前は 121 体が"
+                        + "係数なし＝雑魚と完全同値だった)。上限側は束縛者の最終段階が基準。"
+                        + "この値は 2026-08-21(W-182)で【耐えられる通常攻撃の回数を一律 +1.5 発にする】"
+                        + "ようモブ単位で解いた結果なので、キリのよい数字へ手で丸めないこと。"
+                        + "攻撃力を下げたぶんは HP 側(スコープ直下の max-health-multiplier)へ振り替えてある。"
                         + "片方だけ戻すと『攻撃も硬さも上がる』ことになるので、必ず2つセットで動かすこと。");
     }
 
@@ -212,6 +227,9 @@ class ShippedDungeonBurstAndElementTest {
     void typedMobsHaveARealElementalWeakness() throws IOException {
         List<String> flat = new ArrayList<>();
         forEachMob((world, mobId, stats) -> {
+            if (LADDERLESS_SCOPES.contains(world)) {
+                return;     // ダンジョンではない(フィールドの汎用モブとギルドの的)
+            }
             double pRate = stats.getDouble("physical.defense-rate", 0.0);
             double pRes = stats.getDouble("physical.resistance", 0.0);
             double mRate = stats.getDouble("magical.defense-rate", 0.0);
@@ -225,7 +243,7 @@ class ShippedDungeonBurstAndElementTest {
                 return;     // 意図的に弱点を持たない「物魔両方」のモブ
             }
             double ratio = Math.max(physPass, magPass) / Math.min(physPass, magPass);
-            if (ratio < MIN_ELEMENT_RATIO) {
+            if (ratio < MIN_ELEMENT_RATIO - 1.0e-6) {   // ちょうど下限の個体を浮動小数で落とさない
                 flat.add(world + "/" + mobId + "=" + String.format("%.2f", ratio) + "倍");
             }
         });
@@ -236,6 +254,113 @@ class ShippedDungeonBurstAndElementTest {
                         + "2026-08-21 以前は中央値 1.29 倍しかなく、属性を揃える動機が実質ゼロだった。"
                         + "弱点を持たせたくないモブは physical と magical を【完全に同値】にすること"
                         + "(この検査は同値のモブを意図的な設計として除外する)。");
+    }
+
+    @Test
+    @DisplayName("攻撃属性と弱点の組み合わせが4通りに散っている(逆固定に戻っていない)")
+    void elementCombinationsStayEvenlySpread() throws IOException {
+        ConfigurationSection overrides = overridesSection();
+        Map<String, Integer> spread = new LinkedHashMap<>();
+        List<String> mixedWithinDungeon = new ArrayList<>();
+        for (String world : overrides.getKeys(false)) {
+            if (LADDERLESS_SCOPES.contains(world)) {
+                continue;
+            }
+            ConfigurationSection scopeStats = overrides.getConfigurationSection(world + ".stats");
+            ConfigurationSection mobs = overrides.getConfigurationSection(world + ".mobs");
+            if (scopeStats == null || mobs == null) {
+                continue;
+            }
+            double magicRatio = scopeStats.getDouble("attack.magic-ratio", 0.25);
+            String attackSide = magicRatio <= 0.15 ? "物理攻撃" : magicRatio >= 0.40 ? "魔法攻撃" : "半々攻撃";
+
+            int physSoft = 0;
+            int magSoft = 0;
+            for (String mobId : mobs.getKeys(false)) {
+                ConfigurationSection stats = mobs.getConfigurationSection(mobId + ".stats");
+                if (stats == null || (!stats.isSet("physical.resistance") && !stats.isSet("magical.resistance"))) {
+                    continue;
+                }
+                double physPass = (1.0 - stats.getDouble("physical.defense-rate", 0.0))
+                        * (1.0 - stats.getDouble("physical.resistance", 0.0));
+                double magPass = (1.0 - stats.getDouble("magical.defense-rate", 0.0))
+                        * (1.0 - stats.getDouble("magical.resistance", 0.0));
+                if (physPass > magPass) {
+                    physSoft++;
+                } else if (magPass > physPass) {
+                    magSoft++;
+                }
+            }
+            if (physSoft == 0 && magSoft == 0) {
+                continue;
+            }
+            if (physSoft > 0 && magSoft > 0) {
+                mixedWithinDungeon.add(world + "(物理 " + physSoft + " / 魔法 " + magSoft + ")");
+            }
+            spread.merge(attackSide + " x " + (physSoft >= magSoft ? "物理が通る" : "魔法が通る"), 1, Integer::sum);
+        }
+
+        assertEquals(List.of(), mixedWithinDungeon,
+                "1つのダンジョンの中で【通る属性が混ざっている】: " + mixedWithinDungeon + "。"
+                        + "ダンジョン単位で弱点を揃えないと、入る前に武器を選べない"
+                        + "(＝両方持ち込むのが常に正解になり、選択が消える)。");
+
+        List<String> missing = new ArrayList<>();
+        for (String attack : List.of("物理攻撃", "魔法攻撃")) {
+            for (String soft : List.of("物理が通る", "魔法が通る")) {
+                String key = attack + " x " + soft;
+                if (spread.getOrDefault(key, 0) < 3) {
+                    missing.add(key + "=" + spread.getOrDefault(key, 0));
+                }
+            }
+        }
+        assertEquals(List.of(), missing,
+                "攻撃属性 x 弱点の組み合わせが偏っている(各3ダンジョン以上を要求): " + missing
+                        + " / 実際の分布 " + spread + "。"
+                        + "2026-08-21(W-182)以前は【攻めと受けは必ず逆】という固定ルールで、"
+                        + "23 ダンジョン中に2種類しか存在しなかった。攻撃属性を見た瞬間に"
+                        + "持ち込む武器が決まるので、選択が実質存在しない状態だった。"
+                        + "『魔法で殴ってきて魔法が通る』ような同属性の組み合わせは【意図的】。");
+    }
+
+    // ---------------------------------------------------------------- 装備
+
+    @Test
+    @DisplayName("メイジローブ(魔法耐性を持つ革防具)が最大HPを持っている")
+    void mageRobesCarryMaxHealth() throws IOException {
+        ConfigurationSection items =
+                loadShippedYaml(ItemStatsConfig.PATH).getConfigurationSection("items");
+        assertNotNull(items, "stats/item-stats.yml の items: が読めていない");
+
+        List<String> noHealth = new ArrayList<>();
+        int robes = 0;
+        for (String id : items.getKeys(false)) {
+            if (!id.startsWith("LEATHER_") || !id.contains("#")) {
+                continue;
+            }
+            ConfigurationSection item = items.getConfigurationSection(id);
+            // 魔法耐性を持つ革防具 = メイジローブ3系統(守護/魔導/魔織)。
+            // 同じ革でも骨鎧・深海鱗などの通常ラインは magic-resistance を持たない。
+            if (item == null || !item.isSet("fixed.magic-resistance")) {
+                continue;
+            }
+            robes++;
+            boolean hasFixed = item.isSet("fixed.max-health");
+            boolean hasRoll = item.getDouble("random.max-health.max", 0.0) > 0.0;
+            if (!hasFixed || !hasRoll) {
+                noHealth.add(id + (hasFixed ? "" : " [fixed なし]") + (hasRoll ? "" : " [ロールなし]"));
+            }
+        }
+
+        assertTrue(robes >= 60, "メイジローブが " + robes + " 部位しか見つからない(3系統 x 5tier x 4部位 = 60 のはず)");
+        assertEquals(List.of(), noHealth,
+                "最大HPを持たないメイジローブがある: " + noHealth + "。"
+                        + "max-health のキーごと無いと最大HPはバニラの 20 のまま = "
+                        + "【着替えた瞬間に最大HPが 94 から 20 へ落ちる】。"
+                        + "2026-08-21(W-182)まで 60 部位すべてがこの状態で、"
+                        + "『魔法が痛いから魔法防御装備に着替える』という当然の選択肢が成立していなかった。"
+                        + "書式は他の防具と同じ fixed.max-health(確定分) + random.max-health{min:0,max:R}(ロール分)。"
+                        + "係数は系統のコンセプトで決める: 守護(重装)0.40倍 / 魔導 1.00倍 / 魔織 0.60倍。");
     }
 
     // ---------------------------------------------------------------- helpers

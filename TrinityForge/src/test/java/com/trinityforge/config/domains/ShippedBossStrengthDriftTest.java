@@ -133,24 +133,44 @@ class ShippedBossStrengthDriftTest {
     }
 
     /**
+     * 梯子の値に対して実際の攻撃力が収まってよい帯。
+     *
+     * <p>2026-08-21(W-182)で<b>「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発</b>にした
+     * 結果、係数はダンジョンごとに 0.746〜0.834 の幅で解かれた ——
+     * 強い敵ほど大きく削らないと同じ「+1.5 発」にならないため、<b>梯子は攻撃力の絶対値ではなく
+     * 耐発数の側で等間隔になった</b>。だからここは「ぴったり一致」ではなく帯で見る。
+     *
+     * <p>それでも帯で縛る意味は残る: この10本だけ<b>絶対値</b>なので、ランプや他ダンジョンを
+     * 動かしたときに置き去りになる(2026-08-19 に実際に起きた。旧値 101.5 は帯の 2 倍以上)。
+     */
+    private static final double TRIAL_BAND_MIN = 0.70;
+
+    /** @see #TRIAL_BAND_MIN */
+    private static final double TRIAL_BAND_MAX = 1.00;
+
+    /**
      * 柱2 の段階表: モブid -&gt; {HP倍率, 攻撃倍率}。増援は載せない(「変更しない」が仕様)。
      *
-     * <p><b>2026-08-21(W-181「格下レベルのボスにワンパンされる」)で攻撃側だけ下げた。</b>
-     * 1.3/1.4/1.5/1.8 → 1.15/1.20/1.25/1.40、ミニボス 1.2 → 1.10。
-     * 「攻撃力を下げたぶんをHPへ振り替える」方針だが、束縛者は<b>難易度10</b>なので
+     * <p><b>2026-08-21 に攻撃側だけ2度下げた。</b> W-181(ワンパン是正)で
+     * 1.3/1.4/1.5/1.8 → 1.15/1.20/1.25/1.40、ミニボス 1.2 → 1.10。さらに W-182
+     * 「耐えられる通常攻撃の回数を全ダンジョン一律 +1.5 発」でモブ単位に解き直して現在の値になった。
+     * <b>1.09 や 1.219 のような半端な数字はその解の結果なので、キリのよい値へ丸めないこと</b>
+     * (丸めると束縛者だけ耐発数がずれる)。
+     *
+     * <p>「攻撃力を下げたぶんをHPへ振り替える」方針だが、束縛者は<b>難易度10</b>なので
      * HP側の逓減梯子(難易度1が最大・10で 1.0)では倍率 1.0 ＝ HPは据え置きになる。
      * ここで HP 倍率が動いていないのはその帰結であって、書き忘れではない。
      */
     private static final Map<String, double[]> BINDER_TIER = new LinkedHashMap<>();
 
     static {
-        BINDER_TIER.put("em_id_binder_of_worlds_phase_1", new double[] {2.5, 1.15});
-        BINDER_TIER.put("em_id_binder_of_worlds_phase_2", new double[] {3.0, 1.2});
-        BINDER_TIER.put("em_id_binder_of_worlds_phase_3", new double[] {3.5, 1.25});
-        BINDER_TIER.put("em_id_binder_of_worlds_phase_4", new double[] {6.0, 1.4});
-        BINDER_TIER.put("em_id_binder_of_worlds_phase_1_melee_miniboss", new double[] {1.8, 1.1});
-        BINDER_TIER.put("em_id_binder_of_worlds_phase_1_ranged_miniboss", new double[] {1.8, 1.1});
-        BINDER_TIER.put("em_id_binder_of_worlds_phase_1_status_miniboss", new double[] {1.8, 1.1});
+        BINDER_TIER.put("em_id_binder_of_worlds_phase_1", new double[] {2.5, 1.09});
+        BINDER_TIER.put("em_id_binder_of_worlds_phase_2", new double[] {3.0, 1.117});
+        BINDER_TIER.put("em_id_binder_of_worlds_phase_3", new double[] {3.5, 1.144});
+        BINDER_TIER.put("em_id_binder_of_worlds_phase_4", new double[] {6.0, 1.219});
+        BINDER_TIER.put("em_id_binder_of_worlds_phase_1_melee_miniboss", new double[] {1.8, 1.061});
+        BINDER_TIER.put("em_id_binder_of_worlds_phase_1_ranged_miniboss", new double[] {1.8, 1.061});
+        BINDER_TIER.put("em_id_binder_of_worlds_phase_1_status_miniboss", new double[] {1.8, 1.061});
     }
 
     /**
@@ -595,18 +615,32 @@ class ShippedBossStrengthDriftTest {
                 problems.add(world + ": scope 直下の attack.attack-power が無い");
                 continue;
             }
-            double expected = Math.rint(ramp * trialDifficultyFactor(n) * 100.0) / 100.0;
+            double ladder = ramp * trialDifficultyFactor(n);
             double actual = stats.getDouble("attack.attack-power");
-            if (Math.abs(actual - expected) > 0.01) {
-                problems.add(world + ": " + actual + " (期待 " + expected + " = 共通ランプ Lv"
-                        + TRIAL_PLAYER_LEVEL + " " + String.format("%.2f", ramp) + " × 難易度係数 "
+            double share = actual / ladder;
+            if (share < TRIAL_BAND_MIN || share > TRIAL_BAND_MAX) {
+                problems.add(world + ": " + actual + " (梯子の " + String.format("%.3f", share)
+                        + " 倍。許容 " + TRIAL_BAND_MIN + "〜" + TRIAL_BAND_MAX
+                        + " / 梯子 = 共通ランプ Lv" + TRIAL_PLAYER_LEVEL + " "
+                        + String.format("%.2f", ramp) + " × 難易度係数 "
                         + String.format("%.4f", trialDifficultyFactor(n)) + ")");
+            }
+            if (n > 1) {
+                double prev = yaml.getDouble("overrides.em_id_enchantment_challenge_"
+                        + (n - 1) + ".stats.attack.attack-power");
+                if (actual <= prev) {
+                    problems.add(world + ": 攻撃力 " + actual + " が試練" + (n - 1) + " の " + prev
+                            + " を上回っていない(梯子が単調でない)");
+                }
             }
         }
         assertEquals(List.of(), problems,
                 "エンチャント試練の攻撃力が梯子から外れている: " + problems + "。"
                         + "この10本は絶対値なので【他ダンジョンの一斉調整に付いてこない】。"
-                        + "ランプや他ダンジョンの攻撃力を動かしたら、ここも同じ尺度へ揃え直すこと。");
+                        + "ランプや他ダンジョンの攻撃力を動かしたら、ここも同じ尺度へ揃え直すこと。"
+                        + "帯で見ているのは 2026-08-21(W-182)で【耐えられる回数を一律 +1.5 発】に"
+                        + "したため —— 強い敵ほど大きく削る必要があり、梯子は攻撃力ではなく"
+                        + "耐発数の側で等間隔になっている。");
     }
 
     /**
