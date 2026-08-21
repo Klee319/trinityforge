@@ -297,33 +297,103 @@
 
 items:
   STRING#300004:
+    # 迅速(gathering-efficiency): 素早く動く=作業も速い
+    per-quality:
+      gathering-efficiency: 0.04
+    random:
+      gathering-efficiency:
+        min: 0.1
+        max: 1.6
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300005:
+    # 跳躍(hunger-save-chance): 跳ね回っても腹が減りにくい
+    per-quality:
+      hunger-save-chance: 0.004
+    random:
+      hunger-save-chance:
+        min: 0.007
+        max: 0.094
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300006:
+    # 暗視(mining-fortune): 暗い坑道で掘る
+    per-quality:
+      mining-fortune: 0.004
+    random:
+      mining-fortune:
+        min: 0.007
+        max: 0.094
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300007:
+    # 耐火(brew-speed-bonus): 火を扱う=醸造台
+    per-quality:
+      brew-speed-bonus: 0.005
+    random:
+      brew-speed-bonus:
+        min: 0.009
+        max: 0.112
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300008:
+    # イルカの好意(ocean-fishing-bonus): 海を泳ぐ
+    per-quality:
+      ocean-fishing-bonus: 0.005
+    random:
+      ocean-fishing-bonus:
+        min: 0.009
+        max: 0.112
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300009:
+    # コンジットパワー(fishing-luck): 水中に留まる=釣り
+    per-quality:
+      fishing-luck: 0.004
+    random:
+      fishing-luck:
+        min: 0.007
+        max: 0.094
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300010:
+    # 村の英雄(mob-drop-quality): 襲撃を退けた者への報い
+    per-quality:
+      mob-drop-quality: 0.05
+    random:
+      mob-drop-quality:
+        min: 0.1
+        max: 1.8
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300011:
+    # 体力増強(food-restore-bonus): 体力=回復と満腹
+    per-quality:
+      food-restore-bonus: 0.015
+    random:
+      food-restore-bonus:
+        min: 0.027
+        max: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300015:
+    # 飛行(vanilla-exp-bonus): 行動範囲が広がる=経験が増える
+    per-quality:
+      vanilla-exp-bonus: 0.005
+    random:
+      vanilla-exp-bonus:
+        min: 0.009
+        max: 0.112
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300039:
+    # 浮遊(woodcutting-extra-drop-chance): 高所=樹上での作業
+    per-quality:
+      woodcutting-extra-drop-chance: 0.004
+    random:
+      woodcutting-extra-drop-chance:
+        min: 0.007
+        max: 0.094
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300040:
@@ -399,6 +469,13 @@ items:
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300016:
+    # バックパック(material-refund-chance): 物を無駄にしない
+    per-quality:
+      material-refund-chance: 0.004
+    random:
+      material-refund-chance:
+        min: 0.007
+        max: 0.094
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300019:

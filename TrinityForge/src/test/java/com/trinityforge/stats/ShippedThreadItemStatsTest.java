@@ -190,17 +190,22 @@ class ShippedThreadItemStatsTest {
         // --- 常時効果系(名称の効果はポーション/飛行/バックパックで配っている) ---
         // 2026-08-21: ここに据えていた「近い戦闘軸」(dodge-chance / crit-chance など)を全部外した。
         // ポーション効果で速くなるスレッドが会心も配る理由が無く、戦闘スレッドと役割が被っていた。
-        m.put(300004, Thread.statless("迅速"));
-        m.put(300005, Thread.statless("跳躍"));
-        m.put(300006, Thread.statless("暗視"));
-        m.put(300007, Thread.statless("耐火"));
-        m.put(300008, Thread.statless("イルカの好意"));
-        m.put(300009, Thread.statless("コンジットパワー"));
-        m.put(300010, Thread.statless("村の英雄"));
-        m.put(300011, Thread.statless("体力増強"));
-        m.put(300015, Thread.statless("飛行"));
-        m.put(300016, Thread.statless("バックパック"));
-        m.put(300039, Thread.statless("浮遊"));
+        // 2026-08-22: 空のままだと「常時効果しか無い＝厳選もセット効果も無い」札になるので、
+        // 幸運のスレッドと同じ形(per-quality + random の1軸 / セット効果は3個・5個の2段)で
+        // 【常時効果に関連する GENERAL 系ステ】を据え直した。戦闘ステは引き続き1件も持たない。
+        // ATTRIBUTE 系(move-speed 等)は名前の上では一番近いが、スレッドの寄与経路には
+        // 乗らない(下の statfulThreadsNeverApplyFromTheOffhand の javadoc 参照)ので使えない。
+        m.put(300004, Thread.domain("迅速", "gathering-efficiency"));           // 速く動く=作業も速い
+        m.put(300005, Thread.domain("跳躍", "hunger-save-chance"));             // 跳ね回っても腹が減りにくい
+        m.put(300006, Thread.domain("暗視", "mining-fortune"));                 // 暗い坑道で掘る
+        m.put(300007, Thread.domain("耐火", "brew-speed-bonus"));               // 火を扱う=醸造台
+        m.put(300008, Thread.domain("イルカの好意", "ocean-fishing-bonus"));     // 海を泳ぐ
+        m.put(300009, Thread.domain("コンジットパワー", "fishing-luck"));         // 水中に留まる=釣り
+        m.put(300010, Thread.domain("村の英雄", "mob-drop-quality"));            // 襲撃を退けた者への報い
+        m.put(300011, Thread.domain("体力増強", "food-restore-bonus"));          // 体力=回復と満腹
+        m.put(300015, Thread.domain("飛行", "vanilla-exp-bonus"));              // 行動範囲が広がる=経験が増える
+        m.put(300016, Thread.domain("バックパック", "material-refund-chance"));  // 物を無駄にしない
+        m.put(300039, Thread.domain("浮遊", "woodcutting-extra-drop-chance"));  // 高所=樹上での作業
         // --- 2026-08-21 追加: 戦闘系24種 ---
         // 前半14種は武器アーキタイプとの「デザイナーズコンボ」、後半10種は汎用。
         // 主ステは武器の性格に寄せてある(短剣=会心率、弩=貫通、大剣=被ダメ軽減…)。

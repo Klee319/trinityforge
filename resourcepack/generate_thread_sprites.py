@@ -51,7 +51,8 @@ TEMPLATES = [
     'sentry', 'dune', 'coast', 'wild', 'ward', 'eye', 'vex', 'tide', 'snout',
     'rib', 'spire', 'wayfinder', 'shaper', 'silence', 'raiser', 'host', 'flow', 'bolt',
 ]
-NETHERITE_TEMPLATE = 'netherite_upgrade_smithing_template'
+# ネザライトアップグレードの鍛冶型は【形が違う】(防具トリムの型と輪郭が別物)ので使わない。
+# 2026-08-22 のユーザー指示。19 種目として混ぜていたが、1 枚だけ形の系統が浮いていた。
 
 # MiniMessage の色名 → 色相(度)と彩度の下駄。TF の表示名で実際に使われている色だけ。
 # grey/white/black は色相を持たないので、彩度をほぼ 0 にして「無彩色の型」にする。
@@ -116,8 +117,6 @@ def load_templates():
         for name in TEMPLATES:
             path = 'assets/minecraft/textures/item/%s_armor_trim_smithing_template.png' % name
             images.append((name, Image.open(io.BytesIO(z.read(path))).convert('RGBA')))
-        path = 'assets/minecraft/textures/item/%s.png' % NETHERITE_TEMPLATE
-        images.append(('netherite', Image.open(io.BytesIO(z.read(path))).convert('RGBA')))
     return images
 
 
@@ -161,7 +160,7 @@ def variant_params(thread, index):
     sat = base_sat * SAT_STEPS[(cmd // 7) % len(SAT_STEPS)]
     value = VALUE_STEPS[(cmd // 3) % len(VALUE_STEPS)]
     contrast = 1.0 + 0.12 * ((cmd // 11) % 3)
-    return hue, sat, value, contrast, index % (len(TEMPLATES) + 1)
+    return hue, sat, value, contrast, index % len(TEMPLATES)
 
 
 def main():
