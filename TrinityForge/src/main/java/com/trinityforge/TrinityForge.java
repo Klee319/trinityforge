@@ -204,7 +204,6 @@ public final class TrinityForge extends JavaPlugin {
      */
     private Runnable damageIndicatorUninstaller;
     /** 称号のクライアント騎乗(任意依存 packetevents)の登録解除。未導入なら null のまま。 */
-    private Runnable titleMountUninstaller;
     private ItemFactory itemFactory;
     /** {@link #loreComposer()} の実体。{@code inertStatKeys} 配線済みの1本を共有する。 */
     private LoreComposer loreComposer;
@@ -1336,9 +1335,9 @@ public final class TrinityForge extends JavaPlugin {
         damagePopupDisplay.start();
 
         installDamageIndicatorLimiter();
-        installTitleDisplayMountBridge();
 
-        // 称号頭上表示(パッセンジャーTextDisplay) + パーティクル演出の周期タスク開始。
+        // 称号頭上表示(毎tickテレポート追従のTextDisplay) + パーティクル演出の周期タスク開始。
+        // ⚠️ 2026-08-21: プレイヤーへ騎乗させてはいけない(名前が消える)。理由は TitleDisplayService の javadoc。
         titleDisplayService.start();
         particleEffectService.start();
         // アチーブメント統計ポーリング(1分毎、§6.2): JUMP/WALK_ONE_CM/PLAY_ONE_MINUTE等バニラStatistic。
@@ -1405,34 +1404,6 @@ public final class TrinityForge extends JavaPlugin {
         }
     }
 
-    /**
-     * 称号の表示体をクライアント側でだけプレイヤーへ騎乗させる(任意依存、2026-08-19 / W-153)。
-     *
-     * <p>実サーバ報告「称号の位置がネームタグと同期していない。少し遅れてついてくる」への対処。
-     * サーバ側で本当に騎乗させると<b>そのプレイヤーのテレポートが無言で失敗する</b>
-     * (PaperMC/Paper#10168)ので、パケットだけで騎乗させる。
-     * packetevents が無ければ {@link com.trinityforge.progression.TitleDisplayMountBridge} を
-     * <b>参照してはならない</b>(クラスロードが {@link NoClassDefFoundError} になる)。
-     * 未導入時は従来のテレポート追従のまま動く(ズレは残るが表示は出る)。
-     */
-    private void installTitleDisplayMountBridge() {
-        if (titleDisplayService == null) {
-            return;
-        }
-        if (getServer().getPluginManager()
-                .getPlugin(com.trinityforge.progression.TitleDisplayMountBridge.PACKETEVENTS_PLUGIN) == null) {
-            getLogger().info("[title-display] packetevents が未導入のため、称号はテレポート追従で表示します"
-                    + "(ネームタグとの追従に僅かなズレが残ります)。");
-            return;
-        }
-        try {
-            this.titleMountUninstaller =
-                    com.trinityforge.progression.TitleDisplayMountBridge.install(this, titleDisplayService);
-        } catch (Throwable ex) { // NoClassDefFoundError も含めて握る — 表示だけの機能で起動を止めない
-            getLogger().warning("[title-display] 称号のクライアント騎乗を有効化できませんでした: " + ex);
-        }
-    }
-
     @Override
     public void onDisable() {
         // Stop the sweep task and drop all tracked threat so a disable/hot-reload leaks nothing.
@@ -1472,14 +1443,6 @@ public final class TrinityForge extends JavaPlugin {
                 getLogger().warning("[display] damage_indicator パーティクル上限の登録解除に失敗しました: " + ex);
             }
             damageIndicatorUninstaller = null;
-        }
-        if (titleMountUninstaller != null) {
-            try {
-                titleMountUninstaller.run();
-            } catch (Throwable ex) {
-                getLogger().warning("[title-display] 称号のクライアント騎乗の登録解除に失敗しました: " + ex);
-            }
-            titleMountUninstaller = null;
         }
         // DamagePopupDisplay has no shutdown(): its displays are one-shot and so short-lived (default
         // 15 ticks = 0.75s) that forced cleanup on disable is unnecessary — each already schedules its

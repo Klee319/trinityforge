@@ -8,9 +8,12 @@ import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 
+import java.lang.reflect.Method;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -147,69 +150,35 @@ class TitleDisplayServiceTest {
     }
 
     /**
-     * <b>2026-08-19 / W-153</b>: 実サーバ報告「称号の位置がネームタグと同期していない。
-     * 少し遅れてついてくる」への対処でクライアント騎乗へ移した。騎乗した乗客の描画基準は
-     * 足元ではなく<b>取付点</b>になるので、平行移動はその差分でなければならない。
+     * <b>2026-08-21: 称号をプレイヤーへ騎乗させてはいけない。</b>
      *
-     * <p><b>2026-08-20 / W-174</b>: この検証は元々 {@code height * 0.75} を<b>テストにも書き写して</b>
-     * いたので、実装と同じ思い込み(取付点=高さ×0.75)がそのまま固定され、間違いを一度も検出できなかった。
-     * 今は「置きたい絶対高さ = 高さ + 0.5 + clearance」という<b>独立に決まる値</b>と突き合わせる。
-     * 取付点の実値は {@code paper-1.21.11} の逆アセンブルで確定させてある
-     * ({@code EntityAttachment.PASSENGER} の fallback は {@code AT_HEIGHT} = 高さそのもの。
-     * {@code EntityType.PLAYER} は {@code passengerAttachments} を呼んでいない)。
+     * <p>実サーバ報告「ネームタグが表示されていない(他人の名前も見えない)」。切り分けで
+     * <b>称号を外している人のネームタグは出る</b>ことが確認され、称号表示が原因と確定した。
+     * 高さの重なり(W-174)ではない —— W-174 の幾何修正は稼働 jar に入っていることを
+     * 逆アセンブルで確認済みで、実サーバの clearance 0.1 でも称号はネームタグの上に居る。
+     * 2026-08-03〜08-19 の「テレポート追従の独立エンティティ」では同じ高さで名前が見えており、
+     * クライアント騎乗(W-153)を足した翌日に消えた。差分は騎乗だけだった。
+     *
+     * <p>この件は<b>2度</b>「高さの問題」として直され、2度とも再発している。もっともらしい説明で
+     * 塞いだつもりになるのを防ぐため、ここでは高さではなく<b>騎乗機構の不在そのもの</b>を固定する。
+     * 追従の遅れを消したくなって騎乗を戻すと、代わりにプレイヤーの名前が消える。
      */
     @Test
-    void mountTranslationPutsTheTitleExactlyAtTheIntendedAbsoluteHeight() {
-        double height = 1.8;
-        double eyes = 1.62;
-        double clearance = 0.4;
-
-        double translation = TitleDisplayService.mountTranslationY(height, eyes, clearance);
-        double rendered = TitleDisplayService.passengerAttachmentY(height) + translation;
-
-        assertEquals(height + 0.5 + 0.25 + clearance, rendered, 1e-9,
-                "騎乗時の実描画高さは『ネームタグ(高さ+0.5) + 1行ぶん(0.25) + clearance』ちょうどであること");
-        assertEquals(TitleDisplayService.titleAnchorY(height, eyes, clearance), rendered, 1e-9,
-                "騎乗経路と非騎乗(テレポート追従)経路が同じ高さに描くこと");
-    }
-
-    /**
-     * 取付点そのものが「高さ×1.0」であること(W-174)。
-     * 0.75 に戻すと立ち状態で称号が 0.45 ブロック高く浮く ── 実サーバ報告そのもの。
-     */
-    @Test
-    void passengerAttachmentIsTheFullHeight() {
-        assertEquals(1.8, TitleDisplayService.passengerAttachmentY(1.8), 1e-9);
-        assertEquals(1.5, TitleDisplayService.passengerAttachmentY(1.5), 1e-9);
-        assertEquals(1.8, TitleDisplayService.passengerAttachmentY(Double.NaN), 1e-9);
-    }
-
-    /**
-     * <b>2026-08-20 / W-174</b>: 以前ここは {@code rendered >= height + 0.5} しか見ておらず、
-     * <b>等号(＝名前とぴったり重なる)を許していた</b>。名前も称号も1行の高さが約 0.25 あるので、
-     * 中心どうしが 0.25 未満しか離れていなければ名前は読めなくなる ── 出荷値 0.2 / 実サーバ 0.1 は
-     * どちらもその側で、実サーバ報告「称号がバニラのネームタグを消してしまっている」がこれだった。
-     * 不変条件を「下に来ない」から<b>「重ならない」</b>へ強める。
-     */
-    @Test
-    void mountedTitleNeverOverlapsTheVanillaNametagForAnyPostureOrClearance() {
-        double[][] postures = {{1.8, 1.62}, {1.5, 1.27}, {0.6, 1.27}};
-        for (double[] posture : postures) {
-            double height = posture[0];
-            double eyes = posture[1];
-            // clearance 0(＝設定で最も詰めた状態)でも重ならないこと。0.1 は実サーバの設定値。
-            for (double clearance : new double[] {0.0, 0.1, 0.2, 0.4, 1.0}) {
-                double rendered = TitleDisplayService.passengerAttachmentY(height)
-                        + TitleDisplayService.mountTranslationY(height, eyes, clearance);
-                double nametag = height + 0.5;
-                assertTrue(rendered >= nametag + 0.25,
-                        "騎乗時の描画高さ " + rendered + " がネームタグ(" + nametag
-                                + ")と1行ぶん(0.25)離れていない。名前が読めなくなる");
+    void theTitleIsNeverMountedOnThePlayer() {
+        for (String gone : new String[] {"mountTranslationY", "passengerAttachmentY",
+                "mountPairFor", "mountPairs", "setMountBridgeActive"}) {
+            for (Method method : TitleDisplayService.class.getDeclaredMethods()) {
+                assertNotEquals(gone, method.getName(),
+                        "称号のクライアント騎乗が戻っている(" + gone
+                                + ")。騎乗するとプレイヤーのネームタグが消える —— javadoc 参照");
             }
         }
+        assertThrows(ClassNotFoundException.class,
+                () -> Class.forName("com.trinityforge.progression.TitleDisplayMountBridge"),
+                "騎乗ブリッジが復活している。ネームタグが消えるので戻してはいけない");
     }
 
-    /** 騎乗していない(packetevents 未導入)経路も同じ「重ならない」保証を持つこと。 */
+    /** テレポート追従(＝唯一の経路)が名前の行と重ならないこと。 */
     @Test
     void teleportFollowedTitleNeverOverlapsTheVanillaNametagEither() {
         double[][] postures = {{1.8, 1.62}, {1.5, 1.27}, {0.6, 1.27}};
@@ -222,15 +191,6 @@ class TitleDisplayServiceTest {
                         "テレポート追従時の高さ " + anchor + " が名前の行と重なる");
             }
         }
-    }
-
-    @Test
-    void brokenHeightDoesNotBlowUpTheMountTranslation() {
-        // 高さが壊れた値でも 1.8 として扱い、取付点もその 1.8 で引く(式の両側が同じ既定を使う)。
-        assertEquals(TitleDisplayService.mountTranslationY(1.8, 1.62, 0.4),
-                TitleDisplayService.mountTranslationY(Double.NaN, 1.62, 0.4), 1e-9);
-        assertEquals(TitleDisplayService.mountTranslationY(1.8, 1.62, 0.4),
-                TitleDisplayService.mountTranslationY(-1.0, 1.62, 0.4), 1e-9);
     }
 
     @Test
