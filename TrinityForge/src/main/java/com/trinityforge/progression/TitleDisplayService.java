@@ -25,8 +25,11 @@ import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Transformation;
 import org.joml.Vector3f;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.DoubleSupplier;
@@ -165,8 +168,21 @@ public final class TitleDisplayService implements Listener {
     /** 直近に適用した平行移動のY(表示ごと)。metadata パケットを毎tick撒かないための差分判定用。 */
     private final Map<UUID, Double> appliedTranslationY = new ConcurrentHashMap<>();
     /** パケット層のクライアント騎乗が実際に動いているか({@code TitleDisplayMountBridge} が立てる)。 */
+    /**
+     * 迷子掃除の間隔(tick)。5秒 —— 二重表示に気付く前に消える速さと、
+     * 近傍検索を毎tick回さない安さの折衷。
+     */
+    private static final long ORPHAN_SWEEP_PERIOD_TICKS = 100L;
+    /**
+     * 迷子掃除で見る半径(ブロック)。称号はプレイヤーの位置に湧くので、
+     * 「今誰かに見えている迷子」はプレイヤーの近傍にしか居ない。
+     * 全ワールド総なめ({@link #sweepOrphans})を定期実行すると人数と規模で効いてくるので使わない。
+     */
+    private static final double ORPHAN_SWEEP_RADIUS = 16.0;
+
     private volatile boolean mountBridgeActive;
     private BukkitTask task;
+    private BukkitTask orphanSweepTask;
 
     public TitleDisplayService(Plugin plugin, Function<Player, String> textResolver, DoubleSupplier nametagClearance) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
@@ -271,12 +287,20 @@ public final class TitleDisplayService implements Listener {
         if (task == null) {
             task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, PERIOD_TICKS, PERIOD_TICKS);
         }
+        if (orphanSweepTask == null) {
+            orphanSweepTask = Bukkit.getScheduler().runTaskTimer(plugin, this::sweepNearbyOrphans,
+                    ORPHAN_SWEEP_PERIOD_TICKS, ORPHAN_SWEEP_PERIOD_TICKS);
+        }
     }
 
     public void shutdown() {
         if (task != null) {
             task.cancel();
             task = null;
+        }
+        if (orphanSweepTask != null) {
+            orphanSweepTask.cancel();
+            orphanSweepTask = null;
         }
         for (TextDisplay display : active.values()) {
             safeRemove(display);
@@ -323,7 +347,12 @@ public final class TitleDisplayService implements Listener {
                 continue;
             }
             if (display == null || !display.isValid()) {
-                active.remove(playerId);
+                // ⚠️ 追跡から外すだけでは【実体が残る】(2026-08-21 実サーバ報告「称号が二個付いている」)。
+                // isValid() が false になるのは「死んだ」ときだけではない ── CraftEntity#isValid() は
+                // チャンクがロード済みでワールドのエンティティリストに載っていることまで見るので、
+                // 遠距離テレポート直後や湧かせた直後にも false になる。そこで実体を消さずに
+                // 張り直すと、誰も追跡していない称号が世界に残り、新しいほうと二段に並ぶ。
+                despawn(playerId);
                 refresh(player);
                 continue;
             }
@@ -411,10 +440,75 @@ public final class TitleDisplayService implements Listener {
         safeRemove(display);
     }
 
-    private static void safeRemove(Entity entity) {
-        if (entity != null && entity.isValid()) {
+    /**
+     * 表示体を確実に消す。
+     *
+     * <p><b>{@code isValid()} で門を張ってはいけない</b>(2026-08-21「称号が二個付いている」の真因の片割れ)。
+     * {@code CraftEntity#isValid()} は「生きている」に加えて<b>チャンクがロード済みで、ワールドの
+     * エンティティリストに登録済み</b>まで要求する。つまり<b>消したい相手が一番消えにくい状況</b>
+     * (プレイヤーが遠くへ飛んだ直後・湧かせた直後でまだ登録前・ワールド跨ぎの最中)でだけ false になり、
+     * そこで諦めると表示体は誰にも追跡されないまま残る。
+     * {@code Entity#remove()} は既に消えている個体へ呼んでも安全なので、素通しでよい。
+     */
+    static void safeRemove(Entity entity) {
+        if (entity != null) {
             entity.remove();
         }
+    }
+
+    /**
+     * 近傍の<b>迷子の称号</b>(TF の印を持つのに誰の追跡下にも無い {@link TextDisplay})を消す。
+     *
+     * <p>{@link #sweepOrphans} が起動時の1回きりなのに対し、こちらは常時走る安全網。
+     * 迷子を作る経路を個別に塞いでも、称号の表示体は「消し損ねても何のエラーも出ない」ので、
+     * 次に同種の穴が空いたときに気付けるのは<b>プレイヤーの目視だけ</b>になる。
+     * 追跡中の個体は entity id で除外する ── ここを間違えると自分の称号を毎5秒消して回る。
+     */
+    void sweepNearbyOrphans() {
+        Set<Integer> tracked = trackedEntityIds();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            removeOrphans(player.getNearbyEntities(
+                    ORPHAN_SWEEP_RADIUS, ORPHAN_SWEEP_RADIUS, ORPHAN_SWEEP_RADIUS), tracked);
+        }
+    }
+
+    /** 今このサービスが追跡している表示体の entity id。 */
+    Set<Integer> trackedEntityIds() {
+        Set<Integer> ids = new HashSet<>();
+        for (TextDisplay display : active.values()) {
+            if (display != null) {
+                ids.add(display.getEntityId());
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * {@code candidates} のうち「TF の称号の印を持つのに {@code trackedEntityIds} に居ない」個体を消す。
+     * Bukkit の生成に触れないので単体で試験できる(MockBukkit は {@code TextDisplay} の spawn を
+     * 未実装で、踏むとテストが FAILED ではなく SKIPPED に化ける)。
+     *
+     * @return 消した数
+     */
+    static int removeOrphans(Collection<Entity> candidates, Set<Integer> trackedEntityIds) {
+        if (candidates == null) {
+            return 0;
+        }
+        int removed = 0;
+        for (Entity entity : candidates) {
+            if (!(entity instanceof TextDisplay display)) {
+                continue;
+            }
+            if (!display.getPersistentDataContainer().has(PdcKeys.TITLE_DISPLAY, PersistentDataType.BYTE)) {
+                continue;
+            }
+            if (trackedEntityIds != null && trackedEntityIds.contains(display.getEntityId())) {
+                continue;
+            }
+            safeRemove(display);
+            removed++;
+        }
+        return removed;
     }
 
     private void sweepOrphans() {

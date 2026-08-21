@@ -5,20 +5,20 @@
 
 experience:
   max_level: 100
-  exp_level_curve: (%level% + 75 * 2^(%level%/7.6)) + 300
+  exp_level_curve: (%level% + 75 * 2^(%level%/8)) + 300
   alchemy_brew_exp: 150
-  exp_multiplier_quality: 0.005
+  exp_multiplier_quality: 0.05
   multiplier_automated: 0.25
-  multiplier_manual: 2
+  multiplier_manual: 1
   brew_result:
     AWKWARD: 150
     FIRE_RESISTANCE: 300
     NIGHT_VISION: 450
     SLOWNESS: 300
     SLOW_FALLING: 450
-    TURTLE_MASTER: 1500
+    TURTLE_MASTER: 800
     HEALING: 450
-    REGENERATION: 600
+    REGENERATION: 1800
     LEAPING: 450
     WEAKNESS: 300
     HARMING: 300
@@ -32,3 +32,30 @@ experience:
     GLOWSTONE_DUST: 150
     GUNPOWDER: 150
     DRAGON_BREATH: 450
+    custom:tf_crystal_apple: 1000
+    SLIME_BLOCK: 300
+    COBWEB: 300
+    # ---- 解放式カスタムポーション(progression/crafting-features.yml の brew-unlocks)の素材 ----
+    # 2026-08-21 ユーザー要望「カスタムポーションの素材に応じて醸造の経験値を設定して」。
+    #
+    # 【この表の効き方】素材行は brew_result より【優先】される(引けた時点で確定・結果表は見ない)。
+    # 解放式ポーションは完成品のベースが WATER へ倒れるので brew_result からは何も引けず、
+    # これまでは全部 alchemy_brew_exp(150)の定額に落ちていた。ここに素材を書くと素材ごとに分かれる。
+    #
+    # 【バニラ醸造と素材を共有する5行の値の決め方】素材で引く以上、同じ素材を使う【バニラの醸造にも
+    # 同じ値が乗る】。そこで共有する4種は「その素材で作れるバニラポーションの brew_result と同じ値」に
+    # 固定してある ―― こうすればバニラ側の取得量は1も変わらない。上げたい場合はバニラ側も一緒に
+    # 上がることを承知の上で変えること(素材だけでは両者を区別できない)。
+    SUGAR: 150                    # = brew_result.SWIFTNESS。カスタム: 俊敏III
+    RABBIT_FOOT: 450              # = brew_result.LEAPING。カスタム: 跳躍III
+    GLISTERING_MELON_SLICE: 450   # = brew_result.HEALING。カスタム: 体力増強I/II
+    GOLDEN_CARROT: 450            # = brew_result.NIGHT_VISION。カスタム: 採掘速度上昇I/II
+    GOLDEN_APPLE: 500             # バニラの醸造素材ではないので共有なし。カスタム: 幸運I
+    # ---- ここから下はカスタム素材(モブ限定ドロップ)なので、バニラ醸造とは一切共有しない ----
+    custom:sweet_berries_2x: 500      # 圧縮スイートベリー(栽培可)。カスタム: 即時回復III
+    custom:endermite_soot: 600        # エンダーマイト。カスタム: 盲目
+    custom:piglin_ear: 600            # ピグリン。カスタム: 吐き気
+    custom:stray_cloth: 700           # ストレイ(寒冷バイオーム限定)。カスタム: 鈍化III
+    custom:witch_elixir: 700          # ウィッチ。カスタム: 弱体化III
+    custom:ravager_hide: 1200         # ラヴェジャー(襲撃限定)。カスタム: 耐性II
+    custom:bogged_mossy_bone: 2000    # ボグド。カスタム: 再生III(バニラ再生1800より上)
