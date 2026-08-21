@@ -776,9 +776,12 @@ public final class CombatListener implements Listener {
                             tf.dungeonWorldRegistry().isDungeonWorld(dead.getWorld().getUID()));
             // レベル差による足きり(2026-08-09、combat/damage.yml の level-cutoff)。
             // 「止めを刺した1人」ではなく寄与のあった各プレイヤーへ配る仕組みなので、
-            // 受取人ごとにその人自身の戦闘レベルで判定する(全員が同じ倍率になるわけではない)。
+            // 受取人ごとに判定する(全員が同じ倍率になるわけではない)。
+            // 2026-08-22: 基準は戦闘レベルではなく【そのEXPが入る職業のレベル】。
+            // 戦闘レベルは pillar 写像で畳んだ値なので、軽武器100の純特化でも 67 にしかならず、
+            // 「軽武器スキル100 なのに Lv100 モブとのレベル差 33」と判定されて削られていた。
             KillRewardAdjuster adjuster = this.killRewardAdjuster;
-            double cutoff = adjuster == null ? 1.0 : adjuster.expMultiplier(contributor, dead);
+            double cutoff = adjuster == null ? 1.0 : adjuster.skillExpMultiplier(contributor, dead, skill);
             if (cutoff <= 0.0) continue;
             ArsProgressionBridge.grantSkillExp(plugin, contributor, skill,
                     amount * credit.share() * role * worldRate * spot * cutoff);

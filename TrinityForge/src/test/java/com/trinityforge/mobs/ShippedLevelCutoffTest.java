@@ -67,44 +67,61 @@ class ShippedLevelCutoffTest {
     }
 
     @Test
-    void shippedExpCurveFadesToZeroAcrossTheTwentyFiveToFiftyBand() {
-        // 2026-08-19 W-148: 帯を 15〜30 差から【25〜50 差】へ広げた。
+    void shippedExpCurveFadesToZeroAcrossTheFifteenToThirtyBand() {
+        // 2026-08-22 ユーザー指示で 25〜50 差から【15〜30 差】へ戻した。
         //
-        // 旧値はスキルレベルを基準に置かれていたが、この足きりが実際に比較するのは
-        // 【戦闘レベル】(progression/combat-level.yml の pillar 写像)で、単一特化のプレイヤーでは
-        // 最高スキルの約 2/3 にしかならない。つまり「スキル78 vs Lv80モブ」は
-        // レベル差 2 ではなく 28 として判定され、旧値では 0.13 倍まで削られていた
-        // (配備先DBの実データで、戦闘Lv53の人が約1000、戦闘Lv50以下の人がきっかり0)。
-        // 25 は「純特化ぶんの構造的なズレ(最高スキルの 1/3)」を吸収する幅。
+        // 25 は 2026-08-19 に「この足きりが比較するのは戦闘レベルで、単一特化のプレイヤーでは
+        // 最高スキルの約 2/3 にしかならない」ぶんを吸収するための水増しとして置いた値だった。
+        // 同じ日に職業EXPの判定基準を【そのEXPが入る職業のレベル】へ変えたので、
+        // 水増しの理由そのものが消えた ── 据え置くと足きりが当初意図より大幅に緩くなる。
+        // 15/0.067 は 2026-08-18 に最初に決めた形で、ようやく意図どおりの意味になった。
+        // なお【バニラの経験値オーブとTF追加ドロップは今も戦闘レベル基準】で、
+        // 変わったのは職業EXPが比較する数だけ(閾値・逓減は共通の1本)。
         ConfigurationSection under = underLevel();
         MobLevelCutoff cutoff = shippedCutoff();
         int expThreshold = under.getInt("exp-threshold", -1);
-        assertEquals(25, expThreshold, "経験値の逓減は25レベル差から始まること");
+        assertEquals(15, expThreshold, "経験値の逓減は15レベル差から始まること");
 
-        assertEquals(1.0, cutoff.expMultiplier(0, expThreshold - 1), 1e-9, "25差の手前は満額");
-        assertEquals(1.0, cutoff.expMultiplier(0, expThreshold), 1e-9, "25差ちょうどはまだ満額");
-        assertTrue(cutoff.expMultiplier(0, expThreshold + 1) < 1.0, "26差からは減り始めること");
+        assertEquals(1.0, cutoff.expMultiplier(0, expThreshold - 1), 1e-9, "15差の手前は満額");
+        assertEquals(1.0, cutoff.expMultiplier(0, expThreshold), 1e-9, "15差ちょうどはまだ満額");
+        assertTrue(cutoff.expMultiplier(0, expThreshold + 1) < 1.0, "16差からは減り始めること");
 
         // 途中は単調に減り、両端の間で必ず中間値を通る(ステップ関数に戻っていないことの確認)。
-        double at30 = cutoff.expMultiplier(0, 30);
-        double at40 = cutoff.expMultiplier(0, 40);
-        assertTrue(at30 > at40, "30差より40差のほうが少ないこと: " + at30 + " / " + at40);
-        assertTrue(at40 > 0.0, "40差でまだ0になっていないこと(区間をかけて減る): " + at40);
-        assertTrue(at30 < 1.0, "30差では既に減っていること: " + at30);
+        double at20 = cutoff.expMultiplier(0, 20);
+        double at25 = cutoff.expMultiplier(0, 25);
+        assertTrue(at20 > at25, "20差より25差のほうが少ないこと: " + at20 + " / " + at25);
+        assertTrue(at25 > 0.0, "25差でまだ0になっていないこと(区間をかけて減る): " + at25);
+        assertTrue(at20 < 1.0, "20差では既に減っていること: " + at20);
 
-        // 50差で0。ここが「ハメ殺しても何も入らない」ライン。
-        assertEquals(0.0, cutoff.expMultiplier(0, 50), 1e-9);
+        // 30差で0。ここが「ハメ殺しても何も入らない」ライン。
+        assertEquals(0.0, cutoff.expMultiplier(0, 30), 1e-9);
         assertEquals(0.0, cutoff.expMultiplier(0, 90), 1e-9);
     }
 
     @Test
+    void shippedExpCutoffStartsEarlierThanTheItemCutoff() {
+        // 2026-08-22 に経験値(15)がアイテム(20)より手前へ戻ったので、
+        // 2026-08-18 の当初の順序が復活している。順序そのものが狙いではないが、
+        // 「経験値だけ別の起点を持つ」という exp-threshold の存在理由が
+        // 実際に使われていること(＝ -1 へ戻って1本化していないこと)をここで固定する。
+        ConfigurationSection under = underLevel();
+        int itemThreshold = under.getInt("item-threshold");
+        int expThreshold = under.getInt("exp-threshold", -1);
+        assertTrue(expThreshold >= 0, "exp-threshold が -1(item と1本化)へ戻っている");
+        assertTrue(expThreshold < itemThreshold,
+                "経験値の起点(" + expThreshold + ")はアイテムの起点(" + itemThreshold + ")より手前であること");
+
+        MobLevelCutoff cutoff = shippedCutoff();
+        assertTrue(cutoff.expMultiplier(0, itemThreshold) < 1.0,
+                "アイテムが完全遮断される差では、経験値は既に減っていること");
+        assertEquals(1.0, cutoff.dropChanceMultiplier(0, expThreshold), 1e-9,
+                "経験値が絞られ始める差では、TF追加ドロップはまだ無干渉であること");
+    }
+
+    @Test
     void carriedLowLevelPlayerStillGetsNeitherExpNorItems() {
-        // 足きりを緩めても【ハメ狩り・お連れ様の抑制】という当初の狙いは残っていること。
-        // 経験値の閾値(25)がアイテムの閾値(20)より後ろになったのは 2026-08-19 の意図的な変更で、
-        // 旧テスト(shippedExpCutoffStartsEarlierThanTheItemCutoff)が固定していた
-        // 「経験値のほうが手前から絞られる」という順序は【もう成り立たない】。
-        // 順序そのものに意味があったのではなく「経験値にも効くこと」が狙いだったので、
-        // ここでは順序ではなく“大差では両方止まる”という結果のほうを固定する。
+        // 閾値をどう動かしても【ハメ狩り・お連れ様の抑制】という当初の狙いは残っていること。
+        // 個々の値ではなく“大差では両方止まる”という結果のほうを固定する。
         ConfigurationSection under = underLevel();
         MobLevelCutoff cutoff = shippedCutoff();
         int itemThreshold = under.getInt("item-threshold");
