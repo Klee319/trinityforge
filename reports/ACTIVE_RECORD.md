@@ -5224,6 +5224,66 @@ D2 の耐久消費は**範囲収穫の隣接マスにだけ**入るので、素�
 一括収穫の耐久は減らない／jar だけだと杖が unbreakable のまま）。
 
 
+### Wiki を現行仕様へ全面改訂し、正しい remote へ公開した（2026-08-22 指示）
+
+「以前からかなり仕様が変わったのでwikiを修正、追記してほしい」→ 選択は**全ページ総点検**。
+生成ページ 17 本を再生成したうえで、手書き 16 本を実コード／出荷 config と突き合わせて直した。
+TF `b8e5593`（prose 15 本 + ジェネレータ）、wiki `5d7d1d9`。
+
+**踏んだ地雷が 2 つある。**
+
+1. **`wiki/` クローンの remote が存在しないリポジトリ (`Klee319/trinityforge-wiki.git`) を指していた。**
+   GitHub Wiki の実体は `Klee319/trinityforge.wiki.git`（ブランチは `master`）。
+   ローカルの `main` ブランチは 5 commit ぶん**一度も公開されていなかった**（＝この worktree で
+   wiki を編集しても、誰も見ていないファイルを触っていた）。remote を張り替え、`origin/master`
+   から `publish` ブランチを切り直して push した。**以後 `wiki/` で作業するときはブランチ `publish`
+   を使うこと。** 旧 `main` は退避としてローカルに残してある。
+2. **`ban.yml` は空ではなかった。** 日輪(`solar`)・月輪(`lunar`)・ソニックブーム(`sonic_boom`)・
+   旅路(`journey`) の 4 つが**全ワールドBAN**で、これを 1 つでも含む呪文は
+   `SpellCaster#checkSpellBanned` が弾く（配備先 4 台すべてで同じ内容を確認）。
+   「ゲート系YAMLは空出荷」という記述が wiki 3 ページに残っていたので全部直した。
+
+**wiki が腐っていた主な箇所**（すべて実 config で裏取り済み）:
+
+| 箇所 | 旧記述 | 実際 |
+|---|---|---|
+| 品質 | 0〜9（10段） | **0〜15（16段・劣悪〜特異点）**。`quality.yml` の `max-quality: 9` はフォールバックで、段数は `quality-tiers.yml` の要素数が決める |
+| 戦闘レベル | 純特化100 → 100 | **67**（`pillars` の top1 除数が 1.0→1.5）。対象スキルも 4→**6**（防具2種が追加済み） |
+| `level-scaling.per-level` | 0.05 | **0.01** |
+| `vanilla-armor.defense-rate-per-point` | 0.04 | **0.015**。`armor-strength-per-point` は **0**（＝頑丈さは会心軽減へ変換しない） |
+| PvP | 「PvPなし」 | `enabled: true` だが `damage-multiplier: 0.001` / 最大体力の 25% 上限で**事実上通らない** |
+| `dungeon/gates.yml` | `gates: {}`（fail-open） | **28 本投入済み**。1 本でも書くと fail-close なので**書き漏らし＝入場不能** |
+| `dungeon/themes.yml` | 3 テーマ定義済み | **`themes: {}`（空）**。ダンジョン別の硬さは `mob-overrides.yml` のスコープへ移った |
+| `role-buffs.yml` | 剣闘士/魔術師 +12%、タンク守備力+40、補助3職 | 剣闘士=**貫通20%**、魔術師=**割合追加ダメ30%**、守衛=**被ダメ−10%＋ヘイト1.5倍**、補助は**5職**（農家/漁師/鉱夫/土工/きこり）。`role-change.allow-change: false` |
+| `base-stats.yml` | 空 `{}` | 全ステ列挙。**`crit-chance: 0.05` / `crit-damage: 0.5` だけ 0 以外**（＝素手でも会心する） |
+| `item-stats.yml` | 空の雛形64件 | **約 490 エントリが実値入り** |
+| `craft-quality.yml` | `category-skill` / `fishing.*` | `category-skill` は**実装側の固定**（tool は MINING→**SMITHING**）、釣りは `fishing-gimmick.yml` へ移設。`drop:` と `workbench:`/`ritual:` の σ 調整が新設 |
+| ArsPaper `config.yml` | `mana.recovery.*` / `loot.*` / `geyser.*` | **全部このファイルから消えた**。戦闘マナ回復は TF ステ `hit-mana-recovery`（被弾）/`damage-mana-recovery`（与ダメ）、ドロップは `loot-tables.yml` |
+| ArsPaper `armors.yml` | 9セット | **ファイルごと廃止**。魔道防具は TF `items/catalog.yml` へ（3系統 × 5ティア × 4部位 = **60品**） |
+| `threads.yml` | 防具専用・十数種 | **75 種**＋`thread-sets.yml` の**セット効果 73**。武器にも挿さる |
+| `materials.yml` | 中間素材4件 | **約 256 エントリ** |
+| グリフの使用ゲート | 「usage-gate.yml が空＝ゲート無し」 | 正本は**スキルツリーの `dedicated-effects: glyph:<key>`** 側で **57 個**が紐づく。OR 判定 |
+| 増幅(amplify) | 基礎＋増幅×N の加算 | **ダメージ系は乗算**（+10%/段・6段で×1.6）。力・速度・持続・召喚HPは加算のまま |
+| `/tf` のサブコマンド | `giveitem` ほか数件 | `give` へ改名済み。`mail`/`achievement`/`start`/`stop`/`bind`/`stamp`/`dungeon`/`status`/`role`/`collection`/`recipes`/`glyphs`/`settings`/`reward`/`inspect` が未記載だった |
+| EM `trinityforge.yml` | `dungeon-entry-gate: false` | **true**。`hp-delegation` / `suppress-native-combat-display` / `native-display-suppression` / `elite-drop-sources`（バニラloot以外すべて OFF）が未記載だった |
+
+**ジェネレータ側の修正**: スキルツリーのノード表が `effect-text` を優先していたのを
+`description` 優先へ（ゲーム内 `/skills` と同じ並び）。`light_weapons` の「斬り/刺し」は
+`effect-text` が「ノックバック距離増加」のまま出血系へ差し替わっており、**旧フィールドを
+優先していたせいで誤情報をそのまま載せていた**。あわせて 14-スキルツリー詳細 の数値表を
+構造表へ置き換え、数値は生成ページ（事典-職業スキルとスキルツリー）へ一本化して
+二重管理をやめた。
+
+**未対応で残したもの**（wiki の範囲外なので手を付けていない）:
+
+- `progression/combat-level.yml` の冒頭コメント「純特化(100)=100」が除数 1.0 時代のまま。
+  `damage.yml` 側のコメントは 67 で正しいので、**同じ事実の記述が 2 箇所で食い違っている**。
+- `combat/mob-overrides.yml` の `em_id_binder_of_worlds` に「fixed-damage(全防御貫通)は使わない」
+  というコメントがあるのに、同じスコープが `fixed-damage: 2.42` を出荷している。
+- `docs/wiki-source/prose/04-アイテム図鑑.md` は **どのページにも出力されない死んだソース**
+  （生成ページ 事典-アイテム索引 に置き換わり、リンクだけ書き換えている）。腐り続けるので
+  いずれ消すか、生成側へ統合するか決めたい。
+
 ## 4. 既知の未修正の問題・弱点
 
 いずれも**意図的に許容している**か、**直すには判断が要る**もの。新規に見つけたバグはここへ足す。
@@ -5383,6 +5443,7 @@ git 系:
 
 | 日付 | 内容 |
 |---|---|
+| 2026-08-22 | **Wiki 全面改訂**。生成17本を再生成＋手書き16本を実configと突き合わせ。`wiki/` の remote が存在しないリポジトリを指していたのを `trinityforge.wiki.git`(`master`)へ張り替えて初公開／`ban.yml` の全ワールドBAN 4種を発見 |
 | 2026-08-22 | **精錬魔法の変換表をかまどレシピ登録から組むようにした**（報告「精錬魔法が粘土玉に効かない」）。⚠️ **変換表が手書きのハードコード（`SMELT_MAP`）だった** —— 抜けは粘土玉（`CLAY_BALL → BRICK`）だけではなく、石炭/ラピス/レッドストーン/ダイヤ/エメラルドの各鉱石、ネザーの金鉱石・ネザークォーツ鉱石、後から追加された原木（淡いオーク等）、コーラスフルーツ、濡れたスポンジ…と広範囲。**1件足しても同じ穴が残り続ける**ので、表そのものを `Bukkit.recipeIterator()` のかまどレシピから組む方式へ変えた。⚠️ **取り込むのは `minecraft:` 名前空間だけ** —— プラグインのレシピを混ぜると入力/出力の CMD が落ちた「材質だけ」の変換になり、W-172 と同じ**カスタムアイテムの無言の喪失**を作る（`CustomItemConversionPolicy` が守れるのは入力側だけ）。⚠️ **耐久を持つ材質も除外** —— バニラには `iron_pickaxe → iron_nugget` が実在し、そのまま取り込むと**足元に落とした装備が詠唱1回でナゲットに化ける**。原石ブロック3種（`raw_*_block → *_block`）はバニラに無いフォーク独自の追加なので明示で残す。⚠️ 静的初期化子では組めない（レシピ登録前でクラスがロードされるので空になる）→ 初回詠唱時に遅延構築。表の組み立ては `buildTable` としてレシピ読み出しから切り離し、Bukkit 無しでテストできるようにした（このフォークのテスト基盤に MockBukkit は無い）。回帰は `SmeltTableBuildTest`（新設4本。除外と get(null) 許容を戻すと2本落ちることを実走確認）。fork 496/失敗0。**ArsPaper の jar のみ**（TF 本体・config は無変更）。 |
 | 2026-08-22 | **盾も「壊れない品」だったので直し、書き忘れを全件で縛った**（指摘「同じ理由で SHIELD も壊れない品のままです => 直す」）。杖10種と同じ穴で、`item-stats.yml` の `SHIELD` に `durability` が無く`ItemAssembler` が `setUnbreakable(true)` にしていた（＝**永久に壊れない盾**）。出荷の慣例どおり `201`（バニラ336 × 0.6）/ `per-quality: 34` を追加。⚠️ **1件ずつ回帰テストを足しても次の書き忘れは止まらない**ので、`ShippedEquipmentDurabilityTest` を新設して**耐久を持てる材質のエントリ全件**（`Material#getMaxDurability() > 0`、374件）に`durability` があることを縛った。⚠️ 材質名のサフィックス列挙（`_SWORD` など）で判定すると**それ自体が許可リストになり漏れた材質は検査ごと素通りする**ので、バニラの `Material` へ解決して判定する。⚠️ `getMaxDurability()` は**レジストリを引くのでサーバが要る**（素で呼ぶと `Bukkit.server is null` で落ちる）→ MockBukkit を起動している。解決できない材質名は「今は0件」で固定（素通りさせるとその材質だけ検査から静かに消える）。SHIELD の追加を戻すと新規3本のうち2本が落ちることを実走確認。TF 4563/失敗29/skip2（**新規失敗ゼロ**）。**config のみ**（jar は無変更）。 |
 | 2026-08-22 | **レシピGUIの最低ステ表示が余白を残して省略される問題を直した**（指摘「まだloreの長さに余裕があるのに省略されてしまい、スレッド枠やマナ回復量などのステータスが移っていない」）。上限が `TrinityForgeStatPreview.MAX_LINES = 8` の**固定値**だった。⚠️ **ツールチップの高さを決めるのは lore 全体なのに、上限だけが lore の長さと無関係**だったので、lore が短いアイテムでも8行で頭打ちになる。表示順は `lore.yml` の category → order で固定なので**毎回まったく同じステがこぼれる** ——報告のあった魔術師の守護ヘルメット（`LEATHER_HELMET#200011`、表示対象12件）では`thread-slots` / `mana-bonus` / `mana-regen` / `move-speed` の4件が常に「…ほか」だった。→ ツールチップ1枚の総行数を予算（**26行**。バニラのツールチップは**スクロールしない**ので、1080p でいちばん狭い GUI スケール4＝論理270px に `10px×行数+6px` が収まる上限）として持ち、そこから lore に出ない行（名前・属性ブロック・耐久表示）・積んだ lore・**このあと足す行**を引いた残りをステ行へ回す。⚠️ **`appendDetailLore` の呼び出し側は3か所とも末尾に足す行数が違う**ので、`trailingLines` を引数で渡す形にした（数え損ねると末尾がはみ出す）。lore が予算を食い尽くしても最低4行は出す（0行にすると見出しと「…ほか」だけのブロックになる）。回帰は `RecipeTooltipStatRoomTest`（新設3本。固定8へ戻すと3本とも落ちることを実走確認）。fork 492/失敗0。**ArsPaper の jar のみ**（TF 本体・config は無変更）。 |
