@@ -240,6 +240,81 @@ class DailyExpWindowPersistenceTest {
         assertEquals(1.0, fresh.status(settingsWithRelease(), player, "MINING").multiplier(), 1e-9);
     }
 
+    /** 期限つき設定を使う {@link DailyExpWindowPersistence}。 */
+    private DailyExpWindowPersistence persistenceWithRelease(DailyExpDiminishing daily) {
+        return new DailyExpWindowPersistence(daily, store,
+                DailyExpWindowPersistenceTest::settingsWithRelease,
+                message -> { throw new AssertionError("永続化が失敗した: " + message); });
+    }
+
+    @Test
+    @DisplayName("期限切れの行が残っていても、次の逓減は入り直しで消えない（2026-08-22 実サーバ報告）")
+    void anExpiredRowDoesNotDragTheNextLockBackInTime() {
+        UUID player = UUID.randomUUID();
+        DailyExpDiminishing.Settings s = settingsWithRelease();
+
+        // 1日目: 逓減が発動した状態でログアウトする。
+        DailyExpDiminishing day1 = new DailyExpDiminishing(now::get);
+        day1.consume(s, player, "MINING", 50_000.0);
+        persistenceWithRelease(day1).saveAndForget(player);
+
+        // 48時間後にログイン。期限(24h)を過ぎているので解除されて等倍で始まる。
+        now.addAndGet((long) (48 * HOUR));
+        DailyExpDiminishing day2 = new DailyExpDiminishing(now::get);
+        DailyExpWindowPersistence day2Side = persistenceWithRelease(day2);
+        day2Side.load(player);
+        assertEquals(1.0, day2.status(s, player, "MINING").multiplier(), 1e-9,
+                "24時間を過ぎた逓減は解除されていること");
+
+        // 同じセッションでまた稼いで逓減を発動させ、ログアウトする。
+        day2.consume(s, player, "MINING", 50_000.0);
+        assertTrue(day2.status(s, player, "MINING").multiplier() < 1.0);
+        day2Side.saveAndForget(player);
+
+        // 1時間後に入り直す。ここで等倍へ戻るなら、古い発動時刻に引き戻されている。
+        now.addAndGet((long) HOUR);
+        DailyExpDiminishing day3 = new DailyExpDiminishing(now::get);
+        DailyExpWindowPersistence day3Side = persistenceWithRelease(day3);
+        day3Side.load(player);
+        assertTrue(day3.status(s, player, "MINING").multiplier() < 1.0,
+                "入り直しただけで逓減が消えてはいけない（期限切れの古い行が新しい発動時刻を"
+                        + "引き戻していた実サーバの不具合）");
+    }
+
+    @Test
+    @DisplayName("ログイン時に期限切れの行を物理削除する（読み飛ばすだけだと蘇る）")
+    void loadPurgesReleasedRows() throws SQLException {
+        UUID player = UUID.randomUUID();
+        DailyExpDiminishing.Settings s = settingsWithRelease();
+
+        DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
+        daily.consume(s, player, "MINING", 50_000.0);
+        persistenceWithRelease(daily).saveAndForget(player);
+        assertFalse(store.load(player).isEmpty());
+
+        now.addAndGet((long) (25 * HOUR));
+        persistenceWithRelease(new DailyExpDiminishing(now::get)).load(player);
+        assertTrue(store.load(player).isEmpty(),
+                "期限切れの行を残すと、あとの save が max() で古い蓄積を蘇らせる");
+    }
+
+    @Test
+    @DisplayName("期限内の行はログインで消さない（掃除しすぎない）")
+    void loadKeepsRowsThatAreStillWithinTheDeadline() throws SQLException {
+        UUID player = UUID.randomUUID();
+        DailyExpDiminishing.Settings s = settingsWithRelease();
+
+        DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
+        daily.consume(s, player, "MINING", 50_000.0);
+        persistenceWithRelease(daily).saveAndForget(player);
+
+        now.addAndGet((long) (23 * HOUR));
+        DailyExpDiminishing fresh = new DailyExpDiminishing(now::get);
+        persistenceWithRelease(fresh).load(player);
+        assertFalse(store.load(player).isEmpty(), "期限内の行まで消してはいけない");
+        assertTrue(fresh.status(s, player, "MINING").multiplier() < 1.0);
+    }
+
     @Test
     @DisplayName("W-154: reset-id を変えたときだけ全員ぶんが1回消える（再起動で2度は消えない）")
     void theResetTokenClearsEveryoneExactlyOnce() throws SQLException {
