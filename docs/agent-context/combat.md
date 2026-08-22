@@ -1089,3 +1089,64 @@ EM独自の武器/防具スキルEXPが同時に加算される(意図した二�
 - [./config-editor.md](./config-editor.md)
 - [./common-traps.md](./common-traps.md)
 - [./bedrock-geyser.md](./bedrock-geyser.md)
+
+## スレッドに書けるステは思ったより狭い ── 3つの落とし穴（2026-08-23、W-187）
+
+トレジャーチェスト専用スレッド10種（CMD 300070-300079）を足すときに、
+**主軸に選んだ4軸が実装レベルで機能しない**ことが分かった。増種のたびに同じ穴を踏むので残す。
+
+### (1) ATTACK チャネル かつ `lore.yml` の `format: FLAT` は禁止
+
+`ShippedThreadBandIndependenceTest#noThreadCarriesAnAbsoluteAttackStat` が落とす。
+スレッドは帯非依存の固定値を配るので、実数のダメージステを持たせると**装備が弱い低帯だけ極端に強くなる**。
+該当キー: `attack-power` / `flat-bonus-damage` / `fixed-damage` / `bleed-damage` /
+`melee-knockback` / `aoe-radius` / `aoe-max-targets` / `stun-duration-bonus` /
+`power-attack-radius` / `arrow-knockback`。
+
+### (2) ATTRIBUTE チャネルは「無言で効かない」＋「手に持つだけで効く」の両方が起きる
+
+`attack-speed-bonus` / `attack-reach` / `max-health` / `knockback-resistance` / `move-speed`。
+
+- **効かない側**: 装着スレッドのステは fork の `ArmorManaListener` → `AddonCombatStats` →
+  `PlayerCombatAggregate#addon()` へ流れるが、`PerkAttributeApplier` の属性経路（同 219-249 行）が
+  合流させるのは **perk + native armor-set + 永続 buff + base-stats だけ**で、addon は入らない。
+- **効きすぎる側**: `AttributeProjection#defaults()` の投影対象キーは、スレッド個体が生成時に通る
+  `ItemFactory#stamp` → `ItemAssembler#assemble` で**バニラ属性として実際に付く**。
+  つまり**防具に挿さず手に持っているだけで**最大体力や攻撃速度が上がる。
+
+`attack-speed-bonus` だけは `PerkAttributeApplier#collectAttackSpeedBonus` が
+`aggregate.item() + aggregate.addon()` を明示的に足しているので「効かない」は当てはまらない。
+ただし手持ちの穴は残るので**スレッドには使わない**（2026-08-23 に一度これで組んで、
+`ShippedThreadItemStatsTest` の `primaryStatIsNeverProjectedToAVanillaAttribute` と
+`primaryStatIsReadableThroughTheAddonChannel` が実際に落ちた）。
+
+### (3) `flat-defense`（守備力）は typed キーがあると無視される後方互換の別名
+
+`DefenseStatBridge` は `phys-flat-defense` / `magic-flat-defense` が1つでもあればそちらを採り、
+`flat-defense` は捨てる。既存スレッドが `phys-flat-defense` を付帯枠で配っている以上、
+`flat-defense` を主軸にしたスレッドは**常に無視される側**になる。typed キーを使うこと。
+
+### あわせて: 増種時に触る場所は6つ
+
+`item-stats.yml`（効果） / fork `threads.yml`（名前・CMD・説明文） / `catalog.yml`（レジストリ登録） /
+`collection.yml`（図鑑。忘れると `ShippedCollectionEntryIdTest` が落ちる） /
+リソースパック（`textures/item` `models/item` `items/string.json` `cmd-registry.json`） /
+テスト4本の CMD 帯（`ShippedThreadItemStatsTest` / `ShippedThreadBandIndependenceTest` /
+`ThreadSocketedOnlyAggregationTest` / `ShippedThreadRollSpreadTest`）。
+**帯を伸ばし忘れると新種がガードの外側に落ちて、検査ごと素通りする。**
+
+`random:` の `max/min` は必ず 8 倍以上（`ShippedThreadRollSpreadTest`）。狭いと厳選する意味が消える。
+
+### 既存スレッドが主軸に使っている戦闘ステ（2026-08-23 時点、新種の軸を決める前に見る）
+
+`percent-bonus-damage` / `crit-chance` / `crit-damage` / `penetration` / `bleed-chance` /
+`armor-strength` / `dodge-chance` / `damage-reduction` / `magic-resistance` / `phys-resistance` /
+`health-regen-bonus` / `reflect-percent` / `stun-chance` / `cooldown-reduction` / `ammo-save-chance`
+
+洗い出しは `tmp/w187-thread-axes.py`（item-stats.yml を読んで主軸と random プールを一覧する）。
+ユーザー方針は**「住み分けできない（相互互換が発生する）ステータス校正にするな」**なので、
+新種はこの一覧に無い軸から選ぶ。2026-08-23 時点で空いていたのは
+`aoe-damage-rate` / `bleed-damage-rate` / `power-attack-damage` / `distance-damage-bonus` /
+`bow-accuracy` / `arrow-velocity` / `arrow-piercing` / `defense-rate` /
+`phys-flat-defense` / `magic-flat-defense` の**ちょうど10本だけ**だった。
+次に増やすときは、既存の整理か新ステの新設が先に要る。

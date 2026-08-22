@@ -7536,6 +7536,122 @@ items:
       - ""
       - <dark_gray><italic>刃を研ぐ音で、次の一本が決まる。</italic></dark_gray>
       - <gray>木こりだけが使える装飾品。オフハンドに持つと一括伐採のCTが縮む。</gray>
+  # トレジャーチェスト専用スレッド 10種 (2026-08-23、W-187)
+  # --------------------------------------------------------------------
+  # **レシピを持たない**。構造物のルートチェスト(ArsPaper の loot-tables.yml)が
+  # 唯一の入手経路で、それがこの10種の存在理由。ここへレシピを足すと
+  # 「そのティアを漁る動機」という設計目的がまるごと消えるので足さないこと。
+  # 効果の実体は TrinityForge の stats/item-stats.yml の STRING#300070-300079。
+  thread_maelstrom:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>巻き込んだ相手への威力を上げる</color>
+      - <color:dark_gray>構造物の宝箱からのみ入手</color>
+      - ""
+      - <color:dark_purple>渦の中心は、いつも静かだ</color>
+    display-name: <color:aqua>渦動のスレッド</color>
+    custom-model-data: 300070
+  thread_exsanguinate:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>傷口が塞がらなくなる</color>
+      - <color:dark_gray>構造物の宝箱からのみ入手</color>
+      - ""
+      - <color:dark_purple>流れ出るものを、数えてはいけない</color>
+    display-name: <color:red>瀉血のスレッド</color>
+    custom-model-data: 300071
+  thread_skyfall:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>跳んでから当てるほど重い</color>
+      - <color:dark_gray>構造物の宝箱からのみ入手</color>
+      - ""
+      - <color:dark_purple>落ちる力は、誰にでも平等に貸される</color>
+    display-name: <color:light_purple>墜撃のスレッド</color>
+    custom-model-data: 300072
+  thread_farsight:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>離れているほど矢が重くなる</color>
+      - <color:dark_gray>構造物の宝箱からのみ入手</color>
+      - ""
+      - <color:dark_purple>見えている、という確信だけが要る</color>
+    display-name: <color:green>遠見のスレッド</color>
+    custom-model-data: 300073
+  thread_truesight:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>狙ったところへ素直に飛ぶ</color>
+      - <color:dark_gray>構造物の宝箱からのみ入手</color>
+      - ""
+      - <color:dark_purple>迷いは、指先から矢へ伝わる</color>
+    display-name: <color:green>精射のスレッド</color>
+    custom-model-data: 300074
+  thread_swiftarrow:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>矢が速く、まっすぐ届く</color>
+      - <color:dark_gray>構造物の宝箱からのみ入手</color>
+      - ""
+      - <color:dark_purple>風を追い越したことがあるか</color>
+    display-name: <color:green>疾矢のスレッド</color>
+    custom-model-data: 300075
+  thread_piercingshot:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>一本で複数を貫く</color>
+      - <color:dark_gray>構造物の宝箱からのみ入手</color>
+      - ""
+      - <color:dark_purple>列を成した者から順に</color>
+    display-name: <color:blue>貫矢のスレッド</color>
+    custom-model-data: 300076
+  thread_rampart:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>受けるダメージの割合を削る</color>
+      - <color:dark_gray>構造物の宝箱からのみ入手</color>
+      - ""
+      - <color:dark_purple>崩れない壁は無い。崩れるまでが長いだけだ</color>
+    display-name: <color:gold>城塞のスレッド</color>
+    custom-model-data: 300077
+  thread_bastion:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>物理の一撃を実数で削る</color>
+      - <color:dark_gray>構造物の宝箱からのみ入手</color>
+      - ""
+      - <color:dark_purple>一撃の重さを、はじめから差し引いておく</color>
+    display-name: <color:gold>鉄壁のスレッド</color>
+    custom-model-data: 300078
+  thread_wardstone:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>魔法の一撃を実数で削る</color>
+      - <color:dark_gray>構造物の宝箱からのみ入手</color>
+      - ""
+      - <color:dark_purple>呪いは、石に食わせておけばいい</color>
+    display-name: <color:aqua>護法のスレッド</color>
+    custom-model-data: 300079
   skill_node_lock:
     material: AMETHYST_SHARD
     display-name: <color:gold>スキルノードの楔</color>

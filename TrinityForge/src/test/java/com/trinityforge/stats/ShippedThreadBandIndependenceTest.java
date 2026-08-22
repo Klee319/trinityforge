@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * <b>スレッド(CMD 300001-300069)のダメージ寄与が「帯に比例する」ことを固定する</b>
+ * <b>スレッド(CMD 300001-300079)のダメージ寄与が「帯に比例する」ことを固定する</b>
  * 回帰テスト(2026-08-14 案E、2026-08-14 に導出方式へ作り直し)。
  *
  * <h2>何が壊れていたか</h2>
@@ -490,7 +490,7 @@ class ShippedThreadBandIndependenceTest {
     void everyThreadScalesWithTheEquipmentBand() {
         Map<Integer, Map<String, Double>> threads = threadStats();
         assertTrue(threads.size() >= MIN_EXPECTED_THREADS,
-                "スレッドが " + threads.size() + " 件しか読めていない。CMD 帯(300001-300069)か"
+                "スレッドが " + threads.size() + " 件しか読めていない。CMD 帯(300001-300079)か"
                         + "節の構造が変わっていないか確認すること(期待: " + MIN_EXPECTED_THREADS + " 件以上)");
 
         TreeMap<String, String> offenders = new TreeMap<>();
@@ -609,7 +609,9 @@ class ShippedThreadBandIndependenceTest {
             } catch (NumberFormatException ignored) {
                 continue;
             }
-            if (cmd < 300001 || cmd > 300069) continue;
+            // ⚠ 増種したらここを伸ばすこと。帯の外に落ちたスレッドは読まれないので、
+            //    実数ダメージステを配っていても**検査を素通りする**(静かに無効化される)。
+            if (cmd < 300001 || cmd > 300079) continue;
             ConfigurationSection entry = items.getConfigurationSection(key);
             if (entry == null) continue;
 

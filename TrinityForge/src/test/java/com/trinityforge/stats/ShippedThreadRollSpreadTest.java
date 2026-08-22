@@ -116,7 +116,7 @@ class ShippedThreadRollSpreadTest {
 
         assertTrue(ranges >= MIN_EXPECTED_RANGES,
                 "スレッドの random: が " + ranges + " 件しか読めていない。"
-                        + "CMD 帯(300001-300069)か節の構造が変わっていないか確認すること"
+                        + "CMD 帯(300001-300079)か節の構造が変わっていないか確認すること"
                         + "(期待: " + MIN_EXPECTED_RANGES + " 件以上)");
         assertTrue(invalid.isEmpty(), "min/max が不正なロール範囲がある: " + invalid);
         assertTrue(tooNarrow.isEmpty(),

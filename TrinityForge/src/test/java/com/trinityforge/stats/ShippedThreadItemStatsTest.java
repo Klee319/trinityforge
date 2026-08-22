@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 出荷 {@code stats/item-stats.yml} のスレッド69種(CMD 300001-300069)の厳選定義を固定する
+ * 出荷 {@code stats/item-stats.yml} のスレッド79種(CMD 300001-300079)の厳選定義を固定する
  * (2026-08-03 ユーザー指摘「一部スレッドが名称と効果が一致していない(マナ増幅のスレッドなど)」)。
  *
  * <h2>なぜ机上で落とす必要があるのか</h2>
@@ -109,7 +109,7 @@ class ShippedThreadItemStatsTest {
 
     /** スレッドの CMD 帯。増種したらここを伸ばす。 */
     private static final int THREAD_CMD_MIN = 300001;
-    private static final int THREAD_CMD_MAX = 300069;
+    private static final int THREAD_CMD_MAX = 300079;
 
     /** スレッドの種類。規約が種類ごとに違う(クラス Javadoc 参照)。 */
     private enum Kind {
@@ -233,6 +233,28 @@ class ShippedThreadItemStatsTest {
         m.put(300067, Thread.combat("鉄皮", "phys-resistance"));
         m.put(300068, Thread.combat("疾影", "dodge-chance"));
         m.put(300069, Thread.combat("剛靭", "armor-strength"));
+        // --- 2026-08-23 追加(W-187): トレジャーチェスト専用10種 ---
+        // 構造物のルートチェストからしか出ない枠。主ステは**既存75種が主軸に使っていない軸**
+        // だけで組んである(ユーザー指示「住み分けできない(相互互換が発生する)ステータス校正に
+        // するな」)。内訳は 近接3(範囲/出血量/空中)・遠距離4(距離/精度/矢速/貫通)・防御3。
+        // ⚠ ATTRIBUTE チャネル(attack-speed-bonus / attack-reach / max-health /
+        //   knockback-resistance / move-speed)をここへ足してはいけない ── 装着経路では
+        //   無言で効かないうえ、AttributeProjection の投影対象なので
+        //   **装着せず手に持つだけでバニラ属性が付く**。2026-08-23 に attack-speed-bonus で
+        //   一度組んで、下の2本のガードが実際に落ちたので差し替えた。
+        // ⚠ flat-defense(守備力)もここへ足してはいけない ── DefenseStatBridge が
+        //   phys/magic の typed キーがあるとき無視する後方互換の別名なので、
+        //   既存スレッドが phys-flat-defense を配っている以上つねに無視される側になる。
+        m.put(300070, Thread.combat("渦動", "aoe-damage-rate"));
+        m.put(300071, Thread.combat("瀉血", "bleed-damage-rate"));
+        m.put(300072, Thread.combat("墜撃", "power-attack-damage"));
+        m.put(300073, Thread.combat("遠見", "distance-damage-bonus"));
+        m.put(300074, Thread.combat("精射", "bow-accuracy"));
+        m.put(300075, Thread.combat("疾矢", "arrow-velocity"));
+        m.put(300076, Thread.combat("貫矢", "arrow-piercing"));
+        m.put(300077, Thread.combat("城塞", "defense-rate"));
+        m.put(300078, Thread.combat("鉄壁", "phys-flat-defense"));
+        m.put(300079, Thread.combat("護法", "magic-flat-defense"));
         return Map.copyOf(m);
     }
 
@@ -266,7 +288,7 @@ class ShippedThreadItemStatsTest {
     }
 
     @Test
-    @DisplayName("スレッド69種(300001-300069)が漏れなく1件ずつ定義されている")
+    @DisplayName("スレッド79種(300001-300079)が漏れなく1件ずつ定義されている")
     void everyThreadHasExactlyOneEntry() {
         Map<Integer, ConfigurationSection> entries = threadEntries(items());
 

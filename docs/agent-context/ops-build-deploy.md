@@ -611,3 +611,51 @@ worldgen を変えたくない鯖には「registry だけ入った版」を作�
 
 **復旧**: `max_user_data_snapshots: 16` / `snapshot_backup_frequency: 4h` の範囲内なら
 `/userdata list <player>` → `/userdata restore` で戻せる。**ローテーションで消える前に動く。**
+
+## ヴォールトと試練のスポナーは `LootGenerateEvent` を発火しない（2026-08-23、W-187）
+
+ユーザー報告「試練のスポナーにカスタム登録のアイテムが反映されず、一部チェストが空」の真因は2段だった。
+
+1. `loot-tables.yml` の `pools` に **トライアルチャンバーの表が1本も入っていなかった**
+   （2026-08-16 に「無限湧きで経済が壊れる」として意図的に除外していた）。
+2. 仮に足しても当たらない。**ヴォールト（vault）と試練のスポナー（trial spawner）は戦利品を
+   ブロックが直接排出するので `LootGenerateEvent` を発火しない**
+   （[PaperMC #11680](https://github.com/PaperMC/Paper/issues/11680) は「対応しない」でクローズ）。
+
+唯一の入口は Paper 1.21.10 で入った
+[`BlockDispenseLootEvent`](https://jd.papermc.io/paper/1.21.11/org/bukkit/event/block/BlockDispenseLootEvent.html)。
+`getDispensedLoot()` / `setDispensedLoot(List)` / `getLootTable()` / `getPlayer()`（**試練のスポナーの
+報酬排出では null**）/ `Cancellable`。ArsPaper の `LootTableListener#onBlockDispenseLoot` がこれを受ける。
+
+⚠ **試練の間の「普通のチェスト」（`minecraft:chests/trial_chambers/*`）は `LootGenerateEvent` 側**。
+つまり試練の間だけで**入口が2本に割れている**。片方だけ直すと「ヴォールトだけ空」に戻るので、
+共通処理は `LootTableListener#applyPools` に集約してある。
+
+### 構造物のルート表は structures.json に全部は載らない
+
+`tmp/worldgen/loot_tiers.py` は `report/structures.json`（構造物 piece が参照する表）を基に集めるが、
+**ヴォールトと試練のスポナーは piece ではなくブロックが表を持つので載らない**。
+`UNREFERENCED_INCLUDE_TOKENS`（`vault` / `spawners/`）で拾い直している。
+2026-08-23 の実測でこれが 99 本あった（＝それまで丸ごと視界の外だった）。
+
+### 「一部チェストが空」のもう1つの候補
+
+1.21.8 で生成済みのワールドを 1.21.10/1.21.11 へ上げると、**アップグレード前に生成された
+トライアルチャンバーのヴォールトが恒久的に不活性になる**既知の不具合がある
+（[PaperMC #13521](https://github.com/PaperMC/Paper/issues/13521)、未修正）。
+この場合はプラグイン側では直せないので、該当チャンバーを再生成する（WorldEdit の `//regen` 等）か、
+資源ワールドのリセットで作り直すしかない。
+
+## `reset-resource.cmd` はダブルクリックで完結する（2026-08-23 変更）
+
+以前は**引数なしだと必ず dry run で終わっていた**ので、「押したのに何も起きない」と読めた。
+2026-08-23 から「dry run で消える物を全部出す → `RESET` と打ち込ませる → 本実行」の2段になった。
+`--apply` を渡すと確認を飛ばす（自動実行用）。
+
+- 資源ワールドのシードは `server.properties` の `level-seed=` が**空**なので、
+  本実行すれば毎回新しい地形になる（「シードごと変わる」という期待どおり）。
+- ⚠ **editor の「構造物ルート抽選 (loot-tables)」はデータパックではない。**
+  ArsPaper がチェスト生成の瞬間に差し込む実行時設定なので、**ワールドリセットなしでも
+  次に生成されるチェストから効く**。データパックが供給しているのは構造物そのものだけ。
+- ⚠ 配備先（`Velocity_for_TF\launch\`）の `.cmd` はリポジトリのコピーなので、
+  変更を届けるには `ops\launch\deploy-launch.cmd` を実行する必要がある。

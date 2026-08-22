@@ -5553,6 +5553,96 @@
       "id": "botanical_sourcelink",
       "source": "sourcelinks",
       "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300070,
+      "id": "thread_maelstrom",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_maelstrom",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300071,
+      "id": "thread_exsanguinate",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_exsanguinate",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300072,
+      "id": "thread_skyfall",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_skyfall",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300073,
+      "id": "thread_farsight",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_farsight",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300074,
+      "id": "thread_truesight",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_truesight",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300075,
+      "id": "thread_swiftarrow",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_swiftarrow",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300076,
+      "id": "thread_piercingshot",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_piercingshot",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300077,
+      "id": "thread_rampart",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_rampart",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300078,
+      "id": "thread_bastion",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_bastion",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300079,
+      "id": "thread_wardstone",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_wardstone",
+      "parent": "generated"
     }
   ]
 }

@@ -491,6 +491,19 @@ categories:
         - thread_ironhide
         - thread_evasion
         - thread_resilience
+        # 2026-08-23 (W-187): トレジャーチェスト専用10種。
+        # レシピが無く構造物のルートチェストからしか出ないので、
+        # 図鑑としては「そのティアを漁ったか」の記録になる。
+        - thread_maelstrom
+        - thread_exsanguinate
+        - thread_skyfall
+        - thread_farsight
+        - thread_truesight
+        - thread_swiftarrow
+        - thread_piercingshot
+        - thread_rampart
+        - thread_bastion
+        - thread_wardstone
     material_tf:
       display-name: TF素材
       # 2026-08-18: thread_* 51件がここと thread カテゴリの両方に入っていて図鑑で二重に

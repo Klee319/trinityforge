@@ -559,6 +559,76 @@
           "type": "minecraft:model",
           "model": "trinityforge:item/thread_resilience"
         }
+      },
+      {
+        "threshold": 300070,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_maelstrom"
+        }
+      },
+      {
+        "threshold": 300071,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_exsanguinate"
+        }
+      },
+      {
+        "threshold": 300072,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_skyfall"
+        }
+      },
+      {
+        "threshold": 300073,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_farsight"
+        }
+      },
+      {
+        "threshold": 300074,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_truesight"
+        }
+      },
+      {
+        "threshold": 300075,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_swiftarrow"
+        }
+      },
+      {
+        "threshold": 300076,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_piercingshot"
+        }
+      },
+      {
+        "threshold": 300077,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_rampart"
+        }
+      },
+      {
+        "threshold": 300078,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_bastion"
+        }
+      },
+      {
+        "threshold": 300079,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_wardstone"
+        }
       }
     ]
   }

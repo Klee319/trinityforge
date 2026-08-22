@@ -1517,6 +1517,339 @@ items:
         phys-resistance: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
+  # トレジャーチェスト専用スレッド 10種 (2026-08-23、CMD 300070-300079) — W-187
+  # ==========================================================================
+  # 儀式でもクラフトでも作れない。**構造物のルートチェストからしか出ない**枠。
+  # ルートのティアを10段へ細分化したのに「どのティアでも同じスレッドが全種類出る」
+  # 状態だったため、「そのティアでしか拾えないもの」を作る目的で新設した。
+  # どのティアに何が出るかは ArsPaper の loot-tables.yml(生成元は tmp/worldgen/gen_loot_yml.py)。
+  #
+  # 【軸の選び方 ── 既存スレッドとの住み分け】
+  # 既存75種が主軸に使っている戦闘ステ15種
+  #   (percent-bonus-damage / crit-chance / crit-damage / penetration / bleed-chance /
+  #    armor-strength / dodge-chance / damage-reduction / magic-resistance / phys-resistance /
+  #    health-regen-bonus / reflect-percent / stun-chance / cooldown-reduction / ammo-save-chance)
+  # を、この10種は**主軸にも random プールにも1件も使わない**。
+  # 「既存スレッドの上位互換になって既存が死ぬ」ことが原理的に起きない配置。
+  #
+  # ⚠ ここへ新種を足すとき、次の3種類のステは選んではいけない:
+  #   (1) ATTACK チャネル かつ lore.yml が FLAT のステ
+  #       (attack-power / flat-bonus-damage / fixed-damage / bleed-damage /
+  #        melee-knockback / aoe-radius / aoe-max-targets / stun-duration-bonus /
+  #        power-attack-radius)
+  #       → ShippedThreadBandIndependenceTest が落とす。帯非依存の固定値なので
+  #         装備が弱い低帯だけ極端に強くなる。
+  #   (2) ATTRIBUTE チャネルのステ (attack-speed-bonus / attack-reach / max-health /
+  #       knockback-resistance / move-speed)
+  #       → 装着スレッドのステは fork の ArmorManaListener → AddonCombatStats →
+  #         PlayerCombatAggregate#addon() へ流れるが、PerkAttributeApplier の属性経路が
+  #         合流させるのは perk + native armor-set + 永続buff + base-stats だけなので
+  #         **無言で効かない**。さらに AttributeProjection の投影対象キーは
+  #         ItemAssembler がバニラ属性として実際に付けるため、
+  #         **装着せず手に持つだけで効いてしまう**という逆向きの穴もある。
+  #         (attack-speed-bonus だけは collectAttackSpeedBonus が addon() を読むので
+  #          「効かない」わけではないが、手持ちの穴があるのでスレッドには使わない。
+  #          実際 2026-08-23 に一度これで組んで ShippedThreadItemStatsTest の2本が落ちた)
+  #   (3) flat-defense(守備力) → DefenseStatBridge が「phys/magic の typed キーが有るなら
+  #       無視する」後方互換の別名。既存スレッドが phys-flat-defense を配っている以上、
+  #       常に無視される側になる。typed キーの phys-/magic- を使うこと。
+  #   (4) percent-bonus-damage → 配ると ShippedThreadBandIndependenceTest の帯目標
+  #       (+39%/+49%/+59%)の最良編成が変わる。この10種は1件も配っていない。
+  #
+  # 内訳は 近接3(範囲/出血量/空中)・遠距離4(距離/精度/矢速/貫通)・防御3(防御率/物理守備/魔法守備)。
+  # 汎用近接の空き軸が3本しか無かったのは、既存75種が上の15軸を先に埋めているため
+  # (ここを増やしたいなら、まず既存スレッドの整理か新ステの新設が要る)。
+  # ==========================================================================
+  STRING#300070:
+    # 渦動のスレッド ── 主軸: aoe-damage-rate
+    per-quality:
+      aoe-damage-rate: 0.0009
+    random:
+      aoe-damage-rate:
+        min: 0.002
+        max: 0.018
+      power-attack-damage:
+        min: 0.004
+        max: 0.034
+      bleed-damage-rate:
+        min: 0.001
+        max: 0.01
+      defense-rate:
+        min: 0.002
+        max: 0.018
+      phys-flat-defense:
+        min: 0.2
+        max: 2.2
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        power-attack-damage: 0.45
+        bleed-damage-rate: 0.45
+        defense-rate: 0.45
+        phys-flat-defense: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300071:
+    # 瀉血のスレッド ── 主軸: bleed-damage-rate
+    per-quality:
+      bleed-damage-rate: 0.0005
+    random:
+      bleed-damage-rate:
+        min: 0.001
+        max: 0.01
+      aoe-damage-rate:
+        min: 0.002
+        max: 0.018
+      power-attack-damage:
+        min: 0.004
+        max: 0.034
+      defense-rate:
+        min: 0.002
+        max: 0.018
+      magic-flat-defense:
+        min: 0.2
+        max: 2.2
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        aoe-damage-rate: 0.45
+        power-attack-damage: 0.45
+        defense-rate: 0.45
+        magic-flat-defense: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300072:
+    # 墜撃のスレッド ── 主軸: power-attack-damage
+    per-quality:
+      power-attack-damage: 0.0016
+    random:
+      power-attack-damage:
+        min: 0.004
+        max: 0.034
+      aoe-damage-rate:
+        min: 0.002
+        max: 0.018
+      bleed-damage-rate:
+        min: 0.001
+        max: 0.01
+      defense-rate:
+        min: 0.002
+        max: 0.018
+      phys-flat-defense:
+        min: 0.2
+        max: 2.2
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        aoe-damage-rate: 0.45
+        bleed-damage-rate: 0.45
+        defense-rate: 0.45
+        phys-flat-defense: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300073:
+    # 遠見のスレッド ── 主軸: distance-damage-bonus
+    per-quality:
+      distance-damage-bonus: 0.0012
+    random:
+      distance-damage-bonus:
+        min: 0.003
+        max: 0.026
+      arrow-velocity:
+        min: 0.003
+        max: 0.026
+      bow-accuracy:
+        min: 0.001
+        max: 0.01
+      arrow-piercing:
+        min: 0.012
+        max: 0.12
+      defense-rate:
+        min: 0.002
+        max: 0.018
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        arrow-velocity: 0.45
+        bow-accuracy: 0.45
+        arrow-piercing: 0.45
+        defense-rate: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300074:
+    # 精射のスレッド ── 主軸: bow-accuracy
+    per-quality:
+      bow-accuracy: 0.0005
+    random:
+      bow-accuracy:
+        min: 0.001
+        max: 0.01
+      arrow-velocity:
+        min: 0.003
+        max: 0.026
+      distance-damage-bonus:
+        min: 0.003
+        max: 0.026
+      arrow-piercing:
+        min: 0.012
+        max: 0.12
+      magic-flat-defense:
+        min: 0.2
+        max: 2.2
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        arrow-velocity: 0.45
+        distance-damage-bonus: 0.45
+        arrow-piercing: 0.45
+        magic-flat-defense: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300075:
+    # 疾矢のスレッド ── 主軸: arrow-velocity
+    per-quality:
+      arrow-velocity: 0.0012
+    random:
+      arrow-velocity:
+        min: 0.003
+        max: 0.026
+      distance-damage-bonus:
+        min: 0.003
+        max: 0.026
+      bow-accuracy:
+        min: 0.001
+        max: 0.01
+      arrow-piercing:
+        min: 0.012
+        max: 0.12
+      phys-flat-defense:
+        min: 0.2
+        max: 2.2
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        distance-damage-bonus: 0.45
+        bow-accuracy: 0.45
+        arrow-piercing: 0.45
+        phys-flat-defense: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300076:
+    # 貫矢のスレッド ── 主軸: arrow-piercing
+    per-quality:
+      arrow-piercing: 0.006
+    random:
+      arrow-piercing:
+        min: 0.012
+        max: 0.12
+      distance-damage-bonus:
+        min: 0.003
+        max: 0.026
+      arrow-velocity:
+        min: 0.003
+        max: 0.026
+      bow-accuracy:
+        min: 0.001
+        max: 0.01
+      defense-rate:
+        min: 0.002
+        max: 0.018
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        distance-damage-bonus: 0.45
+        arrow-velocity: 0.45
+        bow-accuracy: 0.45
+        defense-rate: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300077:
+    # 城塞のスレッド ── 主軸: defense-rate
+    per-quality:
+      defense-rate: 0.0009
+    random:
+      defense-rate:
+        min: 0.002
+        max: 0.018
+      phys-flat-defense:
+        min: 0.2
+        max: 2.2
+      magic-flat-defense:
+        min: 0.2
+        max: 2.2
+      aoe-damage-rate:
+        min: 0.002
+        max: 0.018
+      power-attack-damage:
+        min: 0.004
+        max: 0.034
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        phys-flat-defense: 0.45
+        magic-flat-defense: 0.45
+        aoe-damage-rate: 0.45
+        power-attack-damage: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300078:
+    # 鉄壁のスレッド ── 主軸: phys-flat-defense
+    per-quality:
+      phys-flat-defense: 0.1
+    random:
+      phys-flat-defense:
+        min: 0.2
+        max: 2.2
+      defense-rate:
+        min: 0.002
+        max: 0.018
+      magic-flat-defense:
+        min: 0.2
+        max: 2.2
+      aoe-damage-rate:
+        min: 0.002
+        max: 0.018
+      bleed-damage-rate:
+        min: 0.001
+        max: 0.01
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        defense-rate: 0.45
+        magic-flat-defense: 0.45
+        aoe-damage-rate: 0.45
+        bleed-damage-rate: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300079:
+    # 護法のスレッド ── 主軸: magic-flat-defense
+    per-quality:
+      magic-flat-defense: 0.1
+    random:
+      magic-flat-defense:
+        min: 0.2
+        max: 2.2
+      defense-rate:
+        min: 0.002
+        max: 0.018
+      phys-flat-defense:
+        min: 0.2
+        max: 2.2
+      aoe-damage-rate:
+        min: 0.002
+        max: 0.018
+      power-attack-damage:
+        min: 0.004
+        max: 0.034
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        defense-rate: 0.45
+        phys-flat-defense: 0.45
+        aoe-damage-rate: 0.45
+        power-attack-damage: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
   WOODEN_SWORD:
     fixed:
       attack-power: 63
