@@ -5337,9 +5337,15 @@ TF `a26dbed`。
 `[ DIRT, COARSE_DIRT, ROOTED_DIRT, MUD, GRASS_BLOCK, PODZOL, MYCELIUM ]`。
 土 1 個から交換を回すだけで菌糸まで届くので、**バイオーム制限は実質なくなる**（承知のうえの判断）。
 
-**配備がふつうと違う。** ArsPaper は glyphs.yml を `saveResource(..., false)` で書くので、
-**fork のリソースを直しても・jar を差し替えても・`/ars reload` しても、配備先の yml は
-永久に更新されない**。実機へ入れるには配備先の実ファイルを直接書き換えるしかない:
+**配備がふつうと違う。** ArsPaper は**自分では既存の yml を更新しない**
+（`saveResource(..., false)` ＋ `updateResourceFiles` はバージョン文字列が変わったときしか
+再展開しない）。つまり **jar を差し替えても `/ars reload` しても配備先の glyphs.yml は変わらない**。
+リポジトリ側の編集が届く経路は 2 つだけ:
+
+1. `ops\launch\deploy-config-head.cmd` ── fork の HEAD にワーキングツリーの yml を重ねて配る
+   （＝**未コミットの fork yml もそのまま出荷される**）。ただし**全バックエンドを止めてからでないと
+   流せない**。
+2. **止めずに今すぐ入れる場合**は配備先の実ファイルを直接書き換える:
 
 ```
 powershell -NoProfile -ExecutionPolicy Bypass -File ops\scripts\apply-exchange-dirt-tier.ps1 -DryRun
@@ -5349,6 +5355,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File ops\scripts\apply-exchange-d
 3 台とも書き換えたあと **`/ars reload`（再起動は不要。`reloadGlyphConfig` が読み直す）**。
 スクリプトは触る行を「`exchange_tiers` の中の DIRT で始まる段」1 行に限定し、書く前に
 `.bak-<日時>` を同じディレクトリへ取り、書いたあと読み直して確認する。何度流しても安全。
+ここで入れた編集は次回の config 配備で `guard-deployed-config.ps1` が drift として拾い、
+リポジトリへ書き戻す（W-177）ので黙って巻き戻されることはない。
 
 **回帰ガード**を fork へ追加した（`ExchangeTiersShippedTest`、3 本）。`loadExchangeTiers` は
 `Material.matchMaterial` が `null` を返した項目を**警告 1 行も出さずに捨てる**ので、綴り違いも
@@ -5356,11 +5364,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File ops\scripts\apply-exchange-d
 後ろの段が丸ごと到達不能になる点も縛った。**土の段を元に戻すと 1 本落ちる**ことを実走で確認済み。
 fork 全体は 510 tests / 0 failed / 0 skipped。
 
-**未コミット。** fork の `src/main/resources/glyphs.yml` には**他セッション由来の未コミット変更が
-369 行分**（コメント整形と mana-cost の調整）先に乗っていて、自分の 1 行だけを切り出せない。
-巻き込む方が害が大きいので、`glyphs.yml` と `ExchangeTiersShippedTest.java` は
-**fork のワーキングツリーに置いたまま**にしてある。実機への反映は上のスクリプトで完結するので
-配備には影響しない。
+**fork 側は未コミットのまま残してある。** `src/main/resources/glyphs.yml` には**他セッション由来の
+未コミット変更が 369 行分**（コメント整形と mana-cost の調整）先に乗っていて、自分の 1 行だけを
+切り出せない。巻き込む方が害が大きいので `glyphs.yml` と `ExchangeTiersShippedTest.java` は
+**fork のワーキングツリーに置いたまま**にした。config 配備はワーキングツリーを HEAD へ重ねるので
+**未コミットでもそのまま出荷される**（＝配備には影響しない）。ただし fork のソースは
+`.gitignore` 除外なので、**clean / reset で消えると戻らない**。この段の内容はここと
+`apply-exchange-dirt-tier.ps1` の両方に書いてあるので、消えたら再現できる。
 
 ## 4. 既知の未修正の問題・弱点
 
@@ -5521,7 +5531,7 @@ git 系:
 
 | 日付 | 内容 |
 |---|---|
-| 2026-08-22 | **交換グリフで菌糸が作れない件は「デグレではなく一度も作れたことが無い」と確定し、土の段へ草・ポドゾル・菌糸を足した**（実サーバ報告 W-156）。交換は `exchange_tiers` の**同じ段の中でしか循環しない**のに、菌糸はどの段にも居なかった（`git log -S MYCELIUM` がfork の glyphs.yml で 1 件も無い／配備先 3 台はソースとバイト一致）。TF・Ars のどこにも菌糸を**生成する**経路は無く、入力側（菌糸ソースリンク強化に計19個）としてしか出てこない。**ArsPaper は glyphs.yml を `saveResource(..., false)` で書くので jar でも `/ars reload` でも配備先は永久に更新されない** → `ops\scripts\apply-exchange-dirt-tier.ps1` で実ファイルを書き換える（退避・確認つき／流したあと `/ars reload`）。回帰ガード `ExchangeTiersShippedTest` を追加し**段を戻すと落ちる**ことを実走確認、fork 510 tests / 0 failed。fork 側は他セッションの未コミット 369 行と混ざっているため**ワーキングツリーに残置**（配備には影響しない） |
+| 2026-08-22 | **交換グリフで菌糸が作れない件は「デグレではなく一度も作れたことが無い」と確定し、土の段へ草・ポドゾル・菌糸を足した**（実サーバ報告 W-156）。交換は `exchange_tiers` の**同じ段の中でしか循環しない**のに、菌糸はどの段にも居なかった（`git log -S MYCELIUM` がfork の glyphs.yml で 1 件も無い／配備先 3 台はソースとバイト一致）。TF・Ars のどこにも菌糸を**生成する**経路は無く、入力側（菌糸ソースリンク強化に計19個）としてしか出てこない。**ArsPaper は自分では既存 yml を更新しないので jar でも `/ars reload` でも配備先は変わらない**（届く経路は全台停止が要る `deploy-config-head.cmd` だけ）→ 止めずに入れる用に`ops\scripts\apply-exchange-dirt-tier.ps1` を用意（退避・確認つき／流したあと `/ars reload`。次回配備で guard が drift としてリポジトリへ書き戻す）。回帰ガード `ExchangeTiersShippedTest` を追加し**段を戻すと落ちる**ことを実走確認、fork 510 tests / 0 failed。fork 側は他セッションの未コミット 369 行と混ざっているため**ワーキングツリーに残置**（配備には影響しない） |
 | 2026-08-22 | **職業EXPの日次逓減が「入り直すだけ」で消えていた真因を確定して修正**（実サーバ報告 W-155）。稼働中 DB に `lock-release-hours: 24` なのに `locked_at` が53〜65 時間前という行が実在した。**`restore` が期限切れ行を読み飛ばすだけで消さない** →次の `save` が `max()` で古い蓄積を残し `earlierLock()` が新しい発動時刻を古い方へ引き戻す →また期限切れになって読み飛ばされる、の 3 段ループ。**サーバ切替で蓄積を後退させない規約と解除期限を延ばさせない規約が噛み合って期限切れ行を不死身にしていた**。`save` にも解除時間を渡して期限切れを権威にし、`load` 冒頭で `purgeReleased()` により物理削除する形へ。回帰3本を追加し**修正を戻すと2本落ちる**ことを実走確認。**jar 配備が必要**（既存の壊れた行は次のログインで自動的に掃除される）。TF `a26dbed` |
 | 2026-08-22 | **Arsグリフ120種に個別アイコンを付け、3画面の並び順を1本に揃えた**（依頼「Arsグリフの設定でアイテムアイコンを付けてほしい。現状どれがどの魔法かぱっと見で分からない」「グリフレシピ、グリフ設定、グリフ解放で順番もそろえてほしい」）。アイコンは**種類ごとの3種類しかなく**（形態=ダイヤ / 効果=エメラルド / 増強=アメジスト）、120個が3種類の絵に潰れていた。しかも**未解放は全部石炭**（筆記台・グリフレシピ）、**呪文編集では未解放が全部バリア・使用不可が全部灰色染料**なので、36個/ページ並ぶ画面で名前を1つずつ読むまで何も判別できない。⚠️ **並び順は3画面がそれぞれ自前で決めていた** —— 筆記台=`種類→ティア` / グリフレシピ=`種類→ティア→IDのアルファベット順` / 呪文編集=`ティアのみ→超増強をベースの直後へ`。→ `GlyphIcons`（120種すべてに材質を割り当て・重複ゼロ）と `GlyphOrder`（並びの唯一の定義）を新設し、3画面ともここだけを通す。⚠️ **アイコンの既定を Java に置いたのは意図的** —— `glyphs.yml` は `saveResource(..., false)` なので**jar を替えても配備先の yml には新しいキーが増えない**。yml 側に既定を書くと既存サーバでは永久に反映されない。yml の `icon:` は**上書き専用**（配備先へ手で `icon: BLAZE_ROD` と書けば効く。綴り違いは既定へ落として画面が開かなくなるのを防ぐ）。⚠️ **並びは「種類→登録順」でティアでは並べない** —— `ArsPaper#registerComponents` の登録順は手で意味づけされたグループ（効果=攻撃系/移動系/生存系/ブロック系/ユーティリティ系、増強=増幅⇔減衰・延長⇔短縮・延伸⇔収縮・加速⇔減速 の対）になっており、ティアで並べ替えるとこれが崩れる（**延伸=T2 と 収縮=T1 が離れて対が割れる**）。ティアは lore に出ているので情報は失われない。超増強（`super_*`）だけはベースの直後へ寄せる（登録順のままだと末尾15個にまとまる）。⚠️ **未解放/使用不可でもアイコンを潰さない**方針にした —— 潰すと「どれがどの魔法か分からない」に逆戻りするため。状態は名前の色（緑=解放済 / 赤・濃灰=未解放 / 灰=使用不可）と lore の赤字で示す。回帰は `GlyphIconCoverageTest`（出荷 glyphs.yml の120件と定義が完全一致・材質の重複ゼロを**空集合で固定**・未定義は種類既定へ・`icon:` 上書きと綴り違い）／`GlyphOrderTest`（超増強の寄せ・登録順の保持・件数不変）／`GlyphGuiIconAndOrderWiringTest`（3画面が `GlyphIcons`/`GlyphOrder` を通り、自前の switch とソートを持たないこと。**片方だけ直しても実機で画面を切り替えるまで食い違いに気づけない**ので配線そのものを縛る）。いずれも戻すと落ちることを実走確認（11本中6本）。fork 507/失敗0/skip0。**ArsPaper の jar のみ**（TF 本体・config は無変更）。ArsPaper fork `fc97b4f`。 |
 | 2026-08-22 | **Wiki 全面改訂**。生成17本を再生成＋手書き16本を実configと突き合わせ。`wiki/` の remote が存在しないリポジトリを指していたのを `trinityforge.wiki.git`(`master`)へ張り替えて初公開／`ban.yml` の全ワールドBAN 4種を発見 |
