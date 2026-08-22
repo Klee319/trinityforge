@@ -36,10 +36,17 @@
         }
       },
       {
+        "threshold": 52,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/nethrite_scythe"
+        }
+      },
+      {
         "threshold": 67,
         "model": {
-          "model": "minecraft:item/netherite_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/netherite_grate_sword"
         }
       },
       {
@@ -106,6 +113,27 @@
         }
       },
       {
+        "threshold": 124,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/infinity_scythe"
+        }
+      },
+      {
+        "threshold": 125,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/hero_scythe"
+        }
+      },
+      {
+        "threshold": 126,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/nuclear_scythe"
+        }
+      },
+      {
         "threshold": 133,
         "model": {
           "type": "minecraft:model",
@@ -129,8 +157,8 @@
       {
         "threshold": 136,
         "model": {
-          "model": "minecraft:item/netherite_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/infinity_grate_sword"
         }
       },
       {

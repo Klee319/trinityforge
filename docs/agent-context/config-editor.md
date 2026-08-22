@@ -1161,6 +1161,48 @@ texture が存在するか）しか見ておらず、上記のどれも検出で
 理由の書いていない宣言は許可リストと同じで書いた本人以外に検証できないため、`reason` は必須。
 該当 0 件のときはファイルを置かない（存在しなければ宣言 0 件として扱う）。
 
+## ⚠️ material を差し替えた行は台帳の突合せキーごと変わる ── 2026-08-22 に修正、原理は残る
+
+`cmd-registry.json` の突合せは長く **`(material, cmd)` をキー**にしていた
+（`lib/cmd-registry.js#reconcileWithUsage`）。この形は「editor で material だけ差し替える」操作を
+表現できない ── キーが変わるので**同じアイテムの行が「別の行が消えて別の行が増えた」ように見える**。
+結果、`assetName` / `parent` が黙って落ち、`regenerateItemDefinitions` が未配線と判断して
+**バニラモデルを指す entry** を書く。ユーザーからは「テクスチャ割り当てが外れた」にしか見えない
+（鎌 11 品を `*_HOE` → `*_SWORD` へ移して実際に踏んだ）。
+
+2026-08-22 に `reconcileWithUsageDetailed` を入れ、**キーが変わっただけの行を `id` で引き継ぐ**
+ようにした。引き継ぎを**しない**条件が3つある。ここを緩めると「黙って別物へ結び付ける」方向に壊れる:
+
+- 元の `(material,cmd)` が今回の usage に**残っている** → 移動ではない（別アイテムがそこに居る）
+- 同じ id の引き継ぎ候補が**複数ある** → どちらか決められないので、どこへも引き継がない
+- 引き継ぎ先の `assetName` を**他行が既に持っている** → 同じ assetName を2行で共有させない
+
+### 生成モデルの `parent` は「登録時の material」を焼き込んでいる
+
+`models/item/<assetName>.json` は `{"parent": "minecraft:item/wooden_hoe", "textures": {...}}` の形で、
+**parent がその時の material のバニラモデル**を指す。material を移したら貼り直しが要る
+（`respack.js#rewriteMovedModels`）。貼り直さないと:
+
+- 構え方・大きさ（display 変換）が**旧 material のまま**残る。剣↔鍬はどちらも handheld なので
+  気づきにくいが、剣↔弓では明確に壊れる。
+- **BOW / TRIDENT / *_SPEAR のようにリーフを複数持つ material へ移すと描画ごと落ちる。**
+  `entryModelFor` は新しい material のリーフ構成から `<assetName>__pulling_0.json` 等を参照するが、
+  そのファイルは旧 material 時代に生成されていないので存在しない。
+
+`customModel: true`（bbmodel / 手書き JSON）の行は**絶対に上書きしない**。
+
+### 「threshold entry がある」は「絵が出ている」の証拠にならない
+
+`resourcepack/build_item_pack.py` の D-2 検査は、この事故を**1件も検出できなかった**。
+理由は respack.js の H-3 修正（range_dispatch のフォールスルー対策）で
+**未配線の割当にも threshold entry を必ず生成するようになった**から。
+entry は出るがモデルはバニラを指す、という状態が正常系に入ったので、
+「threshold に居るか」だけを見る検査は意味を失っていた。
+
+現在は `drawn_thresholds()` で **entry が `trinityforge:` の自前モデルを指しているか**まで見る。
+同種の検査を書くときは必ずここを踏襲する（`model_ids()` で入れ子も辿ること。
+引き絞りの `condition` / `range_dispatch` はモデルを入れ子に持つ）。
+
 ## 防具の着用時テクスチャはエディタの管轄外（2026-08-16）
 
 Minecraft 1.21.4+ では**着用時の見た目に CMD は一切効かない**。必要なのは

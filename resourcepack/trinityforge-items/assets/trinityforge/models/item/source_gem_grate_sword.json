@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/diamond_sword",
   "textures": {
-    "layer0": "trinityforge:item/diamond_scythe"
+    "layer0": "trinityforge:item/source_gem_grate_sword"
   }
 }

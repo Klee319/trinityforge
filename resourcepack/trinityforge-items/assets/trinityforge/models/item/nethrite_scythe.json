@@ -1,5 +1,5 @@
 {
-  "parent": "minecraft:item/netherite_hoe",
+  "parent": "minecraft:item/netherite_sword",
   "textures": {
     "layer0": "trinityforge:item/nethrite_scythe"
   }

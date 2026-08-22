@@ -36,10 +36,17 @@
         }
       },
       {
+        "threshold": 57,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/stone_scythe"
+        }
+      },
+      {
         "threshold": 63,
         "model": {
-          "model": "minecraft:item/stone_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/stone_grate_sword"
         }
       },
       {

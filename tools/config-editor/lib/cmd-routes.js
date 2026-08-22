@@ -318,8 +318,11 @@ function syncCmdRegistryAfterSave(ctx) {
   try {
     const usage = CmdRegistry.scanUsage(ctx.readEntryById);
     const registry = CmdRegistry.loadRegistry(ctx.cmdRegistryPath());
-    const nextRegistry = CmdRegistry.reconcileWithUsage(usage, registry);
+    const { registry: nextRegistry, moved } = CmdRegistry.reconcileWithUsageDetailed(usage, registry);
     CmdRegistry.saveRegistry(ctx.cmdRegistryPath(), nextRegistry);
+    // material だけ差し替えられた行は、自動生成モデルの parent が旧 material を指したまま残る。
+    // item定義を再生成する前に、新しい material のバニラリーフへ貼り直す。
+    Respack.rewriteMovedModels(ctx.resourcePackRoot(), moved);
     // 台帳から外れたモデルは item定義からも除去する。PNG等の生アセットは安全のため消さず、
     // 必要なら再利用できる状態で残す（共有テクスチャを誤削除しない）。
     Respack.regenerateItemDefinitions(ctx.resourcePackRoot(), ctx.cmdRegistryPath());

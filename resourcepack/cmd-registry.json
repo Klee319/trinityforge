@@ -2,272 +2,200 @@
   "version": 1,
   "allocations": [
     {
-      "material": "STRING",
-      "cmd": 100021,
-      "id": "magebloom_fiber",
-      "source": "materials",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
+      "material": "TRIAL_KEY",
+      "cmd": 5501,
+      "id": "key_mines",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T23:23:33.922Z"
     },
     {
-      "material": "STRING",
-      "cmd": 100024,
-      "id": "thread_gacha",
+      "material": "TRIAL_KEY",
+      "cmd": 5502,
+      "id": "key_deep_mines",
       "source": "catalog",
-      "allocatedAt": "2026-08-13T11:54:41.602Z",
-      "assetName": "thread_gacha",
-      "parent": "generated"
+      "allocatedAt": "2026-08-02T23:23:33.922Z"
     },
     {
-      "material": "STRING",
-      "cmd": 100025,
-      "id": "thread_role_luck",
+      "material": "TRIAL_KEY",
+      "cmd": 5503,
+      "id": "key_quarry",
       "source": "catalog",
-      "allocatedAt": "2026-08-13T11:54:41.602Z",
-      "assetName": "thread_role_luck",
-      "parent": "generated"
+      "allocatedAt": "2026-08-02T23:23:33.922Z"
     },
     {
-      "material": "STRING",
-      "cmd": 100026,
-      "id": "thread_role_effeciency",
+      "material": "TRIAL_KEY",
+      "cmd": 5504,
+      "id": "key_cave",
       "source": "catalog",
-      "allocatedAt": "2026-08-13T11:54:41.602Z",
-      "assetName": "thread_role_effeciency",
-      "parent": "generated"
+      "allocatedAt": "2026-08-02T23:23:33.922Z"
     },
     {
-      "material": "STRING",
-      "cmd": 100027,
-      "id": "thread_blindness",
+      "material": "TRIAL_KEY",
+      "cmd": 5520,
+      "id": "key_enchant_trial_1",
       "source": "catalog",
-      "allocatedAt": "2026-08-14T17:36:17.258Z",
-      "assetName": "thread_blindness",
-      "parent": "generated"
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
     },
     {
-      "material": "STRING",
-      "cmd": 100028,
-      "id": "thread_translate",
+      "material": "TRIAL_KEY",
+      "cmd": 5521,
+      "id": "key_enchant_trial_2",
       "source": "catalog",
-      "allocatedAt": "2026-08-14T18:02:38.535Z",
-      "assetName": "thread_translate",
-      "parent": "generated"
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300001,
-      "id": "thread_empty",
+      "material": "TRIAL_KEY",
+      "cmd": 5522,
+      "id": "key_enchant_trial_3",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z",
-      "assetName": "thread_empty",
-      "parent": "generated"
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300002,
-      "id": "thread_mana_regen",
+      "material": "TRIAL_KEY",
+      "cmd": 5523,
+      "id": "key_enchant_trial_4",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z",
-      "assetName": "thread_mana_regen",
-      "parent": "generated"
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300003,
-      "id": "thread_mana_boost",
+      "material": "TRIAL_KEY",
+      "cmd": 5524,
+      "id": "key_enchant_trial_5",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z",
-      "assetName": "thread_mana_boost",
-      "parent": "generated"
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300004,
-      "id": "thread_speed",
+      "material": "TRIAL_KEY",
+      "cmd": 5525,
+      "id": "key_enchant_trial_6",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z",
-      "assetName": "thread_speed",
-      "parent": "generated"
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300005,
-      "id": "thread_jump_boost",
+      "material": "TRIAL_KEY",
+      "cmd": 5526,
+      "id": "key_enchant_trial_7",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z",
-      "assetName": "thread_jump_boost",
-      "parent": "generated"
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300006,
-      "id": "thread_night_vision",
+      "material": "TRIAL_KEY",
+      "cmd": 5527,
+      "id": "key_enchant_trial_8",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z",
-      "assetName": "thread_night_vision",
-      "parent": "generated"
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300007,
-      "id": "thread_fire_resistance",
+      "material": "TRIAL_KEY",
+      "cmd": 5528,
+      "id": "key_enchant_trial_9",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z",
-      "assetName": "thread_fire_resistance",
-      "parent": "generated"
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300008,
-      "id": "thread_dolphins_grace",
+      "material": "TRIAL_KEY",
+      "cmd": 5529,
+      "id": "key_enchant_trial_10",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z",
-      "assetName": "thread_dolphins_grace",
-      "parent": "generated"
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300009,
-      "id": "thread_conduit_power",
+      "material": "TRIAL_KEY",
+      "cmd": 5506,
+      "id": "key_bridge",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z",
-      "assetName": "thread_conduit_power",
-      "parent": "generated"
+      "allocatedAt": "2026-08-02T23:23:33.922Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300010,
-      "id": "thread_hero_of_the_village",
+      "material": "TRIAL_KEY",
+      "cmd": 5507,
+      "id": "key_city",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z",
-      "assetName": "thread_hero_of_the_village",
-      "parent": "generated"
+      "allocatedAt": "2026-08-02T23:23:33.922Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300011,
-      "id": "thread_health_boost",
+      "material": "TRIAL_KEY",
+      "cmd": 5508,
+      "id": "key_steamworks",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z",
-      "assetName": "thread_health_boost",
-      "parent": "generated"
+      "allocatedAt": "2026-08-02T23:23:33.922Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300012,
-      "id": "thread_hit_mana_recovery",
+      "material": "TRIAL_KEY",
+      "cmd": 5509,
+      "id": "key_climb",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z",
-      "assetName": "thread_hit_mana_recovery",
-      "parent": "generated"
+      "allocatedAt": "2026-08-02T23:23:33.922Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300013,
-      "id": "thread_damage_mana_recovery",
+      "material": "TRIAL_KEY",
+      "cmd": 5510,
+      "id": "key_palace",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z",
-      "assetName": "thread_damage_mana_recovery",
-      "parent": "generated"
+      "allocatedAt": "2026-08-02T23:23:33.922Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300014,
-      "id": "thread_spell_cost_down",
+      "material": "TRIAL_KEY",
+      "cmd": 5511,
+      "id": "key_sewer_maze",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z",
-      "assetName": "thread_spell_cost_down",
-      "parent": "generated"
+      "allocatedAt": "2026-08-02T23:23:33.922Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300015,
-      "id": "thread_flight",
+      "material": "TRIAL_KEY",
+      "cmd": 5512,
+      "id": "key_knight_castle",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z",
-      "assetName": "thread_flight",
-      "parent": "generated"
+      "allocatedAt": "2026-08-02T23:23:33.922Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300016,
-      "id": "thread_backpack",
+      "material": "TRIAL_KEY",
+      "cmd": 5513,
+      "id": "key_dark_cathedral",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z",
-      "assetName": "thread_backpack",
-      "parent": "generated"
+      "allocatedAt": "2026-08-02T23:23:33.922Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300017,
-      "id": "thread_mana_amplify",
+      "material": "TRIAL_KEY",
+      "cmd": 5514,
+      "id": "key_nether_bell",
       "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_mana_amplify",
-      "parent": "generated"
+      "allocatedAt": "2026-08-02T23:23:33.922Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300018,
-      "id": "thread_mana_circulate",
+      "material": "TRIAL_KEY",
+      "cmd": 5515,
+      "id": "key_nether_wastes",
       "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_mana_circulate",
-      "parent": "generated"
+      "allocatedAt": "2026-08-02T23:23:33.922Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300019,
-      "id": "thread_source_thrift",
+      "material": "TRIAL_KEY",
+      "cmd": 5516,
+      "id": "key_fireworks",
       "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_source_thrift",
-      "parent": "generated"
+      "allocatedAt": "2026-08-02T23:23:33.922Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300020,
-      "id": "thread_artisan",
+      "material": "TRIAL_KEY",
+      "cmd": 5530,
+      "id": "key_hallosseum",
       "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_artisan",
-      "parent": "generated"
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300021,
-      "id": "thread_ritualist",
+      "material": "TRIAL_KEY",
+      "cmd": 5531,
+      "id": "key_north_pole",
       "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_ritualist",
-      "parent": "generated"
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
     },
     {
-      "material": "STRING",
-      "cmd": 300022,
-      "id": "thread_thrift",
+      "material": "TRIAL_KEY",
+      "cmd": 5519,
+      "id": "key_binder",
       "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_thrift",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300023,
-      "id": "thread_salvage",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_salvage",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300024,
-      "id": "thread_miner",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_miner",
-      "parent": "generated"
+      "allocatedAt": "2026-08-02T23:23:33.922Z"
     },
     {
       "material": "STRING",
@@ -276,150 +204,6 @@
       "source": "catalog",
       "allocatedAt": "2026-08-02T00:00:00.000Z",
       "assetName": "thread_angler",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300026,
-      "id": "thread_harvest",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_harvest",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300027,
-      "id": "thread_timber",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_timber",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300028,
-      "id": "thread_spoils",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_spoils",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300029,
-      "id": "thread_diligence",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_diligence",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300030,
-      "id": "thread_experience",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_experience",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300031,
-      "id": "thread_scholar",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_scholar",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300032,
-      "id": "thread_mending_flesh",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_mending_flesh",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300033,
-      "id": "thread_endurance",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_endurance",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300034,
-      "id": "thread_gourmet",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_gourmet",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300035,
-      "id": "thread_thorn",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_thorn",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300036,
-      "id": "thread_concussion",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_concussion",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300037,
-      "id": "thread_swiftcast",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_swiftcast",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300038,
-      "id": "thread_marksman",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_marksman",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300039,
-      "id": "thread_slow_falling",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_slow_falling",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300040,
-      "id": "thread_luck",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T00:00:00.000Z",
-      "assetName": "thread_luck",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300041,
-      "id": "thread_perfumer",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T00:00:00.000Z",
-      "assetName": "thread_perfumer",
       "parent": "generated"
     },
     {
@@ -433,20 +217,92 @@
     },
     {
       "material": "STRING",
-      "cmd": 300043,
-      "id": "thread_herder",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T00:00:00.000Z",
-      "assetName": "thread_herder",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
       "cmd": 300044,
       "id": "thread_appraiser",
       "source": "catalog",
       "allocatedAt": "2026-08-03T00:00:00.000Z",
       "assetName": "thread_appraiser",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300020,
+      "id": "thread_artisan",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_artisan",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300016,
+      "id": "thread_backpack",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "thread_backpack",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300036,
+      "id": "thread_concussion",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_concussion",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300009,
+      "id": "thread_conduit_power",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "thread_conduit_power",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300013,
+      "id": "thread_damage_mana_recovery",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "thread_damage_mana_recovery",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300029,
+      "id": "thread_diligence",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_diligence",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300008,
+      "id": "thread_dolphins_grace",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "thread_dolphins_grace",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300001,
+      "id": "thread_empty",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "thread_empty",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300033,
+      "id": "thread_endurance",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_endurance",
       "parent": "generated"
     },
     {
@@ -460,227 +316,290 @@
     },
     {
       "material": "STRING",
-      "cmd": 300046,
-      "id": "thread_swordsman",
+      "cmd": 300030,
+      "id": "thread_experience",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_swordsman",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_experience",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300047,
-      "id": "thread_berserker",
+      "cmd": 300007,
+      "id": "thread_fire_resistance",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_berserker",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "thread_fire_resistance",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300048,
-      "id": "thread_lancer",
+      "cmd": 300015,
+      "id": "thread_flight",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_lancer",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "thread_flight",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300049,
-      "id": "thread_reaper",
+      "cmd": 300034,
+      "id": "thread_gourmet",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_reaper",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_gourmet",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300050,
-      "id": "thread_crusher",
+      "cmd": 300026,
+      "id": "thread_harvest",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_crusher",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_harvest",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300051,
-      "id": "thread_assassin",
+      "cmd": 300011,
+      "id": "thread_health_boost",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_assassin",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "thread_health_boost",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300052,
-      "id": "thread_duelist",
+      "cmd": 300043,
+      "id": "thread_herder",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_duelist",
+      "allocatedAt": "2026-08-03T00:00:00.000Z",
+      "assetName": "thread_herder",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300053,
-      "id": "thread_titan",
+      "cmd": 300010,
+      "id": "thread_hero_of_the_village",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_titan",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "thread_hero_of_the_village",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300054,
-      "id": "thread_greatsword",
+      "cmd": 300012,
+      "id": "thread_hit_mana_recovery",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_greatsword",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "thread_hit_mana_recovery",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300055,
-      "id": "thread_longshot",
+      "cmd": 300005,
+      "id": "thread_jump_boost",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_longshot",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "thread_jump_boost",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300056,
-      "id": "thread_tidecaller",
+      "cmd": 300040,
+      "id": "thread_luck",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_tidecaller",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_luck",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300057,
-      "id": "thread_earthshaker",
+      "cmd": 300017,
+      "id": "thread_mana_amplify",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_earthshaker",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_mana_amplify",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300058,
-      "id": "thread_bolter",
+      "cmd": 300003,
+      "id": "thread_mana_boost",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_bolter",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "thread_mana_boost",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300059,
-      "id": "thread_spellblade",
+      "cmd": 300018,
+      "id": "thread_mana_circulate",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_spellblade",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_mana_circulate",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300060,
-      "id": "thread_onslaught",
+      "cmd": 300002,
+      "id": "thread_mana_regen",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_onslaught",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "thread_mana_regen",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300061,
-      "id": "thread_precision",
+      "cmd": 300038,
+      "id": "thread_marksman",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_precision",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_marksman",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300062,
-      "id": "thread_execution",
+      "cmd": 300032,
+      "id": "thread_mending_flesh",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_execution",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_mending_flesh",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300063,
-      "id": "thread_piercer",
+      "cmd": 300024,
+      "id": "thread_miner",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_piercer",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_miner",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300064,
-      "id": "thread_hemorrhage",
+      "cmd": 300006,
+      "id": "thread_night_vision",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_hemorrhage",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "thread_night_vision",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300065,
-      "id": "thread_bulwark",
+      "cmd": 300041,
+      "id": "thread_perfumer",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_bulwark",
+      "allocatedAt": "2026-08-03T00:00:00.000Z",
+      "assetName": "thread_perfumer",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300066,
-      "id": "thread_aegis",
+      "cmd": 300021,
+      "id": "thread_ritualist",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_aegis",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_ritualist",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300067,
-      "id": "thread_ironhide",
+      "cmd": 300023,
+      "id": "thread_salvage",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_ironhide",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_salvage",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300068,
-      "id": "thread_evasion",
+      "cmd": 300031,
+      "id": "thread_scholar",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_evasion",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_scholar",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 300069,
-      "id": "thread_resilience",
+      "cmd": 300039,
+      "id": "thread_slow_falling",
       "source": "catalog",
-      "allocatedAt": "2026-08-21T00:00:00.000Z",
-      "assetName": "thread_resilience",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_slow_falling",
       "parent": "generated"
     },
     {
       "material": "STRING",
-      "cmd": 100023,
-      "id": "thread_better_fortune",
+      "cmd": 300019,
+      "id": "thread_source_thrift",
       "source": "catalog",
-      "allocatedAt": "2026-08-13T11:54:41.602Z",
-      "assetName": "thread_better_fortune",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_source_thrift",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300004,
+      "id": "thread_speed",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "thread_speed",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300014,
+      "id": "thread_spell_cost_down",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "thread_spell_cost_down",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300028,
+      "id": "thread_spoils",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_spoils",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300037,
+      "id": "thread_swiftcast",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_swiftcast",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300035,
+      "id": "thread_thorn",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_thorn",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300022,
+      "id": "thread_thrift",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_thrift",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300027,
+      "id": "thread_timber",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z",
+      "assetName": "thread_timber",
       "parent": "generated"
     },
     {
@@ -701,65 +620,65 @@
       "customModel": true
     },
     {
-      "material": "WOODEN_HOE",
+      "material": "WOODEN_SWORD",
       "cmd": 58,
       "id": "wooden_scythe",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T00:56:03.013Z",
+      "allocatedAt": "2026-08-22T14:37:55.409Z",
       "assetName": "wooden_scythe",
       "parent": "handheld"
     },
     {
-      "material": "STONE_HOE",
+      "material": "STONE_SWORD",
       "cmd": 57,
       "id": "stone_scythe",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T00:56:03.013Z",
+      "allocatedAt": "2026-08-22T14:37:55.409Z",
       "assetName": "stone_scythe",
       "parent": "handheld"
     },
     {
-      "material": "COPPER_HOE",
+      "material": "COPPER_SWORD",
       "cmd": 56,
       "id": "copper_scythe",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T00:56:03.013Z",
+      "allocatedAt": "2026-08-22T14:37:55.409Z",
       "assetName": "copper_scythe",
       "parent": "handheld"
     },
     {
-      "material": "IRON_HOE",
+      "material": "IRON_SWORD",
       "cmd": 55,
       "id": "iron_scythe",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T00:56:03.013Z",
+      "allocatedAt": "2026-08-22T14:37:55.409Z",
       "assetName": "iron_scythe",
       "parent": "handheld"
     },
     {
-      "material": "GOLDEN_HOE",
+      "material": "GOLDEN_SWORD",
       "cmd": 54,
       "id": "golad_scythe",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T00:56:03.013Z",
+      "allocatedAt": "2026-08-22T14:37:55.409Z",
       "assetName": "golad_scythe",
       "parent": "handheld"
     },
     {
-      "material": "DIAMOND_HOE",
+      "material": "DIAMOND_SWORD",
       "cmd": 53,
       "id": "diamond_scythe",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T00:56:03.013Z",
+      "allocatedAt": "2026-08-22T14:37:55.409Z",
       "assetName": "diamond_scythe",
       "parent": "handheld"
     },
     {
-      "material": "NETHERITE_HOE",
+      "material": "NETHERITE_SWORD",
       "cmd": 52,
       "id": "nethrite_scythe",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T00:56:03.013Z",
+      "allocatedAt": "2026-08-22T14:37:55.409Z",
       "assetName": "nethrite_scythe",
       "parent": "handheld"
     },
@@ -780,11 +699,11 @@
       "parent": "handheld"
     },
     {
-      "material": "DIAMOND_HOE",
+      "material": "DIAMOND_SWORD",
       "cmd": 49,
       "id": "source_gem_scythe",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "allocatedAt": "2026-08-22T14:37:55.409Z",
       "assetName": "source_gem_scythe",
       "parent": "handheld"
     },
@@ -1339,49 +1258,63 @@
       "cmd": 62,
       "id": "wooden_grate_sword",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T05:09:06.883Z"
+      "allocatedAt": "2026-07-23T05:09:06.883Z",
+      "assetName": "wooden_grate_sword",
+      "parent": "handheld"
     },
     {
       "material": "STONE_SWORD",
       "cmd": 63,
       "id": "stone_grate_sword",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T05:09:06.883Z"
+      "allocatedAt": "2026-07-23T05:09:06.883Z",
+      "assetName": "stone_grate_sword",
+      "parent": "handheld"
     },
     {
       "material": "COPPER_SWORD",
       "cmd": 64,
       "id": "copper_grate_sword",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T05:09:06.883Z"
+      "allocatedAt": "2026-07-23T05:09:06.883Z",
+      "assetName": "copper_grate_sword",
+      "parent": "handheld"
     },
     {
       "material": "IRON_SWORD",
       "cmd": 65,
       "id": "iron_grate_sword",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T05:09:06.884Z"
+      "allocatedAt": "2026-07-23T05:09:06.884Z",
+      "assetName": "iron_grate_sword",
+      "parent": "handheld"
     },
     {
       "material": "GOLDEN_SWORD",
       "cmd": 66,
       "id": "golden_grate_sword",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T05:09:06.884Z"
+      "allocatedAt": "2026-07-23T05:09:06.884Z",
+      "assetName": "golden_grate_sword",
+      "parent": "handheld"
     },
     {
       "material": "DIAMOND_SWORD",
       "cmd": 1113,
       "id": "diamond_grate_sword",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T05:09:06.884Z"
+      "allocatedAt": "2026-07-23T05:09:06.884Z",
+      "assetName": "diamond_grate_sword",
+      "parent": "handheld"
     },
     {
       "material": "NETHERITE_SWORD",
       "cmd": 67,
       "id": "netherite_grate_sword",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T05:09:06.884Z"
+      "allocatedAt": "2026-07-23T05:09:06.884Z",
+      "assetName": "netherite_grate_sword",
+      "parent": "handheld"
     },
     {
       "material": "NETHERITE_SWORD",
@@ -1484,29 +1417,29 @@
       "allocatedAt": "2026-07-23T13:30:59.789Z"
     },
     {
-      "material": "NETHERITE_HOE",
+      "material": "NETHERITE_SWORD",
       "cmd": 124,
       "id": "infinity_scythe",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.789Z",
+      "allocatedAt": "2026-08-22T14:37:55.409Z",
       "assetName": "infinity_scythe",
       "parent": "handheld"
     },
     {
-      "material": "NETHERITE_HOE",
+      "material": "NETHERITE_SWORD",
       "cmd": 125,
       "id": "hero_scythe",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.789Z",
+      "allocatedAt": "2026-08-22T14:37:55.409Z",
       "assetName": "hero_scythe",
       "parent": "handheld"
     },
     {
-      "material": "NETHERITE_HOE",
+      "material": "NETHERITE_SWORD",
       "cmd": 126,
       "id": "nuclear_scythe",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.789Z",
+      "allocatedAt": "2026-08-22T14:37:55.409Z",
       "assetName": "nuclear_scythe",
       "parent": "handheld"
     },
@@ -1565,7 +1498,9 @@
       "cmd": 136,
       "id": "infinity_grate_sword",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.790Z"
+      "allocatedAt": "2026-07-23T13:30:59.790Z",
+      "assetName": "infinity_grate_sword",
+      "parent": "handheld"
     },
     {
       "material": "NETHERITE_SWORD",
@@ -1659,7 +1594,9 @@
       "cmd": 1119,
       "id": "source_gem_grate_sword",
       "source": "catalog",
-      "allocatedAt": "2026-07-24T01:00:14.594Z"
+      "allocatedAt": "2026-07-24T01:00:14.594Z",
+      "assetName": "source_gem_grate_sword",
+      "parent": "handheld"
     },
     {
       "material": "DIAMOND_HELMET",
@@ -2749,7 +2686,7 @@
     {
       "material": "NETHERITE_SWORD",
       "cmd": 400012,
-      "id": "magic_wand",
+      "id": "infinity_wand",
       "source": "catalog",
       "allocatedAt": "2026-08-08T00:00:00.000Z",
       "assetName": "magic_wand",
@@ -2759,7 +2696,7 @@
     {
       "material": "NETHERITE_SWORD",
       "cmd": 400013,
-      "id": "abyss_wand",
+      "id": "hero_wand",
       "source": "catalog",
       "allocatedAt": "2026-08-08T00:00:00.000Z",
       "assetName": "abyss_wand",
@@ -2769,7 +2706,7 @@
     {
       "material": "NETHERITE_SWORD",
       "cmd": 400014,
-      "id": "boundary_wand",
+      "id": "nuclear_wand",
       "source": "catalog",
       "allocatedAt": "2026-08-08T00:00:00.000Z",
       "assetName": "boundary_wand",
@@ -2985,202 +2922,6 @@
       "id": "binder_boots",
       "source": "catalog",
       "allocatedAt": "2026-07-31T12:00:00.000Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5501,
-      "id": "key_mines",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T23:23:33.922Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5502,
-      "id": "key_deep_mines",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T23:23:33.922Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5503,
-      "id": "key_quarry",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T23:23:33.922Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5504,
-      "id": "key_cave",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T23:23:33.922Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5520,
-      "id": "key_enchant_trial_1",
-      "source": "catalog",
-      "allocatedAt": "2026-08-08T06:16:53.581Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5521,
-      "id": "key_enchant_trial_2",
-      "source": "catalog",
-      "allocatedAt": "2026-08-08T06:16:53.581Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5522,
-      "id": "key_enchant_trial_3",
-      "source": "catalog",
-      "allocatedAt": "2026-08-08T06:16:53.581Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5523,
-      "id": "key_enchant_trial_4",
-      "source": "catalog",
-      "allocatedAt": "2026-08-08T06:16:53.581Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5524,
-      "id": "key_enchant_trial_5",
-      "source": "catalog",
-      "allocatedAt": "2026-08-08T06:16:53.581Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5525,
-      "id": "key_enchant_trial_6",
-      "source": "catalog",
-      "allocatedAt": "2026-08-08T06:16:53.581Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5526,
-      "id": "key_enchant_trial_7",
-      "source": "catalog",
-      "allocatedAt": "2026-08-08T06:16:53.581Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5527,
-      "id": "key_enchant_trial_8",
-      "source": "catalog",
-      "allocatedAt": "2026-08-08T06:16:53.581Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5528,
-      "id": "key_enchant_trial_9",
-      "source": "catalog",
-      "allocatedAt": "2026-08-08T06:16:53.581Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5529,
-      "id": "key_enchant_trial_10",
-      "source": "catalog",
-      "allocatedAt": "2026-08-08T06:16:53.581Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5506,
-      "id": "key_bridge",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T23:23:33.922Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5507,
-      "id": "key_city",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T23:23:33.922Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5508,
-      "id": "key_steamworks",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T23:23:33.922Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5509,
-      "id": "key_climb",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T23:23:33.922Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5510,
-      "id": "key_palace",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T23:23:33.922Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5511,
-      "id": "key_sewer_maze",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T23:23:33.922Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5512,
-      "id": "key_knight_castle",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T23:23:33.922Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5513,
-      "id": "key_dark_cathedral",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T23:23:33.922Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5514,
-      "id": "key_nether_bell",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T23:23:33.922Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5515,
-      "id": "key_nether_wastes",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T23:23:33.922Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5516,
-      "id": "key_fireworks",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T23:23:33.922Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5530,
-      "id": "key_hallosseum",
-      "source": "catalog",
-      "allocatedAt": "2026-08-08T06:16:53.581Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5531,
-      "id": "key_north_pole",
-      "source": "catalog",
-      "allocatedAt": "2026-08-08T06:16:53.581Z"
-    },
-    {
-      "material": "TRIAL_KEY",
-      "cmd": 5519,
-      "id": "key_binder",
-      "source": "catalog",
-      "allocatedAt": "2026-08-02T23:23:33.922Z"
     },
     {
       "material": "NETHERITE_SWORD",
@@ -3505,6 +3246,276 @@
       "allocatedAt": "2026-08-02T00:00:00.000Z"
     },
     {
+      "material": "STRING",
+      "cmd": 100023,
+      "id": "thread_better_fortune",
+      "source": "catalog",
+      "allocatedAt": "2026-08-13T11:54:41.602Z",
+      "assetName": "thread_better_fortune",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 100024,
+      "id": "thread_gacha",
+      "source": "catalog",
+      "allocatedAt": "2026-08-13T11:54:41.602Z",
+      "assetName": "thread_gacha",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 100025,
+      "id": "thread_role_luck",
+      "source": "catalog",
+      "allocatedAt": "2026-08-13T11:54:41.602Z",
+      "assetName": "thread_role_luck",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 100026,
+      "id": "thread_role_effeciency",
+      "source": "catalog",
+      "allocatedAt": "2026-08-13T11:54:41.602Z",
+      "assetName": "thread_role_effeciency",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 100027,
+      "id": "thread_blindness",
+      "source": "catalog",
+      "allocatedAt": "2026-08-14T17:36:17.258Z",
+      "assetName": "thread_blindness",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 100028,
+      "id": "thread_translate",
+      "source": "catalog",
+      "allocatedAt": "2026-08-14T18:02:38.535Z",
+      "assetName": "thread_translate",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300046,
+      "id": "thread_swordsman",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_swordsman",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300047,
+      "id": "thread_berserker",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_berserker",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300048,
+      "id": "thread_lancer",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_lancer",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300049,
+      "id": "thread_reaper",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_reaper",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300050,
+      "id": "thread_crusher",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_crusher",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300051,
+      "id": "thread_assassin",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_assassin",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300052,
+      "id": "thread_duelist",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_duelist",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300053,
+      "id": "thread_titan",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_titan",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300054,
+      "id": "thread_greatsword",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_greatsword",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300055,
+      "id": "thread_longshot",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_longshot",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300056,
+      "id": "thread_tidecaller",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_tidecaller",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300057,
+      "id": "thread_earthshaker",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_earthshaker",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300058,
+      "id": "thread_bolter",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_bolter",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300059,
+      "id": "thread_spellblade",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_spellblade",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300060,
+      "id": "thread_onslaught",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_onslaught",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300061,
+      "id": "thread_precision",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_precision",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300062,
+      "id": "thread_execution",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_execution",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300063,
+      "id": "thread_piercer",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_piercer",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300064,
+      "id": "thread_hemorrhage",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_hemorrhage",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300065,
+      "id": "thread_bulwark",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_bulwark",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300066,
+      "id": "thread_aegis",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_aegis",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300067,
+      "id": "thread_ironhide",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_ironhide",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300068,
+      "id": "thread_evasion",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_evasion",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300069,
+      "id": "thread_resilience",
+      "source": "catalog",
+      "allocatedAt": "2026-08-21T00:00:00.000Z",
+      "assetName": "thread_resilience",
+      "parent": "generated"
+    },
+    {
       "material": "AMETHYST_SHARD",
       "cmd": 3,
       "id": "skill_node_lock",
@@ -3561,6 +3572,13 @@
       "id": "source_gem_block",
       "source": "materials",
       "allocatedAt": "2026-08-13T03:35:02.722Z"
+    },
+    {
+      "material": "STRING",
+      "cmd": 100021,
+      "id": "magebloom_fiber",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
     },
     {
       "material": "STONE",
@@ -4888,6 +4906,15 @@
       "parent": "generated"
     },
     {
+      "material": "ECHO_SHARD",
+      "cmd": 5452,
+      "id": "reality_thread_core",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "reality_thread_core",
+      "parent": "generated"
+    },
+    {
       "material": "TURTLE_SCUTE",
       "cmd": 86,
       "id": "dragon_scale",
@@ -5047,15 +5074,6 @@
       "source": "materials",
       "allocatedAt": "2026-07-31T10:00:00.000Z",
       "assetName": "binder_fragment",
-      "parent": "generated"
-    },
-    {
-      "material": "ECHO_SHARD",
-      "cmd": 5452,
-      "id": "reality_thread_core",
-      "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z",
-      "assetName": "reality_thread_core",
       "parent": "generated"
     },
     {

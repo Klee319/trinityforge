@@ -5421,6 +5421,58 @@ listeners + collection 系 989 tests / 0 failed / 0 skipped、フル 4582 tests 
 
 **配備が要る（jar）。** 出荷 yml は変えていないので config 配備は不要。
 
+### editor で material を差し替えると、その行のテクスチャ割り当てが無言で外れる（2026-08-22 実サーバ報告。W-159）
+
+**報告**: 「editor で鎌の material を剣に変えてリソパビルドしたらテクスチャ割り当てが外れた」── 再現した。
+
+**機構**（アセットは1枚も消えていない。壊れたのは台帳の紐付けだけ）:
+
+1. `cmd-registry.json` の突合せキーは **`(material, cmd)` だけ**だった
+   （`lib/cmd-registry.js#reconcileWithUsage`）。material を差し替えると別キーになるので、
+   その行は「新規の未配線行」として扱われ **`assetName` / `parent` が黙って落ちる**。
+2. `regenerateItemDefinitions` の配線済み判定は `assetName && models/item/<assetName>.json` の1行。
+   `assetName` を失った行は未配線と判断され、**バニラモデルを指す entry** が書かれる。
+   `WOODEN_HOE#58 -> trinityforge:item/wooden_scythe` が
+   `WOODEN_SWORD#58 -> minecraft:item/wooden_sword` になった。
+3. 保存のたびに走る（`syncCmdRegistryAfterSave` は catalog を保存すれば必ず通る）ので、
+   **editor で material を触った瞬間に確定する**。ビルドのせいではない。
+
+実害は鎌 11 品（`wooden/stone/copper/iron/golad/diamond/nethrite/source_gem/infinity/hero/nuclear`）。
+`*_HOE` → `*_SWORD` の付け替えで全部が assetName を失っていた。
+モデル JSON と PNG はどれも残っていたので、台帳を直せば絵は戻る。
+
+**直したこと**
+
+- `reconcileWithUsageDetailed` を新設し、**キーが変わっただけの行を `id` で引き継ぐ**。
+  引き継ぐのは `assetName` / `parent` / `customModel` / `allocatedAt`。
+  引き継がない条件を3つ入れてある（黙って別物へ結び付けないため）:
+  元の `(material,cmd)` が今回の usage に残っている行は移動ではない／同じ id の候補が複数ある／
+  引き継ぎ先の `assetName` を他行が既に持っている。
+- **自動生成モデルの `parent` も貼り直す**（`respack.js#rewriteMovedModels`）。
+  生成モデルは `parent: minecraft:item/wooden_hoe` のように**登録時の material を焼き込んでいる**ので、
+  放置すると構え方が旧 material のまま残る。さらに BOW / TRIDENT のように
+  リーフ構成が違う material へ移すと、`entryModelFor` が参照する `<assetName>__pulling_0.json` 等が
+  そもそも存在せず**描画が丸ごと落ちる**。`customModel:true`（手書き JSON）は上書きしない。
+- **検出できなかった側も直した。** `resourcepack/build_item_pack.py` の D-2 検査は
+  「パックに実物があるのに threshold に配線されていない」を見ていたが、
+  respack.js の H-3 修正以降**未配線の行にも threshold entry は必ず生成される**
+  （省略すると range_dispatch が1つ下へフォールスルーするため）。
+  つまり entry の有無は「絵が出ている」証拠にならず、この事故を1件も検出できなかった。
+  `drawn_thresholds()` を足し、**entry が `trinityforge:` の自前モデルを指しているか**まで見る。
+
+**復旧**: 修正後の引き継ぎロジックへ「HEAD の鍬時代の行」を通して 11 件を復元した
+（手書きで戻さないのは、重複判定などのガードを同じコードで効かせるため）。
+台帳の差分は **11 行の `assetName`/`parent` だけ**（710 行のまま、material/cmd/id は不動）であることを確認済み。
+モデルの `parent` も `minecraft:item/*_sword` へ貼り直し、items 定義とパック zip を再生成した。
+
+**検証**: 回帰7本を追加。**引き継ぎを黙らせると本命4本が落ちる**ことを実走で確認
+（残る3本は「引き継がない」ことを縛るガードなので両方で通る）。
+`build_item_pack.validate()` は現状 OK（packable 878）。editor フル 1424 tests / 27 failed / 1 skipped で、
+**失敗は全部 catalog.yml 等の内容ドリフト（他セッションの未コミット yml 由来）**で
+cmd-registry / respack / cmd-routes の系は 0 件。
+
+**リソースパックの再配布が要る**（jar・config の配備は不要）。
+
 ## 4. 既知の未修正の問題・弱点
 
 いずれも**意図的に許容している**か、**直すには判断が要る**もの。新規に見つけたバグはここへ足す。
@@ -5580,6 +5632,7 @@ git 系:
 
 | 日付 | 内容 |
 |---|---|
+| 2026-08-22 | **editor で material を差し替えるとテクスチャ割り当てが外れる不具合を修正**（実サーバ報告 W-159）。`cmd-registry.json` の突合せキーが **`(material,cmd)` だけ**だったため、鎌を `*_HOE` から `*_SWORD` へ付け替えた 11 品が「新規の未配線行」と見なされ **`assetName`/`parent` を無言で喪失** → items 定義がバニラモデルを指すようになっていた（アセットは1枚も消えていない）。**id で引き継ぐ** `reconcileWithUsageDetailed` を新設し、生成モデルの `parent` も新 material へ貼り直す（放置すると BOW 等ではリーフが存在せず描画ごと落ちる）。**検出漏れ側も修正**: `build_item_pack.py` の D-2 は「threshold entry があるか」しか見ておらず、H-3 のフォールスルー対策以降**未配線でも entry は必ず出る**のでこの事故を検出できなかった → `drawn_thresholds()` で**自前モデルを指しているか**まで見る。鎌 11 品を復元し zip を再生成。回帰7本を追加し**引き継ぎを黙らせると本命4本が落ちる**ことを実走確認。**リソパの再配布が必要**（jar/config は不要） |
 | 2026-08-22 | **図鑑の記録漏れ2件を修正**（実サーバ報告 W-157 / W-158）。討伐は `getKiller()` = **とどめを刺した1人**しか見ておらず、寄与比で全員に配る戦闘EXPと帰属が食い違っていた → 指示により**ダメージを与えた全員**へ。既存 `CombatKillCreditTracker` を流用しないのは①**武器スキル3種のダメージしか記録しない**(魔法だけで削った人が載らない)②`consume` が台帳を取り除くので、同じ `EntityDeathEvent` を MONITOR で受ける2本は**登録順しだいで片方が空**になるため。図鑑専用の `MobKillParticipants` を新設し `DamageSource#getCausingEntity()` で攻撃手段を問わず拾う。アイテム側は記録の入口が**拾得/開閉走査/参加走査の3つだけ**で、地面を経由せず直接インベントリへ入る品(EM ダンジョン報酬・ガチャ・メール・儀式報酬・`/tf give`)が GUI を閉じるまで載らなかった → 与える側の列挙ではなく `PlayerInventorySlotChangeEvent` で**スロットの変化そのもの**を1箇所で拾う。回帰16本を追加し**新挙動を黙らせると本命2本が落ちる**ことを実走確認。フル 4582/29失敗は着手前と失敗集合が完全一致。**jar 配備が必要**。TF `c9afd4e` |
 | 2026-08-22 | **ダンジョンのボスだけがパーティ最強の戦闘レベルへ化けるのを直した**（報告「ダンジョンの敵が殴ったらそのダンジョンに入ってるプレイヤーの中で1番戦闘レベルの高い人に合わせられる=>僕(100Lv)が50lvで部屋を作ってボス戦まで行ったら敵の体力は100レベの10Mとかになる」「34lvのダークカテドラルで50lv武器&55lv装備、道中はワンパンできるのに最後のボスだけ明らかに倒せる設計されてない」）。**この2件は同じ1つのバグ**。⚠️ **真因はフェーズ切替でレベルが -1 へ戻ること** —— フェーズボスは体力が閾値を割るたび`PhaseBossEntity#switchPhase` で「remove → `setCustomBossesConfigFields`(フェーズ設定) → `spawn`」をやり直す。`setCustomBossesConfigFields` の末尾は `super.setLevel(config.getLevel())` で、`level: dynamic` の設定では**これが -1** ── インスタンスが与えた挑戦レベルがそこで消える。続く `spawn` が `level == -1` の分岐に落ち、素の EliteMobs 経路（`getDynamicLevel` = **近くのプレイヤーの戦闘レベルの最大値**）でレベルを決め直していた。⚠️ **さらに 5 秒ごとの `dynamicLevelUpdater` が上書きし続ける** —— 同じスポーンで`dynamicLevelBossEntities` にも載るので、2026-08-18 に入れた `DynamicDungeonLevelListener`(LOWEST) がスポーン時に直しても毎回取り消されていた（**スポーン直後だけ正しい**ので実機で数分殴らないと出ない）。⚠️ **ダークカテドラルの phase_0 の閾値は 0.9999** ＝ 最初の一撃でここを通る。フェーズを持たない道中の雑魚は通らないので、同一インスタンス内で雑魚 `[34]` / ボス `『67』` になる（実ログ `em_the_dark_cathedral_1` で確認。難易度ハード=100% を選んだ回は雑魚もボスも `[76]` で一致するため**このバグは 100% 帯だけ見えない**）。最大HPは `150 × 1.072^L × 1.375 × 1.236 × 30` なので **34→8.1万 / 67→80.6万でおよそ10倍**、100レベルなら約800万で報告の「10M」とほぼ一致する。→ 判定を `DynamicDungeonLevelPolicy`（新設）へ切り出し、**値を決める `getDynamicLevel` と updater へ載せる `spawn` の両方**をそこへ通す。インスタンス内のモブは挑戦レベルで固定し、`dynamicLevelBossEntities` に載せない。⚠️ **片方だけ直しても直らない**ので配線を2箇所とも縛る。回帰は `DynamicDungeonBossLevelTest`（規則そのものは純関数4本／2つの分岐が判定を通ることはこの fork の流儀どおり `javap` でメソッド単位のバイトコードを見る2本。生きた Bukkit・インスタンスワールド・EM プレイヤーデータが無いと挙動では走らせられないため）。**まるごと戻すと2本・`spawn` だけ戻すと1本落ちる**ことを実走確認。EM fork 123/失敗0/skip0。**EliteMobs の jar のみ**（TF 本体・config は無変更）。EliteMobs fork `5eb7e40a`。 |
 | 2026-08-22 | **交換グリフで菌糸が作れない件は「デグレではなく一度も作れたことが無い」と確定し、土の段へ草・ポドゾル・菌糸を足した**（実サーバ報告 W-156）。交換は `exchange_tiers` の**同じ段の中でしか循環しない**のに、菌糸はどの段にも居なかった（`git log -S MYCELIUM` がfork の glyphs.yml で 1 件も無い／配備先 3 台はソースとバイト一致）。TF・Ars のどこにも菌糸を**生成する**経路は無く、入力側（菌糸ソースリンク強化に計19個）としてしか出てこない。**ArsPaper は自分では既存 yml を更新しないので jar でも `/ars reload` でも配備先は変わらない**（届く経路は全台停止が要る `deploy-config-head.cmd` だけ）→ 止めずに入れる用に`ops\scripts\apply-exchange-dirt-tier.ps1` を用意（退避・確認つき／流したあと `/ars reload`。次回配備で guard が drift としてリポジトリへ書き戻す）。回帰ガード `ExchangeTiersShippedTest` を追加し**段を戻すと落ちる**ことを実走確認、fork 510 tests / 0 failed。fork 側は他セッションの未コミット 369 行と混ざっているため**ワーキングツリーに残置**（配備には影響しない） |

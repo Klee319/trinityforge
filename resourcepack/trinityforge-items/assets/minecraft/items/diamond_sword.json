@@ -8,6 +8,20 @@
     },
     "entries": [
       {
+        "threshold": 49,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/source_gem_scythe"
+        }
+      },
+      {
+        "threshold": 53,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/diamond_scythe"
+        }
+      },
+      {
         "threshold": 1099,
         "model": {
           "type": "minecraft:model",
@@ -80,8 +94,8 @@
       {
         "threshold": 1113,
         "model": {
-          "model": "minecraft:item/diamond_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/diamond_grate_sword"
         }
       },
       {
@@ -94,8 +108,8 @@
       {
         "threshold": 1119,
         "model": {
-          "model": "minecraft:item/diamond_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/source_gem_grate_sword"
         }
       },
       {

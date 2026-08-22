@@ -36,10 +36,17 @@
         }
       },
       {
+        "threshold": 55,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/iron_scythe"
+        }
+      },
+      {
         "threshold": 65,
         "model": {
-          "model": "minecraft:item/iron_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/iron_grate_sword"
         }
       },
       {

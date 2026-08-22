@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/wooden_sword",
   "textures": {
-    "layer0": "trinityforge:item/wooden_scythe"
+    "layer0": "trinityforge:item/wooden_grate_sword"
   }
 }

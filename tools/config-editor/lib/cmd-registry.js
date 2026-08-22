@@ -382,26 +382,92 @@ function adoptFromConfigs(usage, registry) {
 // 台帳を「現存するconfigのCMD」へ完全同期する。削除済みアイテムの行を残すと、
 // リソースパック定義にも残ってしまうため、履歴台帳ではなく現行の配線台帳として扱う。
 // 同一(material,cmd)の assetName/customModel 等は維持し、由来/idだけ最新のconfigへ正規化する。
+//
+// 2026-08-22: editor で material だけを差し替える（鎌を HOE から SWORD へ、など）と
+// (material,cmd) が別キーになるため、この行は「新規の未配線行」として扱われ
+// assetName/parent が無言で消えていた。台帳が assetName を失うと
+// regenerateItemDefinitions が「未配線」と判断してバニラモデルの entry を書くので、
+// **アセットは1つも消えていないのにテクスチャの割り当てだけが外れる**。
+// キーが変わっただけの行は id で引き継ぐ（下記 detailed 実装を参照）。
 function reconcileWithUsage(usage, registry) {
+  return reconcileWithUsageDetailed(usage, registry).registry;
+}
+
+// reconcileWithUsage の本体。引き継ぎが起きた行を moved で返すので、
+// 呼び出し側は「新しい material のバニラリーフへモデルを貼り直す」処理を続けられる。
+// 戻り値: { registry, moved: [{id, assetName, customModel, from:{material,cmd}, to:{material,cmd}}] }
+// registry には moved を含めない（saveRegistry がそのまま JSON 化するため）。
+function reconcileWithUsageDetailed(usage, registry) {
+  const priorList = (registry && registry.allocations) || [];
+  const entries = Array.isArray(usage) ? usage : [];
+
   const existing = new Map();
-  for (const allocation of (registry && registry.allocations) || []) {
+  for (const allocation of priorList) {
     existing.set(`${allocation.material}#${allocation.cmd}`, allocation);
   }
+  const nextKeys = new Set(entries.map((entry) => `${entry.material}#${entry.cmd}`));
+
+  // 引き継ぎ候補 = 「assetName を持ち、かつ元の (material,cmd) が今回の usage に残っていない」行。
+  // 元のキーが残っているなら別アイテムがそこに居るということなので移動ではない。
+  // 同じ id が複数行にあると引き継ぎ先を決められないため、その id ごと候補から落とす
+  // （黙って片方へ寄せると、もう片方が理由不明で未配線になる）。
+  const movable = new Map();
+  for (const allocation of priorList) {
+    const id = allocation.id;
+    if (!id || !allocation.assetName) continue;
+    if (nextKeys.has(`${allocation.material}#${allocation.cmd}`)) continue;
+    movable.set(id, movable.has(id) ? null : allocation);
+  }
+
+  // 既に (material,cmd) 一致で維持される assetName は引き継ぎ先に使えない
+  // （別 (material,cmd) と同じ assetName を共有すると、どちらのモデルを書いたか分からなくなる）。
+  const claimed = new Set();
+  for (const entry of entries) {
+    const prior = existing.get(`${entry.material}#${entry.cmd}`);
+    if (prior && prior.assetName) claimed.add(prior.assetName);
+  }
+
   const allocations = [];
-  for (const entry of Array.isArray(usage) ? usage : []) {
-    const key = `${entry.material}#${entry.cmd}`;
-    const prior = existing.get(key) || {};
+  const moved = [];
+  for (const entry of entries) {
+    const prior = existing.get(`${entry.material}#${entry.cmd}`) || {};
     const primary = entry.sources && entry.sources[0] ? entry.sources[0] : {};
-    allocations.push({
+    const id = primary.id || null;
+
+    let carried = null;
+    if (!prior.assetName && id) {
+      const candidate = movable.get(id);
+      if (candidate && !claimed.has(candidate.assetName)) {
+        carried = candidate;
+        claimed.add(candidate.assetName);
+        movable.set(id, null); // 1行にしか引き継がない
+      }
+    }
+
+    const next = {
       ...prior,
       material: entry.material,
       cmd: entry.cmd,
-      id: primary.id || null,
+      id,
       source: primary.file || null,
-      allocatedAt: prior.allocatedAt || new Date().toISOString()
-    });
+      allocatedAt: prior.allocatedAt || (carried && carried.allocatedAt) || new Date().toISOString()
+    };
+    if (carried) {
+      next.assetName = carried.assetName;
+      if (carried.parent) next.parent = carried.parent;
+      if (carried.customModel) next.customModel = carried.customModel;
+      moved.push({
+        id,
+        assetName: carried.assetName,
+        customModel: !!carried.customModel,
+        from: { material: carried.material, cmd: carried.cmd },
+        to: { material: entry.material, cmd: entry.cmd }
+      });
+    }
+    allocations.push(next);
   }
-  return { version: (registry && registry.version) || 1, allocations };
+
+  return { registry: { version: (registry && registry.version) || 1, allocations }, moved };
 }
 
 module.exports = {
@@ -419,5 +485,6 @@ module.exports = {
   allocate,
   allocateBulk,
   adoptFromConfigs,
-  reconcileWithUsage
+  reconcileWithUsage,
+  reconcileWithUsageDetailed
 };

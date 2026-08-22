@@ -36,10 +36,17 @@
         }
       },
       {
+        "threshold": 56,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/copper_scythe"
+        }
+      },
+      {
         "threshold": 64,
         "model": {
-          "model": "minecraft:item/copper_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/copper_grate_sword"
         }
       },
       {
