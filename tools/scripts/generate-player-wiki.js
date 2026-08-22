@@ -194,6 +194,18 @@ function markdown(value) {
   return plainText(value).replace(/\|/g, "\\|").replace(/\r?\n/g, "<br>");
 }
 
+/**
+ * スキルツリーの `description:`（ゲーム内 `/skills` に出るのと同じ数値の並び）を表のセルへ畳む。
+ * 改行区切りの複数行なので " / " で連結する。空なら "—"。
+ */
+function skillNumbers(value) {
+  const lines = normalizeLineEndings(String(value ?? ""))
+    .split("\n")
+    .map((line) => plainText(line))
+    .filter((line) => line.length > 0);
+  return lines.length ? lines.join(" / ").replace(/\|/g, "\\|") : "—";
+}
+
 function isPlaceholder(entry) {
   const text = [entry && entry["display-name"], entry && entry.display_name, ...(entry && entry.lore || [])]
     .map(plainText)
@@ -646,11 +658,15 @@ function buildSkillPage(data) {
   const details = data.skillTrees.map((tree) => {
     const progression = data.skillProgression.get(tree.skill) || {};
     const nodeRows = Object.values(tree.nodes || {}).map((node) => {
-      const text = node["effect-text"] || node.description || "効果の説明は設定されていません";
-      return `| Lv.${node.level} | ${markdown(node.name)} | ${markdown(text)} | ${node.cost ?? 0} |`;
+      // 表示は【ゲーム内と同じ優先順】にする: SkillNode は `description` を読み、無いときだけ
+      // レガシーの `effect-text` へ落ちる。ここを逆にすると wiki と /skills が食い違う
+      // ―― 実際 light_weapons の「斬り/刺し」は effect-text が「ノックバック距離増加」のまま
+      // 出血系へ差し替わっており、effect-text を優先すると誤情報をそのまま載せてしまう。
+      const text = node.description || node["effect-text"];
+      return `| Lv.${node.level} | ${markdown(node.name)} | ${skillNumbers(text) === "—" ? "効果の説明は設定されていません" : skillNumbers(text)} | ${node.cost ?? 0} |`;
     }).join("\n");
     const prestige = tree.prestige && tree.prestige.enabled
-      ? `\n\n**育成を最後まで進めた後**: Lv.${tree.prestige["at-level"]} から「${markdown(tree.prestige.name)}」を ${tree.prestige["max-times"] || 1}回まで行えます。効果: ${markdown(tree.prestige["effect-text"] || "設定された永続効果")}`
+      ? `\n\n**育成を最後まで進めた後**: Lv.${tree.prestige["at-level"]} から「${markdown(tree.prestige.name)}」を ${tree.prestige["max-times"] || 1}回まで行えます。効果: ${skillNumbers(tree.prestige.description || tree.prestige["effect-text"]) === "—" ? "設定された永続効果" : skillNumbers(tree.prestige.description || tree.prestige["effect-text"])}`
       : "";
     const maxLevel = progression.experience && progression.experience.max_level;
     return `<details>\n<summary>${markdown(tree["display-name"])}${maxLevel != null ? `（最大 Lv.${maxLevel}）` : ""}</summary>\n\n| 解放レベル | 効果の名前 | 内容 | 必要ポイント |\n| --- | --- | --- | --- |\n${nodeRows}${prestige}\n\n</details>`;
