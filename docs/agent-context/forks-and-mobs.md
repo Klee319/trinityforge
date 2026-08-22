@@ -958,6 +958,42 @@ materials / threads / sourcejars・sourcelinks / spellbooks）すべてが**書�
   `plugins/ArsPaper/<file>.yml` を直接読むか、`git -C <fork> show HEAD:src/main/resources/<file>.yml`
   を読む。この 2 つが一致していない限り、config 配備を 1 回通すまで直っていない。
 
+### ⚠️ 交換グリフは `exchange_tiers` の「同じ段」の中でしか循環しない ── 段に載っていないブロックは永久に作れない
+
+2026-08-22 の実サーバ報告「交換で菌糸が作れない。前回は作れてたはず」の答え。
+**デグレではなく一度も作れたことが無かった。**
+
+`ExchangeEffect#findNextBlock` の挙動が全部:
+
+- `exchange_tiers` を頭から見て、**対象ブロックを含む最初の段**を掴む。
+- 増幅なしなら**その段の中を index+1 で巡回する**（＝同じ段の仲間にしか変わらない）。
+- 増幅ありなら `tierIndex + amplify` 段の**先頭**を返す。
+- どの段にも入っていなければ `null` ＝ **何も起きない**（エラーもログも出ない）。
+
+つまり「A を B に変えたい」なら **A と B を同じ段に並べる**しかない。別の段に置くと
+増幅で段を跨いだときに**その段の先頭**しか出てこないので、狙ったブロックには届かない。
+
+**無言で死ぬ点が 3 つある。**
+
+1. `GlyphConfig#loadExchangeTiers` は `Material.matchMaterial` が `null` を返した項目を
+   **警告 1 行も出さずに捨てる**。綴りを 1 文字間違えても、段を丸ごと消しても、起動ログは何も言わない。
+   気づけるのは「実機で交換したら何も起きない」だけ。
+2. 同じブロックを 2 つの段に書くと、**2 つ目以降の段はそのブロックからは絶対に選ばれない**
+   （最初に見つけた段で確定するため）。設定としては生きているように見える。
+3. 段に載っていないブロックは、**他にレシピ・儀式・変換が無ければ入手経路がゼロになる**。
+   実例が菌糸で、TF / ArsPaper のどこにも「結果が MYCELIUM」の定義は無く、
+   菌糸ソースリンクの強化には計 19 個要るのにキノコ島から運ぶしか無かった
+   （2026-08-22 の指示で `[ DIRT, COARSE_DIRT, ROOTED_DIRT, MUD, GRASS_BLOCK, PODZOL, MYCELIUM ]` へ）。
+
+**検出点**: `ExchangeTiersShippedTest`（fork の `com.arspaper.spell`）。
+出荷 `glyphs.yml` を直接読んで「土の段から菌糸へ届くか」「名前が全部実在する Material か」
+「同じブロックが 2 段に居ないか」を縛る。ここ以外に検出手段は無い。
+
+**配備**: 配備先の `glyphs.yml` はプラグイン自身では更新されない
+（`saveResource(..., false)` ＋ `updateResourceFiles` はバージョン文字列が変わったときだけ）。
+届く経路は `ops\launch\deploy-config-head.cmd`（全台停止が要る／ワーキングツリーを HEAD へ重ねる）か、
+止めずに入れる `ops\scripts\apply-exchange-dirt-tier.ps1` + `/ars reload` の 2 つ。
+
 ### ⚠️ `custom:<ArsPaperのid>` 素材は ExternalItemRegistry 登録が無いと永久にクラフト不可
 
 TFのカタログレシピで `custom:source_gem` のようにArsPaper側のアイテムを素材指定するとき、
