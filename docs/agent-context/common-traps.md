@@ -32,6 +32,11 @@
 `PotionMeta#getAllEffects()` も同様で、`PotionQualityListenerTest` 8件中5件が素通りしていた
 （到達しなかったテストだけが緑という最悪の形）。
 
+`PlayerInventorySlotChangeEvent` も同じ形で刺さる（2026-08-22）。Paper の実装は
+**コンストラクタの中で `player.getOpenInventory().convertSlot(rawSlot)` を呼ぶ**ので、
+`new` するだけで MockBukkit が落ちる ── イベントを組み立てる行が本題より前にあるため、
+リスナーの検査は1つも走らない。スロット番号を読まないリスナーなら Mockito のモックで代用する。
+
 - 回避策1: 耐久消費は `HumanEntity#damageItemStack` を呼ばず、`Damageable` メタを直接操作して
   UNBREAKING の `1/(L+1)` 判定込みで自前実装する。
 - 回避策2: `Mockito.spy()` で該当APIだけ個別にスタブする。
@@ -156,6 +161,57 @@ PDC 付き実物と `ExactChoice` が `isSimilar` 不一致になる問題を避
 `_decompress` 逆レシピは**意図的に** `registeredSpecs` へ載せていない（結果がエントリ自身でないため）。
 これは `ExactChoice` 登録で per-slot ガードに掛からないから成立している例外で、
 **`MaterialChoice` で登録するものを載せ忘れると必ず上記の死に方をする。**
+
+## 同じイベントを2本のリスナーで受けるときの罠（2026-08-22 追加）
+
+### ⚠️ 「消費する」台帳を複数のリスナーで共有すると、登録順しだいで片方が空を受け取る
+
+**Bukkit は同一優先度のリスナーの呼び出し順を保証しない。** つまり
+`EntityDeathEvent` を MONITOR で受ける 2 本が同じ台帳を `consume`（＝読んで取り除く）と、
+**先に走った方だけが中身を得る**。落ちるのではなく「入る日と入らない日がある」形で壊れるので、
+テストでも実機でも再現しにくい。
+
+実例: 討伐図鑑を「削った全員」へ配るとき、既存の `CombatKillCreditTracker`（戦闘EXPの寄与比台帳）を
+流用しかけた。`CombatListener#onCombatKill` と `CollectionListener#onMobDeath` はどちらも MONITOR で
+同じイベントを受けるので、共有した時点でこの罠に入る。**図鑑側は独立した台帳
+（`MobKillParticipants`）を持たせた。**
+
+- 共有したいなら「消費しない読み取り」を用意するか、**片方のリスナーがもう片方を呼ぶ**形にする。
+- そもそも**流用する前に、その台帳が何を記録しているかを確かめる**。
+  `CombatKillCreditTracker` は `isKillBasedCombatWeaponSkill` で fail-closed になっており、
+  **重武器・軽武器・弓術のダメージしか入らない**。魔法で削った人は載らないので、
+  「戦闘に参加した人」の意味では使えない。
+
+### ⚠️ 「プレイヤーが倒した」を `getKiller()` で書くと、とどめを刺した1人しか取れない
+
+`LivingEntity#getKiller()` は**最後の一撃を入れたプレイヤー1人**。
+複数人で削った討伐・魔法や継続ダメージでの致死は取りこぼす。
+「誰が参加したか」を知りたいなら、`EntityDamageEvent` の
+**`DamageSource#getCausingEntity()`** を自分で控える（近接・矢・魔法・爆発を1つの形に吸収してくれる。
+ここに攻撃手段ごとの分岐を書くと、その手段だけ無言で対象外になる）。
+
+現在 `getKiller()` に依存している主な箇所（＝同じ制約を持つ）:
+`MobLevelTableListener` / `MobOverrideDropListener` / `MobOverrideExpListener` /
+`MobTypeDropListener` / `LevelCutoffExpListener` / `NativeSurvivalPerkListener` /
+`ArsMagicExperienceListener`。**ドロップと報酬は「とどめを刺した1人」で意図的に設計している**ので、
+ここを一律に広げてはいけない。広げたのは図鑑（収集要素）だけ。
+
+### 図鑑の記録の入口は4つ（増やすときはここを見る）
+
+`CollectionListener` がアイテムを記録する経路。**どれか1つでも通れば載る**（記録は冪等）:
+
+| 入口 | 拾えるもの |
+|---|---|
+| `EntityPickupItemEvent` | 地面から拾った品 |
+| `PlayerInventorySlotChangeEvent` | **地面を経由せず直接インベントリへ入る品**（2026-08-22 追加） |
+| `InventoryCloseEvent` → 全スロット走査 | 画面を閉じた時点の持ち物 |
+| `PlayerJoinEvent`（40tick 後）→ 全スロット走査 | 参加時の持ち物（HuskSync の適用待ち） |
+
+2026-08-22 まで 2 番目が無く、**EliteMobs のダンジョン報酬・ガチャ・メール・スクラップ変換・
+儀式やアチーブメントの報酬・`/tf give` が、GUI を閉じるか再ログインするまで載らなかった**
+（実サーバ報告「ドロップ状態を拾い上げないと反映されない」）。
+**「与える側」を1つずつ直す方式は採らない** ── TF 内だけで 10 箇所以上あり、
+EliteMobs / ArsPaper も直接 `addItem` するので、列挙は必ず漏れる。
 
 ## Paper プラグイン基盤の罠
 
