@@ -331,6 +331,165 @@ class CollectionListenerGuardsTest {
                 "クリエイティブなら任意のモブを即殺できるので、討伐図鑑24件も無料で埋まる");
     }
 
+    // --- 討伐の帰属: とどめを刺した1人ではなく削った全員(2026-08-22 実サーバ報告) ---
+
+    /**
+     * 「そのモブを削った」1発。{@code DamageSource#getCausingEntity()} が攻撃手段を吸収するので、
+     * 近接でも魔法でも矢でも本体から見れば同じ形になる。
+     */
+    private static void damage(CollectionListener listener, Player attacker,
+                               org.bukkit.entity.LivingEntity victim) {
+        listener.onMobDamaged(new org.bukkit.event.entity.EntityDamageEvent(victim,
+                org.bukkit.event.entity.EntityDamageEvent.DamageCause.ENTITY_ATTACK,
+                org.bukkit.damage.DamageSource.builder(org.bukkit.damage.DamageType.PLAYER_ATTACK)
+                        .withCausingEntity(attacker).withDirectEntity(attacker).build(),
+                5.0));
+    }
+
+    private static void die(CollectionListener listener, org.bukkit.entity.LivingEntity victim) {
+        listener.onMobDeath(new EntityDeathEvent(victim,
+                org.bukkit.damage.DamageSource.builder(
+                        org.bukkit.damage.DamageType.GENERIC_KILL).build(),
+                new ArrayList<>()));
+    }
+
+    private static org.bukkit.entity.Zombie spawnZombie(ServerMock server, String worldName) {
+        org.mockbukkit.mockbukkit.world.WorldMock world = server.addSimpleWorld(worldName);
+        return world.spawn(world.getSpawnLocation(), org.bukkit.entity.Zombie.class);
+    }
+
+    private static boolean recordedMob(Player player, String entityType) {
+        return PlayerData.of(player).collectionEntries().stream()
+                .map(com.trinityforge.progression.CollectionRecord::parse)
+                .filter(java.util.Objects::nonNull)
+                .anyMatch(r -> r.id().equals("mob:" + entityType));
+    }
+
+    @Test
+    @DisplayName("削った人は全員が討伐図鑑に載る(とどめを刺していなくても)")
+    void everyDamagerIsCreditedNotJustTheKiller() {
+        Fixture f = fixture();
+        Player assist = server.addPlayer();
+        Player killer = server.addPlayer();
+        org.bukkit.entity.Zombie zombie = spawnZombie(server, "shared-kill");
+        ((org.mockbukkit.mockbukkit.entity.LivingEntityMock) zombie).setKiller(killer);
+
+        damage(f.listener, assist, zombie);
+        damage(f.listener, killer, zombie);
+        die(f.listener, zombie);
+
+        assertTrue(recordedMob(killer, "ZOMBIE"), "とどめを刺した人は従来どおり載る");
+        assertTrue(recordedMob(assist, "ZOMBIE"),
+                "戦闘EXPは寄与比で全員に配っているのに、図鑑だけ最後の一撃の独占になっていた");
+    }
+
+    @Test
+    @DisplayName("とどめだけの討伐も従来どおり載る(参加台帳が空でも取りこぼさない)")
+    void theKillerIsCreditedWithoutAnyLedgerEntry() {
+        Fixture f = fixture();
+        Player killer = server.addPlayer();
+        org.bukkit.entity.Zombie zombie = spawnZombie(server, "lonely-kill");
+        ((org.mockbukkit.mockbukkit.entity.LivingEntityMock) zombie).setKiller(killer);
+
+        // damage() を通さない = 台帳は空。TTL 超えの長期戦や TF を通らない即死処理がこの形になる。
+        die(f.listener, zombie);
+
+        assertTrue(recordedMob(killer, "ZOMBIE"));
+    }
+
+    @Test
+    @DisplayName("クリエイティブで削った人は参加者にならない(討伐図鑑を無料で埋められる)")
+    void aCreativeDamagerIsNotCredited() {
+        Fixture f = fixture();
+        Player creative = server.addPlayer();
+        creative.setGameMode(GameMode.CREATIVE);
+        Player killer = server.addPlayer();
+        org.bukkit.entity.Zombie zombie = spawnZombie(server, "creative-assist");
+        ((org.mockbukkit.mockbukkit.entity.LivingEntityMock) zombie).setKiller(killer);
+
+        damage(f.listener, creative, zombie);
+        die(f.listener, zombie);
+
+        assertFalse(recordedMob(creative, "ZOMBIE"));
+        assertTrue(recordedMob(killer, "ZOMBIE"), "巻き添えで正当な討伐まで落としていないこと");
+    }
+
+    @Test
+    @DisplayName("殴っただけで死ななかったモブでは誰にも載らない")
+    void damageAloneDoesNotRecord() {
+        Fixture f = fixture();
+        Player attacker = server.addPlayer();
+        org.bukkit.entity.Zombie zombie = spawnZombie(server, "survived");
+
+        damage(f.listener, attacker, zombie);
+
+        assertFalse(recordedMob(attacker, "ZOMBIE"));
+    }
+
+    // --- アイテム: 地面を経由せずインベントリへ直接入る品(2026-08-22 実サーバ報告) ---
+
+    /**
+     * スロットが書き換わった1回。
+     *
+     * <p>イベントを {@code new} で作れないのは、Paper の
+     * {@code PlayerInventorySlotChangeEvent} がコンストラクタで
+     * {@code player.getOpenInventory().convertSlot(rawSlot)} を呼び、MockBukkit がそこを
+     * 実装していないため(そのまま書くと <b>UnimplementedOperationException でテストが
+     * SKIPPED に化けて緑に見える</b>)。スロット番号はこのリスナーの判定に一切効かないので、
+     * 読む3つだけを持つモックで代用する。
+     */
+    private static void slotChange(CollectionListener listener, Player player,
+                                   ItemStack previous, ItemStack gained) {
+        io.papermc.paper.event.player.PlayerInventorySlotChangeEvent event =
+                mock(io.papermc.paper.event.player.PlayerInventorySlotChangeEvent.class);
+        when(event.getPlayer()).thenReturn(player);
+        when(event.getOldItemStack()).thenReturn(previous);
+        when(event.getNewItemStack()).thenReturn(gained);
+        listener.onInventorySlotChange(event);
+    }
+
+    @Test
+    @DisplayName("インベントリへ直接入った品も記録する(落として拾い直さなくてよい)")
+    void anItemPutStraightIntoTheInventoryIsRecorded() {
+        Fixture f = fixture();
+        Player player = server.addPlayer();
+        player.setGameMode(GameMode.SURVIVAL);
+
+        // ダンジョン報酬・ガチャ・メール・/tf give はどれも addItem で入るので、地面の Item にならない。
+        slotChange(f.listener, player, null, bareVanilla(Material.DIAMOND));
+
+        assertTrue(recorded(player, "DIAMOND"),
+                "GUI を閉じるか再ログインするまで載らないのが報告された症状");
+    }
+
+    @Test
+    @DisplayName("クリエイティブのスロット書き換えは記録しない")
+    void aCreativeSlotChangeIsNotRecorded() {
+        Fixture f = fixture();
+        Player player = server.addPlayer();
+        player.setGameMode(GameMode.CREATIVE);
+
+        slotChange(f.listener, player, null, bareVanilla(Material.DIAMOND));
+
+        assertFalse(recorded(player, "DIAMOND"));
+    }
+
+    @Test
+    @DisplayName("個数が増えただけのスロット変化は素通りする(同じ品を拾うたびに走らせない)")
+    void aPureAmountChangeIsSkipped() {
+        Fixture f = fixture();
+        Player player = server.addPlayer();
+        player.setGameMode(GameMode.SURVIVAL);
+        ItemStack before = bareVanilla(Material.DIAMOND);
+        ItemStack after = bareVanilla(Material.DIAMOND);
+        after.setAmount(2);
+
+        slotChange(f.listener, player, before, after);
+
+        assertFalse(recorded(player, "DIAMOND"),
+                "isSimilar が真なら新しい入手ではない(初回は空スロットからの変化なので別経路で載る)");
+    }
+
     @Test
     @DisplayName("サバイバルは従来どおり記録する(除外しすぎていないこと)")
     void survivalPickupIsStillRecorded() {

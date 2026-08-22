@@ -9,15 +9,18 @@ import com.trinityforge.progression.CollectionService;
 import com.trinityforge.stats.CatalogIdentity;
 import com.trinityforge.stats.CrossPluginItemResolver;
 import com.trinityforge.stats.DerivedItemStats;
+import io.papermc.paper.event.player.PlayerInventorySlotChangeEvent;
 import io.papermc.paper.event.player.PlayerPickBlockEvent;
 import io.papermc.paper.event.player.PlayerPickEntityEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
@@ -43,13 +46,18 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * コレクション図鑑 (M7) の記録フィード。
  *
- * <p><b>アイテム</b>: カタログ(items/catalog.yml)アイテムの入手を記録する。拾得
- * ({@link EntityPickupItemEvent})に加え、直接インベントリへ入る経路(ダンジョンloot直入れ・
- * ガチャ・村人取引・クラフト結果の取り出し等)を取りこぼさないよう、インベントリを閉じた時と
- * 参加時に全スロットを走査して差分登録する(既知エントリはPDC書き込みなしで抜けるため軽量)。
+ * <p><b>アイテム</b>: カタログ(items/catalog.yml)アイテムの入手を記録する。入口は4つあり、
+ * どれか1つでも通れば載る(記録は冪等なので重なっても害はない):
+ * 拾得({@link EntityPickupItemEvent}) / <b>スロットの書き換わり</b>
+ * ({@link #onInventorySlotChange}。地面を経由せず直接インベントリへ入る経路を1箇所で拾う) /
+ * インベントリを閉じた時と参加時の全スロット走査({@link #scanInventory}。既知エントリは
+ * PDC書き込みなしで抜けるため軽量)。
  *
- * <p><b>討伐</b>: プレイヤーがキラーのモブ死亡を {@code mob:<ENTITY_TYPE>} として記録する
- * (EliteMobs個体もベースのEntityTypeで記録される)。
+ * <p><b>討伐</b>: <b>そのモブを削ったプレイヤー全員</b>に {@code mob:<ENTITY_TYPE>} を記録する
+ * (EliteMobs個体もベースのEntityTypeで記録される)。2026-08-22 まで {@code getKiller()} =
+ * とどめを刺した1人だけだったため、複数人で倒すと最後の一撃を入れた人にしか載らなかった
+ * (戦闘EXPは寄与比で全員に配っているので、同じ討伐で帰属が食い違っていた)。
+ * 参加の台帳は {@link MobKillParticipants}。
  *
  * <p>カタログID解決はPDC刻印を優先し、未刻印でも material+CustomModelData がテンプレートに
  * 一致すれば図鑑対象にする({@link CatalogIdentity#ensure} と同じくCMD無しのバニラスタックは
@@ -218,6 +226,13 @@ public final class CollectionListener implements Listener {
      * 退出したプレイヤーの UUID を残さないため(1件でも「掃除していないマップ」は増え続ける)。
      */
     private final Map<UUID, ItemStack> creativeLimbo = new ConcurrentHashMap<>();
+
+    /**
+     * 討伐図鑑の参加者台帳。<b>とどめを刺した1人</b>しか返さない {@code getKiller()} の代わりに、
+     * そのモブを削ったプレイヤー全員へ記録するために持つ（2026-08-22）。
+     * なぜ {@link CombatKillCreditTracker} を流用しないかは {@link MobKillParticipants} の javadoc。
+     */
+    private final MobKillParticipants participants = new MobKillParticipants();
 
     /**
      * @param categories   キャッシュ作成時点の {@code config.itemCategories()} インスタンス
@@ -558,6 +573,56 @@ public final class CollectionListener implements Listener {
     }
 
     /**
+     * インベントリのスロットが書き換わった瞬間の記録（2026-08-22、実サーバ報告
+     * 「図鑑の item はドロップ状態を拾い上げないと反映されない場合がある」）。
+     *
+     * <p><b>何が抜けていたか。</b> 記録の入口は
+     * ①地面からの拾得({@link #onPickup}) ②インベントリを閉じた時の走査({@link #onInventoryClose})
+     * ③参加40tick後の走査({@link #onJoin}) の3つだけだった。
+     * つまり<b>地面を経由せずインベントリへ直接入る品</b>は、GUI を閉じるか再ログインするまで
+     * 記録されない。該当するのは EliteMobs のダンジョン報酬・ガチャ・メール・スクラップ変換・
+     * 儀式やアチーブメントの報酬・{@code /tf give} など<b>「与える側」全部</b>で、
+     * 報告どおり「落として拾い直すと入る」という挙動になる。
+     *
+     * <p><b>なぜ「与える側」を1つずつ直さないのか。</b> 与える経路は TF 内だけで10箇所以上あり、
+     * さらに EliteMobs / ArsPaper / 将来のプラグインも直接 {@code addItem} する。
+     * 列挙して回る方式は<b>1つ書き忘れた時点で同じ報告が再発する</b>うえ、他プラグインは原理的に
+     * 網羅できない。スロットの変化そのものを見れば、誰が入れたかに関係なく1箇所で拾える。
+     *
+     * <p><b>ポーリングにしなかった理由。</b> 定期走査でも塞げるが、41スロット×人数を無条件に
+     * 舐め続けることになる。このイベントは<b>変わったスロットだけ</b>を、変わった瞬間に渡してくる。
+     *
+     * <p><b>既存の走査は残す。</b> このイベントはインベントリ画面を開いている間の変化を
+     * 取りこぼす可能性があり（メニューのスロット追跡に依存する）、逆に走査は開閉時にしか走らない。
+     * 役割が重なっているのは冗長ではなく<b>互いの穴を埋める</b>ためで、記録は冪等なので二重に
+     * 通っても PDC 書き込みは1回しか起きない。
+     *
+     * <p>{@code old.isSimilar(new)} で抜けるのは、個数だけの増減（同じ品をもう1個拾った）を
+     * 弾くため。<b>耐久が減っただけの持ち替えは isSimilar が false になるので毎回ここへ来る</b>が、
+     * 既知エントリは {@code CollectionService#record} が変化なしで戻るので PDC は書かれない。
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onInventorySlotChange(PlayerInventorySlotChangeEvent event) {
+        if (!config.catalogItemsEnabled()) {
+            return;
+        }
+        Player player = event.getPlayer();
+        if (excluded(player)) {
+            return;
+        }
+        ItemStack gained = event.getNewItemStack();
+        if (gained == null || gained.getType().isAir()) {
+            return;
+        }
+        ItemStack previous = event.getOldItemStack();
+        if (previous != null && previous.isSimilar(gained)) {
+            return;
+        }
+        catalogIdOf(gained).ifPresent(id -> recordWithBackfillGate(player,
+                Map.of(CollectionService.itemEntryId(id), qualityOf(gained))));
+    }
+
+    /**
      * 参加時の全スロット走査。<b>数十tick遅らせてから</b>行う(2026-07-31)。
      *
      * <p><b>なぜ遅延が必要か</b>: 資源サーバ分離構成ではプレイヤーのインベントリと PDC を
@@ -590,16 +655,76 @@ public final class CollectionListener implements Listener {
         }, JOIN_SCAN_DELAY_TICKS);
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onMobDeath(EntityDeathEvent event) {
+    /**
+     * 討伐図鑑の参加記録（2026-08-22）。<b>プレイヤーが起因のダメージなら種類を問わず</b>参加者として
+     * 控える。武器でも魔法でも召喚でも矢でも爆発でも同じ扱いになるのは
+     * {@code DamageSource#getCausingEntity()} が経路を吸収してくれるためで、
+     * ここに攻撃手段ごとの分岐を書いてはいけない（書いた瞬間に「その手段だけ図鑑に入らない」が生える）。
+     *
+     * <p>{@code getFinalDamage() > 0} を条件にしているのは、完全に吸収・無効化された一撃で
+     * 参加者になれてしまうのを避けるため（無敵時間中の連打・耐性100%）。
+     *
+     * <p>クリエイティブ/スペクテイターの攻撃は{@link #excluded}で落とす。討伐図鑑を無料で
+     * 埋められる経路を残さないためで、{@link #onMobDeath} 側のゲートと同じ理由。
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onMobDamaged(EntityDamageEvent event) {
         if (!config.mobKillsEnabled()) {
             return;
         }
-        Player killer = event.getEntity().getKiller();
-        if (killer == null || event.getEntity() instanceof Player || excluded(killer)) {
+        if (!(event.getEntity() instanceof LivingEntity victim) || victim instanceof Player) {
             return;
         }
-        service.record(killer, Set.of(CollectionService.mobEntryId(event.getEntityType().name())));
+        if (!(event.getDamageSource().getCausingEntity() instanceof Player attacker)) {
+            return;
+        }
+        if (event.getFinalDamage() <= 0.0 || excluded(attacker)) {
+            return;
+        }
+        participants.record(victim.getUniqueId(), attacker.getUniqueId());
+    }
+
+    /**
+     * 討伐。<b>とどめを刺した1人ではなく、そのモブを削ったプレイヤー全員</b>に記録する
+     * （2026-08-22、実サーバ報告「図鑑のモブにラストキルしか反映されない」。指示により
+     * 「ダメージを与えた全員」を採用）。
+     *
+     * <p>{@code getKiller()} を捨てずに<b>和</b>を取るのは、参加台帳に載らない討伐が残るため
+     * ── 台帳は {@link #onMobDamaged} が拾えたダメージしか持たないので、
+     * TTL を跨いだ長期戦や、TF を通らない即死処理で倒した場合に空になりうる。
+     * どちらか片方でも取れれば記録する形にしておけば、直し方が「増える」方向にしか効かない。
+     *
+     * <p>受け取り手ごとに {@link #excluded} を見るのは、参加者の一部だけがクリエイティブという
+     * 状況があるため（台帳へ入れる時点でも落としているので二重の門になるが、
+     * 攻撃時はサバイバル・死亡時はクリエイティブという移動を挟む経路がここでしか塞げない）。
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onMobDeath(EntityDeathEvent event) {
+        LivingEntity dead = event.getEntity();
+        if (dead instanceof Player) {
+            participants.clear(dead.getUniqueId());
+            return;
+        }
+        // 機能が無効でも台帳は片付ける(有効化した瞬間に古い参加が生き返るのを防ぐ)。
+        Set<UUID> credited = new LinkedHashSet<>(participants.consume(dead.getUniqueId()));
+        if (!config.mobKillsEnabled()) {
+            return;
+        }
+        Player killer = dead.getKiller();
+        if (killer != null) {
+            credited.add(killer.getUniqueId());
+        }
+        if (credited.isEmpty()) {
+            return;
+        }
+        Set<String> entry = Set.of(CollectionService.mobEntryId(event.getEntityType().name()));
+        for (UUID playerId : credited) {
+            Player contributor = Bukkit.getPlayer(playerId);
+            if (contributor == null || !contributor.isOnline() || excluded(contributor)) {
+                continue;
+            }
+            service.record(contributor, entry);
+        }
     }
 
     /** インベントリ全スロットの差分登録。通知の抑止は {@link #recordWithBackfillGate} に寄せてある。 */
