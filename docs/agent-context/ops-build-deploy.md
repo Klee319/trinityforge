@@ -659,3 +659,16 @@ worldgen を変えたくない鯖には「registry だけ入った版」を作�
   次に生成されるチェストから効く**。データパックが供給しているのは構造物そのものだけ。
 - ⚠ 配備先（`Velocity_for_TF\launch\`）の `.cmd` はリポジトリのコピーなので、
   変更を届けるには `ops\launch\deploy-launch.cmd` を実行する必要がある。
+
+### `loot-tables.yml` の生成元はリポジトリの外側に片足を置いている
+
+`fork-handoff/arspaper/fork/src/main/resources/loot-tables.yml` は**生成物**で、
+真源は `tmp/worldgen/loot_tiers.py`（表を豪華さでティアへ分ける）と
+`tmp/worldgen/gen_loot_yml.py`（どのティアに何を出すかの割り当て表）。
+**yml を手で直すと次の再生成で消える。**
+
+⚠ `tmp/` は `.gitignore` 対象なので、この2本だけ `git add -f` で追跡している。
+一方それらが読む `tmp/worldgen/report/*.json`（バニラ＋データパックのルート表ダンプ、約1MB）は
+**追跡されていない＝新しいクローンには存在しない**。別のマシンで再生成するには
+先に `tmp/worldgen/fetch_vanilla.py` などでダンプを作り直す必要がある。
+割り当て表（＝手で決めた設計そのもの）は追跡されているので、そこだけは失われない。
