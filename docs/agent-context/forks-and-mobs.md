@@ -519,6 +519,34 @@ preview と consume の間は同期処理だけなので、preview が通った�
 `TrinityForgeConfigMigration` は既存キーの値を絶対に書き換えないので、**jar の既定値を変えても配備済みには届かない**
 （同ディレクトリの `⚠️ TrinityForgeConfigMigration はトップレベルキー単位でしか差分検出しない` 参照）。
 
+### ⚠️⚠️ フェーズ切替は毎回レベルを `-1` へ戻す — ダンジョンボスだけが「パーティ最強の戦闘レベル」に化ける
+
+`level: dynamic` のボスがダイナミックダンジョンの中で**挑戦レベルを保てない**経路が2つあり、
+どちらも「スポーン直後だけ正しい」ので実機で数分殴らないと現れない（2026-08-22 に修正）。
+
+1. **フェーズ切替**。`PhaseBossEntity#switchPhase` は体力が閾値を割るたび
+   「`remove()` → `setCustomBossesConfigFields(フェーズ設定)` → `spawn(true)`」をやり直す。
+   `setCustomBossesConfigFields` の末尾は `super.setLevel(customBossesConfigFields.getLevel())` で、
+   **`level: dynamic` ではこれが `-1`** ── インスタンスが与えた挑戦レベルがそこで消える。
+   続く `spawn` の `configLevel == -1 && level == -1` 分岐が `getDynamicLevel()` を呼び、
+   **近くのプレイヤーの戦闘レベルの最大値**（フォークでは
+   `ElitePlayerInventory#getNaturalMobSpawnLevel` が `CombatLevelCalculator` を返す）で決め直す。
+2. **5 秒ごとの `dynamicLevelUpdater`**。同じスポーンで `CustomBossEntityEvents#onEliteSpawnEvent`
+   （NORMAL）が `dynamicLevelBossEntities` へ載せるため、`DynamicDungeonLevelListener`（LOWEST）が
+   スポーン時に直しても**5 秒後に取り消される**。
+
+**フェーズを持たない雑魚は 1 を通らない**ので、同一インスタンス内で雑魚 `[34]` / ボス `『67』` という
+食い違いになる。ダークカテドラルの `phase_0` の閾値は `0.9999`、つまり**最初の一撃で**切り替わる。
+最大HPは `150 × 1.072^L × 1.375 × 1.236 × 30` なので 34→8.1万 / 67→80.6万で**およそ10倍**。
+難易度ハード（= 戦闘レベルの 100%）を選んだ回は挑戦レベルとパーティ最強レベルが一致するため、
+**この壊れ方は 100% 帯だけ見えない**（切り分けにはログの `[レベル] 名前` を雑魚とボスで見比べるのが最速）。
+
+現在は判定を `instanced/dungeons/DynamicDungeonLevelPolicy`（`resolve` / `tracksNearbyPlayers`）へ
+切り出し、`CustomBossEntity#getDynamicLevel` と `CustomBossEntity#spawn(boolean)` の**両方**が通す。
+インスタンス内のモブは挑戦レベルで固定し、`dynamicLevelBossEntities` には載せない。
+**片方だけ直しても直らない**（値を直しても updater が戻す／updater を止めても値が壊れたまま）ので、
+この2箇所は必ずセットで扱うこと。回帰は `DynamicDungeonBossLevelTest`。
+
 ### ダンジョン難易度選択（levelSync/difficultyID）は実際にゲームプレイへ反映される — 3つの独立経路で消費される、死にコードではない
 
 `DungeonInstance#setDifficulty` が `contentPackagesConfigFields.getDifficulties()`（yml の
