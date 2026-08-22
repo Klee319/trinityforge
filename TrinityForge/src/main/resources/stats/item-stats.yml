@@ -12549,10 +12549,12 @@ items:
       damage-reduction: 0.35
       phys-flat-defense: 2.0
       magic-flat-defense: 1.0
+      durability: 201
     per-quality:
       damage-reduction: 0.01
       phys-flat-defense: 0.6
       magic-flat-defense: 0.3
+      durability: 34
     offhand-stats-apply: true
     offhand-stats-require-blocking: true
 _editor:
