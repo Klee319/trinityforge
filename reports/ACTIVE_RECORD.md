@@ -5673,7 +5673,8 @@ cmd-registry / respack / cmd-routes の系は 0 件。
 
 **確定解は「未解放だけ潰す」の非対称**（2 つの報告は両立する）:
 
-- **未解放** → `GlyphIcons.LOCKED_ICON`（= `GRAY_DYE`）1 種類に潰す。「まだ持っていない」と分かれば足りる。
+- **未解放** → `GlyphIcons.LOCKED_ICON` 1 種類に潰す。「まだ持っていない」と分かれば足りる。
+  （材質は ~~`GRAY_DYE`~~ → **`COAL`**。下の追記 2026-08-23 で `fc97b4f` 以前の絵へ戻した）
 - **解放済み** → 個別アイコンのまま。**実際に選んで使うのはこちら**なので、識別が要るのもこちら。
 
 指示（選択）により**グリフ3画面すべて**に適用した ── 筆記台（グリフ解放）/ グリフ解放素材 / 呪文編集（グリフ設定）。
@@ -5682,14 +5683,41 @@ cmd-registry / respack / cmd-routes の系は 0 件。
 未解放は `glyphs.yml` の `icon:` 上書きより優先する（上書きを書いた 1 個だけ解放済みに見えるのを避ける）。
 
 **検証**: 回帰5本を追加し、**戻すと3本が落ちる**ことを実走で確認
-（全120種が未解放で灰色の染料 / `icon:` 上書きは未解放に効かない / 3画面とも解放状態を渡している）。
+（全120種が未解放で1種類の絵に潰れる / `icon:` 上書きは未解放に効かない / 3画面とも解放状態を渡している）。
 フォーク全体 515 tests / 0 failures / 0 skipped。ArsPaper `7e14ec7`。
 
-**配備が要る（ArsPaper jar）。** `fork-handoff/arspaper/fork/build/libs/ArsPaper-1.0.0.jar` をビルド済み。
-出荷 yml は変えていないので config 配備は不要。
 **push は保留** ── `Klee319/ArsPaper` は public で、`feat/trinityforge-fork` は**一度も push されていない**
 （リモートは `master` のみ）。このブランチには tracked の `libs/TrinityForge.jar` が入っているので、
 push すると TF 本体の jar を公開することになる。ユーザーの判断待ち。
+
+#### 追記 2026-08-23 — 未解放グリフは**石炭**へ戻し、未解放パークは**鍵**で区別する
+
+**指示**: 「スキルパーク未開放のものは鍵アイコンにすることでグリフ未開放と区別するのはどうだろう。
+UI の大幅刷新は認知負荷が高いので、グリフ解放 GUI における未開放グリフは石炭のまま（昔の仕様）にしてほしい」
+
+2 系統の「未解放」を**別々の絵**に割り当てる、が確定解。灰色の染料は新しい絵で覚え直しが要るうえ、
+どちらの系統の未解放かが画面をまたぐと混ざる。
+
+| 系統 | 未解放の絵 | 決めている場所 |
+|---|---|---|
+| Ars のグリフ | **石炭**（`fc97b4f` 以前と同じ） | `GlyphIcons.LOCKED_ICON`（フォークの Java。3画面ともここを通す） |
+| TF のスキルパーク | **南京錠**（実描画）／基底材質は**試練の鍵** | `SkillTreeGuiVisuals.node()` + リソパの `gui/node_locked` |
+
+**スキルパーク側は既に南京錠だった。** `gui/node_locked` →
+`resourcepack/trinityforge-skill-gui/.../item/gui/icon_locked_trinket_slot.png` は元から錠前の絵で、
+**リソースパックを当てていれば見た目は前から鍵**。直したのは**基底材質**（`ROTTEN_FLESH` → `TRIAL_KEY`）で、
+これが出るのは**パック未適用のクライアント**（統合版・パック拒否）だけ。そこで「腐肉」が見えていた。
+UI の作りは一切変えていない（指示どおり刷新なし）。
+
+**検証**: ArsPaper フォーク 516 tests / 0 failures / 0 skipped。
+TF は `SkillTreeGuiVisualsTest` を更新し（`TRIAL_KEY` を固定＋**石炭と同じ絵にしたら落ちる**回帰を追加）実走で緑。
+TF フル 4587 tests / 45 failed / 2 skipped ── 失敗は全件が**他セッションの未コミット yml**による内容ガード
+（`ShippedWeaponIdentity` / `mob-types` / `farming` EXP など）で、`skilltree.runtime` の GUI 系は 0 件。
+
+**配備が要る（ArsPaper jar と TF jar の両方。サーバ停止後）。**
+`fork-handoff/arspaper/fork/build/libs/ArsPaper-1.0.0.jar` と TF の releaseAssembly を作り直す。
+出荷 yml は変えていないので config 配備は不要。
+コミット: ArsPaper `04fa314` / TF `e8312fb`。
 
 ## 4. 既知の未修正の問題・弱点
 
