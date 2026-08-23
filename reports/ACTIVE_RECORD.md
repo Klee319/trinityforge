@@ -3396,7 +3396,7 @@ config-editor **1403 件・失敗 25**（品質まわりの 41 件は全緑。�
 | W-194 | 儀式で個数を複数にしても1つしかできない | ✅ 修正（**ArsPaper jar が要る**。config 側の指定は既に正しい） |
 | W-195 | ソースリンクにもベリーと同様に一括でくべたい | ✅ 実装（**操作が変わる**: スニーク＝一括 / 通常＝1個。ジャーも同じ規約へ） |
 | W-196 | ソースベリーを収穫魔法で取れるようにできないか | ✅ 実装（原料のグロウベリーを摘めるようにした。**つるを壊す既存バグも同時に解消**） |
-| W-197 | 資源リセットのバッチを動かしてもリセットされない | ✅ 真因確定（**配備先の launch が 08-16 版で必ず空撃ち**）→ **要 `deploy-launch.cmd`**（⚠ 副作用あり） |
+| W-197 | 資源リセットのバッチを動かしてもリセットされない | ✅ 真因 **2 段**（①配備先の launch が 08-16 版で必ず空撃ち ②**RCON パスワードの環境変数が未設定で非 DryRun は全滅**）→ ドライラン段を廃止＋`set-rcon-env.cmd` を追加。**要 `deploy-launch.cmd`**（⚠ 副作用あり） |
 
 #### W-191 真因: 杖は `catalysts:` に1本も登録されていない
 
@@ -3711,6 +3711,36 @@ POWER の 1 レベル単価は `(%level%/100) * 1800 + 800`。1 スキルレベ�
 暫定回避（配備なしで今すぐ直る）: **リポジトリの `ops\launch\reset-resource.cmd` を直接叩く**。
 `launch-config.cmd` が `VELOCITY_ROOT` も `OPS_SCRIPTS` も絶対パスで持っているので、
 どこから起動しても同じ動作になる。
+
+**ドライラン段を廃止（08-24 指示）**。`reset-resource.cmd` はもう空撃ちしない。
+`RESET` と打たせて即本実行する。プレビューが要るときは
+`powershell -File ops\scripts\reset-resource.ps1 -DryRun` を直接叩く。
+削除対象は ps1 が削除しながら1件ずつログに出すので、記録自体は失われていない。
+
+#### W-197 の第2の壁: **RCON パスワードの環境変数が1つも設定されていない**
+
+`Get-OpsConfig` は `-RequireRconPasswords`（DryRun 以外は既定で真）のとき、
+`TF_RCON_<キー>_PASSWORD` が無いと**1行目で throw する**。実測（08-24）:
+
+```
+TF_RCON_MAIN_PASSWORD      process=False user=False machine=False
+TF_RCON_RESOURCE_PASSWORD  process=False user=False machine=False
+TF_RCON_DEV_PASSWORD       process=False user=False machine=False
+```
+
+⚠ **つまりドライラン以外の ops スクリプトは、この環境では現状ぜんぶ即死する**
+（`restart` / `stop-all` / `reset-world` / `backup` の非 DryRun も同じ）。
+配備先の cmd を新しくしただけでは資源リセットは通らない。
+`testkit\check-ops-scripts.cmd` が全部 DryRun で走るせいで、この穴は **46/1 の緑に隠れていた**
+（唯一の赤は HuskSync preflight の別件）。
+
+3 サーバとも `server.properties` 側は `enable-rcon=true` でパスワードも入っており、
+ポートも `ops-config.psd1`（25586 / 25587 / 25588）と一致している。**足りないのは環境変数だけ。**
+
+→ `ops/scripts/set-rcon-env.ps1`（+ `ops/launch/set-rcon-env.cmd`）を追加した。
+各バックエンドの `server.properties` から読んでユーザー環境へ入れる。
+値は画面にも出さず、`setx` ではなく `[Environment]::SetEnvironmentVariable` を使う
+（`setx` だとコマンドラインに平文が乗る）。⚠ **環境変数は新しく開いた窓からしか効かない。**
 
 ---
 
