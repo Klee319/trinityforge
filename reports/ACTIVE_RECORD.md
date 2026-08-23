@@ -3383,6 +3383,74 @@ config-editor **1403 件・失敗 25**（品質まわりの 41 件は全緑。�
 ---
 
 
+### 実サーバ報告バッチ（2026-08-23 受領 第34陣。W-191〜W-192）
+
+> 「アチーブの触媒使って呪文を100回ができない。=>杖で魔法100回打ったのにできない」
+> 「メインサーバのエンドでエンドラの卵や鱗が落ちない」
+
+| ID | 内容 | 状態 |
+|---|---|---|
+| W-191 | 進捗「触媒を振るう」が杖で撃っても進まない | ✅ 修正（**ArsPaper jar が要る**。カウンタは遡及しない） |
+| W-192 | エンドラの卵・鱗が落ちない | ✅ 真因確定 → **ユーザー判断で仕様として据え置き**（修正なし） |
+
+#### W-191 真因: 杖は `catalysts:` に1本も登録されていない
+
+`catalyst_cast` の加算条件が `spellbooks.yml` の `catalysts:` 登録有無**だけ**で、
+`SpellCaster#recordCastCounters(..., catalystData != null, ...)` を通っていた。
+`catalysts:` に載っているのは BLAZE_ROD 系 4 件（`ember_wand` / `infinity_catalyst` /
+`dragon_catalyst` / `wither_catalyst`）だけで、**TF カタログの杖 10 本
+（`WOODEN_SWORD#400008`〜`NETHERITE_SWORD#400014`）は 1 本も載っていない**。
+つまり杖で何回撃っても `catalystData == null` で素通りし、カウンタは 0 のままだった。
+
+- 判定を**魔法のステ供給元の解決と同一**にした（`resolveMagicStatSource` = `use-skill: ARS_MAGIC`
+  または `catalysts.yml` 登録）。杖 10 本はすべて `use-skill: ARS_MAGIC` を持つので拾える。
+  `TrinityForgeBridge#isCatalystCast` として 1 本に集約 —— 述語を 2 本持つと杖を足すたびに
+  2 か所を直すことになり、また片方が腐る（D6 と同じ再発形）。
+- 魔導書の素の右クリック詠唱は従来どおり非カウント（`castItem == null` かつ魔導書は
+  `catalysts.yml` 未登録・`use-skill: ARS_MAGIC` も無し → `NONE`）。
+- ⚠ **カウンタは PDC 累計なので遡及しない。** 配備後に撃った回数から数え直しになる。
+- 検証: フォーク **535 件・失敗 0・skip 0**。`catalystData != null` へ戻すと
+  `MagicStatSourceWiringTest` が落ちることを実走確認。fork `f95f65d`。
+
+#### W-192 真因: レベル差の足きり。**サーバ差ではなく「止めを刺した人」の差**だった
+
+報告は「メインだけ落ちない」だったが、**config はサーバ間で完全に同一**。
+`Main_Server\plugins\TrinityForge` が実体で、`Dev_Server` / `Resource_Server` は
+そこへの**ジャンクション**なので、3 台とも同じ `mob-types.yml` と `damage.yml` を読む。
+EliteMobs もエンドラをエリート化していない（していれば死亡メッセージが
+`Lvl N Elite Ender Dragon` になるが、両サーバとも `was slain by Ender Dragon`）。
+`world_the_end` がダンジョン判定に入ることもない（登録は EM のインスタンスワールドのみ）。
+
+実際に効いていたのはこれ:
+
+- `combat/mob-types.yml` の `ENDER_DRAGON.level` が **0 → 100**（設定エディタでの編集。
+  同時に ELDER_GUARDIAN / WARDEN / WITHER も 80 → 100）。
+- `combat/damage.yml` の `level-cutoff.under-level`: **`item-threshold: 20` / `drop-rate: -1`**
+  → モブが自分より 20 レベル以上高いと **TF 追加ドロップを完全遮断**。
+  `exp-threshold: 15` / `exp-decay-per-level: 0.067` により**討伐 EXP も 0**。
+
+`MobLevelTableListener#onDeath` は `entity.getKiller()`（止めを刺した 1 人）だけを見るので、
+**誰が最後の一撃を入れたかで結果が変わる**。進行 DB から全 23 人の戦闘レベルを再現した結果:
+
+| 判定 | 人数 | 該当者 |
+|---|---|---|
+| 通る（戦闘 Lv81 以上） | 5 | Sora0608 100 / Klee319 100 / HinataS2010 100 / .yuzu3850 90 / .natsuking003 86 |
+| 遮断（戦闘 Lv80 以下） | 18 | .shizurei555 80 / Rando4649 75 / Kuragemal 75 / .kenntoaya 71 / .NAGIdayo5655 71 / haru_harura 70 ほか |
+
+そして 2026-08-23 のログの顔ぶれがそのまま分かれていた ——
+**資源鯖のエンド**は HinataS2010（100）と Sora0608（100）＝通る側、
+**メインのエンド**は .NAGIdayo5655(71) / Rando4649(75) / .pale4780(44) / Liru_62(55)＝全員遮断側。
+「資源鯖では落ちてメインでは落ちない」ように見えたのはこれが理由で、サーバ固有の不具合ではない。
+
+- **ユーザー判断（2026-08-23）: このままでよい。** ボスの報酬は戦闘レベル 81 以上の門とする。
+  免除リスト（`level-cutoff.exempt-mobs:`）・エントリ単位の免除フラグ・閾値の緩和は
+  いずれも提示したうえで採用しない。**再調査しないこと。**
+- 関連: W-128（`environment:` 軸の新設）／W-178（`environment: [NORMAL]` を外した件）は
+  どちらも別の原因で、**それを直しても足きりの手前で止まっていた**。
+
+---
+
+
 ### 圧縮素材をそのまま焼けるようにした（2026-08-23 要望 第33陣。W-190）
 
 > 「あと圧縮したじゃがいもや生肉、生魚を焼けるようにできたら楽だなと（燃料と時間はその分増える）」
