@@ -67,15 +67,7 @@ public final class SkillTreeGuiVisuals {
             return new Visual(configuredIcon, null);
         }
         if (!unlockable) {
-            // 未解放パークは南京錠アイコン(リソパの gui/node_locked)。
-            // 2026-08-22: 基底材質を ROTTEN_FLESH から TRIAL_KEY へ変更した。リソースパックを
-            // 当てていないクライアント(統合版・パック拒否)にはこの材質がそのまま出るため、
-            // 「腐肉」ではなく「鍵」が見える方が意味が通る。パックを当てていれば見た目は不変。
-            //
-            // ここを「1種類の絵に潰す」意味は Ars のグリフ未解放(石炭)と同じだが、
-            // **絵は別物にしておくこと**(ユーザー指示 2026-08-22)。スキルパークとグリフは
-            // 別系統の解放なので、同じ絵にすると画面をまたいだときに混ざる。
-            return new Visual(Material.TRIAL_KEY, "gui/node_locked");
+            return new Visual(Material.ROTTEN_FLESH, "gui/node_locked");
         }
         if (pending) {
             return new Visual(Material.STRUCTURE_VOID, "gui/node_confirm");
