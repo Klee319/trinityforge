@@ -3393,6 +3393,7 @@ config-editor **1403 件・失敗 25**（品質まわりの 41 件は全緑。�
 | W-191 | 進捗「触媒を振るう」が杖で撃っても進まない | ✅ 修正（**ArsPaper jar が要る**。カウンタは遡及しない） |
 | W-192 | エンドラの卵・鱗が落ちない | ✅ 真因確定 → **ユーザー判断で仕様として据え置き**（修正なし） |
 | W-193 | プレステージ後にスキルを上げても SP が入らない | ✅ 真因確定（機構は 08-21 に修正済み）→ **失った 21 SP を 5 人へ補填**（要オンライン） |
+| W-194 | 儀式で個数を複数にしても1つしかできない | ✅ 修正（**ArsPaper jar が要る**。config 側の指定は既に正しい） |
 
 #### W-191 真因: 杖は `catalysts:` に1本も登録されていない
 
@@ -3570,6 +3571,54 @@ POWER の 1 レベル単価は `(%level%/100) * 1800 + 800`。1 スキルレベ�
 **ユーザー判断 2026-08-23: 次の再起動時に打つ。**
 ⚠ 同じ処理が**全スキルのレベルを `total_exp` から現在のカーブで再導出する**。
 カーブを変えたスキルがあればレベルが動くので、打つのはカーブ変更を配備し終えたあとにする。
+
+---
+
+
+#### W-194 真因: 儀式のローダーが2本あり、materials.yml 側だけ結果個数を読んでいなかった
+
+> 「クラフト儀式で amount を複数個に設定しても1つしかクラフトされない。例：ソースの欠片の9個同時クラフト」
+
+`UnifiedRecipeLoader` の儀式ローダーは**2本**ある。
+
+| 読む config | 関数 | `result-amount` |
+|---|---|---|
+| items.yml / functional-items.yml / sourcejars.yml / spellbooks.yml | `loadRitualFromSection` | **読んでいた** |
+| **materials.yml** | `loadMaterialRitualFromSection` | **読んでいなかった** |
+
+後者は `RitualRecipe` の**後方互換コンストラクタ（`resultAmount = 1` 固定）**を呼んでいて、
+`result-amount` に一度も触れていなかった。設定エディタは materials.yml の儀式にも
+結果個数の入力欄を出す（`public/js/recipes.js` の ritual モデルに `result-amount` がある）ので、
+**入力できるのに警告ひとつ無く捨てられる**のが症状。
+
+出荷 yml でも儀式 11 件のうち **6 件**が該当していた（実測）:
+
+| 素材 | 書かれていた値 | 実際 |
+|---|---|---|
+| `source_shard` | 4 / **36** | 1 |
+| `source_crystal` | 4 / **36** | 1 |
+| `source_condenser` | 4 | 1 |
+| `source_engine` | 4 | 1 |
+
+報告の「ソースの欠片の9個同時クラフト」は 9 倍圧縮アメジストを核にする一括儀式で、
+`result-amount: 36` が 1 個になっていた。
+
+同じ関数は `result` / `effect-type` / `effect-params` も読まず結果を素材 ID に固定しているが、
+**出荷 yml では全件が素材 ID と一致していて実害ゼロ**（実測）なので今回は触っていない。
+
+**修正**: 個数の読み取りだけ `UnifiedRecipeLoader#ritualResultAmount` へ寄せ、
+**両方の儀式ローダーが同じ1本を通る**ようにした。ローダー本体を分けたまま個数だけ各々で読むと
+同じ取りこぼしがまた起きる。0 以下は 1 へ丸める（`ItemStack#setAmount(0)` は空スタックになり、
+「儀式は成功したのに何も出ない」という一番分かりにくい壊れ方をする）。
+
+検査は組み立てた `RitualRecipe` の値を見る回帰テスト（`MaterialRitualResultAmountTest`、4 件）。
+ソース文字列を固定するガードは実装差し替えで誤検知するので使っていない。
+**修正前に戻すと 2 件 RED** を確認済み。フォークのテストは 544 件・失敗 0・スキップ 0。
+
+- コミット: ArsPaper フォーク `67dbc61`（`origin/feat/trinityforge-fork` へ push 済み）
+- **配備が要る**: `fork-handoff/arspaper/fork/build/libs/ArsPaper-1.0.0.jar`（1,208,052 バイト / 08-23 23:53）。
+  config 側の `result-amount` は既に正しい値が入っているので、**jar を替えるだけで直る**。
+  ⚠ 稼働中の差し替えは `NoClassDefFoundError` になるのでサーバ停止後。
 
 ---
 
