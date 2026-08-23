@@ -46,8 +46,19 @@ public final class MiningGimmickConfig {
     /** GTH-04 既定値: 怪しげな砂利の再湧きに使う考古学ルートテーブル(遺跡歩道 common相当)。 */
     private static final LootTables DEFAULT_SUSPICIOUS_GRAVEL_LOOT_TABLE = LootTables.TRAIL_RUINS_ARCHAEOLOGY_COMMON;
 
+    /**
+     * {@code vein-mining.chain-drop-rolls-max} の既定値(2026-08-24)。
+     *
+     * <p>連鎖で壊した鉱石は {@code ChainBreakSupport#breakOnce} が {@code setType(AIR)} で消すだけで
+     * {@code BlockBreakEvent} を発火しないため、drop-tables は<b>起点1ブロック分しか引かれていなかった</b>
+     * (一括伐採で追加ドロップが1回も出なかったのと同型の取りこぼし。伐採と違い起点そのものが
+     * 抽選対象なので「1回も出ない」ではなく「連鎖しても回数が増えない」)。
+     */
+    public static final int DEFAULT_CHAIN_DROP_ROLLS_MAX = 8;
+
     private volatile Set<Material> oreBlocks = Set.of();
     private volatile int veinMiningMaxExtraBlocks = DEFAULT_MAX_EXTRA_BLOCKS;
+    private volatile int veinMiningChainDropRollsMax = DEFAULT_CHAIN_DROP_ROLLS_MAX;
     private volatile int hasteAmplifier = DEFAULT_HASTE_AMPLIFIER;
     private volatile int hasteDurationTicks = DEFAULT_HASTE_DURATION_TICKS;
     private volatile int hasteCooldownTicks = DEFAULT_HASTE_COOLDOWN_TICKS;
@@ -87,6 +98,15 @@ public final class MiningGimmickConfig {
     /** vein-mining 一括破壊の上限ブロック数(トリガーブロックを含まない)。tiers未定義時のグローバル既定値。 */
     public int veinMiningMaxExtraBlocks() {
         return veinMiningMaxExtraBlocks;
+    }
+
+    /**
+     * 一括破壊1回あたりに<b>連鎖分</b>で追加で引く drop-tables の上限回数
+     * ({@link #DEFAULT_CHAIN_DROP_ROLLS_MAX} 参照)。0以下ならこの経路の抽選を行わない
+     * (2026-08-24 以前の挙動)。起点1回ぶんは従来どおり {@code onBlockBreakDropTables} が引く。
+     */
+    public int veinMiningChainDropRollsMax() {
+        return veinMiningChainDropRollsMax;
     }
 
     /**
@@ -183,6 +203,10 @@ public final class MiningGimmickConfig {
         this.veinMiningMaxExtraBlocks = clampPositiveInt(
                 yaml.getInt("vein-mining.max-extra-blocks", DEFAULT_MAX_EXTRA_BLOCKS),
                 "vein-mining.max-extra-blocks", DEFAULT_MAX_EXTRA_BLOCKS, log);
+        // chain-drop-rolls-max は「0以下 = この経路の抽選を行わない」という別の意味を持つので
+        // clampPositiveInt は通さない(無効化したい運用者が 0 と書けるようにするため)。
+        this.veinMiningChainDropRollsMax =
+                yaml.getInt("vein-mining.chain-drop-rolls-max", DEFAULT_CHAIN_DROP_ROLLS_MAX);
         this.hasteAmplifier = Math.max(0,
                 yaml.getInt("haste-active-mining.amplifier", DEFAULT_HASTE_AMPLIFIER));
         this.hasteDurationTicks = clampPositiveInt(

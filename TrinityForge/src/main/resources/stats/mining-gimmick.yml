@@ -31,6 +31,13 @@ vein-mining:
     - NETHER_QUARTZ_ORE
     - ANCIENT_DEBRIS
   max-extra-blocks: 32
+  # 一括破壊1回あたりに「連鎖分」で追加で引く drop-tables の上限回数(2026-08-24)。
+  # 連鎖で壊した鉱石は BlockBreakEvent を発火しないため、これが無いと鉱脈を一括で掘っても
+  # 起点1ブロック分しか抽選されない(1個ずつ手で掘るより損をする)。
+  # 実際に引く回数は「連鎖で壊した自然生成ブロックの数」とこの値の小さいほう。
+  # 手で設置した鉱石は数に入れない(起点の抽選が設置ブロックを除外しているのと同じ規約)。
+  # 0以下にするとこの経路の抽選を行わない(2026-08-24 以前の挙動)。
+  chain-drop-rolls-max: 8
 haste-active-mining:
   amplifier: 5
   duration-ticks: 200

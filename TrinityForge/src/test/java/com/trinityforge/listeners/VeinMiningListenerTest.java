@@ -27,6 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -140,6 +142,80 @@ class VeinMiningListenerTest {
         int itemsAfter = player.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
         assertEquals(1, itemsAfter - itemsBefore,
                 "trigger-chance-percent=100 must always draw+drop the sole open entry");
+    }
+
+    // --- 2026-08-24「一括破壊すると連鎖分の追加ドロップが抽選されていない」(W-204 と同型) ---
+
+    /** 一括破壊の共通スタブ(tier1・連鎖上限 {@code maxExtra}・抽選上限 {@code chainDropRollsMax})。 */
+    private void stubVeinMiningWithDropTable(int maxExtra, int chainDropRollsMax) {
+        when(gimmickConfig.oreBlocks()).thenReturn(Set.of(Material.DIAMOND_ORE));
+        when(dedicatedEffects.valueMax(any(), eq("vein-mining"))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.veinMiningMaxExtraBlocks(1)).thenReturn(maxExtra);
+        when(gimmickConfig.veinMiningChainDropRollsMax()).thenReturn(chainDropRollsMax);
+        DropTableConfig.Category category = new DropTableConfig.Category("gacha", "Gacha", 100.0,
+                List.of(new DropTableConfig.Entry("tf_gacha_ticket_1", 1, 1)), false);
+        when(gimmickConfig.dropTables()).thenReturn(Map.of("gacha", category));
+        when(itemResolver.create(eq("tf_gacha_ticket_1")))
+                .thenReturn(Optional.of(new ItemStack(Material.PAPER)));
+    }
+
+    /**
+     * 起点 + {@code extraBlocks} 個の鉱脈を x 方向に並べ、起点を返す。
+     * 抽選回数は itemResolver の呼び出し回数で数える —— ワールドのアイテム数を数えると
+     * 鉱石そのもののドロップと混ざって何も固定できない。
+     */
+    private Block oreVein(int extraBlocks, boolean markExtraAsPlaced) {
+        Block origin = player.getWorld().getBlockAt(0, 64, 0);
+        origin.setType(Material.DIAMOND_ORE);
+        for (int x = 1; x <= extraBlocks; x++) {
+            Block extra = player.getWorld().getBlockAt(x, 64, 0);
+            extra.setType(Material.DIAMOND_ORE);
+            if (markExtraAsPlaced) {
+                placedBlockTracker.markPlaced(extra);
+            }
+        }
+        return origin;
+    }
+
+    @Test
+    void chainBrokenOresRollDropTableUpToTheConfiguredCap() {
+        stubVeinMiningWithDropTable(8, 3);
+
+        listener().onBlockBreak(breakEvent(oreVein(5, false)));
+
+        verify(itemResolver, times(3)).create(eq("tf_gacha_ticket_1"));
+    }
+
+    @Test
+    void chainDropRollsAreLimitedByTheNumberOfBrokenBlocks() {
+        stubVeinMiningWithDropTable(8, 8);
+
+        listener().onBlockBreak(breakEvent(oreVein(2, false)));
+
+        verify(itemResolver, times(2)).create(eq("tf_gacha_ticket_1"));
+    }
+
+    @Test
+    void chainDropRollCapOfZeroDisablesTheChainRollEntirely() {
+        stubVeinMiningWithDropTable(8, 0);
+
+        listener().onBlockBreak(breakEvent(oreVein(5, false)));
+
+        verifyNoInteractions(itemResolver);
+    }
+
+    /**
+     * 手置きの鉱石は抽選の母数に入れない。起点の抽選({@code onBlockBreakDropTables})が設置ブロックを
+     * 除外しているのと同じ規約 —— ここを外すと「回収 → 並べて設置 → 一括破壊」で追加ドロップだけを
+     * 無限に引ける。
+     */
+    @Test
+    void playerPlacedChainBlocksDoNotRollDropTable() {
+        stubVeinMiningWithDropTable(8, 8);
+
+        listener().onBlockBreak(breakEvent(oreVein(5, true)));
+
+        verifyNoInteractions(itemResolver);
     }
 
     @Test

@@ -250,14 +250,60 @@ public final class VeinMiningListener implements Listener {
                 pos -> world.getBlockAt(pos.x(), pos.y(), pos.z()).getType() == type,
                 gimmickConfig.veinMiningMaxExtraBlocks(tier));
 
+        // 連鎖分の drop-tables 抽選の母数は「壊す前」に数える —— 破壊後は設置マークが残らない。
+        int natural = countNatural(world, extra);
+
         // 2026-07-28: 連鎖分の採取EXPと道具耐久は ChainBreakSupport が担う(旧実装は breakNaturally
         // だけで、EXPも耐久も一切処理されていなかった)。
         int broken = ChainBreakSupport.breakChain(player, world, extra, type, tool, chainBreakExp);
+        rollChainDropTables(player, origin, Math.min(broken, natural));
         if (broken > 0) {
             // 2026-07-25 §2 B-1: 発動フィードバック(控えめなactionbar、旧仕様の無告知を解消)。
             feedback.subtle(player, "一括破壊 x" + broken);
         }
         return broken;
+    }
+
+    /**
+     * 連鎖破壊した鉱石のぶんの drop-tables 抽選(2026-08-24。一括伐採 W-204 と同型の取りこぼし)。
+     *
+     * <p><b>なぜ必要か。</b> 追加ドロップは {@link #onBlockBreakDropTables} が {@code BlockBreakEvent}
+     * を見て引くが、連鎖分は {@link ChainBreakSupport#breakOnce} が {@code setType(AIR)} で消すだけで
+     * <b>{@code BlockBreakEvent} を発火しない</b>(合成すると設置追跡・採掘運など10以上のリスナーが
+     * 連鎖分にも反応してしまうため意図的にそうしてある)。その結果、鉱脈を一括で掘っても
+     * <b>起点1ブロック分しか抽選されていなかった</b> —— 1個ずつ手で掘るより損をする。
+     *
+     * <p><b>なぜブロック1つごとに引かないか。</b> {@code vein-mining.chain-drop-rolls-max} を上限として
+     * 「壊した数と上限の小さいほう」だけ引く。上限が無いと1回の一括破壊で最大 max-extra-blocks 回
+     * 引くことになり、手掘りと入手量の桁が変わる。
+     *
+     * <p><b>設置ブロックは数に入れない。</b> {@link #onBlockBreakDropTables} が起点の設置ブロックを
+     * 除外しているのと同じ規約(追加ドロップは TF 独自の「採掘の報酬」なので採取EXPと同じ扱い)。
+     * 数えるのは<b>壊す前</b> —— 破壊後は設置マークが残らない。
+     *
+     * <p>落とす位置は叩いた起点。連鎖先は鉱脈の奥まで伸びるので、取り残しを避けて手元に集める。
+     *
+     * @param rolls 連鎖で壊した自然生成ブロックの数(0以下なら何もしない)
+     */
+    private void rollChainDropTables(Player player, Block origin, int rolls) {
+        if (rolls <= 0) {
+            return;
+        }
+        int capped = Math.min(rolls, gimmickConfig.veinMiningChainDropRollsMax());
+        for (int i = 0; i < capped; i++) {
+            rollDropTables(player, origin);
+        }
+    }
+
+    /** {@code positions} のうちプレイヤーが設置したのではないブロックの数。 */
+    private int countNatural(World world, List<BlockPos> positions) {
+        int natural = 0;
+        for (BlockPos pos : positions) {
+            if (!placedBlockTracker.isPlaced(world.getBlockAt(pos.x(), pos.y(), pos.z()))) {
+                natural++;
+            }
+        }
+        return natural;
     }
 
     /** Evaluates every {@code mining} drop-table category independently (§4). */

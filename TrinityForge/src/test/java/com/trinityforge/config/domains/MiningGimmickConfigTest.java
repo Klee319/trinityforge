@@ -61,6 +61,46 @@ class MiningGimmickConfigTest {
         assertTrue(config.fortuneBlocks().isEmpty());
     }
 
+    // --- 2026-08-24 「一括破壊の連鎖分でも追加ドロップを抽選する」 ---
+
+    @Test
+    void chainDropRollsMaxDefaultsAndKeepsZeroAsAnOptOut(@TempDir File tempDir) throws IOException {
+        // キーが1つも無い古い配備ymlでも Java 既定で抽選が走ること(=yml を配備しないと直らない
+        // 種類の修正にしない)。
+        assertEquals(MiningGimmickConfig.DEFAULT_CHAIN_DROP_ROLLS_MAX,
+                loaded(tempDir, "vein-mining:\n  max-extra-blocks: 32\n").veinMiningChainDropRollsMax());
+
+        assertEquals(3, loaded(tempDir, """
+                vein-mining:
+                  max-extra-blocks: 32
+                  chain-drop-rolls-max: 3
+                """).veinMiningChainDropRollsMax(), "明示値がそのまま効くこと");
+
+        // 他の数値キーと違い 0 は「この経路の抽選を行わない」という意味を持つので、
+        // 既定へ戻してはいけない(戻すと無効化できなくなる)。
+        assertEquals(0, loaded(tempDir, """
+                vein-mining:
+                  max-extra-blocks: 32
+                  chain-drop-rolls-max: 0
+                """).veinMiningChainDropRollsMax(), "0は「抽選しない」の意味なので保つこと");
+    }
+
+    @Test
+    void shippedYamlCarriesTheChainDropRollCap(@TempDir File tempDir) throws IOException {
+        // ハードコードした既定値ではなく出荷ymlの実バイトを読む(既定値を検証するテストは
+        // 出荷値のドリフトを捕まえられない)。
+        File source = new File("src/main/resources/" + MiningGimmickConfig.PATH);
+        File dest = new File(tempDir, MiningGimmickConfig.PATH);
+        Files.createDirectories(dest.getParentFile().toPath());
+        Files.copy(source.toPath(), dest.toPath());
+        MiningGimmickConfig config = new MiningGimmickConfig();
+        config.load(fakePlugin(tempDir));
+
+        assertEquals(MiningGimmickConfig.DEFAULT_CHAIN_DROP_ROLLS_MAX,
+                config.veinMiningChainDropRollsMax(),
+                "出荷値の chain-drop-rolls-max(0だと連鎖分の追加ドロップが元の取りこぼしへ戻る)");
+    }
+
     @Test
     void honorsExplicitOverrides(@TempDir File tempDir) throws IOException {
         MiningGimmickConfig config = loaded(tempDir, """
