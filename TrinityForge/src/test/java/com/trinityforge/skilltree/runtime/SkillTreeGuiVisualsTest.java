@@ -4,16 +4,33 @@ import org.bukkit.Material;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 class SkillTreeGuiVisualsTest {
+
+    /** ArsPaper 側の未解放グリフ材質。フォークは別ビルドなので値を書き写して突き合わせる。 */
+    private static final Material ARS_LOCKED_GLYPH_ICON = Material.COAL;
 
     @Test
     void lockedNodeUsesValhallaLockTexture() {
         var visual = SkillTreeGuiVisuals.node(false, false, false, Material.BOW);
 
-        assertEquals(Material.ROTTEN_FLESH, visual.material());
+        // 2026-08-22: 基底材質を ROTTEN_FLESH から TRIAL_KEY へ変更。実際に描かれるのは
+        // リソースパックの南京錠モデルで、基底材質は**パック未適用のクライアント**
+        // (統合版・パック拒否)にだけ見える。そこが「腐肉」だと意味が通らない。
+        assertEquals(Material.TRIAL_KEY, visual.material());
         assertEquals("gui/node_locked", visual.itemModel());
+    }
+
+    @Test
+    void lockedNodeIconMustDifferFromTheLockedGlyphIcon() {
+        // 解放状態を「1種類の絵に潰す」やり方は Ars のグリフ未解放(石炭)と同じだが、
+        // **絵は別物でなければならない**(ユーザー指示 2026-08-22)。スキルパークとグリフは
+        // 別系統の解放なので、同じ絵にすると画面をまたいだときにどちらの未解放か分からなくなる。
+        var visual = SkillTreeGuiVisuals.node(false, false, false, Material.BOW);
+
+        assertNotEquals(ARS_LOCKED_GLYPH_ICON, visual.material());
     }
 
     @Test
