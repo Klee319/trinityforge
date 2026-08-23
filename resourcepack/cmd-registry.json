@@ -5643,6 +5643,48 @@
       "allocatedAt": "2026-08-23T00:00:00.000Z",
       "assetName": "thread_wardstone",
       "parent": "generated"
+    },
+    {
+      "material": "AMETHYST_SHARD",
+      "cmd": 5447,
+      "id": "amethyst_shard_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-23T00:00:00.000Z"
+    },
+    {
+      "material": "AMETHYST_SHARD",
+      "cmd": 5448,
+      "id": "source_shard_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-23T00:00:00.000Z"
+    },
+    {
+      "material": "DECORATED_POT",
+      "cmd": 200009,
+      "id": "source_amphora",
+      "source": "sourcejars",
+      "allocatedAt": "2026-08-23T00:00:00.000Z"
+    },
+    {
+      "material": "DECORATED_POT",
+      "cmd": 200010,
+      "id": "source_cistern",
+      "source": "sourcejars",
+      "allocatedAt": "2026-08-23T00:00:00.000Z"
+    },
+    {
+      "material": "DECORATED_POT",
+      "cmd": 200011,
+      "id": "source_basin",
+      "source": "sourcejars",
+      "allocatedAt": "2026-08-23T00:00:00.000Z"
+    },
+    {
+      "material": "DECORATED_POT",
+      "cmd": 200012,
+      "id": "source_abyssal_urn",
+      "source": "sourcejars",
+      "allocatedAt": "2026-08-23T00:00:00.000Z"
     }
   ]
 }

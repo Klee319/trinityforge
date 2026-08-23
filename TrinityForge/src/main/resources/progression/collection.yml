@@ -117,13 +117,18 @@ categories:
       entries:
         - source_shard
         - source_jar_ii
+        # 2026-08-23 追加。触媒ごとに「同じ触媒で届く2段目」を1つずつ挟んで10段にした段。
+        - source_amphora
         - source_crystal
         - source_jar_iii
+        - source_cistern
         - source_condenser
         - source_reservoir
+        - source_basin
         - source_engine
         # 2026-08-16 追加。貯水槽(200万)と特異点の壺(5,000万)の間が25倍で空いていたので挟んだ段。
         - source_vault
+        - source_abyssal_urn
         - source_singularity_jar
         - infinity_source_core
         - source_jar
@@ -593,6 +598,8 @@ categories:
         - amethyst_block_1x
         - amethyst_block_2x
         - amethyst_block_3x
+        # 2026-08-23 追加。ソースの欠片/結晶の一括儀式に使う9倍圧縮。
+        - amethyst_shard_1x
         - andesite_1x
         - andesite_2x
         - andesite_3x
@@ -745,6 +752,8 @@ categories:
         - shulker_shell_2x
         - source_gem_block_1x
         - source_gem_block_2x
+        # 2026-08-23 追加。ソース結晶の一括儀式に使う9倍圧縮。
+        - source_shard_1x
         - spruce_wood_1x
         - spruce_wood_2x
         - spruce_wood_3x
@@ -783,29 +792,49 @@ categories:
       entries:
         - alchemical_sourcelink
         - alchemical_sourcelink_ii
+        - alchemical_sourcelink_ii_b
         - alchemical_sourcelink_iii
+        - alchemical_sourcelink_iii_b
         - alchemical_sourcelink_iv
+        - alchemical_sourcelink_iv_b
         - alchemical_sourcelink_v
+        - alchemical_sourcelink_vi
         - botanical_sourcelink
         - botanical_sourcelink_ii
+        - botanical_sourcelink_ii_b
         - botanical_sourcelink_iii
+        - botanical_sourcelink_iii_b
         - botanical_sourcelink_iv
+        - botanical_sourcelink_iv_b
         - botanical_sourcelink_v
+        - botanical_sourcelink_vi
         - mycelial_sourcelink
         - mycelial_sourcelink_ii
+        - mycelial_sourcelink_ii_b
         - mycelial_sourcelink_iii
+        - mycelial_sourcelink_iii_b
         - mycelial_sourcelink_iv
+        - mycelial_sourcelink_iv_b
         - mycelial_sourcelink_v
+        - mycelial_sourcelink_vi
         - vitalic_sourcelink
         - vitalic_sourcelink_ii
+        - vitalic_sourcelink_ii_b
         - vitalic_sourcelink_iii
+        - vitalic_sourcelink_iii_b
         - vitalic_sourcelink_iv
+        - vitalic_sourcelink_iv_b
         - vitalic_sourcelink_v
+        - vitalic_sourcelink_vi
         - volcanic_sourcelink
         - volcanic_sourcelink_ii
+        - volcanic_sourcelink_ii_b
         - volcanic_sourcelink_iii
+        - volcanic_sourcelink_iii_b
         - volcanic_sourcelink_iv
+        - volcanic_sourcelink_iv_b
         - volcanic_sourcelink_v
+        - volcanic_sourcelink_vi
     ore:
       display-name: 鉱石と地下資源
       order: 19
