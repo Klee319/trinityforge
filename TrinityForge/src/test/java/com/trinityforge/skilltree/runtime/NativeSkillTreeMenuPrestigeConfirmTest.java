@@ -35,18 +35,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * プレステージの2クリック確認 (実サーバ報告 2026-08-21「確認画面が出ない」)。
+ * プレステージの確認モーダル (実サーバ報告 2026-08-21「確認画面が出ない」→
+ * 2026-08-23 再報告「トーテムアイコンを押すと勝手にプレステージされる」, W-188)。
  *
  * <p>プレステージは<b>そのツリーのパークを全部剥がしてレベルを0に戻す</b>ので、誤爆の代償が
- * 通常の解放とは桁違いに大きい。1クリック目は必ず確認で止まり、<b>プレイヤーから見える形で</b>
- * 「もう一度押せば確定する」と分かることを固定する。
+ * 通常の解放とは桁違いに大きい。
  *
- * <p>ここで見るのは3つ:
+ * <p>⚠ <b>2026-08-21 の「同じマスをもう一度クリックで確定」方式は直っていなかった。</b>
+ * 確定ボタンが押したのと同じマスに居座るので、ダブルクリックの2打目が 1 tick 後に描き直された
+ * 確認状態へそのまま入り、プレイヤーから見れば「1回押したら確定した」になる。
+ * ここで固定するのはその再発防止:
  * <ol>
  *   <li>1クリック目で<b>プレステージが起きない</b>（＝確認で止まっている）</li>
  *   <li>止まったことが<b>チャットに出る</b>（ツリーリセットと同じ作法。アイコンの文言だけだと
  *       スクロール位置や統合版クライアントの描画次第で気付けない）</li>
- *   <li>2クリック目で確定する（確認が「押しても何も起きない」で終わらない）</li>
+ *   <li><b>同じスロットを続けて押しても確定しない</b>（＝ダブルクリックで走らない）</li>
+ *   <li>確認画面の「はい」を押せば確定する（確認が「押しても何も起きない」で終わらない）</li>
+ *   <li>「いいえ」でツリーへ戻り、何も起きない</li>
+ *   <li>トーテムの lore に<b>赤字でレベルが0に戻ると書いてある</b></li>
  * </ol>
  *
  * <p>{@code NativeSkillTreeMenuOverviewTest} と同じ流儀で、実物のカタログ／リポジトリ／
@@ -112,26 +118,100 @@ class NativeSkillTreeMenuPrestigeConfirmTest {
                         + "パークを全部剥がしてレベルを0に戻す操作なので、確認なしで走ってはいけない");
 
         String message = drainMessages();
-        assertTrue(message.contains("プレステージ") && message.contains("もう一度"),
+        // ⚠ 「プレステージ」という語は当てにできない —— 文中に出るのは config の枠名
+        //    (このツリーなら「採掘王の栄光」)。何が起きるかと、次に何を押すかで固定する。
+        assertTrue(message.contains("確認画面") && message.contains("0に戻ります"),
                 "確認したことがプレイヤーに伝わっていない（ツリーリセットは同じ場面でチャットに出す）。"
                         + " 実際に出たメッセージ: [" + message + "]");
     }
 
     @Test
-    @DisplayName("確認のあと、もう一度クリックすればプレステージが確定する")
-    void secondClickConfirmsThePrestige() {
+    @DisplayName("同じスロットを続けて押してもプレステージは走らない（ダブルクリック誤爆）")
+    void clickingTheSameSlotTwiceNeverPrestiges() {
         menu.open(player);
         int slot = prestigeSlot();
 
+        // 実機のダブルクリックの再現: 2打目は 1 tick 後に開いた確認画面へ落ちる。
         clickSlot(slot);
+        server.getScheduler().performOneTick();
+        clickSlot(slot);
+        server.getScheduler().performOneTick();
+
+        assertFalse(hasPrestiged(),
+                "同じマスを2回押しただけでプレステージが確定した。"
+                        + "確定ボタンを押した位置へ置いてはいけない（2026-08-23 実サーバ報告の真因）");
+    }
+
+    @Test
+    @DisplayName("確認画面の「はい」を押せばプレステージが確定する")
+    void confirmButtonPrestiges() {
+        menu.open(player);
+        clickSlot(prestigeSlot());
         server.getScheduler().performOneTick();
         assertFalse(hasPrestiged(), "前提: 1クリック目では確定しない");
 
-        clickSlot(prestigeSlot());
+        int yes = slotWithAction("prestige-confirm");
+        assertTrue(yes >= 0, "確認画面に「はい」のボタンが無い");
+        clickSlot(yes);
         server.getScheduler().performOneTick();
 
         assertTrue(hasPrestiged(),
-                "2クリック目でも確定しない。確認が『押しても何も起きない』になっている");
+                "「はい」でも確定しない。確認が『押しても何も起きない』になっている");
+    }
+
+    @Test
+    @DisplayName("確認画面の「いいえ」は何もせずツリーへ戻る")
+    void cancelButtonDoesNothing() {
+        menu.open(player);
+        clickSlot(prestigeSlot());
+        server.getScheduler().performOneTick();
+
+        int no = slotWithAction("prestige-cancel");
+        assertTrue(no >= 0, "確認画面に「いいえ」のボタンが無い");
+        clickSlot(no);
+        server.getScheduler().performOneTick();
+
+        assertFalse(hasPrestiged(), "「いいえ」でプレステージが走っている");
+        assertTrue(slotWithAction("prestige-confirm") < 0,
+                "「いいえ」のあとも確認画面が開いたまま（ツリーへ戻っていない）");
+    }
+
+    @Test
+    @DisplayName("「はい」は直前に押したスロットには置かれない")
+    void confirmButtonNeverLandsOnTheSlotThatWasJustClicked() {
+        // 純関数として全スロットで固定する。実機のトーテムの位置はビューポートで動くので、
+        // 「たまたま今日は重ならない」では再発を止められない。
+        for (int origin = 0; origin < 54; origin++) {
+            assertTrue(NativeSkillTreeMenu.prestigeYesSlot(origin) != origin,
+                    "スロット " + origin + " を押したとき、同じスロットに「はい」が置かれる。"
+                            + "ダブルクリックの2打目がそのまま確定に入る");
+        }
+    }
+
+    @Test
+    @DisplayName("トーテムの lore に赤字でレベルが0に戻ると書いてある")
+    void prestigeNodeCarriesTheRedWarningInItsLore() {
+        menu.open(player);
+        int slot = prestigeSlot();
+        ItemStack totem = player.getOpenInventory().getTopInventory().getItem(slot);
+        assertNotNull(totem, "プレステージノードが描かれていない");
+        String lore = plainLore(totem);
+        assertTrue(lore.contains("これはプレステージです") && lore.contains("0に戻ります"),
+                "プレステージであることと、レベルが0に戻ることが lore に出ていない。"
+                        + " 実際の lore: [" + lore + "]");
+    }
+
+    /** lore を1本の平文へ潰す。 */
+    private static String plainLore(ItemStack item) {
+        List<Component> lines = item.getItemMeta().lore();
+        if (lines == null) {
+            return "";
+        }
+        StringBuilder text = new StringBuilder();
+        for (Component line : lines) {
+            text.append(PlainTextComponentSerializer.plainText().serialize(line)).append('\n');
+        }
+        return text.toString();
     }
 
     // ---- helpers ----------------------------------------------------------
