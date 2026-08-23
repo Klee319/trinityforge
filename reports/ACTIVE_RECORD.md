@@ -3392,6 +3392,7 @@ config-editor **1403 件・失敗 25**（品質まわりの 41 件は全緑。�
 |---|---|---|
 | W-191 | 進捗「触媒を振るう」が杖で撃っても進まない | ✅ 修正（**ArsPaper jar が要る**。カウンタは遡及しない） |
 | W-192 | エンドラの卵・鱗が落ちない | ✅ 真因確定 → **ユーザー判断で仕様として据え置き**（修正なし） |
+| W-193 | プレステージ後にスキルを上げても SP が入らない | ✅ 真因確定（機構は 08-21 に修正済み）→ **失った 21 SP を 5 人へ補填**（要オンライン） |
 
 #### W-191 真因: 杖は `catalysts:` に1本も登録されていない
 
@@ -3447,6 +3448,89 @@ EliteMobs もエンドラをエリート化していない（していれば死�
   いずれも提示したうえで採用しない。**再調査しないこと。**
 - 関連: W-128（`environment:` 軸の新設）／W-178（`environment: [NORMAL]` を外した件）は
   どちらも別の原因で、**それを直しても足きりの手前で止まっていた**。
+
+---
+
+
+#### W-193 真因: 旧 `prestige_decay_rate: 0.5` がプレステージ済みスキルの POWER EXP を削っていた
+
+> 「Ars魔法をプレステージした後、A魔法のレベルを上げてもSPが手に入らないらしい」
+> 「もしかしたらArs魔法以外もあるかも」 ← **正しい。鍛冶・農業でも起きていた。**
+
+SP の出どころは POWER レベル**だけ**（`PlayerProgression#earnedPoints = 3 + POWERレベル / levels-per-skill-point(=1)`）。
+非 POWER スキルは 1 レベルにつき POWER へ
+`exp_gain(240) × 上がったレベル数 × prestigePowerDecayMultiplier(そのスキルのプレステージ回数, decayRate)`
+を注ぐ（`NativeProgressionService#grantExpUnderRepositoryLock`）。
+`prestigePowerDecayMultiplier = (1 - decayRate)^tier` なので、**旧設定 0.5 では
+プレステージ 1 回で半分・4 回で 1/16 しか入らなかった**。これが症状そのもの。
+
+**機構は 2026-08-21 に `prestige_decay_rate: 0` へ変更済みで、現在は減衰しない。**
+配備先 `plugins/TrinityForge/skills/base/power_progression.yml` も 08-22 23:56 時点で 0。
+実証: `Liru_62` は ARS_MAGIC を t1 にしてから Lv1 まで上げているが POWER のズレが **0**
+（減衰が生きていれば 120 不足になる）。
+
+##### 実データ（本番 DB を読み取りのみで突合。`tmp/sp-audit.py` / `tmp/sp-owed.py`）
+
+POWER の `total_exp` と「稼いだ全スキルレベル総数 × 240」を比べると、
+**ズレるのはプレステージ済みの 5 人だけで、他 18 人は誤差ゼロ**。原因がこれ以外にないことの証拠。
+
+| プレイヤー | POWER | 本来の POWER | 失った POWER EXP | 不足 SP | 内訳 |
+|---|---|---|---|---|---|
+| Sora0608 | 138 | 140 | 6,000 | 2 | ARS_MAGIC(t1, Lv88) |
+| .NAGIdayo5655 | 110 | 113 | 8,640 | 3 | SMITHING(t4, Lv90) |
+| Rando4649 | 109 | 113 | 11,520 | 4 | FARMING(t1, Lv100) |
+| Kuragemal | 107 | 112 | 12,000 | 5 | SMITHING(t3, Lv90) |
+| ame3398610 | 48 | 55 | 11,160 | 7 | FARMING(t1, Lv94) |
+
+失った分は自動では戻らない。`ProgressionCurveReconciler` の POWER 救済分岐は
+**POWER 自身の `prestige > 0` のときだけ**走るので（2026-08-04 の別事故の復旧経路）、この 5 人には当たらない。
+
+##### 補填（ユーザー判断 2026-08-23: 補填する）
+
+**対象がオンラインのときに**コンソール／OP で:
+
+```
+/trinityforge progression level Sora0608 POWER add 2
+/trinityforge progression level .NAGIdayo5655 POWER add 3
+/trinityforge progression level Rando4649 POWER add 4
+/trinityforge progression level Kuragemal POWER add 5
+/trinityforge progression level ame3398610 POWER add 7
+```
+
+`NativeProgressionAdminService#edit` は `POWER` を `ADD` すると
+`total_exp = cumulativeExpForLevel(目標)` で整合値に書き直す（＝あとで reload しても巻き戻らない）。
+レベル**上昇**なのでパーク剥がし・返却は走らず、`spent_points` も動かないので
+`POINT_LEDGER_CONFLICT` にもならない。`available_points` が素直に +n される。
+副作用: 現在の余り EXP（Sora なら 1,446）が 0 に落ちる。1 レベル未満なので許容。
+⚠ `getPlayerExact` を使うので**オフラインには打てない**。名前の先頭ドットは統合版の Floodgate 接頭辞なので込みで入力する。
+
+##### 減衰なしでも SP は元々重い（仕様。バグではない）
+
+POWER の 1 レベル単価は `(%level%/100) * 1800 + 800`。1 スキルレベル = 240 POWER EXP なので:
+
+| POWER | SP 1 点に必要なスキルレベル数 |
+|---|---|
+| 0 | 3.3 |
+| 48 | 6.9 |
+| 91 | 10.2 |
+| 138 | 13.7 |
+| 242（上限） | 22.1 |
+
+「上げても入らない」の体感にはこれも効いている。**この曲線自体は今回変更しない。**
+
+##### 派生で見つかった別件: POWER の `max_allowed_level` が 160 のまま
+
+`power_progression.yml` の `max_level` は 242 なのに、DB 上の POWER `max_allowed_level` は
+**既存 21 人全員が 160**（この値より後に作られた `.pale4780` / `.Altale8675` だけ 242）。
+`max_allowed_level` は行を作った時点の catalog 値で固定され、ログインでは更新されない。
+`XpTransitionService` はこの永続値でクランプするので、**POWER 160 で SP が永久に止まる**。
+最高が Sora の 138 なので当面は詰まらないが、残り 22 レベル。
+
+直し方は `/trinityforge reload`（`ProgressionCurveReconciler` が全スキルの
+`maxAllowedLevel` を現在の catalog 値へ書き直す）。
+**ユーザー判断 2026-08-23: 次の再起動時に打つ。**
+⚠ 同じ処理が**全スキルのレベルを `total_exp` から現在のカーブで再導出する**。
+カーブを変えたスキルがあればレベルが動くので、打つのはカーブ変更を配備し終えたあとにする。
 
 ---
 
