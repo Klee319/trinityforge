@@ -3383,6 +3383,66 @@ config-editor **1403 件・失敗 25**（品質まわりの 41 件は全緑。�
 ---
 
 
+### 実サーバ報告バッチ（2026-08-24 受領 第35陣。W-201〜W-205）
+
+| ID | 内容 | 状態 |
+|---|---|---|
+| W-201 | 無限ソース核の見た目が出ない | ✅ 修正（**リソースパック側のみ**。id 衝突で `materials.yml` の定義が丸ごと無視されていた → `functional-items.yml` へ移設し、BEACON/500001 を採番）※配備には `ops\scripts\apply-infinity-core-to-functional-items.ps1` の実行が要る |
+| W-202 | ウィザーの頭蓋骨（カスタム）が落ちない | ⏸ 真因未確定（全 3 サーバ × 3 ワールドで抑止レイヤ無し・配備 config も同一・解決失敗ログも 0 件）。残る説明は「ウィザー本体ではなくウィザースケルトンを倒していた」か「戦闘レベルがちょうど 80 で足きり境界に当たった」の 2 つ。**足きりはユーザー判断で据え置き** |
+| W-203 | EM ダンジョンでエリトラが使えない | ✅ 仕様と確認（`ContentPackagesConfigFields.allowElytra` 既定 false の 3 段ガード）→ **ユーザー判断で現状維持** |
+| W-204 | 一括伐採でリンゴ等の追加ドロップが出ない | ✅ 修正（**TF jar と config 配備が要る**。一括伐採が存在して以来ずっと **1 回も抽選されていなかった**） |
+| W-205 | レアなバニラドロップにドロップ増加ステが効かない | ✅ 実装（**TF jar が要る**。不具合ではなく仕様の穴。落ちなかった種類だけ loot table を引き直す） |
+
+#### W-204 真因: 連鎖で壊した葉は `BlockBreakEvent` を発火しない
+
+追加ドロップ（リンゴ / 金リンゴ / クリスタルリンゴ）は `TreeFellingListener#onBlockBreakDropTables`
+が `BlockBreakEvent` を見て引く。ところが**抽選の対象は葉だけ**（原木は 2026-08-17 に外した）で、
+一括伐採の葉は `ChainBreakSupport#breakOnce` が `setType(AIR)` で消すだけなので
+`BlockBreakEvent` が飛ばない（合成すると設置追跡・採掘運など 10 以上のリスナーが
+連鎖分にも反応するため**意図的にそうしてある**）。
+結果、**一括伐採では追加ドロップの抽選が 1 回も走っていなかった** —— 手で葉を割ったときしか出ない。
+
+- **修正**: 一括伐採の完了時に「壊した葉の枚数」と `tree-fell.chain-drop-rolls-max`（新設・既定 8）の
+  **小さいほう**の回数だけ drop-tables を引く。落とす位置は叩いた原木（樹冠まで拾いに行かせない）。
+  葉 1 枚ごとに引くと 1 回で最大 1024 回になり手動と桁が変わるので上限を置いた。
+  `0` 以下にすると従来どおり抽選しない（他の tick 系キーと違い**既定へ戻さない**）。
+- **回帰テスト**: `TreeFellingListenerTest` に 3 件（上限 3 で 3 個 / 上限 0 で 0 個 / 葉を壊さなければ 0 個）、
+  `WoodcuttingGimmickConfigTest` に 2 件（既定・明示値・0 の保持 / 出荷 yml の実バイト）。
+  **`TreeFellingListenerTest` 37 件・失敗 0・skip 0**。
+- **検証**: TF フルテスト **4607 件・失敗 32・skip 2**。失敗は全て他セッションの未コミット yml 由来
+  （農業EXP単価・スキルツリー配置・lore アンカー・醸造・`woodcutting-gimmick.yml` の tier 4 段→3 段）。
+  ⚠ **`woodcutting-gimmick.yml` は他セッションの編集と同居しているので、自分のハンクだけを
+  `git apply --cached` で staging した**（ファイル全体を `git add` すると相手の WIP を巻き込む）。
+
+#### W-205: 0 個で現れるドロップには個数加算が構造的に効かない
+
+`mob_drop_bonus` の適用は「既に落ちたスタックの個数を足す」実装（2026-08-13 に乗算から加算へ変更）。
+ウィザースケルトンの頭・ネザースターのように**抽選に外れると 0 個で現れない**ドロップには
+**0 に何を足しても 0** なので永久に効かない。`EntityDeathEvent#getDrops()` には抽選済みの結果しか
+無く元の chance も復元できない、というのがこれまで「確率を上げる側の規則は適用できない」と
+書いてあった理由。
+
+- **実装**: `NativeSurvivalPerkListener#onDeathRerollAbsentDrops` を新設し、
+  モブの loot table を `populateLoot` で引き直して**今回落ちなかった種類だけ**を足す。
+  引き直す回数は既存の `MobDropRoller.extraCount`（+50% なら 50% の確率で 1 回、+100% なら確定 1 回）。
+- **優先度は `NORMAL`**。`VanillaItemRemovalListener` と `MobLevelTableListener` の削除は `HIGH` で走るので、
+  `MONITOR` に置くと**削除された種類が「落ちなかった種類」に見えて復活する**。ここは動かさないこと。
+- **EliteMobs 由来のモブは対象外**（`MOB_PROFILE_ID` / `MOB_DUNGEON_THEME` で判定）。
+  取り込んだモブの戦利品の可否は EM 側の `EliteDropPolicy` が決めているので、
+  TF が引き直すとその判断を無効化する。
+- loot table を引けない実装でも例外を外へ出さない。ここで投げると `EntityDeathEvent` の
+  残りのハンドラ（EXP 付与など）が丸ごと落ちる。
+- **回帰テスト**: `NativeSurvivalPerkRareDropRerollTest` **8 件・失敗 0・skip 0**。
+
+#### 同種の穴が残っている: 一括採掘（`VeinMiningListener`）
+
+`VeinMiningListener` も連鎖分は `BlockBreakEvent` を発火しないので、drop-tables は
+**起点 1 ブロック分しか引いていない**。伐採と違い起点そのものが鉱石＝抽選対象なので
+「1 回も出ない」ではなく「連鎖しても回数が増えない」。**どう扱うかは未判断**。
+
+---
+
+
 ### 実サーバ報告バッチ（2026-08-23 受領 第34陣。W-191〜W-192）
 
 > 「アチーブの触媒使って呪文を100回ができない。=>杖で魔法100回打ったのにできない」
