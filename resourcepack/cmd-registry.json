@@ -3516,6 +3516,96 @@
       "parent": "generated"
     },
     {
+      "material": "STRING",
+      "cmd": 300070,
+      "id": "thread_maelstrom",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_maelstrom",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300071,
+      "id": "thread_exsanguinate",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_exsanguinate",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300072,
+      "id": "thread_skyfall",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_skyfall",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300073,
+      "id": "thread_farsight",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_farsight",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300074,
+      "id": "thread_truesight",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_truesight",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300075,
+      "id": "thread_swiftarrow",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_swiftarrow",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300076,
+      "id": "thread_piercingshot",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_piercingshot",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300077,
+      "id": "thread_rampart",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_rampart",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300078,
+      "id": "thread_bastion",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_bastion",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 300079,
+      "id": "thread_wardstone",
+      "source": "catalog",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "thread_wardstone",
+      "parent": "generated"
+    },
+    {
       "material": "AMETHYST_SHARD",
       "cmd": 3,
       "id": "skill_node_lock",
@@ -3597,6 +3687,22 @@
       "parent": "generated"
     },
     {
+      "material": "AMETHYST_SHARD",
+      "cmd": 5447,
+      "id": "amethyst_shard_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-23T00:00:00.000Z"
+    },
+    {
+      "material": "AMETHYST_SHARD",
+      "cmd": 5448,
+      "id": "source_shard_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-23T00:00:00.000Z",
+      "assetName": "source_shard_1x",
+      "parent": "generated"
+    },
+    {
       "material": "PRISMARINE_CRYSTALS",
       "cmd": 5442,
       "id": "source_crystal",
@@ -3627,8 +3733,26 @@
       "material": "NETHER_STAR",
       "cmd": 5445,
       "id": "infinity_source_core",
-      "source": "materials",
+      "source": "functional-items",
       "allocatedAt": "2026-07-31T09:10:00.000Z",
+      "assetName": "infinity_source_core",
+      "parent": "generated"
+    },
+    {
+      "material": "NETHER_STAR",
+      "cmd": 500001,
+      "id": "infinity_source_core",
+      "source": "functional-items",
+      "allocatedAt": "2026-08-24T00:00:00.000Z",
+      "assetName": "infinity_source_core",
+      "parent": "generated"
+    },
+    {
+      "material": "BEACON",
+      "cmd": 500001,
+      "id": "infinity_source_core",
+      "source": "functional-items",
+      "allocatedAt": "2026-08-24T00:00:00.000Z",
       "assetName": "infinity_source_core",
       "parent": "generated"
     },
@@ -4338,6 +4462,13 @@
       "id": "cooked_chicken_1x",
       "source": "materials",
       "allocatedAt": "2026-08-08T10:57:27.774Z"
+    },
+    {
+      "material": "COOKED_RABBIT",
+      "cmd": 260,
+      "id": "cooked_rabbit_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-23T10:56:27.761Z"
     },
     {
       "material": "COOKIE",
@@ -5493,10 +5624,24 @@
     },
     {
       "material": "DECORATED_POT",
+      "cmd": 200009,
+      "id": "source_amphora",
+      "source": "sourcejars",
+      "allocatedAt": "2026-08-23T00:00:00.000Z"
+    },
+    {
+      "material": "DECORATED_POT",
       "cmd": 200005,
       "id": "source_jar_iii",
       "source": "sourcejars",
       "allocatedAt": "2026-07-31T09:10:00.000Z"
+    },
+    {
+      "material": "DECORATED_POT",
+      "cmd": 200010,
+      "id": "source_cistern",
+      "source": "sourcejars",
+      "allocatedAt": "2026-08-23T00:00:00.000Z"
     },
     {
       "material": "DECORATED_POT",
@@ -5507,10 +5652,24 @@
     },
     {
       "material": "DECORATED_POT",
+      "cmd": 200011,
+      "id": "source_basin",
+      "source": "sourcejars",
+      "allocatedAt": "2026-08-23T00:00:00.000Z"
+    },
+    {
+      "material": "DECORATED_POT",
       "cmd": 200008,
       "id": "source_vault",
       "source": "sourcejars",
       "allocatedAt": "2026-08-16T00:00:00.000Z"
+    },
+    {
+      "material": "DECORATED_POT",
+      "cmd": 200012,
+      "id": "source_abyssal_urn",
+      "source": "sourcejars",
+      "allocatedAt": "2026-08-23T00:00:00.000Z"
     },
     {
       "material": "DECORATED_POT",
@@ -5553,145 +5712,6 @@
       "id": "botanical_sourcelink",
       "source": "sourcelinks",
       "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300070,
-      "id": "thread_maelstrom",
-      "source": "catalog",
-      "allocatedAt": "2026-08-23T00:00:00.000Z",
-      "assetName": "thread_maelstrom",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300071,
-      "id": "thread_exsanguinate",
-      "source": "catalog",
-      "allocatedAt": "2026-08-23T00:00:00.000Z",
-      "assetName": "thread_exsanguinate",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300072,
-      "id": "thread_skyfall",
-      "source": "catalog",
-      "allocatedAt": "2026-08-23T00:00:00.000Z",
-      "assetName": "thread_skyfall",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300073,
-      "id": "thread_farsight",
-      "source": "catalog",
-      "allocatedAt": "2026-08-23T00:00:00.000Z",
-      "assetName": "thread_farsight",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300074,
-      "id": "thread_truesight",
-      "source": "catalog",
-      "allocatedAt": "2026-08-23T00:00:00.000Z",
-      "assetName": "thread_truesight",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300075,
-      "id": "thread_swiftarrow",
-      "source": "catalog",
-      "allocatedAt": "2026-08-23T00:00:00.000Z",
-      "assetName": "thread_swiftarrow",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300076,
-      "id": "thread_piercingshot",
-      "source": "catalog",
-      "allocatedAt": "2026-08-23T00:00:00.000Z",
-      "assetName": "thread_piercingshot",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300077,
-      "id": "thread_rampart",
-      "source": "catalog",
-      "allocatedAt": "2026-08-23T00:00:00.000Z",
-      "assetName": "thread_rampart",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300078,
-      "id": "thread_bastion",
-      "source": "catalog",
-      "allocatedAt": "2026-08-23T00:00:00.000Z",
-      "assetName": "thread_bastion",
-      "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 300079,
-      "id": "thread_wardstone",
-      "source": "catalog",
-      "allocatedAt": "2026-08-23T00:00:00.000Z",
-      "assetName": "thread_wardstone",
-      "parent": "generated"
-    },
-    {
-      "material": "AMETHYST_SHARD",
-      "cmd": 5447,
-      "id": "amethyst_shard_1x",
-      "source": "materials",
-      "allocatedAt": "2026-08-23T00:00:00.000Z"
-    },
-    {
-      "material": "AMETHYST_SHARD",
-      "cmd": 5448,
-      "id": "source_shard_1x",
-      "source": "materials",
-      "allocatedAt": "2026-08-23T00:00:00.000Z"
-    },
-    {
-      "material": "DECORATED_POT",
-      "cmd": 200009,
-      "id": "source_amphora",
-      "source": "sourcejars",
-      "allocatedAt": "2026-08-23T00:00:00.000Z"
-    },
-    {
-      "material": "DECORATED_POT",
-      "cmd": 200010,
-      "id": "source_cistern",
-      "source": "sourcejars",
-      "allocatedAt": "2026-08-23T00:00:00.000Z"
-    },
-    {
-      "material": "DECORATED_POT",
-      "cmd": 200011,
-      "id": "source_basin",
-      "source": "sourcejars",
-      "allocatedAt": "2026-08-23T00:00:00.000Z"
-    },
-    {
-      "material": "DECORATED_POT",
-      "cmd": 200012,
-      "id": "source_abyssal_urn",
-      "source": "sourcejars",
-      "allocatedAt": "2026-08-23T00:00:00.000Z"
-    },
-    {
-      "material": "COOKED_RABBIT",
-      "cmd": 260,
-      "id": "cooked_rabbit_1x",
-      "source": "materials",
-      "allocatedAt": "2026-08-23T10:56:27.761Z"
     }
   ]
 }
