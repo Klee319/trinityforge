@@ -41,10 +41,11 @@ import java.util.concurrent.ThreadLocalRandom;
  *       ({@code stats/mining-gimmick.yml vein-mining.tiers}, floor lookup via
  *       {@code DedicatedEffectsConfig#valueMax}).
  *       <b>2026-08-24</b>: 手置きの鉱石でも連鎖するようになった(ユーザー要望)。
- *       「すでに1回採掘済み」なので報酬側は全部落とす —— 採取EXP/破壊時バニラEXPは
- *       {@code NativeSkillExperienceListener} の設置マークガードが、バニラEXPオーブは
- *       {@link #onBlockBreak} の {@code setExpToDrop(0)} が、ドロップテーブルは
- *       {@link #onBlockBreakDropTables} の除外がそれぞれ担う。</li>
+ *       「すでに1回採掘済み」なので<b>TF が独自に配る報酬</b>だけを落とす —— 採取EXPと
+ *       破壊時バニラEXPは {@code NativeSkillExperienceListener} の設置マークガードが、
+ *       ドロップテーブルは {@link #onBlockBreakDropTables} の除外がそれぞれ担う。
+ *       <b>鉱石そのもののバニラEXPオーブ({@code expToDrop})は対象外</b> ——
+ *       バニラが設置ブロックでも等しく出すものなので触らない({@link #onBlockBreak} 参照)。</li>
  *   <li>{@code mining} drop-table (2026-07-23 stat-gate-overhaul §4): each configured category
  *       ({@code stats/mining-gimmick.yml drop-tables.categories}) independently rolls its own
  *       trigger-chance, then draws one weighted+gated prize ({@link DropTablePolicy}) — replaces the old
@@ -109,33 +110,32 @@ public final class VeinMiningListener implements Listener {
             // no-op fallback: everything below is scoped to the configured ore list only.
             return;
         }
-        if (placedBlockTracker.isPlaced(block)) {
-            // 2026-08-24 ユーザー要望「鉱石の一括破壊は手置きのものにも適用されるようにしてほしい。
-            // ただすでに一回採掘済みなのでバニラEXPと職業EXPは反映されないようにする必要がある」。
-            //
-            // 【変更前】ここで return しており、手置きの鉱石を壊しても連鎖が一切起きなかった
-            // (GTH-02: シルクタッチで回収 → 並べて設置 → 幸運で1個割ると全部が幸運付きで連鎖破壊
-            //  される、という増殖経路を止めるための門だった)。
-            //
-            // 【変更後】連鎖は通す。要望の「EXPは入らない」側は<b>既に3経路とも成立している</b>:
-            //   ・起点の採取EXPと破壊時バニラEXP →
-            //     NativeSkillExperienceListener#blockedByPlaceBreakGuard が設置マークで弾く
-            //   ・連鎖分の採取EXP → 同じガードを ChainBreakExpGrant 経由で1ブロックずつ通る
-            //     (手置きの段だけが0になり、巻き込まれた自然生成の段は従来どおり入る)
-            //   ・連鎖分のバニラEXPオーブ → ChainBreakSupport#breakOnce は setType(AIR) で壊すので
-            //     そもそもオーブが出ない
-            // 唯一残っていたのが<b>起点のバニラEXPオーブ</b>で、これはバニラが expToDrop に載せてくる。
-            // ここで落とす。HIGH で読んでいるのは、設置マークを消すのが MONITOR の
-            // NativeSkillExperienceListener だから(MONITOR で isPlaced を読むと登録順によっては
-            // 消去後になる。GatheringExtraDropListener と同じ理由)。
-            //
-            // ⚠ ドロップテーブル抽選(onBlockBreakDropTables)は設置ブロックを除外したまま据え置く
-            //   ── あれも「採掘の報酬」なので、EXP と同じ扱いにしておく。
-            // ⚠ GTH-02 の増殖経路そのものは開く。シルクタッチ回収 → 再設置 → 幸運で割る、は
-            //   バニラでも1個ずつなら可能な手順で、ここでは連鎖するぶん速くなる。
-            //   幸運を手置きの段だけ無効化するなら別途指示が要る(要望の範囲外なので触っていない)。
-            event.setExpToDrop(0);
-        }
+        // 2026-08-24 ユーザー要望「鉱石の一括破壊は手置きのものにも適用されるようにしてほしい。
+        // ただすでに一回採掘済みなのでバニラEXPと職業EXPは反映されないようにする必要がある」。
+        //
+        // 【変更前】ここに `if (placedBlockTracker.isPlaced(block)) return;` があり、手置きの鉱石を
+        // 壊しても連鎖が一切起きなかった(GTH-02: シルクタッチで回収 → 並べて設置 → 幸運で1個割ると
+        // 全部が幸運付きで連鎖破壊される、という増殖経路を止めるための門だった)。
+        //
+        // 【変更後】門を外して連鎖を通す。<b>このリスナー側で足す抑止は無い</b> ── 要望の
+        // 「EXPは入らない」側は既に3経路とも成立しているため:
+        //   ・起点の採取EXPと<b>破壊時バニラEXP</b>(TFのパークが配るおまけの経験値) →
+        //     NativeSkillExperienceListener#blockedByPlaceBreakGuard が設置マークで弾く
+        //   ・連鎖分の採取EXP → 同じガードを ChainBreakExpGrant 経由で1ブロックずつ通る
+        //     (手置きの段だけが0になり、巻き込まれた自然生成の段は従来どおり入る)
+        //   ・連鎖分のバニラEXPオーブ → ChainBreakSupport#breakOnce は setType(AIR) で壊すので
+        //     そもそもオーブが出ない
+        //
+        // ⚠ <b>起点の expToDrop(鉱石そのものが落とすバニラの経験値オーブ)は絶対に触らない。</b>
+        //   2026-08-24 に一度 setExpToDrop(0) を入れて差し戻された。要望の「バニラEXP」は
+        //   TF のステ「破壊時バニラEXP」を指していて、鉱石固有のオーブのことではない。
+        //   あれはバニラが設置ブロックでも等しく出すもので、ここで消すと一括破壊とは無関係に
+        //   「手置きの鉱石を割ると経験値が出ない」というバニラからの無言の乖離になる。
+        // ⚠ ドロップテーブル抽選(onBlockBreakDropTables)は設置ブロックを除外したまま据え置く
+        //   ── あれは TF 独自の「採掘の報酬」なので、採取EXP と同じ扱いにしておく。
+        // ⚠ GTH-02 の増殖経路そのものは開く。シルクタッチ回収 → 再設置 → 幸運で割る、は
+        //   バニラでも1個ずつなら可能な手順で、ここでは連鎖するぶん速くなる。
+        //   幸運を手置きの段だけ無効化するなら別途指示が要る(要望の範囲外なので触っていない)。
         if (!PlayerData.of(player).veinMiningEnabled()) {
             // 2026-07-25 §2 B-2: プレイヤートグルOFF(選択採掘したい場面向け)。
             return;

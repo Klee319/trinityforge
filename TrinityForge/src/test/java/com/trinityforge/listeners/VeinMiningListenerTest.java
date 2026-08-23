@@ -172,10 +172,14 @@ class VeinMiningListenerTest {
     }
 
     @Test
-    void placedOriginOreBlockDropsNoVanillaExperienceOrb() {
-        // 要望の後半「すでに一回採掘済みなのでバニラEXPと職業EXPは反映されないように」。
-        // 職業EXP側は NativeSkillExperienceListener の設置マークガードが担うので、ここで縛るのは
-        // <b>バニラEXPオーブ</b>だけ。これは起点にしか出ない(連鎖分は setType(AIR) で壊すため)。
+    void placedOriginOreBlockKeepsItsVanillaExperienceOrb() {
+        // 2026-08-24 差し戻しの固定。一度ここで setExpToDrop(0) を入れて「鉱石ブロックを砕いた
+        // ときのバニラEXPまで消したらダメでは？」と差し戻された。
+        //
+        // 要望の「バニラEXPは反映されないように」が指すのは<b>TF のステ「破壊時バニラEXP」</b>
+        // (ブロック破壊におまけの経験値を配るパーク)であって、<b>鉱石固有の経験値オーブではない</b>。
+        // 前者は NativeSkillExperienceListener の設置マークガードが既に弾いている。
+        // 後者はバニラが設置ブロックでも等しく出すので、ここで消すとバニラからの無言の乖離になる。
         when(gimmickConfig.oreBlocks()).thenReturn(Set.of(Material.DIAMOND_ORE));
         when(dedicatedEffects.valueMax(any(), eq("vein-mining"))).thenReturn(OptionalDouble.of(1.0));
         when(gimmickConfig.veinMiningMaxExtraBlocks(1)).thenReturn(8);
@@ -187,13 +191,14 @@ class VeinMiningListenerTest {
         BlockBreakEvent event = breakEvent(origin);
         listener().onBlockBreak(event);
 
-        org.mockito.Mockito.verify(event).setExpToDrop(0);
+        org.mockito.Mockito.verify(event, org.mockito.Mockito.never())
+                .setExpToDrop(org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test
     void naturalOriginOreBlockKeepsItsVanillaExperienceOrb() {
-        // 逆側の固定: 自然生成の鉱石では expToDrop を触らない。ここを無条件に0にすると
-        // 「一括破壊を解放した途端に鉱石のバニラEXPが消える」という無言の弱体になる。
+        // 自然生成側も同様に expToDrop を触らない。設置/自然の両方を固定しておくのは、
+        // 「設置だけ落とす」実装を足したときにどちらの側から入れても落ちるようにするため。
         when(gimmickConfig.oreBlocks()).thenReturn(Set.of(Material.DIAMOND_ORE));
         when(dedicatedEffects.valueMax(any(), eq("vein-mining"))).thenReturn(OptionalDouble.of(1.0));
         when(gimmickConfig.veinMiningMaxExtraBlocks(1)).thenReturn(8);
