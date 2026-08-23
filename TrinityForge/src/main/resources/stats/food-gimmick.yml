@@ -50,6 +50,12 @@ custom-foods:
   cooked_chicken_1x:
     food-level: 18
     saturation: 13
+  # 2026-08-23 追加。圧縮生肉をかまどで焼けるようにしたので、焼き先の圧縮焼きウサギ肉も
+  # ここへ載せる。載せないと unregistered-custom-food-ban に塞がれて【焼いても食べられない】。
+  # 値は焼き羊肉(18/15)より控えめ ── バニラの焼きウサギ肉が焼き羊肉より低いのに合わせる。
+  cooked_rabbit_1x:
+    food-level: 16
+    saturation: 12
   cookie_1x:
     food-level: 14
     saturation: 7

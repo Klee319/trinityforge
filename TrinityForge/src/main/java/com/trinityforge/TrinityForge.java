@@ -47,6 +47,7 @@ import com.trinityforge.listeners.CollectionListener;
 import com.trinityforge.listeners.AnimalDamageListener;
 import com.trinityforge.listeners.BeekeepingListener;
 import com.trinityforge.listeners.CombatListener;
+import com.trinityforge.listeners.CompressedSmeltGuardListener;
 import com.trinityforge.listeners.CraftQualityListener;
 import com.trinityforge.listeners.ItemDamageClampListener;
 import com.trinityforge.listeners.CatalogAnvilListener;
@@ -735,7 +736,8 @@ public final class TrinityForge extends JavaPlugin {
         // Bukkit recipes each catalog entry declares. Re-run on every /trinityforge reload (below)
         // AND from ArsPaper's enable hook (refreshCatalogRecipes) so Ars-built results converge.
         this.catalogRecipeRegistrar = new CatalogRecipeRegistrar(this, configManager.itemCatalog(), itemFactory,
-                () -> configManager.craftingFeatures().addedRecipes());
+                () -> configManager.craftingFeatures().addedRecipes(),
+                () -> configManager.craftingFeatures().compressedSmelting());
         catalogRecipeRegistrar.registerAll();
         exportBedrockRecipeTable();
         // W-44: ArsPaper 定義の custom: 素材(例 material-lists.yml の dungeon_seals 28件)は TF が
@@ -987,6 +989,10 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new ScrapConversionListener(configManager.craftingFeatures(),
                         configManager.itemCatalog(), itemFactory), this);
+        // 圧縮素材の精錬(2026-08-23)。本命は CatalogRecipeRegistrar が登録するかまど/燻製器/焚き火の
+        // レシピで、このリスナーは「そちらが選ばれなかったときに 9 個分が 1 個へ消えるのを防ぐ」保険。
+        getServer().getPluginManager().registerEvents(
+                new CompressedSmeltGuardListener(configManager.craftingFeatures()), this);
         getServer().getPluginManager().registerEvents(
                 new PotionMergeListener(configManager.dedicatedEffects(), configManager.craftingFeatures()), this);
         // ゲート判定は「実際に登録された customMix」だけを見る (2026-07-31 D10 レビュー指摘#1/#3)。

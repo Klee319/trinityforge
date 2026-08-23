@@ -175,6 +175,56 @@ scrap-conversion:
         weight: 5
       - item: custom:netherite_ingot_scrap
         weight: 1
+# 圧縮食材の精錬 (2026-08-23 ユーザー要望「圧縮したじゃがいもや生肉、生魚を焼けるようにできたら
+# 楽だなと(燃料と時間はその分増える)」)。
+#
+# ここに書いた1行につき、かまど・燻製器・焚き火の3レシピが
+# CatalogRecipeRegistrar#registerCompressedSmelting から登録される
+# (キーは trinityforge:compressed_smelt_<入力id>_<furnace|smoker|campfire>)。
+#
+# ⚠ 素材の照合は【ExactChoice】でなければならない。圧縮素材の base_material はバニラと同じ
+#   (例: potato_1x = POTATO)なので、MaterialChoice で登録すると素のジャガイモまで一致して
+#   バニラのベイクドポテトを潰す。逆に、素の素材を焼いたときは ExactChoice が一致しないので
+#   バニラのレシピがそのまま使われる。
+# ⚠ 逆に「レシピを登録せず FurnaceSmeltEvent で結果だけ差し替える」方式は【使えない】。
+#   バニラの AbstractFurnaceBlockEntity#canBurn は
+#   「結果スロットの中身」と『レシピが組み立てた結果』を isSameItemSameComponents で比べるので、
+#   1個目の圧縮焼き芋が結果スロットに入った時点でバニラのレシピ結果(素のベイクドポテト)と
+#   一致しなくなり、2個目以降が永久に焼けなくなる。レシピごと登録すれば比較対象も
+#   こちらの結果になるので連続精錬が成立する。
+#   (プラグインのレシピがバニラより優先されるのは SPIGOT-4638「一致した中の最後を採用」による。)
+#
+# cook-time は【かまど】で1個あたりにかかる調理時間(tick)。バニラは 200。かまどの燃料は
+# 「燃焼時間」で減るので、調理時間を9倍にすると燃料も9倍かかる = 9個を個別に焼いたのと同じ収支。
+# 燻製器はこの半分、焚き火は3倍(バニラの 200:100:600 と同じ比率)を自動で使う。
+# experience は省略可(既定 3.15 = バニラの食材精錬 0.35 × 9)。
+compressed-smelting:
+  potato_1x:
+    result: baked_potato_1x
+    cook-time: 1800
+  beef_1x:
+    result: compressed_cooked_beef_1x
+    cook-time: 1800
+  porkchop_1x:
+    result: cooked_porkchop_1x
+    cook-time: 1800
+  chicken_1x:
+    result: cooked_chicken_1x
+    cook-time: 1800
+  mutton_1x:
+    result: cooked_mutton_1x
+    cook-time: 1800
+  rabbit_1x:
+    result: cooked_rabbit_1x
+    cook-time: 1800
+  cod_1x:
+    result: baked_cod_1x
+    cook-time: 1800
+  # 圧縮焼き鮭の id は baked_salon_1x (salmon の綴り違い)。materials.yml 側の既存 id をそのまま
+  # 使っている ── 直すと既にプレイヤーが持っている分が別アイテムになるため触らない。
+  salmon_1x:
+    result: baked_salon_1x
+    cook-time: 1800
 potion-merge:
   max-effects: 5
   max-duration-seconds: 960

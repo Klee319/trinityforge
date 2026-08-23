@@ -5685,6 +5685,13 @@
       "id": "source_abyssal_urn",
       "source": "sourcejars",
       "allocatedAt": "2026-08-23T00:00:00.000Z"
+    },
+    {
+      "material": "COOKED_RABBIT",
+      "cmd": 260,
+      "id": "cooked_rabbit_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-23T10:56:27.761Z"
     }
   ]
 }

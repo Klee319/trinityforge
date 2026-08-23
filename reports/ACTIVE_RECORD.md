@@ -3351,7 +3351,9 @@ config-editor **1403 件・失敗 25**（品質まわりの 41 件は全緑。�
 - **ブロック側の変換**（`SmeltEffect#applyToBlock` / `CrushEffect#crushBlock` / `ExchangeEffect`）は未対応。
   Ars のカスタムブロックは `DECORATED_POT`（ソースジャー）と `BEACON`（ウェイストーン）で、
   どの変換表にも載っていないため現状は無害。**変換表に足すときはここを思い出すこと。**
-- 圧縮素材を「圧縮のまま焼く/切る」機能は作っていない。欲しければ別途仕様の判断が要る。
+- ~~圧縮素材を「圧縮のまま焼く/切る」機能は作っていない。欲しければ別途仕様の判断が要る。~~
+  → **「焼く」は 2026-08-23 の W-190 で実装した**（`_1x` の食材 8 種のみ。かまど／燻製器／焚き火）。
+  「切る」（石切台）は引き続き未対応。
 
 ---
 
@@ -3377,6 +3379,102 @@ config-editor **1403 件・失敗 25**（品質まわりの 41 件は全緑。�
   （保護を広げすぎていないことの確認）。**`isUnbreakable()` を外すと該当 1 件が落ちる**ことを実走確認。
 - **検証**: TF フルテスト **4449 件・失敗 26・skip 2**（失敗数は着手前と同じ 26。すべて他セッションの
   未コミット yml 由来で、触った領域は 1 件も含まない）。
+
+---
+
+
+### 圧縮素材をそのまま焼けるようにした（2026-08-23 要望 第33陣。W-190）
+
+> 「あと圧縮したじゃがいもや生肉、生魚を焼けるようにできたら楽だなと（燃料と時間はその分増える）」
+
+| ID | 内容 | 状態 |
+|---|---|---|
+| W-190 | 圧縮じゃがいも・圧縮生肉・圧縮生魚を **圧縮のまま** かまど／燻製器／焚き火で焼ける | ✅ 対応（**TF jar + ArsPaper jar + TF config + Ars config が全部要る**） |
+
+確認済みの設計判断: **`_1x`（9倍）だけ**。`_2x`/`_3x` は対象外。
+
+対応表（`progression/crafting-features.yml` の `compressed-smelting`）。8 種すべて
+`cook-time: 1800`（＝バニラ 200 tick の 9 倍。燃料は燃焼時間で減るので **燃料も 9 倍**）。
+燻製器は半分（900）、焚き火は 3 倍（5400）を自動で使う（バニラの 200:100:600 と同じ比率）。
+
+| 入力 | 結果 |
+|---|---|
+| `potato_1x` | `baked_potato_1x` |
+| `beef_1x` | `compressed_cooked_beef_1x` |
+| `porkchop_1x` | `cooked_porkchop_1x` |
+| `chicken_1x` | `cooked_chicken_1x` |
+| `mutton_1x` | `cooked_mutton_1x` |
+| `rabbit_1x` | **`cooked_rabbit_1x`（新規）** |
+| `cod_1x` | `baked_cod_1x` |
+| `salmon_1x` | `baked_salon_1x` |
+
+⚠ **圧縮焼き鮭の id は `baked_salon_1x`（salmon の綴り違い）。直していない** ——
+直すと既にプレイヤーが持っている分が別アイテムになるため。`base_material` も
+`COOKED_SALMON` ではなく `COOKED_COD` のままにしてある（同じ理由）。
+
+#### なぜ「イベントで結果だけ差し替える」実装にしなかったか（今回の要）
+
+最初はそのつもりだった。**それでは 2 個目以降が永久に焼けない。**
+バニラの `AbstractFurnaceBlockEntity#canBurn`（Paper 1.21.11 のソースを実物で確認）は
+
+```java
+return itemStack1.isEmpty() || ItemStack.isSameItemSameComponents(itemStack1, itemStack) && ...
+```
+
+＝ **結果スロットの中身**と『**レシピが組み立てた結果**』を data component ごと比べる。
+イベントで差し替えるだけだと、1 個目の圧縮焼き芋が結果スロットに入った時点で
+バニラのレシピ結果（素のベイクドポテト）と一致しなくなり、そこで精錬が止まる
+（燃料だけ燃えて何も起きない）。
+
+なので **レシピごと登録する**。`CatalogRecipeRegistrar#registerCompressedSmelting` が
+1 行につき かまど／燻製器／焚き火の 3 レシピを
+`trinityforge:compressed_smelt_<入力id>_<furnace|smoker|campfire>` で登録する。
+素材は **`RecipeChoice.ExactChoice`**（型 + data component の完全一致）。
+`MaterialChoice` にすると素のジャガイモにも一致して **バニラのベイクドポテトを潰す**
+（プラグインのレシピが勝つのは SPIGOT-4638「一致した中の最後を採用」による）。
+逆に素の素材を焼いたときは ExactChoice が一致しないので、バニラのレシピがそのまま使われる。
+
+保険として `CompressedSmeltGuardListener`（`FurnaceSmeltEvent` / HIGH）を置いた。
+**TF のレシピが選ばれなかったときだけ**結果を設定どおりの圧縮焼き物へ差し替える。
+その場合は上の理由で 1 個ずつになるが、**9 個ぶんが 1 個へ消えるよりはるかにまし**。
+入った時点で異常なので素材 1 種につき 1 回だけ警告を出す。
+
+#### 見落としかけた真因: 入れる経路が **3 つとも塞がっていた**（W-132 の対策）
+
+`CustomItemListener` は W-132（2026-08-19）で、materials.yml 素材のかまど搬入を
+**クリック・ホッパー・`BlockCookEvent` の 3 経路すべて**で塞いでいる。
+つまりレシピを登録しただけでは **一度も発火しない**。
+`TrinityForgeBridge#tfSmeltableMaterialIds()`（`compressed-smelting` の**入力と結果の両方**）で
+穴を開けた。**結果側も含めるのが必須** —— 含めないと焼き上がった圧縮品が結果スロットに入った瞬間、
+**取り出すクリックまで塞がって永久に回収できない**。
+穴は **かまど／燻製器に限る**（`SMELTING_MACHINES`）。溶鉱炉は焼けないので通す意味が無く、
+醸造台は材料スロットが Material しか見ずに飲み込むので、通すと W-172 の穴が復活する。
+TF 未ロード時は空集合を返す **fail-closed**（穴が開いたままより「焼けない＝従来どおり」に倒す）。
+
+#### 触ったもの
+
+- TF: `CraftingFeaturesConfig`（`compressed-smelting` パース）/ `CatalogRecipeRegistrar`
+  （`registerCompressedSmelting`。`registerAll()` の末尾なので **`/trinityforge reload` と
+  ArsPaper enable 後の再登録に自動で乗る**）/ `CompressedSmeltGuardListener` / `TrinityForge.java` 配線
+- TF config: `progression/crafting-features.yml`（`compressed-smelting` 8 行）/
+  `stats/food-gimmick.yml`（`cooked_rabbit_1x` を `custom-foods` へ。**載せないと
+  `unregistered-custom-food-ban` で焼いても食べられない**）
+- ArsPaper: `materials.yml` に `cooked_rabbit_1x`（CMD **260**、`resourcepack/cmd-registry.json` へ採番済み）/
+  `CustomItemListener` の穴あけ / `TrinityForgeBridge#tfSmeltableMaterialIds`
+- 運用: `ops\scripts\apply-compressed-cooked-rabbit.ps1`（**ArsPaper は `saveResource(..., false)` なので
+  jar を替えても配備先の materials.yml に新キーは増えない**。止めずに入れるための経路）
+
+- **回帰テスト**: `CraftingFeaturesConfigCompressedSmeltingTest`（6 件。出荷 yml が 8 行そろって
+  読めることを含む）/ `CompressedSmeltGuardListenerTest`（3 件）。**9 件・失敗 0**。
+- **検証**: TF フルテスト **4595 件・失敗 30・skip 2**。30 件はすべて他セッション／ユーザーの
+  未コミット yml 由来で、触った領域は 1 件も含まない。
+  ArsPaper フォーク **533 件・失敗 0**。
+- ⚠ **ユーザーの未コミット `food-gimmick.yml` 編集で 2 件が赤い**:
+  `beef_1x` / `porkchop_1x` / `rabbit_1x` / `chicken_1x` / `mutton_1x` / `cod_1x` / `salmon_1x` /
+  `tf_crystal_apple` の 8 件が `custom-foods` から消えており、
+  `CompressedFoodEdibleFlagTest` と `ShippedCompressedFoodRegistrationTest` が落ちる。
+  **この状態のまま配備すると W-131 と同じ「圧縮生肉が一切食べられない」に戻る。**
+  こちらでは戻していない（ユーザー編集の yml なので）。
 
 ---
 
