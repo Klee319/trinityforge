@@ -323,6 +323,89 @@ class TreeFellingListenerTest {
                 "chain felling must stop as soon as the custom-durability tool breaks");
     }
 
+    // --- 2026-08-24 実サーバ報告「リンゴなど伐採の追加ドロップが一括伐採時に出ない」 ---
+
+    /**
+     * 幹3本 + 樹冠(葉18枚)を建て、{@code chainDropRollsMax} を上限にして起点を叩く。
+     *
+     * @return 一括伐採後にワールドへ落ちたアイテムエンティティの増加数
+     */
+    private int fellTreeWithCanopy(int chainDropRollsMax) {
+        DropTableConfig.Category category = new DropTableConfig.Category("apple", "Apple", 100.0,
+                List.of(new DropTableConfig.Entry("APPLE", 1, 1)), false);
+        when(gimmickConfig.dropTables()).thenReturn(Map.of("apple", category));
+        when(itemResolver.create(eq("APPLE"))).thenReturn(Optional.of(new ItemStack(Material.APPLE)));
+        stubTreeFell(8);
+        // 葉を実際に壊させる。decay-only は既定(mock の false)のまま = 候補をそのまま壊す。
+        when(gimmickConfig.treeFellBreakLeaves()).thenReturn(true);
+        when(gimmickConfig.treeFellMaxLeaves(org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.anyInt())).thenReturn(64);
+        when(gimmickConfig.treeFellChainDropRollsMax()).thenReturn(chainDropRollsMax);
+
+        Block origin = player.getWorld().getBlockAt(0, 64, 0);
+        for (int y = 64; y <= 66; y++) {
+            player.getWorld().getBlockAt(0, y, 0).setType(Material.OAK_LOG);
+        }
+        for (int y = 67; y <= 68; y++) {
+            for (int x = -1; x <= 1; x++) {
+                for (int z = -1; z <= 1; z++) {
+                    player.getWorld().getBlockAt(x, y, z).setType(Material.OAK_LEAVES);
+                }
+            }
+        }
+
+        int itemsBefore = player.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
+        listener().onBlockBreak(breakEvent(origin));
+        long leavesLeft = java.util.stream.IntStream.rangeClosed(67, 68)
+                .mapToLong(y -> java.util.stream.IntStream.rangeClosed(-1, 1)
+                        .mapToLong(x -> java.util.stream.IntStream.rangeClosed(-1, 1)
+                                .filter(z -> player.getWorld().getBlockAt(x, y, z).getType()
+                                        == Material.OAK_LEAVES)
+                                .count())
+                        .sum())
+                .sum();
+        assertTrue(18 - leavesLeft > 3,
+                "上限との min を検証するテストなので、葉が上限より多く壊れていること(実際: "
+                        + (18 - leavesLeft) + "枚)");
+        return player.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size() - itemsBefore;
+    }
+
+    /**
+     * 連鎖破壊した葉は {@code BlockBreakEvent} を発火しないため、修正前は一括伐採で追加ドロップの
+     * 抽選が1回も走っていなかった。上限 3 で「壊した枚数と上限の小さいほう」= 3回引くこと。
+     */
+    @Test
+    void chainFelledLeavesRollDropTableUpToTheConfiguredCap() {
+        assertEquals(3, fellTreeWithCanopy(3),
+                "trigger-chance-percent=100 の1カテゴリを上限回数ぶん引くこと(修正前は0個)");
+    }
+
+    /** 上限0は「この経路の抽選を行わない」= 2026-08-24 以前の挙動。 */
+    @Test
+    void chainDropRollCapOfZeroDisablesTheChainRollEntirely() {
+        assertEquals(0, fellTreeWithCanopy(0), "0以下なら1回も引かないこと");
+    }
+
+    /** 葉を1枚も壊さない伐採(break-leaves=false)では抽選しないこと。 */
+    @Test
+    void chainFellWithoutBrokenLeavesDoesNotRollDropTable() {
+        DropTableConfig.Category category = new DropTableConfig.Category("apple", "Apple", 100.0,
+                List.of(new DropTableConfig.Entry("APPLE", 1, 1)), false);
+        when(gimmickConfig.dropTables()).thenReturn(Map.of("apple", category));
+        stubTreeFell(8);
+        when(gimmickConfig.treeFellBreakLeaves()).thenReturn(false);
+        when(gimmickConfig.treeFellChainDropRollsMax()).thenReturn(8);
+
+        Block origin = player.getWorld().getBlockAt(0, 64, 0);
+        for (int y = 64; y <= 66; y++) {
+            player.getWorld().getBlockAt(0, y, 0).setType(Material.OAK_LOG);
+        }
+
+        listener().onBlockBreak(breakEvent(origin));
+
+        verifyNoInteractions(itemResolver);
+    }
+
     // --- 2026-07-31 N1 実サーバ報告「伐採で底面と側面から壊したときと真上から壊したときとで壊れる範囲が違う」 ---
 
     /** 一括伐採の共通スタブ(tier1・上限 {@code maxExtra}・CT 10秒)。 */
