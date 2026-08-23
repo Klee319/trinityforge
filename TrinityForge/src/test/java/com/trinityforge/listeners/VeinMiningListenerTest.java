@@ -151,9 +151,10 @@ class VeinMiningListenerTest {
     }
 
     @Test
-    void placedOriginOreBlockNeverTriggersChainBreak() {
-        // GTH-02 exploit fix: silk-touch-preserve + place-a-grid + fortune-break-the-origin must not
-        // chain-break the (placed) neighbors too — the placed origin itself must block the trigger.
+    void placedOriginOreBlockStillTriggersChainBreak() {
+        // 2026-08-24 ユーザー要望「鉱石の一括破壊は手置きのものにも適用されるようにしてほしい」。
+        // 元は GTH-02(シルクタッチ回収 → 並べて設置 → 幸運で連鎖)を止めるため起点が設置ブロックなら
+        // 発動しない仕様だった。要望により発動させ、代わりに報酬側(EXP)を落とす方式へ切り替えた。
         when(gimmickConfig.oreBlocks()).thenReturn(Set.of(Material.DIAMOND_ORE));
         when(dedicatedEffects.valueMax(any(), eq("vein-mining"))).thenReturn(OptionalDouble.of(1.0));
         when(gimmickConfig.veinMiningMaxExtraBlocks(1)).thenReturn(8);
@@ -166,8 +167,44 @@ class VeinMiningListenerTest {
 
         listener().onBlockBreak(breakEvent(origin));
 
-        assertEquals(Material.DIAMOND_ORE, neighbor.getType(),
-                "a placed origin block must not trigger a chain-break of its neighbors");
+        assertEquals(Material.AIR, neighbor.getType(),
+                "手置きの鉱石を起点にしても連鎖破壊が起きること(2026-08-24 の要望)");
+    }
+
+    @Test
+    void placedOriginOreBlockDropsNoVanillaExperienceOrb() {
+        // 要望の後半「すでに一回採掘済みなのでバニラEXPと職業EXPは反映されないように」。
+        // 職業EXP側は NativeSkillExperienceListener の設置マークガードが担うので、ここで縛るのは
+        // <b>バニラEXPオーブ</b>だけ。これは起点にしか出ない(連鎖分は setType(AIR) で壊すため)。
+        when(gimmickConfig.oreBlocks()).thenReturn(Set.of(Material.DIAMOND_ORE));
+        when(dedicatedEffects.valueMax(any(), eq("vein-mining"))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.veinMiningMaxExtraBlocks(1)).thenReturn(8);
+
+        Block origin = player.getWorld().getBlockAt(0, 64, 0);
+        origin.setType(Material.DIAMOND_ORE);
+        placedBlockTracker.markPlaced(origin);
+
+        BlockBreakEvent event = breakEvent(origin);
+        listener().onBlockBreak(event);
+
+        org.mockito.Mockito.verify(event).setExpToDrop(0);
+    }
+
+    @Test
+    void naturalOriginOreBlockKeepsItsVanillaExperienceOrb() {
+        // 逆側の固定: 自然生成の鉱石では expToDrop を触らない。ここを無条件に0にすると
+        // 「一括破壊を解放した途端に鉱石のバニラEXPが消える」という無言の弱体になる。
+        when(gimmickConfig.oreBlocks()).thenReturn(Set.of(Material.DIAMOND_ORE));
+        when(dedicatedEffects.valueMax(any(), eq("vein-mining"))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.veinMiningMaxExtraBlocks(1)).thenReturn(8);
+
+        Block origin = player.getWorld().getBlockAt(0, 64, 0);
+        origin.setType(Material.DIAMOND_ORE);
+
+        BlockBreakEvent event = breakEvent(origin);
+        listener().onBlockBreak(event);
+
+        org.mockito.Mockito.verify(event, org.mockito.Mockito.never()).setExpToDrop(org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test
