@@ -51,9 +51,9 @@ test("ARS_ENCHANT_BOOK_IDS: 8件ちょうどで、全件に日本語ラベルが
   }
 });
 
-test("エンチャント本のIDは機能アイテム7件・TF特殊アイテムと重複しない", () => {
+test("エンチャント本のIDは機能アイテム8件・TF特殊アイテムと重複しない", () => {
   for (const id of CORE.ARS_ENCHANT_BOOK_IDS) {
-    assert.ok(!CORE.FUNCTIONAL_ITEM_IDS.includes(id), `${id} が機能アイテム7件と重複している`);
+    assert.ok(!CORE.FUNCTIONAL_ITEM_IDS.includes(id), `${id} が機能アイテム8件と重複している`);
     assert.ok(!CORE.TF_SPECIAL_ITEM_IDS.includes(id), `${id} が TF 特殊アイテムと重複している`);
   }
 });

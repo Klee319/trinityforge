@@ -7,13 +7,13 @@
 // recipe の5つのみで、全て単一ファイル内で完結する(旧来の source:"catalog"|"items" 振り分けや
 // recipeKey(waystone_craft 等)の特別扱いは、統合により不要になったため削除した)。
 //
-// 対象7アイテム: dominion_wand / teleport_compass / pedestal / ritual_core /
-//                scribing_table / waystone / source_berry
+// 対象8アイテム: dominion_wand / teleport_compass / pedestal / ritual_core /
+//                scribing_table / waystone / infinity_source_core / source_berry
 // 内部ID(このファイルのitems.<id>キー名そのもの)は fork Java 実装が直接参照する固定値のため
 // editorからは新規追加/削除/リネーム不可(読み取り専用のIDチップとしてのみ表示)。
 //
 // material の編集可否は3件(dominion_wand/teleport_compass/source_berry=保持アイテム)のみ許可。
-// 残り4件(ブロック系)は fork の FunctionalItemConfig.java#MATERIAL_OVERRIDE_ALLOWED で拒否され
+// 残り5件(ブロック系)は fork の FunctionalItemConfig.java#MATERIAL_OVERRIDE_ALLOWED で拒否され
 // warning ログのみで無視される(TileState対応判定・儀式の近傍探索がMaterialに密結合のため)。
 // この許可リストは Java 側が唯一の正典。JS側の MATERIAL_EDITABLE_IDS はその複製であり、
 // test/functional-items-java-parity.test.js が FunctionalItemConfig.java のソースを直接
@@ -28,10 +28,14 @@
     return v === undefined ? undefined : JSON.parse(JSON.stringify(v));
   }
 
-  // functional-items.yml items.<id> の正典7件 (ファイル内の並び順)。
+  // functional-items.yml items.<id> の正典8件 (ファイル内の並び順)。
+  // 2026-08-24 追加: infinity_source_core。実体は Java のカスタムブロック
+  // (InfinitySourceCore) だが定義だけ materials.yml に残っており、ブロック登録済み id は
+  // 素材アイテム登録の側で丸ごとスキップされるため、素材画面で直しても無反応だった
+  // (効いていたのは recipe だけ)。実装を Java で特別扱いするアイテムはこの画面が正典。
   const FUNCTIONAL_ITEM_IDS = Object.freeze([
     "dominion_wand", "teleport_compass", "pedestal",
-    "ritual_core", "scribing_table", "waystone", "source_berry"
+    "ritual_core", "scribing_table", "waystone", "infinity_source_core", "source_berry"
   ]);
 
   // ============================================================

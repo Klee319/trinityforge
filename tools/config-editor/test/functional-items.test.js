@@ -17,18 +17,19 @@ const {
   serializeFunctionalItemsData
 } = require("../public/js/functional-items.js");
 
-test("FUNCTIONAL_ITEM_IDS: 7アイテムちょうど揃っている", () => {
+test("FUNCTIONAL_ITEM_IDS: 8アイテムちょうど揃っている", () => {
   const ids = FUNCTIONAL_ITEM_IDS.slice().sort();
   assert.deepEqual(ids, [
-    "dominion_wand", "pedestal", "ritual_core", "scribing_table",
+    "dominion_wand", "infinity_source_core", "pedestal", "ritual_core", "scribing_table",
     "source_berry", "teleport_compass", "waystone"
   ].sort());
 });
 
-test("MATERIAL_EDITABLE_IDS: 保持アイテム3種のみ(ブロック系4種は含まない)", () => {
+test("MATERIAL_EDITABLE_IDS: 保持アイテム3種のみ(ブロック系5種は含まない)", () => {
   const ids = MATERIAL_EDITABLE_IDS.slice().sort();
   assert.deepEqual(ids, ["dominion_wand", "source_berry", "teleport_compass"].sort());
-  for (const blockId of ["pedestal", "ritual_core", "scribing_table", "waystone"]) {
+  for (const blockId of ["pedestal", "ritual_core", "scribing_table", "waystone",
+                         "infinity_source_core"]) {
     assert.ok(!MATERIAL_EDITABLE_IDS.includes(blockId), `${blockId} は material 編集不可のはず`);
   }
 });
