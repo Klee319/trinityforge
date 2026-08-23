@@ -89,7 +89,9 @@ public final class CatalogWorkbenchListener implements Listener {
             // that matched only because the stack shares its base Material.
             if (!rematch(event, matrix)) {
                 event.getInventory().setResult(null);
-                notifyBlockedByCatalogItem(event, matrix);
+                if (shouldNotifyBlocked(selected)) {
+                    notifyBlockedByCatalogItem(event, matrix);
+                }
             }
             return;
         }
@@ -112,6 +114,24 @@ public final class CatalogWorkbenchListener implements Listener {
         }
         ItemStack vanilla = shadowedVanillaResult(matrix, matrix.length == 4 ? 2 : 3);
         event.getInventory().setResult(vanilla); // null = クラフト不可(従来どおり)
+    }
+
+    /**
+     * 通知してよいのは「実際に見えていた結果を奪ったとき」だけ (2026-08-24、統合版の実サーバ報告)。
+     *
+     * <p>{@code PrepareItemCraftEvent} は<b>マスを1つ触るたびに飛ぶ</b>。カタログ品を作業台へ
+     * 置いている途中の盤面はどのレシピにも一致しないので {@code selected} が null になり、
+     * そこで名指しすると<b>まだ何も奪っていないのに「材料にできません」と言う</b>ことになる。
+     *
+     * <p>統合版ではこれが常に起きる ── Geyser はクラフト要求をマスへの1つずつの配置へ翻訳するので、
+     * <b>成立するレシピであっても組み立ての途中で必ず不一致の盤面を通る</b>。実サーバでは
+     * 「クラフトはできたのに材料にできませんの通知が出る」という形で報告された。
+     *
+     * <p>selected が非 null のときだけ通知すれば、W-87 が守りたかった場面
+     * (バニラのレシピが成立していて、カタログ品のせいでそれを消した) はそのまま残る。
+     */
+    static boolean shouldNotifyBlocked(Recipe selectedBeforeClear) {
+        return selectedBeforeClear != null;
     }
 
     /**
