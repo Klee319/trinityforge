@@ -395,6 +395,40 @@ JDBC の `setAutoCommit(false)` は既定で `BEGIN DEFERRED` を発行する。
 
 ## 権利・レシピの設計原理
 
+### ⚠️⚠️ かまどの結果を `FurnaceSmeltEvent#setResult` で差し替えると **2個目から焼けなくなる**（2026-08-23 W-190）
+
+バニラの `AbstractFurnaceBlockEntity#canBurn`（Paper 1.21.11 実物で確認）は
+
+```java
+return itemStack1.isEmpty() || ItemStack.isSameItemSameComponents(itemStack1, itemStack) && ...
+//     ^ 結果スロットの中身                                        ^ レシピが組み立てた結果
+```
+
+＝ **結果スロットの中身**と『**レシピが組み立てた結果**』を data component ごと比較する。
+`canBurn` は Bukkit のイベントより**前**に走るので、イベントで結果を差し替えると
+
+1. 1個目は差し替わってカスタム品が結果スロットに入る
+2. 2個目からは「結果スロットのカスタム品」と「バニラのレシピ結果（素の焼き芋）」が
+   component 不一致 → `canBurn` が false → **精錬が止まる**（燃料だけ燃えて何も起きない）
+
+**カスタム品を焼き上がりにしたいならレシピごと登録すること。** 比較対象も自分の結果になるので
+連続精錬が成立する。素材は必ず `RecipeChoice.ExactChoice`（`MaterialChoice` だと素のバニラ素材にも
+一致して**バニラのレシピを潰す**）。プラグインのレシピがバニラより優先されるのは
+CraftBukkit の `RecipeManager#getRecipeFor` が `list.getLast()` を返すため（SPIGOT-4638）。
+
+Paper のサーバ実装ソースは Gradle キャッシュに `.java` のまま入っている（推測せずここを読む）:
+`~/.gradle/caches/paperweight-userdev/v2/work/applyDevBundlePatches_*/output.jar` の中の
+`net/minecraft/world/level/block/entity/*.java`。
+
+### ⚠️ ArsPaper の materials.yml 素材は「かまどへ入れる経路が3つとも塞がっている」（W-132）
+
+`CustomItemListener` が `InventoryClickEvent` / `InventoryMoveItemEvent` / `BlockCookEvent` の
+3経路すべてで materials.yml 素材のかまど搬入を止めている（圧縮素材が焼かれて 9個ぶんが1個に
+化けるのを防ぐため）。**かまどで何かをさせたいならレシピ登録だけでは一度も発火しない。**
+穴あけは `TrinityForgeBridge#tfSmeltableMaterialIds()`（`compressed-smelting` の入力＋結果）を通す。
+**結果側も通さないと、焼き上がった品を結果スロットから取り出すクリックまで塞がる。**
+穴はかまど／燻製器に限る（醸造台は材料スロットが Material しか見ずに飲み込むため）。
+
 ### 消費キャンセル型の「+1で返す」リスナーは、全キャンセラより後の優先度でないと複製になる
 素材消費をキャンセルしてから `+1` して返すタイプのリスナー（醸造素材の保存など）で、
 別のキャンセラが**同じ優先度**で後から登録されると、先に走った側の `+1` だけが生き残り
