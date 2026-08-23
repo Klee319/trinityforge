@@ -38,6 +38,23 @@ import java.util.concurrent.ThreadLocalRandom;
  * <p>2026-07-31(G1 レビュー指摘5): 破壊そのものは {@code breakNaturally} をやめ
  * {@link #breakOnce} が「1回だけ引いた抽選結果」を自分で撒く形にした。{@code BlockBreakEvent} を
  * 発火しない点は変わらない(上の据え置き方針そのまま)。
+ *
+ * <p><b>⚠ ここは「バニラの経験値オーブ」を一切出さない。</b> {@code setType(AIR)} で壊すため。
+ * 旧 {@code breakNaturally(ItemStack)} も Paper では {@code dropExperience=false} の縮退呼び出し
+ * なので、<b>この経路は最初からオーブを出したことがない</b>。上で補っている「EXP」は
+ * <b>TF の採取EXPと破壊時バニラEXP</b>であって、鉱石が落とすバニラのオーブではない。
+ *
+ * <p>そのため<b>経験値を落とす材質を連鎖対象にするなら、呼び出し側が自分で補うこと</b>。
+ * 2026-08-24 ユーザー指摘「連鎖分のバニラEXPオーブでないの問題じゃない？」で、一括破壊
+ * ({@code VeinMiningListener#grantChainVanillaExperience})が起点の {@code expToDrop} を
+ * {@code 1 + broken} 倍する形で補うようにした —— 連鎖対象が起点と同一材質に限られるので、
+ * 起点の実測値をそのまま1ブロック分として使える。他の呼び出し元(原木・葉・サトウキビ類)は
+ * <b>バニラでも経験値を落とさない材質しか通らない</b>ので補っていない。
+ *
+ * <p>ここで直接オーブを湧かせないのは、ブロックが落とす経験値量を問い合わせる API が
+ * paper-api 1.21.11 に無いため({@code Block} に {@code getExpDrop} 系は存在しない)。
+ * {@code breakNaturally(tool, false, true)} は経験値を出すが<b>ルートテーブルを引き直す</b>ので、
+ * 2026-07-31 に潰した二重抽選(EXPの根拠と実際に落ちた物の食い違い)が復活する。
  */
 public final class ChainBreakSupport {
 
