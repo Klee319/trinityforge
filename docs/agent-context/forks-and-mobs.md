@@ -246,6 +246,44 @@ HP 委譲の経路は `EliteEntity#setMaxHealth()` → `TrinityForgeIntegration.
 **判定のコツ**: ランプの「加算区間」は倍率を持たない相手（＝雑魚）にしか意味を持たない。
 倍率が掛かる相手に効かせたい量は**指数側（`growth`）で表現する**。
 
+### ⚠️⚠️ EM の `healthMultiplier` は効くが `damageMultiplier` は TF が捨てている（HPと攻撃で非対称）
+
+同じ「EMの倍率」に見えて扱いが真逆なので、片方の常識をもう片方に持ち込むと必ず外す。
+
+- **HP は効く。** `EliteEntity#setMaxHealth()` の最終行が
+  `this.maxHealth = calculatedHealth * healthMultiplier` で、TF が計算し終えた値に**後段で掛かる**。
+  TF 側でどれだけ丁寧に役割差を付けても、EM 側の値がそのまま乗る。
+- **攻撃は効かない。** `TrinityForgeSpawnListener#stamp` が `MOB_ATTACK_POWER` を刻むと
+  TF の `CombatListener`（**HIGH**）が EM の `PlayerDamagedByEliteMobEvent`（**既定＝NORMAL**）の
+  結果を丸ごと作り直す。`SymmetricCombatService#physicalFinalDamageFromMobResult` は
+  `itemAttackPower != 0` なら `vanillaBaseDamage` を使わないので、`damageMultiplier` は届かない。
+  配備先の lua 68 本にも `damage_multiplier` の参照は無い（2026-08-24 実測）。
+  **＝EMの設定ファイル上で火力が逆転していても実ゲームには出ない。** 実際に効くのは
+  `mob-overrides.yml` の `attack-power-multiplier` だけ。
+
+この非対称のせいで、**役割ごとの序列（雑魚 < 中ボス < ボス）は HP 側だけが壊れる**。
+2026-08-24 時点で EM の `healthMultiplier` はダンジョン内で 0.0001〜120（最大991倍の開き）。
+2026-08-14 の難易度再設計は EM 倍率を織り込んでいるが、揃えたのは
+**「ダンジョン全体の必要総HP」の単調性だけで、ダンジョン内の序列は対象外**。
+
+**EliteMobs の `custombosses/` はリポジトリに無く配備先にしか無い**（かつ `D:/game` は
+エージェント権限で書けない）ので、直すときは **TF の `mob-overrides.yml` の per-mob
+`max-health-multiplier` で割り戻す**。上限を決めるときは
+「ボス最大の N%」だけでなく**「最弱ミニボスを追い越さないこと」も同時に見る**
+── ボスだけ見て 25% に落とすと、今度は中ボスの方が柔らかくなって別の逆転を作る。
+
+### ⚠️ モブの役割は EM の `bossType:` が正。`mob-overrides.yml` のコメントは自動生成で誤っている
+
+`mob-overrides.yml` の各モブ行に付く `# 雑魚` / `# ミニボス` / `# ボス第N段階` は生成物で、
+**そのダンジョンの本当のボスを雑魚と書いている例がある**（`昇降機の管理者(最終段階)`、
+`シャルルマーニュ(第4段階)`、`CLK-WRx702(第7段階)` など）。これで役割を数えると
+偽の逆転が 16 件出て、実体 3 件が埋もれる。
+
+正は EliteMobs 側の **`bossType:`**（`NORMAL` / `MINIBOSS` / `BOSS` / `REINFORCEMENT` / `EVENT`、
+未記載は `NORMAL`）。ただし `BossType` は `CustomBossesConfigFields` が読み込むだけで
+**どこからも参照されていない純粋なメタデータ**なので、挙動を変える目的では使えない
+（＝ここを書き換えても強さは1も動かない。分類に使うだけ）。
+
 ### ⚠️ ダンジョンモブだけ `flat-defense` をレベルで伸ばすと「帯の中でレベルを上げるほど弱くなる」
 
 `flat-defense` はクリット前に減算される固定値（`ComponentDamageCalculator` step2）。

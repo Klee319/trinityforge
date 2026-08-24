@@ -1243,7 +1243,15 @@ overrides:
         stats:
           # 2026-08-21(W-181): ボス/中ボスはスコープの底上げに加えてここでも上乗せする
           #   (雑魚より多くHPを持たせるため)。難易度2 の上乗せ = 1.208。
-          max-health-multiplier: 1.208
+          # 2026-08-24: ただしこの騎乗体は EliteMobs 側が healthMultiplier: 50 を持っており、
+          #   それが【TFが計算し終えたHPに後段で掛かる】ため、上乗せを足すと騎乗体の実効80.2倍が
+          #   乗り手のボス(実効64.1倍)を追い越していた。EliteMobs の custombosses はリポジトリに無く
+          #   配備先でしか直せないので、W-181 の上乗せをここで打ち消して
+          #   【ボス最大の60%】= 実効38.5倍へ落とす。1.208 → 0.58
+          #   (1.327[スコープ] x 0.58 x 50[EM] = 38.5)。60% なのは「先に騎乗体を落として
+          #   乗り手を降ろす」という EliteMobs 側の設計を残すため(雑魚扱いの25%にはしない)。
+          #   EM 側の healthMultiplier を将来変えるならこの値も解き直すこと(2つで1組)。
+          max-health-multiplier: 0.58
           # 【ボス係数】MINIBOSS。scope 直下の難易度倍率にこれが掛かる(倍率は層ごとに掛け算)。
           #   これが無いとボスの攻撃力が配下の雑魚と完全に同じになる —— 121 体がその状態だった(W-179)。
           #   2026-08-21(W-182): 「耐えられる通常攻撃の回数」を全ダンジョン一律 +1.5 発にするため、
@@ -3209,6 +3217,17 @@ overrides:
       em_id_the_deep_mines_slow_giver_dummy:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "鈍化を与える者"
         stats:
+          # 2026-08-24: 役割の逆転を潰すための打ち消し。配備先の EliteMobs 側が
+          #   healthMultiplier: 99.1 を持っており、それが【TFが計算し終えたHPに後段で掛かる】
+          #   (EliteEntity#setMaxHealth: maxHealth = tfMaxHealth * healthMultiplier)。
+          #   結果このダンジョンのボス(実効59.6倍)より硬い実効131.5倍になっていた。
+          #   EliteMobs の custombosses はリポジトリに無く配備先でしか直せないので、
+          #   TF 側のこの倍率で割り戻す。上限は【ボス最大の25%】と【最弱ミニボスの60%】の小さい方 ——
+          #   ボスだけ見て25%(実効14.9倍)にすると今度はミニボス(実効5.3倍)を追い越すので、
+          #   序列 雑魚/増援 < ミニボス < ボス が保てない。ここは後者が効いて実効3.2倍。
+          #   1 → 0.0241 (1.327[スコープ] x 0.0241 x 99.1[EM] = 3.2)。
+          #   EM 側の healthMultiplier を将来変えるならこの値も解き直すこと(2つで1組)。
+          max-health-multiplier: 0.0241
           physical: { defense-rate: 0.11, resistance: 0.402 }
           magical:  { defense-rate: 0.02, resistance: 0.05 }
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
@@ -5995,6 +6014,19 @@ overrides:
       dark_cathedral_tier_75_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "クトゥルフの落とし子 (増援)"
         stats:
+          # 2026-08-24: 役割の逆転を潰すための打ち消し。配備先の EliteMobs 側が
+          #   healthMultiplier: 50.25 を持っており、それが【TFが計算し終えたHPに後段で掛かる】
+          #   (EliteEntity#setMaxHealth: maxHealth = tfMaxHealth * healthMultiplier)。
+          #   結果、踏破ボスが呼ぶ増援がボス本体(実効51.0倍)より硬い実効69.1倍になっていた
+          #   (挑戦Lv34 で 増援 110,193 HP に対しボス 81,312 HP)。
+          #   EliteMobs の custombosses はリポジトリに無く配備先でしか直せないので、
+          #   TF 側のこの倍率で割り戻す。上限は【ボス最大の25%】と【最弱ミニボスの60%】の小さい方 ——
+          #   ボスだけ見て25%(実効12.7倍)にすると今度はミニボスの黒山羊フィリップ(実効10.2倍)に
+          #   迫ってしまうので、序列 雑魚/増援 < ミニボス < ボス が保てない。ここは後者が効いて実効6.1倍。
+          #   1 → 0.0885 (1.375[スコープ] x 0.0885 x 50.25[EM] = 6.1)。挑戦Lv34 で 9,762 HP
+          #   (ボス 81,312 / 雑魚 2,193)。増援は5秒で消える設置物なので雑魚の数倍で足りる。
+          #   EM 側の healthMultiplier を将来変えるならこの値も解き直すこと(2つで1組)。
+          max-health-multiplier: 0.0885
           physical: { defense-rate: 0.02, resistance: 0.05 }
           magical:  { defense-rate: 0.11, resistance: 0.402 }
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
