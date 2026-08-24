@@ -90,6 +90,432 @@
 #                               source-item: diamond_blade
 
 items:
+  key_mines:
+    material: TRIAL_KEY
+    display-name: <color:#9e9e9e>鉱山の鍵</color>
+    custom-model-data: 5501
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:iron_ingot_scrap
+        - custom:iron_ingot_scrap
+        - custom:iron_ingot_scrap
+        - custom:iron_ingot_scrap
+        - custom:stone_2x
+        - IRON_INGOT
+        - IRON_INGOT
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>坑道の入口に差さっていた、ありふれた鉄の鍵。</italic></dark_gray>
+  key_deep_mines:
+    material: TRIAL_KEY
+    display-name: <color:#7986cb>深層鉱山の鍵</color>
+    custom-model-data: 5502
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_mines
+        - custom:copper_ingot_scrap
+        - custom:copper_ingot_scrap
+        - custom:copper_ingot_scrap
+        - custom:copper_ingot_scrap
+        - AMETHYST_SHARD
+        - AMETHYST_SHARD
+        - AMETHYST_SHARD
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>浅い坑道の鍵を、より深い錠前に合わせて削り直した。</italic></dark_gray>
+  key_quarry:
+    material: TRIAL_KEY
+    display-name: <color:#a1887f>採石場の鍵</color>
+    custom-model-data: 5503
+    lore:
+      - ""
+      - <dark_gray><italic>切り出した石の重さで、扉の錘が下りる。</italic></dark_gray>
+  key_cave:
+    material: TRIAL_KEY
+    display-name: <color:#ff7043>灼熱の洞窟の鍵</color>
+    custom-model-data: 5504
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:netherrack_2x
+        - custom:blaze_rod_1x
+        - custom:blaze_rod_1x
+        - MAGMA_BLOCK
+        - MAGMA_BLOCK
+        - MAGMA_BLOCK
+        - MAGMA_BLOCK
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>熱を帯びていないと、錠前の側が凍りついて回らない。</italic></dark_gray>
+  key_enchant_trial_1:
+    material: TRIAL_KEY
+    display-name: <color:#d1c4e9>エンチャント試練1の鍵</color>
+    custom-model-data: 5520
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - LAPIS_BLOCK
+        - LAPIS_BLOCK
+        - LAPIS_BLOCK
+        - LAPIS_BLOCK
+        - BOOK
+        - BOOK
+        - BOOK
+        - BOOK
+        - custom:source_gem
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>綴じた頁の間に、通行の許可が挟んである。</italic></dark_gray>
+  key_enchant_trial_2:
+    material: TRIAL_KEY
+    display-name: <color:#b39ddb>エンチャント試練2の鍵</color>
+    custom-model-data: 5521
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_enchant_trial_1
+        - LAPIS_BLOCK
+        - LAPIS_BLOCK
+        - LAPIS_BLOCK
+        - BOOK
+        - BOOK
+        - BOOK
+        - EXPERIENCE_BOTTLE
+        - EXPERIENCE_BOTTLE
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>二重に封をした頁が、より深い試練を示す。</italic></dark_gray>
+  key_enchant_trial_3:
+    material: TRIAL_KEY
+    display-name: <color:#9575cd>エンチャント試練3の鍵</color>
+    custom-model-data: 5522
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_enchant_trial_2
+        - LAPIS_BLOCK
+        - LAPIS_BLOCK
+        - BOOK
+        - BOOK
+        - EXPERIENCE_BOTTLE
+        - EXPERIENCE_BOTTLE
+        - EXPERIENCE_BOTTLE
+        - custom:source_gem
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>頁の重みが増し、綴じ目がわずかに軋む。</italic></dark_gray>
+  key_enchant_trial_4:
+    material: TRIAL_KEY
+    display-name: <color:#7e57c2>エンチャント試練4の鍵</color>
+    custom-model-data: 5523
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_enchant_trial_3
+        - EXPERIENCE_BOTTLE
+        - EXPERIENCE_BOTTLE
+        - EXPERIENCE_BOTTLE
+        - EXPERIENCE_BOTTLE
+        - DIAMOND
+        - DIAMOND
+        - custom:source_gem
+        - custom:source_gem
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>経験の雫が頁に染み込み、鍵の芯まで満たしていく。</italic></dark_gray>
+  key_enchant_trial_5:
+    material: TRIAL_KEY
+    display-name: <color:#673ab7>エンチャント試練5の鍵</color>
+    custom-model-data: 5524
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_enchant_trial_4
+        - DIAMOND
+        - DIAMOND
+        - DIAMOND
+        - EMERALD
+        - EMERALD
+        - EMERALD
+        - custom:source_gem
+        - custom:source_gem
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>ダイヤモンドの粉末が装丁に埋め込まれ、鍵自体が光を帯びる。</italic></dark_gray>
+  key_enchant_trial_6:
+    material: TRIAL_KEY
+    display-name: <color:#5e35b1>エンチャント試練6の鍵</color>
+    custom-model-data: 5525
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_enchant_trial_5
+        - EMERALD
+        - EMERALD
+        - EMERALD
+        - EMERALD
+        - NETHERITE_SCRAP
+        - NETHERITE_SCRAP
+        - custom:source_gem
+        - custom:source_gem
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>エメラルドの緑が、ページの奥で脈動している。</italic></dark_gray>
+  key_enchant_trial_7:
+    material: TRIAL_KEY
+    display-name: <color:#512da8>エンチャント試練7の鍵</color>
+    custom-model-data: 5526
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_enchant_trial_6
+        - NETHERITE_SCRAP
+        - NETHERITE_SCRAP
+        - NETHERITE_SCRAP
+        - ANCIENT_DEBRIS
+        - ANCIENT_DEBRIS
+        - custom:source_gem
+        - custom:source_gem
+        - custom:source_gem
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>ネザーの残滓が鍵の輪郭を焦がし、扉の抵抗を弱める。</italic></dark_gray>
+  key_enchant_trial_8:
+    material: TRIAL_KEY
+    display-name: <color:#4527a0>エンチャント試練8の鍵</color>
+    custom-model-data: 5527
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_enchant_trial_7
+        - ANCIENT_DEBRIS
+        - ANCIENT_DEBRIS
+        - ANCIENT_DEBRIS
+        - GLOWSTONE
+        - GLOWSTONE
+        - GLOWSTONE
+        - custom:source_gem
+        - custom:source_gem
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>古代の残骸が芯に埋め込まれ、試練の重さそのものになった。</italic></dark_gray>
+  key_enchant_trial_9:
+    material: TRIAL_KEY
+    display-name: <color:#311b92>エンチャント試練9の鍵</color>
+    custom-model-data: 5528
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_enchant_trial_8
+        - NETHERITE_INGOT
+        - NETHERITE_INGOT
+        - custom:source_gem
+        - custom:source_gem
+        - custom:source_gem
+        - custom:source_gem
+        - EXPERIENCE_BOTTLE
+        - EXPERIENCE_BOTTLE
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>ネザライトの重みが手に食い込む。もう引き返せない。</italic></dark_gray>
+  key_enchant_trial_10:
+    material: TRIAL_KEY
+    display-name: <gradient:#1a0033:#ffd700:#1a0033>エンチャント試練10の鍵</gradient>
+    custom-model-data: 5529
+    enchant-glow: true
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_enchant_trial_9
+        - NETHERITE_INGOT
+        - NETHERITE_INGOT
+        - NETHERITE_INGOT
+        - custom:source_gem
+        - custom:source_gem
+        - custom:source_gem
+        - custom:source_gem
+        - ECHO_SHARD
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>頁の果てに残ったのは、金色に輝く最後の綴じ目だけだった。</italic></dark_gray>
+  key_bridge:
+    material: TRIAL_KEY
+    display-name: <color:#8d6e63>古橋の聖所の鍵</color>
+    custom-model-data: 5506
+    lore:
+      - ""
+      - <dark_gray><italic>橋脚の内側に埋め込まれていた。掘り当てるほかに手はない。</italic></dark_gray>
+  key_city:
+    material: TRIAL_KEY
+    display-name: <color:#ffb300>ドワーフの地下都市の鍵</color>
+    custom-model-data: 5507
+    lore:
+      - ""
+      - <dark_gray><italic>都市の門番は、鍵を岩脈の中に隠す習わしだった。</italic></dark_gray>
+  key_steamworks:
+    material: TRIAL_KEY
+    display-name: <color:#78909c>蒸気機関工房の鍵</color>
+    custom-model-data: 5508
+    lore:
+      - ""
+      - <dark_gray><italic>歯車の噛み合わせがそのまま鍵の形をしている。</italic></dark_gray>
+  key_climb:
+    material: TRIAL_KEY
+    display-name: <color:#4db6ac>登攀路の鍵</color>
+    custom-model-data: 5509
+    lore:
+      - ""
+      - <dark_gray><italic>登る前に、まず足元を掘れという話だった。</italic></dark_gray>
+  key_palace:
+    material: TRIAL_KEY
+    display-name: <color:#ffd54f>宮殿の鍵</color>
+    custom-model-data: 5510
+    lore:
+      - ""
+      - <dark_gray><italic>庭園の土の下で、金の鍵が待っていた。</italic></dark_gray>
+  key_sewer_maze:
+    material: TRIAL_KEY
+    display-name: <color:#689f38>下水道迷宮の鍵</color>
+    custom-model-data: 5511
+    lore:
+      - ""
+      - <dark_gray><italic>泥をかき出すと、格子の留め具が出てくる。</italic></dark_gray>
+  key_knight_castle:
+    material: TRIAL_KEY
+    display-name: <color:#e0e0e0>騎士団の城の鍵</color>
+    custom-model-data: 5512
+    lore:
+      - ""
+      - <dark_gray><italic>堀に投げ捨てられた鍵。騎士団が城を捨てた日のものだ。</italic></dark_gray>
+  key_dark_cathedral:
+    material: TRIAL_KEY
+    display-name: <color:#5c6bc0>闇の大聖堂の鍵</color>
+    custom-model-data: 5513
+    lore:
+      - ""
+      - <dark_gray><italic>水底から引き上げると、まだ祈りの重さが残っている。</italic></dark_gray>
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " A "
+        - AQA
+        - " A "
+      ingredients: { Q: CRYING_OBSIDIAN, A: custom:deepslate_2x }
+  key_nether_bell:
+    material: TRIAL_KEY
+    display-name: <color:#ef5350>ネザーの鐘の鍵</color>
+    custom-model-data: 5514
+    lore:
+      - ""
+      - <dark_gray><italic>振ると、遠くで鐘が同じ音を返す。</italic></dark_gray>
+  key_nether_wastes:
+    material: TRIAL_KEY
+    display-name: <color:#8e24aa>ネザーの荒野の鍵</color>
+    custom-model-data: 5515
+    lore:
+      - ""
+      - <dark_gray><italic>荒野には扉が無い。鍵の方が場所を決める。</italic></dark_gray>
+  key_fireworks:
+    material: TRIAL_KEY
+    display-name: <color:#ffa726>花火工房の鍵</color>
+    custom-model-data: 5516
+    lore:
+      - ""
+      - <dark_gray><italic>火薬の匂いが染みついて落ちない。</italic></dark_gray>
+  key_hallosseum:
+    material: TRIAL_KEY
+    display-name: <color:#ff7f27>ハロウィン闘技場の鍵</color>
+    custom-model-data: 5530
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - CARVED_PUMPKIN
+        - CARVED_PUMPKIN
+        - JACK_O_LANTERN
+        - JACK_O_LANTERN
+        - ROTTEN_FLESH
+        - ROTTEN_FLESH
+        - ROTTEN_FLESH
+        - BONE
+        - BONE
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>くり抜かれた顔の中で、闘技場の観客がまだ笑っている。</italic></dark_gray>
+  key_north_pole:
+    material: TRIAL_KEY
+    display-name: <color:#4fc3f7>北極ミニダンジョンの鍵</color>
+    custom-model-data: 5531
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - PACKED_ICE
+        - PACKED_ICE
+        - PACKED_ICE
+        - BLUE_ICE
+        - BLUE_ICE
+        - SNOW_BLOCK
+        - SNOW_BLOCK
+        - WHITE_WOOL
+        - WHITE_WOOL
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>握ると手が冷たくなるのに、決して溶けない。</italic></dark_gray>
+  key_binder:
+    material: TRIAL_KEY
+    display-name: <color:#f12eff><b>世界を繋ぐ者の鍵</b></color>
+    custom-model-data: 5519
+    enchant-glow: true
+    recipe:
+      method: workbench
+      type: shaped
+      ingredients:
+        A: custom:reality_thread_core
+        Q: custom:key_enchant_trial_10
+        S: custom:skeleton_horse_bone
+        W: custom:witch_elixir
+        D: custom:piglin_brute_plate
+      amount: 1
+      shape:
+        - " D "
+        - WQS
+        - " A "
+    lore:
+      - ""
+      - <dark_gray><italic>踏破の証を5つ束ねると、繋ぎ目そのものが鍵になる。</italic></dark_gray>
+      - <gray>どのダンジョンの印でもよい。5つ集まればいい。</gray>
   thread_angler:
     external-source: arspaper
     material: STRING
@@ -699,290 +1125,6 @@ items:
       source: 5000
       type: shapeless
       ingredients: []
-  thread_better_fortune:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>いいことがおきますように</color>
-    display-name: <color:red>開運のスレッド</color>
-    custom-model-data: 100023
-  thread_gacha:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:#ff0000>7</color><color:#ffa500>7</color><color:yellow>7</color><color:#008000>7</color><color:#0000ff>7</color><color:#000080>7</color><color:#800080>7</color>
-    display-name: <color:#ff0000>ガ</color><color:#ffa500>チ</color><color:#ffff00>ャ</color><color:#008000>ス</color><color:#0000ff>レ</color><color:#000080>ッ</color><color:#800080>ド</color>
-    custom-model-data: 100024
-  thread_role_luck:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>レッツ上振れ！</color>
-    display-name: ロール運のスレッド
-    custom-model-data: 100025
-  thread_role_effeciency:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>効率よく生きよう</color>
-    display-name: ロール効率のスレッド
-    custom-model-data: 100026
-  thread_blindness:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>虫の息の君は何を望む？</color>
-    display-name: 崩命のスレッド
-    custom-model-data: 100027
-  thread_translate:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>直りやすくなっただろう？</color>
-    display-name: 流転のスレッド
-    custom-model-data: 100028
-  thread_swordsman:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - <color:gray>剣と噛み合うよう組まれている</color>
-      - ""
-      - <color:dark_purple>振り抜くたび、間合いが身体に馴染んでいく</color>
-    display-name: <color:white>剣士のスレッド</color>
-    custom-model-data: 300046
-  thread_berserker:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - <color:gray>戦斧と噛み合うよう組まれている</color>
-      - ""
-      - <color:dark_purple>守りを捨てた者にだけ見える線がある</color>
-    display-name: <color:dark_red>狂戦士のスレッド</color>
-    custom-model-data: 300047
-  thread_lancer:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - <color:gray>槍と噛み合うよう組まれている</color>
-      - ""
-      - <color:dark_purple>穂先は鎧の継ぎ目しか見ていない</color>
-    display-name: <color:aqua>槍衾のスレッド</color>
-    custom-model-data: 300048
-  thread_reaper:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - <color:gray>鎌と噛み合うよう組まれている</color>
-      - ""
-      - <color:dark_purple>一度で仕留めなくていい。刈るのだから</color>
-    display-name: <color:dark_purple>刈り手のスレッド</color>
-    custom-model-data: 300049
-  thread_crusher:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - <color:gray>ウォーハンマーと噛み合うよう組まれている</color>
-      - ""
-      - <color:dark_purple>斬れないなら、潰せばいい</color>
-    display-name: <color:gray>打擲のスレッド</color>
-    custom-model-data: 300050
-  thread_assassin:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - <color:gray>短剣と噛み合うよう組まれている</color>
-      - ""
-      - <color:dark_purple>二撃目が要るなら、それは失敗だ</color>
-    display-name: <color:dark_gray>暗殺者のスレッド</color>
-    custom-model-data: 300051
-  thread_duelist:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - <color:gray>レイピアと噛み合うよう組まれている</color>
-      - ""
-      - <color:dark_purple>避けた分だけ、こちらの番が来る</color>
-    display-name: <color:light_purple>決闘者のスレッド</color>
-    custom-model-data: 300052
-  thread_titan:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - <color:gray>大斧と噛み合うよう組まれている</color>
-      - ""
-      - <color:dark_purple>重さは、それだけで理屈になる</color>
-    display-name: <color:gold>巨戟のスレッド</color>
-    custom-model-data: 300053
-  thread_greatsword:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - <color:gray>大剣と噛み合うよう組まれている</color>
-      - ""
-      - <color:dark_purple>受けて、返す。それだけを繰り返す</color>
-    display-name: <color:blue>大剣士のスレッド</color>
-    custom-model-data: 300054
-  thread_longshot:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - <color:gray>弓と噛み合うよう組まれている</color>
-      - ""
-      - <color:dark_purple>風は読むものではなく、待つものだ</color>
-    display-name: <color:green>遠矢のスレッド</color>
-    custom-model-data: 300055
-  thread_tidecaller:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - <color:gray>トライデントと噛み合うよう組まれている</color>
-      - ""
-      - <color:dark_purple>投げた先から、潮が返ってくる</color>
-    display-name: <color:dark_aqua>潮呼びのスレッド</color>
-    custom-model-data: 300056
-  thread_earthshaker:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - <color:gray>メイスと噛み合うよう組まれている</color>
-      - ""
-      - <color:dark_purple>落ちる高さが、そのまま威力になる</color>
-    display-name: <color:yellow>震撼のスレッド</color>
-    custom-model-data: 300057
-  thread_bolter:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - <color:gray>クロスボウと噛み合うよう組まれている</color>
-      - ""
-      - <color:dark_purple>狙う時間があるなら、外す理由がない</color>
-    display-name: <color:dark_green>弩手のスレッド</color>
-    custom-model-data: 300058
-  thread_spellblade:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - <color:gray>杖・触媒と噛み合うよう組まれている</color>
-      - ""
-      - <color:dark_purple>詠唱の終わりと斬撃の始まりを重ねる</color>
-    display-name: <color:dark_purple>呪刃のスレッド</color>
-    custom-model-data: 300059
-  thread_onslaught:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>手数だけが解決する場面は、たしかにある</color>
-    display-name: <color:red>猛攻のスレッド</color>
-    custom-model-data: 300060
-  thread_precision:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>同じ場所を、もう一度</color>
-    display-name: <color:aqua>精確のスレッド</color>
-    custom-model-data: 300061
-  thread_execution:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>倒れかけた相手にこそ、手を抜かない</color>
-    display-name: <color:dark_red>追撃のスレッド</color>
-    custom-model-data: 300062
-  thread_piercer:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>硬さは、通り道を知らないだけ</color>
-    display-name: <color:white>穿孔のスレッド</color>
-    custom-model-data: 300063
-  thread_hemorrhage:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>傷は、放っておくほど深くなる</color>
-    display-name: <color:dark_red>流血のスレッド</color>
-    custom-model-data: 300064
-  thread_bulwark:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>退かないと決めた場所が、陣になる</color>
-    display-name: <color:gray>堅陣のスレッド</color>
-    custom-model-data: 300065
-  thread_aegis:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>見えない矢にも、盾は要る</color>
-    display-name: <color:blue>抗魔のスレッド</color>
-    custom-model-data: 300066
-  thread_ironhide:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>皮膚が先に覚えて、身体が後から従う</color>
-    display-name: <color:gold>鉄皮のスレッド</color>
-    custom-model-data: 300067
-  thread_evasion:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>当たらなければ、勘定に入らない</color>
-    display-name: <color:dark_aqua>疾影のスレッド</color>
-    custom-model-data: 300068
-  thread_resilience:
-    external-source: arspaper
-    material: STRING
-    lore:
-      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
-      - ""
-      - <color:dark_purple>折れないことは、勝つことの一部だ</color>
-    display-name: <color:green>剛靭のスレッド</color>
-    custom-model-data: 300069
   wooden_halberd:
     material: WOODEN_SWORD
     display-name: 木の<b>ハルバード</b>
@@ -1005,7 +1147,7 @@ items:
         b: BOOK
     custom-model-data: 100004
   wooden_scythe:
-    material: WOODEN_HOE
+    material: WOODEN_SWORD
     display-name: 木の鎌
     custom-model-data: 58
     recipe:
@@ -1020,7 +1162,7 @@ items:
         s: STICK
       amount: 1
   stone_scythe:
-    material: STONE_HOE
+    material: STONE_SWORD
     display-name: 石の鎌
     custom-model-data: 57
     recipe:
@@ -1035,7 +1177,7 @@ items:
         s: STICK
       amount: 1
   copper_scythe:
-    material: COPPER_HOE
+    material: COPPER_SWORD
     display-name: 銅の鎌
     custom-model-data: 56
     recipe:
@@ -1050,7 +1192,7 @@ items:
         s: STICK
       amount: 1
   iron_scythe:
-    material: IRON_HOE
+    material: IRON_SWORD
     display-name: 鉄の鎌
     custom-model-data: 55
     recipe:
@@ -1065,7 +1207,7 @@ items:
         s: STICK
       amount: 1
   golad_scythe:
-    material: GOLDEN_HOE
+    material: GOLDEN_SWORD
     display-name: 金の鎌
     custom-model-data: 54
     recipe:
@@ -1080,7 +1222,7 @@ items:
         s: STICK
       amount: 1
   diamond_scythe:
-    material: DIAMOND_HOE
+    material: DIAMOND_SWORD
     display-name: ダイヤモンドの鎌
     custom-model-data: 53
     recipe:
@@ -1095,7 +1237,7 @@ items:
         s: STICK
       amount: 1
   nethrite_scythe:
-    material: NETHERITE_HOE
+    material: NETHERITE_SWORD
     display-name: ネザライトの鎌
     recipe:
       method: netherite
@@ -1132,7 +1274,7 @@ items:
         w: WITHER_ROSE
     draft: true
   source_gem_scythe:
-    material: DIAMOND_HOE
+    material: DIAMOND_SWORD
     display-name: ソースジェムの鎌
     custom-model-data: 49
     recipe:
@@ -2322,7 +2464,7 @@ items:
       - ""
       - <color:dark_purple>儀式にて産まれる黒き矛</color>
   infinity_scythe:
-    material: NETHERITE_HOE
+    material: NETHERITE_SWORD
     display-name: <color:#7df9ff>インフィニティの鎌</color>
     custom-model-data: 124
     recipe:
@@ -2337,7 +2479,7 @@ items:
         J: custom:core_jewelry
         R: custom:breeze_rod_2x
   hero_scythe:
-    material: NETHERITE_HOE
+    material: NETHERITE_SWORD
     display-name: <color:dark_purple>守護者の鎌</color>
     custom-model-data: 125
     recipe:
@@ -2354,7 +2496,7 @@ items:
       - ""
       - <color:dark_purple>この力は護るために</color>
   nuclear_scythe:
-    material: NETHERITE_HOE
+    material: NETHERITE_SWORD
     display-name: <color:#696969>星枢の鎌</color>
     custom-model-data: 126
     recipe:
@@ -5055,7 +5197,7 @@ items:
       ingredients: []
     lore:
       - ""
-      - <color:dark_purple>ようこそスタートラインへ</color>
+      - 旅の終点...?
   someones_eyes:
     material: ENDER_EYE
     lore:
@@ -5536,7 +5678,7 @@ items:
     recipe:
       method: netherite
       source-item: custom:diamond_crossbow
-  magic_wand:
+  infinity_wand:
     material: NETHERITE_SWORD
     display-name: <color:#7df9ff>魔源の杖</color>
     custom-model-data: 400012
@@ -5544,7 +5686,7 @@ items:
       method: workbench
       type: shaped
       shape:
-        - " JR"
+        - " AJ"
         - " RA"
         - "R  "
       ingredients:
@@ -5554,7 +5696,7 @@ items:
     lore:
       - <color:dark_aqua>始まりの魔法使いが遺した二本の杖の片方。</color>
       - <color:gold>数千年の時を超え、再び光を宿すだろう。</color>
-  abyss_wand:
+  hero_wand:
     material: NETHERITE_SWORD
     display-name: <color:dark_purple>黒淵の杖</color>
     custom-model-data: 400013
@@ -5565,13 +5707,13 @@ items:
         - custom:blaze_rod_3x x2
         - custom:dragon_breath_3x x2
         - custom:warden_tendril x2
-      source: 8000
       type: shapeless
       ingredients: []
+      source: 2000000
     lore:
       - <color:dark_aqua>永遠なる白夜を崩落させた</color>
       - <color:light_purple>無限なる深淵</color>
-  boundary_wand:
+  nuclear_wand:
     material: NETHERITE_SWORD
     display-name: <color:blue>冥境の杖</color>
     custom-model-data: 400014
@@ -5582,7 +5724,7 @@ items:
         - custom:blaze_rod_2x x2
         - custom:wither_rose_1x x2
         - custom:reinforced_fiber x2
-      source: 15000
+      source: 250000
       type: shapeless
       ingredients: []
     lore:
@@ -6207,436 +6349,6 @@ items:
     lore:
       - ""
       - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
-  key_mines:
-    material: TRIAL_KEY
-    display-name: <color:#9e9e9e>鉱山の鍵</color>
-    custom-model-data: 5501
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - custom:iron_ingot_scrap
-        - custom:iron_ingot_scrap
-        - custom:iron_ingot_scrap
-        - custom:iron_ingot_scrap
-        - custom:stone_2x
-        - IRON_INGOT
-        - IRON_INGOT
-      amount: 1
-    lore:
-      - ""
-      - <dark_gray><italic>坑道の入口に差さっていた、ありふれた鉄の鍵。</italic></dark_gray>
-  key_deep_mines:
-    material: TRIAL_KEY
-    display-name: <color:#7986cb>深層鉱山の鍵</color>
-    custom-model-data: 5502
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - custom:key_mines
-        - custom:copper_ingot_scrap
-        - custom:copper_ingot_scrap
-        - custom:copper_ingot_scrap
-        - custom:copper_ingot_scrap
-        - AMETHYST_SHARD
-        - AMETHYST_SHARD
-        - AMETHYST_SHARD
-      amount: 1
-    lore:
-      - ""
-      - <dark_gray><italic>浅い坑道の鍵を、より深い錠前に合わせて削り直した。</italic></dark_gray>
-  key_quarry:
-    material: TRIAL_KEY
-    display-name: <color:#a1887f>採石場の鍵</color>
-    custom-model-data: 5503
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - custom:stone_3x
-        - custom:stone_3x
-        - list:scrap_metals
-        - list:scrap_metals
-        - list:scrap_metals
-        - list:scrap_metals
-        - list:scrap_metals
-        - list:scrap_metals
-      amount: 1
-    lore:
-      - ""
-      - <dark_gray><italic>切り出した石の重さで、扉の錘が下りる。</italic></dark_gray>
-  key_cave:
-    material: TRIAL_KEY
-    display-name: <color:#ff7043>灼熱の洞窟の鍵</color>
-    custom-model-data: 5504
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - custom:netherrack_2x
-        - custom:blaze_rod_1x
-        - custom:blaze_rod_1x
-        - MAGMA_BLOCK
-        - MAGMA_BLOCK
-        - MAGMA_BLOCK
-        - MAGMA_BLOCK
-      amount: 1
-    lore:
-      - ""
-      - <dark_gray><italic>熱を帯びていないと、錠前の側が凍りついて回らない。</italic></dark_gray>
-  key_enchant_trial_1:
-    material: TRIAL_KEY
-    display-name: <color:#d1c4e9>エンチャント試練1の鍵</color>
-    custom-model-data: 5520
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - LAPIS_BLOCK
-        - LAPIS_BLOCK
-        - LAPIS_BLOCK
-        - LAPIS_BLOCK
-        - BOOK
-        - BOOK
-        - BOOK
-        - BOOK
-        - custom:source_gem
-      amount: 1
-    lore:
-      - ""
-      - <dark_gray><italic>綴じた頁の間に、通行の許可が挟んである。</italic></dark_gray>
-  key_enchant_trial_2:
-    material: TRIAL_KEY
-    display-name: <color:#b39ddb>エンチャント試練2の鍵</color>
-    custom-model-data: 5521
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - custom:key_enchant_trial_1
-        - LAPIS_BLOCK
-        - LAPIS_BLOCK
-        - LAPIS_BLOCK
-        - BOOK
-        - BOOK
-        - BOOK
-        - EXPERIENCE_BOTTLE
-        - EXPERIENCE_BOTTLE
-      amount: 1
-    lore:
-      - ""
-      - <dark_gray><italic>二重に封をした頁が、より深い試練を示す。</italic></dark_gray>
-  key_enchant_trial_3:
-    material: TRIAL_KEY
-    display-name: <color:#9575cd>エンチャント試練3の鍵</color>
-    custom-model-data: 5522
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - custom:key_enchant_trial_2
-        - LAPIS_BLOCK
-        - LAPIS_BLOCK
-        - BOOK
-        - BOOK
-        - EXPERIENCE_BOTTLE
-        - EXPERIENCE_BOTTLE
-        - EXPERIENCE_BOTTLE
-        - custom:source_gem
-      amount: 1
-    lore:
-      - ""
-      - <dark_gray><italic>頁の重みが増し、綴じ目がわずかに軋む。</italic></dark_gray>
-  key_enchant_trial_4:
-    material: TRIAL_KEY
-    display-name: <color:#7e57c2>エンチャント試練4の鍵</color>
-    custom-model-data: 5523
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - custom:key_enchant_trial_3
-        - EXPERIENCE_BOTTLE
-        - EXPERIENCE_BOTTLE
-        - EXPERIENCE_BOTTLE
-        - EXPERIENCE_BOTTLE
-        - DIAMOND
-        - DIAMOND
-        - custom:source_gem
-        - custom:source_gem
-      amount: 1
-    lore:
-      - ""
-      - <dark_gray><italic>経験の雫が頁に染み込み、鍵の芯まで満たしていく。</italic></dark_gray>
-  key_enchant_trial_5:
-    material: TRIAL_KEY
-    display-name: <color:#673ab7>エンチャント試練5の鍵</color>
-    custom-model-data: 5524
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - custom:key_enchant_trial_4
-        - DIAMOND
-        - DIAMOND
-        - DIAMOND
-        - EMERALD
-        - EMERALD
-        - EMERALD
-        - custom:source_gem
-        - custom:source_gem
-      amount: 1
-    lore:
-      - ""
-      - <dark_gray><italic>ダイヤモンドの粉末が装丁に埋め込まれ、鍵自体が光を帯びる。</italic></dark_gray>
-  key_enchant_trial_6:
-    material: TRIAL_KEY
-    display-name: <color:#5e35b1>エンチャント試練6の鍵</color>
-    custom-model-data: 5525
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - custom:key_enchant_trial_5
-        - EMERALD
-        - EMERALD
-        - EMERALD
-        - EMERALD
-        - NETHERITE_SCRAP
-        - NETHERITE_SCRAP
-        - custom:source_gem
-        - custom:source_gem
-      amount: 1
-    lore:
-      - ""
-      - <dark_gray><italic>エメラルドの緑が、ページの奥で脈動している。</italic></dark_gray>
-  key_enchant_trial_7:
-    material: TRIAL_KEY
-    display-name: <color:#512da8>エンチャント試練7の鍵</color>
-    custom-model-data: 5526
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - custom:key_enchant_trial_6
-        - NETHERITE_SCRAP
-        - NETHERITE_SCRAP
-        - NETHERITE_SCRAP
-        - ANCIENT_DEBRIS
-        - ANCIENT_DEBRIS
-        - custom:source_gem
-        - custom:source_gem
-        - custom:source_gem
-      amount: 1
-    lore:
-      - ""
-      - <dark_gray><italic>ネザーの残滓が鍵の輪郭を焦がし、扉の抵抗を弱める。</italic></dark_gray>
-  key_enchant_trial_8:
-    material: TRIAL_KEY
-    display-name: <color:#4527a0>エンチャント試練8の鍵</color>
-    custom-model-data: 5527
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - custom:key_enchant_trial_7
-        - ANCIENT_DEBRIS
-        - ANCIENT_DEBRIS
-        - ANCIENT_DEBRIS
-        - GLOWSTONE
-        - GLOWSTONE
-        - GLOWSTONE
-        - custom:source_gem
-        - custom:source_gem
-      amount: 1
-    lore:
-      - ""
-      - <dark_gray><italic>古代の残骸が芯に埋め込まれ、試練の重さそのものになった。</italic></dark_gray>
-  key_enchant_trial_9:
-    material: TRIAL_KEY
-    display-name: <color:#311b92>エンチャント試練9の鍵</color>
-    custom-model-data: 5528
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - custom:key_enchant_trial_8
-        - NETHERITE_INGOT
-        - NETHERITE_INGOT
-        - custom:source_gem
-        - custom:source_gem
-        - custom:source_gem
-        - custom:source_gem
-        - EXPERIENCE_BOTTLE
-        - EXPERIENCE_BOTTLE
-      amount: 1
-    lore:
-      - ""
-      - <dark_gray><italic>ネザライトの重みが手に食い込む。もう引き返せない。</italic></dark_gray>
-  key_enchant_trial_10:
-    material: TRIAL_KEY
-    display-name: <gradient:#1a0033:#ffd700:#1a0033>エンチャント試練10の鍵</gradient>
-    custom-model-data: 5529
-    enchant-glow: true
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - custom:key_enchant_trial_9
-        - NETHERITE_INGOT
-        - NETHERITE_INGOT
-        - NETHERITE_INGOT
-        - custom:source_gem
-        - custom:source_gem
-        - custom:source_gem
-        - custom:source_gem
-        - ECHO_SHARD
-      amount: 1
-    lore:
-      - ""
-      - <dark_gray><italic>頁の果てに残ったのは、金色に輝く最後の綴じ目だけだった。</italic></dark_gray>
-  key_bridge:
-    material: TRIAL_KEY
-    display-name: <color:#8d6e63>古橋の聖所の鍵</color>
-    custom-model-data: 5506
-    lore:
-      - ""
-      - <dark_gray><italic>橋脚の内側に埋め込まれていた。掘り当てるほかに手はない。</italic></dark_gray>
-  key_city:
-    material: TRIAL_KEY
-    display-name: <color:#ffb300>ドワーフの地下都市の鍵</color>
-    custom-model-data: 5507
-    lore:
-      - ""
-      - <dark_gray><italic>都市の門番は、鍵を岩脈の中に隠す習わしだった。</italic></dark_gray>
-  key_steamworks:
-    material: TRIAL_KEY
-    display-name: <color:#78909c>蒸気機関工房の鍵</color>
-    custom-model-data: 5508
-    lore:
-      - ""
-      - <dark_gray><italic>歯車の噛み合わせがそのまま鍵の形をしている。</italic></dark_gray>
-  key_climb:
-    material: TRIAL_KEY
-    display-name: <color:#4db6ac>登攀路の鍵</color>
-    custom-model-data: 5509
-    lore:
-      - ""
-      - <dark_gray><italic>登る前に、まず足元を掘れという話だった。</italic></dark_gray>
-  key_palace:
-    material: TRIAL_KEY
-    display-name: <color:#ffd54f>宮殿の鍵</color>
-    custom-model-data: 5510
-    lore:
-      - ""
-      - <dark_gray><italic>庭園の土の下で、金の鍵が待っていた。</italic></dark_gray>
-  key_sewer_maze:
-    material: TRIAL_KEY
-    display-name: <color:#689f38>下水道迷宮の鍵</color>
-    custom-model-data: 5511
-    lore:
-      - ""
-      - <dark_gray><italic>泥をかき出すと、格子の留め具が出てくる。</italic></dark_gray>
-  key_knight_castle:
-    material: TRIAL_KEY
-    display-name: <color:#e0e0e0>騎士団の城の鍵</color>
-    custom-model-data: 5512
-    lore:
-      - ""
-      - <dark_gray><italic>堀に投げ捨てられた鍵。騎士団が城を捨てた日のものだ。</italic></dark_gray>
-  key_dark_cathedral:
-    material: TRIAL_KEY
-    display-name: <color:#5c6bc0>闇の大聖堂の鍵</color>
-    custom-model-data: 5513
-    lore:
-      - ""
-      - <dark_gray><italic>水底から引き上げると、まだ祈りの重さが残っている。</italic></dark_gray>
-  key_nether_bell:
-    material: TRIAL_KEY
-    display-name: <color:#ef5350>ネザーの鐘の鍵</color>
-    custom-model-data: 5514
-    lore:
-      - ""
-      - <dark_gray><italic>振ると、遠くで鐘が同じ音を返す。</italic></dark_gray>
-  key_nether_wastes:
-    material: TRIAL_KEY
-    display-name: <color:#8e24aa>ネザーの荒野の鍵</color>
-    custom-model-data: 5515
-    lore:
-      - ""
-      - <dark_gray><italic>荒野には扉が無い。鍵の方が場所を決める。</italic></dark_gray>
-  key_fireworks:
-    material: TRIAL_KEY
-    display-name: <color:#ffa726>花火工房の鍵</color>
-    custom-model-data: 5516
-    lore:
-      - ""
-      - <dark_gray><italic>火薬の匂いが染みついて落ちない。</italic></dark_gray>
-  key_hallosseum:
-    material: TRIAL_KEY
-    display-name: <color:#ff7f27>ハロウィン闘技場の鍵</color>
-    custom-model-data: 5530
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - CARVED_PUMPKIN
-        - CARVED_PUMPKIN
-        - JACK_O_LANTERN
-        - JACK_O_LANTERN
-        - ROTTEN_FLESH
-        - ROTTEN_FLESH
-        - ROTTEN_FLESH
-        - BONE
-        - BONE
-      amount: 1
-    lore:
-      - ""
-      - <dark_gray><italic>くり抜かれた顔の中で、闘技場の観客がまだ笑っている。</italic></dark_gray>
-  key_north_pole:
-    material: TRIAL_KEY
-    display-name: <color:#4fc3f7>北極ミニダンジョンの鍵</color>
-    custom-model-data: 5531
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - PACKED_ICE
-        - PACKED_ICE
-        - PACKED_ICE
-        - BLUE_ICE
-        - BLUE_ICE
-        - SNOW_BLOCK
-        - SNOW_BLOCK
-        - WHITE_WOOL
-        - WHITE_WOOL
-      amount: 1
-    lore:
-      - ""
-      - <dark_gray><italic>握ると手が冷たくなるのに、決して溶けない。</italic></dark_gray>
-  key_binder:
-    material: TRIAL_KEY
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ者の鍵</gradient>
-    custom-model-data: 5519
-    enchant-glow: true
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - list:dungeon_seals
-        - list:dungeon_seals
-        - list:dungeon_seals
-        - list:dungeon_seals
-        - list:dungeon_seals
-        - custom:abyssal_ingot
-        - custom:abyssal_ingot
-        - custom:reality_thread_core
-      amount: 1
-    lore:
-      - ""
-      - <dark_gray><italic>踏破の証を5つ束ねると、繋ぎ目そのものが鍵になる。</italic></dark_gray>
-      - <gray>どのダンジョンの印でもよい。5つ集まればいい。</gray>
   cryocore_sword:
     draft: true
     material: NETHERITE_SWORD
@@ -7536,6 +7248,292 @@ items:
       - ""
       - <dark_gray><italic>刃を研ぐ音で、次の一本が決まる。</italic></dark_gray>
       - <gray>木こりだけが使える装飾品。オフハンドに持つと一括伐採のCTが縮む。</gray>
+  thread_better_fortune:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>いいことがおきますように</color>
+    display-name: <color:red>開運のスレッド</color>
+    custom-model-data: 100023
+  thread_gacha:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:#ff0000>7</color><color:#ffa500>7</color><color:yellow>7</color><color:#008000>7</color><color:#0000ff>7</color><color:#000080>7</color><color:#800080>7</color>
+    display-name: <color:#ff0000>ガ</color><color:#ffa500>チ</color><color:#ffff00>ャ</color><color:#008000>ス</color><color:#0000ff>レ</color><color:#000080>ッ</color><color:#800080>ド</color>
+    custom-model-data: 100024
+  thread_role_luck:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>レッツ上振れ！</color>
+    display-name: ロール運のスレッド
+    custom-model-data: 100025
+  thread_role_effeciency:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>効率よく生きよう</color>
+    display-name: ロール効率のスレッド
+    custom-model-data: 100026
+  thread_blindness:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>虫の息の君は何を望む？</color>
+    display-name: 崩命のスレッド
+    custom-model-data: 100027
+  thread_translate:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>直りやすくなっただろう？</color>
+    display-name: 流転のスレッド
+    custom-model-data: 100028
+  thread_swordsman:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>剣と噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>振り抜くたび、間合いが身体に馴染んでいく</color>
+    display-name: <color:white>剣士のスレッド</color>
+    custom-model-data: 300046
+  thread_berserker:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>戦斧と噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>守りを捨てた者にだけ見える線がある</color>
+    display-name: <color:dark_red>狂戦士のスレッド</color>
+    custom-model-data: 300047
+  thread_lancer:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>槍と噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>穂先は鎧の継ぎ目しか見ていない</color>
+    display-name: <color:aqua>槍衾のスレッド</color>
+    custom-model-data: 300048
+  thread_reaper:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>鎌と噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>一度で仕留めなくていい。刈るのだから</color>
+    display-name: <color:dark_purple>刈り手のスレッド</color>
+    custom-model-data: 300049
+  thread_crusher:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>ウォーハンマーと噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>斬れないなら、潰せばいい</color>
+    display-name: <color:gray>打擲のスレッド</color>
+    custom-model-data: 300050
+  thread_assassin:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>短剣と噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>二撃目が要るなら、それは失敗だ</color>
+    display-name: <color:dark_gray>暗殺者のスレッド</color>
+    custom-model-data: 300051
+  thread_duelist:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>レイピアと噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>避けた分だけ、こちらの番が来る</color>
+    display-name: <color:light_purple>決闘者のスレッド</color>
+    custom-model-data: 300052
+  thread_titan:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>大斧と噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>重さは、それだけで理屈になる</color>
+    display-name: <color:gold>巨戟のスレッド</color>
+    custom-model-data: 300053
+  thread_greatsword:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>大剣と噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>受けて、返す。それだけを繰り返す</color>
+    display-name: <color:blue>大剣士のスレッド</color>
+    custom-model-data: 300054
+  thread_longshot:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>弓と噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>風は読むものではなく、待つものだ</color>
+    display-name: <color:green>遠矢のスレッド</color>
+    custom-model-data: 300055
+  thread_tidecaller:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>トライデントと噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>投げた先から、潮が返ってくる</color>
+    display-name: <color:dark_aqua>潮呼びのスレッド</color>
+    custom-model-data: 300056
+  thread_earthshaker:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>メイスと噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>落ちる高さが、そのまま威力になる</color>
+    display-name: <color:yellow>震撼のスレッド</color>
+    custom-model-data: 300057
+  thread_bolter:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>クロスボウと噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>狙う時間があるなら、外す理由がない</color>
+    display-name: <color:dark_green>弩手のスレッド</color>
+    custom-model-data: 300058
+  thread_spellblade:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - <color:gray>杖・触媒と噛み合うよう組まれている</color>
+      - ""
+      - <color:dark_purple>詠唱の終わりと斬撃の始まりを重ねる</color>
+    display-name: <color:dark_purple>呪刃のスレッド</color>
+    custom-model-data: 300059
+  thread_onslaught:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>手数だけが解決する場面は、たしかにある</color>
+    display-name: <color:red>猛攻のスレッド</color>
+    custom-model-data: 300060
+  thread_precision:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>同じ場所を、もう一度</color>
+    display-name: <color:aqua>精確のスレッド</color>
+    custom-model-data: 300061
+  thread_execution:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>倒れかけた相手にこそ、手を抜かない</color>
+    display-name: <color:dark_red>追撃のスレッド</color>
+    custom-model-data: 300062
+  thread_piercer:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>硬さは、通り道を知らないだけ</color>
+    display-name: <color:white>穿孔のスレッド</color>
+    custom-model-data: 300063
+  thread_hemorrhage:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>傷は、放っておくほど深くなる</color>
+    display-name: <color:dark_red>流血のスレッド</color>
+    custom-model-data: 300064
+  thread_bulwark:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>退かないと決めた場所が、陣になる</color>
+    display-name: <color:gray>堅陣のスレッド</color>
+    custom-model-data: 300065
+  thread_aegis:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>見えない矢にも、盾は要る</color>
+    display-name: <color:blue>抗魔のスレッド</color>
+    custom-model-data: 300066
+  thread_ironhide:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>皮膚が先に覚えて、身体が後から従う</color>
+    display-name: <color:gold>鉄皮のスレッド</color>
+    custom-model-data: 300067
+  thread_evasion:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>当たらなければ、勘定に入らない</color>
+    display-name: <color:dark_aqua>疾影のスレッド</color>
+    custom-model-data: 300068
+  thread_resilience:
+    external-source: arspaper
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>折れないことは、勝つことの一部だ</color>
+    display-name: <color:green>剛靭のスレッド</color>
+    custom-model-data: 300069
+  # --------------------------------------------------------------------
+  # --------------------------------------------------------------------
   # トレジャーチェスト専用スレッド 10種 (2026-08-23、W-187)
   # --------------------------------------------------------------------
   # **レシピを持たない**。構造物のルートチェスト(ArsPaper の loot-tables.yml)が
@@ -7777,6 +7775,92 @@ items:
         - custom:blaze_rod_2x x2
         - custom:dragon_breath_2x x2
         - custom:echo_shard_2x x2
+      core-item: AMETHYST_SHARD
+      source: 10000
+      amount: 1
+  # ---------------------------------------------------------------------------
+  # EXP解呪の良薬（2026-08-24 ユーザー要望）
+  # 日次逓減（stats/skill-exp.yml の daily-diminishing。直近24時間の稼ぎ量でスキルEXPの
+  # 取得量が薄まる仕組み）を【飲んだ瞬間だけ】全スキル一括で引き戻す使い切り。
+  # 恒久的に下限を書き換えるものではないので、飲んだあとまた稼げば普通に下がる。
+  #
+  # ⚠ 数字の向き: 「10%/25%/50%」はユーザー指定どおり【減る側（ペナルティ）の上限】。
+  #   出荷設定の下限 floor: 0.5 は「どれだけ稼いでも最悪50%は入る」＝ペナルティ50%が初期値なので、
+  #   ペナルティ10%まで削れる良薬＝【取得倍率90%まで引き戻す】良薬になる。
+  #   実装側の対応表は com.trinityforge.items.ExpCleanseTonic（そちらが真源）。
+  #
+  # ⚠ レシピは仮置き（ユーザー了承済み）。素材は「ars-smithing.exp-per-material に既に行がある品」
+  #   だけで組んである —— 表に無い素材を使うと儀式EXPが無言で取りこぼされる
+  #   （ShippedRitualMaterialExpCoverageTest が検出する）。差し替えるときは表も一緒に見ること。
+  # ⚠ custom-model-data は resourcepack/cmd-registry.json へ払い出し済み（261〜263）。
+  #   リソースパック側のモデルはまだ無いので、見た目は素材そのまま。
+  exp_cleanse_tonic_lesser:
+    material: HONEY_BOTTLE
+    display-name: <color:green>EXP解呪の良薬・並</color>
+    enchant-glow: true
+    lore:
+      - <gray><italic>渋りはじめた実りを、渋りはじめる手前へ戻すだけの一杯。</italic></gray>
+      - ""
+      - <yellow>手に持って右クリックで飲みます</yellow>
+      - <gray>全スキルのEXP取得量を <white>50%</white> 以上まで引き戻します。</gray>
+      - <gray>取得量の下限そのものは変わりませんが、等倍へ戻るまでの時間が縮みます。</gray>
+      - <dark_gray>※目減りしていないときは消費しません。</dark_gray>
+    custom-model-data: 261
+    recipe:
+      method: ritual
+      type: shapeless
+      ingredients: []
+      pedestal-items:
+        - custom:witch_elixir
+        - PHANTOM_MEMBRANE
+        - ECHO_SHARD
+        - custom:source_gem
+      core-item: AMETHYST_SHARD
+      source: 10000
+      amount: 1
+  exp_cleanse_tonic_greater:
+    material: POTION
+    display-name: <color:aqua>EXP解呪の良薬・上</color>
+    enchant-glow: true
+    lore:
+      - <gray><italic>疲れを抜き、取り分の四分の三を取り返す。</italic></gray>
+      - ""
+      - <yellow>手に持って右クリックで飲みます</yellow>
+      - <gray>全スキルのEXP取得量を <white>75%</white> 以上まで引き戻します。</gray>
+      - <dark_gray>※目減りしていないときは消費しません。</dark_gray>
+    custom-model-data: 262
+    recipe:
+      method: ritual
+      type: shapeless
+      ingredients: []
+      pedestal-items:
+        - custom:witch_elixir x2
+        - ECHO_SHARD x2
+        - DRAGON_BREATH
+        - custom:source_gem x2
+      core-item: AMETHYST_SHARD
+      source: 10000
+      amount: 1
+  exp_cleanse_tonic_supreme:
+    material: DRAGON_BREATH
+    display-name: <color:light_purple>EXP解呪の良薬・極</color>
+    enchant-glow: true
+    lore:
+      - <gray><italic>積み上げた疲れを、ほとんど無かったことにする。</italic></gray>
+      - ""
+      - <yellow>手に持って右クリックで飲みます</yellow>
+      - <gray>全スキルのEXP取得量を <white>90%</white> 以上まで引き戻します。</gray>
+      - <dark_gray>※目減りしていないときは消費しません。</dark_gray>
+    custom-model-data: 263
+    recipe:
+      method: ritual
+      type: shapeless
+      ingredients: []
+      pedestal-items:
+        - custom:witch_elixir x2
+        - DRAGON_BREATH x2
+        - HEART_OF_THE_SEA
+        - custom:elder_guardian_spike
       core-item: AMETHYST_SHARD
       source: 10000
       amount: 1
@@ -8026,9 +8110,9 @@ _editor:
           - golden_wand
           - diamond_wand
           - netherite_wand
-          - magic_wand
-          - abyss_wand
-          - boundary_wand
+          - infinity_wand
+          - hero_wand
+          - nuclear_wand
       - id: cat_20260723_触媒
         label: 触媒
         itemIds:
@@ -8468,9 +8552,9 @@ _editor:
       - golden_wand
       - diamond_wand
       - netherite_wand
-      - magic_wand
-      - abyss_wand
-      - boundary_wand
+      - infinity_wand
+      - hero_wand
+      - nuclear_wand
     tool:
       - source_gem_pickaxe
       - source_gem_shovel
@@ -8962,9 +9046,6 @@ _editor:
     binder_chestplate: armor
     binder_leggings: armor
     binder_boots: armor
-    boundary_wand: catalyst
-    abyss_wand: catalyst
-    magic_wand: catalyst
     thread_better_fortune: thread
     thread_gacha: thread
     thread_role_luck: thread
@@ -8995,3 +9076,6 @@ _editor:
     thread_ironhide: thread
     thread_evasion: thread
     thread_resilience: thread
+    infinity_wand: catalyst
+    hero_wand: catalyst
+    nuclear_wand: catalyst

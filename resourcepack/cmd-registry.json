@@ -5703,6 +5703,27 @@
       "id": "botanical_sourcelink",
       "source": "sourcelinks",
       "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "HONEY_BOTTLE",
+      "cmd": 261,
+      "id": "exp_cleanse_tonic_lesser",
+      "source": "catalog",
+      "allocatedAt": "2026-08-24T11:37:32.382Z"
+    },
+    {
+      "material": "POTION",
+      "cmd": 262,
+      "id": "exp_cleanse_tonic_greater",
+      "source": "catalog",
+      "allocatedAt": "2026-08-24T11:37:32.383Z"
+    },
+    {
+      "material": "DRAGON_BREATH",
+      "cmd": 263,
+      "id": "exp_cleanse_tonic_supreme",
+      "source": "catalog",
+      "allocatedAt": "2026-08-24T11:37:32.383Z"
     }
   ]
 }

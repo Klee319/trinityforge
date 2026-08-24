@@ -94,6 +94,32 @@ public final class DailyExpWindowPersistence {
         diminishing.forget(playerId);
     }
 
+    /**
+     * 保存済みの蓄積を「倍率が {@code targetMultiplier} 以上へ戻る水準」まで切り下げる
+     * （2026-08-24 / EXP解呪の良薬）。<b>SQLite を触るので非同期スレッドから呼ぶこと。</b>
+     *
+     * <p>メモリ側（{@link DailyExpDiminishing#relieve}）と<b>必ず対で</b>呼ぶ。
+     * メモリだけ削っても {@code DailyExpWindowStore#save} が「大きい方」を残すので、
+     * 次の保存で保存済みの大きな値が勝ち、再ログインやサーバ移動で効果が消える。
+     * 順序は<b>メモリが先、DBが後</b> —— 逆にすると、間に定期保存が挟まったときに
+     * 削る前のメモリ値が DB へ書き戻される。
+     *
+     * @return 実際に切り下げた行数（失敗時も 0 を返し、ログにだけ残す）
+     */
+    public int capStored(UUID playerId, double targetMultiplier) {
+        if (playerId == null) {
+            return 0;
+        }
+        DailyExpDiminishing.Settings current = currentSettings();
+        double cap = DailyExpDiminishing.maxAmountFor(current, targetMultiplier);
+        try {
+            return store.capAmounts(playerId, cap, current.windowMillis());
+        } catch (SQLException | RuntimeException ex) {
+            warn.accept("[daily-exp] 逓減の切り下げを保存できませんでした: " + playerId + " / " + ex);
+            return 0;
+        }
+    }
+
     /** 追跡中の全プレイヤーを書き出す（{@code onDisable} の最終フラッシュ）。 */
     public void saveAll() {
         for (UUID playerId : diminishing.trackedPlayerIds()) {

@@ -459,6 +459,13 @@ public final class TrinityForge extends JavaPlugin {
             this.dailyExpAutosaveTask = getServer().getScheduler().runTaskTimerAsynchronously(
                     this, () -> dailyExpPersistence.saveAll(), autosaveTicks, autosaveTicks);
         }
+        // EXP解呪の良薬(2026-08-24): 日次逓減を飲んだ瞬間だけ全スキル一括で引き戻す使い切り。
+        // dailyExpPersistence が null(DBを開けなかった環境)でもメモリ側だけで動く。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.items.ExpCleanseTonicListener(
+                        this, dailyExpDiminishing,
+                        () -> configManager.skillExp().dailyDiminishing(),
+                        dailyExpPersistence), this);
         this.nativePerkService = new NativePerkService(progressionService,
                 () -> configManager.skillTrees().all().values());
         // スキルノードロック(2026-07-27): プレステージ時に維持する perk をプレイヤーPDCから供給する。

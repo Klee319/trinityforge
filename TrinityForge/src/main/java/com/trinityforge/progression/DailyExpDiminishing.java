@@ -256,6 +256,94 @@ public final class DailyExpDiminishing {
     }
 
     /**
+     * <b>倍率が {@code targetMultiplier} 以上に戻る蓄積量の上限</b>（2026-08-24 / EXP解呪の良薬）。
+     * これを超えている蓄積をこの値まで切り下げれば、倍率は必ず {@code targetMultiplier} 以上になる。
+     *
+     * <p><b>下限クランプ（{@link Settings#floor}）を掛けない生の曲線で解く</b>のが肝。
+     * クランプ後の倍率は定義上いつでも {@code floor} 以上なので、「倍率が floor 以上になる上限」を
+     * 素直に解くと<b>上限なし＝何もしない</b>になり、下限と同じ強さの良薬（出荷値なら 50%）が
+     * 無言で効果ゼロになる。生の曲線 {@code decay^n} で段数を決めれば、
+     * 「下限に張り付くほど溜め込んだ蓄積を、ちょうど張り付き始める手前まで削る」という意味になり、
+     * 倍率は変わらなくても<b>自然回復までの時間が実際に縮む</b>。
+     *
+     * <p>返す値は「その段に留まる最大量」なので {@code (段数+1) × perAmount} のわずか手前。
+     * ぴったり {@code (段数+1) × perAmount} にすると {@code floor(量/perAmount)} が 1 つ進んで
+     * 1 段ぶん損をする。
+     *
+     * @return 切り下げ先の蓄積量。逓減が無効／減衰しない設定／目標が無意味なら {@link Double#MAX_VALUE}
+     *         （＝切り下げない）
+     */
+    public static double maxAmountFor(Settings settings, double targetMultiplier) {
+        if (settings == null || !settings.enabled()) {
+            return Double.MAX_VALUE;
+        }
+        if (!Double.isFinite(targetMultiplier) || targetMultiplier <= 0.0) {
+            return Double.MAX_VALUE;
+        }
+        double decay = settings.decayPerAmount();
+        if (!(decay > 0.0) || decay >= 1.0) {
+            // 1段あたり減らない設定＝そもそも逓減しない。削る意味が無い。
+            return Double.MAX_VALUE;
+        }
+        if (targetMultiplier >= 1.0) {
+            // 完全解除。1段目に入る手前まで削る。
+            return Math.nextDown(settings.perAmount());
+        }
+        double steps = Math.floor(Math.log(targetMultiplier) / Math.log(decay));
+        if (!Double.isFinite(steps) || steps < 0.0) {
+            steps = 0.0;
+        }
+        return Math.nextDown((steps + 1.0) * settings.perAmount());
+    }
+
+    /**
+     * そのプレイヤーの<b>全スキル</b>の蓄積を、倍率が {@code targetMultiplier} 以上へ戻る水準まで
+     * 切り下げる（2026-08-24 / EXP解呪の良薬）。既にそれ以下のスキルは触らない。
+     *
+     * <p><b>「倍率だけ書き換える」ではなく蓄積そのものを削る。</b> 倍率は蓄積から毎回引き直される
+     * 派生値なので、表示だけ戻しても次の付与で即座に下がり直し、プレイヤーからは
+     * 「飲んだのに何も起きなかった」に見える（{@link #releaseIfExpired} と同じ理由）。
+     *
+     * <p><b>DB 側も別途切り下げること。</b> {@code DailyExpWindowStore#save} は
+     * 「メモリと保存済みの<b>大きい方</b>」を残す（サーバ移動で後退させないため）ので、
+     * メモリだけ削っても次の保存で古い大きな値が復活し、<b>再ログインやサーバ移動で
+     * 良薬の効果が黙って消える</b>。呼び出し側は
+     * {@code DailyExpWindowPersistence#capStored} を必ず併せて呼ぶ。
+     *
+     * @return 実際に切り下げたスキル数（0 なら「もう十分に回復している」）
+     */
+    public int relieve(Settings settings, UUID playerId, double targetMultiplier) {
+        if (settings == null || !settings.enabled() || playerId == null) {
+            return 0;
+        }
+        double cap = maxAmountFor(settings, targetMultiplier);
+        if (cap == Double.MAX_VALUE) {
+            return 0;
+        }
+        Map<String, Window> perSkill = windows.get(playerId);
+        if (perSkill == null || perSkill.isEmpty()) {
+            return 0;
+        }
+        long now = clock.getAsLong();
+        int changed = 0;
+        for (Window window : perSkill.values()) {
+            synchronized (window) {
+                double current = decayedAmount(settings, window, now);
+                window.updatedAtMillis = now;
+                window.amount = current;
+                if (current <= cap) {
+                    continue;
+                }
+                window.amount = cap;
+                window.lastMultiplier = multiplierFor(settings, cap);
+                stampLock(window, window.lastMultiplier, now);
+                changed++;
+            }
+        }
+        return changed;
+    }
+
+    /**
      * 次の刻みまであと何EXPか（表示用）。既に下限へ張り付いているときは {@code -1}。
      * 「あとどれだけ稼ぐと減るのか」をプレイヤーへ出せるようにするための補助。
      */

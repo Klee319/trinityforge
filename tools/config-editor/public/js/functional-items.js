@@ -113,16 +113,24 @@
   // resourcepack/cmd-registry.json が別セッション編集中だったため custom-model-data 未設定のまま
   // 出荷している(CMD割当は reports/ACTIVE_RECORD.md 追跡の後追いタスク)。UI上は他の2件と同じ
   // カードで material/CMD/表示名/enchant-glow/lore/recipe を編集できる(CMDが空欄なだけ)。
+  // 2026-08-24追加の3件(exp_cleanse_tonic_*)は「EXP解呪の良薬」。日次逓減(stats/skill-exp.yml の
+  // daily-diminishing)を飲んだ瞬間だけ全スキル一括で引き戻す使い切りで、引き戻す先の倍率は
+  // com.trinityforge.items.ExpCleanseTonic が持つ固定値(50/75/90%)。ここから編集できるのは
+  // 見た目とレシピだけで、倍率は editor 側に無い。custom-model-data も未割り当て。
   const TF_SPECIAL_ITEM_IDS = Object.freeze([
     "skill_node_lock", "skill_tree_reset",
-    "role_reselect_ticket", "stat_reroll_ticket", "quality_upgrade_ticket"
+    "role_reselect_ticket", "stat_reroll_ticket", "quality_upgrade_ticket",
+    "exp_cleanse_tonic_lesser", "exp_cleanse_tonic_greater", "exp_cleanse_tonic_supreme"
   ]);
   const TF_SPECIAL_ITEM_LABELS = Object.freeze({
     skill_node_lock: "スキルノードの楔",
     skill_tree_reset: "スキル再構築の書",
     role_reselect_ticket: "職業付け替えの証",
     stat_reroll_ticket: "厳選やり直しの護符",
-    quality_upgrade_ticket: "品質昇華の結晶"
+    quality_upgrade_ticket: "品質昇華の結晶",
+    exp_cleanse_tonic_lesser: "EXP解呪の良薬・並 (50%まで)",
+    exp_cleanse_tonic_greater: "EXP解呪の良薬・上 (75%まで)",
+    exp_cleanse_tonic_supreme: "EXP解呪の良薬・極 (90%まで)"
   });
 
   // catalog.yml の items.<id> のうち TF 特殊アイテム2件だけを、無ければ空オブジェクトで補完する。

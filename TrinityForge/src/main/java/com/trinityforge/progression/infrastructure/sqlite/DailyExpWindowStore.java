@@ -260,6 +260,66 @@ public final class DailyExpWindowStore implements AutoCloseable {
     }
 
     /**
+     * そのプレイヤーの保存済み蓄積を {@code maxAmount} まで<b>切り下げる</b>
+     * （2026-08-24 / EXP解呪の良薬）。既にそれ以下の行は触らない。
+     *
+     * <p><b>{@link #save} 経由では絶対に下げられない</b>のでこの入口が要る。save は
+     * 「メモリと保存済みの大きい方」を残す（サーバ移動で後退させないための仕様）ので、
+     * メモリだけ削って save すると<b>保存済みの大きい値がそのまま勝つ</b>。
+     * つまり良薬は飲んだサーバでは効いたように見えて、再ログインやサーバ移動で元へ戻る。
+     *
+     * <p>切り下げは「現在時刻まで減衰させた値」に対して行い、{@code updated_at} を現在時刻へ進める。
+     * 減衰前の値を切り下げると、保存時刻からの経過ぶんが二重に効く。
+     * {@code locked_at}（強制解除の期限）は<b>触らない</b> —— 期限を打ち直すと良薬を飲むたびに
+     * 24時間の解除期限が後ろへずれて、飲んだ人ほど損をする。
+     *
+     * @param maxAmount    切り下げ先。{@link com.trinityforge.progression.DailyExpDiminishing#maxAmountFor}
+     *                     の結果を渡す。{@link Double#MAX_VALUE} なら何もしない
+     * @param windowMillis 指数減衰の時定数
+     * @return 実際に書き換えた（または消した）行数
+     */
+    public synchronized int capAmounts(UUID playerId, double maxAmount, double windowMillis)
+            throws SQLException {
+        Objects.requireNonNull(playerId, "playerId");
+        if (!Double.isFinite(maxAmount) || maxAmount < 0.0 || maxAmount == Double.MAX_VALUE) {
+            return 0;
+        }
+        double window = windowMillis > 0.0 && Double.isFinite(windowMillis) ? windowMillis : 1.0;
+        long now = clockMillis.getAsLong();
+        boolean autoCommit = conn.getAutoCommit();
+        conn.setAutoCommit(false);
+        int changed = 0;
+        try {
+            for (DailyExpDiminishing.WindowSnapshot row : load(playerId)) {
+                double decayed = decayTo(now, row, window);
+                if (decayed <= maxAmount) {
+                    continue;
+                }
+                if (maxAmount < NEGLIGIBLE_AMOUNT) {
+                    stmtDeleteRow.setString(1, playerId.toString());
+                    stmtDeleteRow.setString(2, row.skillId());
+                    stmtDeleteRow.executeUpdate();
+                } else {
+                    stmtUpsert.setString(1, playerId.toString());
+                    stmtUpsert.setString(2, row.skillId());
+                    stmtUpsert.setDouble(3, maxAmount);
+                    stmtUpsert.setLong(4, now);
+                    stmtUpsert.setLong(5, row.lockedAtMillis());
+                    stmtUpsert.executeUpdate();
+                }
+                changed++;
+            }
+            conn.commit();
+        } catch (SQLException | RuntimeException e) {
+            try { conn.rollback(); } catch (SQLException ignored) { /* 元の例外を潰さない */ }
+            throw e;
+        } finally {
+            conn.setAutoCommit(autoCommit);
+        }
+        return changed;
+    }
+
+    /**
      * 期限切れ(W-154)の行を<b>物理的に消す</b>。ログイン時の復元から呼ぶ。
      *
      * <p>{@code restore} 側で読み飛ばすだけだと行が残り続け、あとの {@link #save} が
