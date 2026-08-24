@@ -18,10 +18,12 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalDouble;
+import java.util.UUID;
 
 /**
  * {@code xp-bottle-store-unlock}(flag, enchanting.yml B-3「EXPフリーザー」): 経験値の格納/取出。
@@ -70,9 +72,19 @@ public final class XpBottleListener implements Listener {
      * ——バニラの {@code BottleItem} はプレイヤーのブロック操作リーチで流体レイトレースを行うため。
      */
     private static final double BLOCK_INTERACTION_RANGE = 4.5;
+    /**
+     * {@link #lastHandledTick} から古い記録を捨てるまでの猶予tick。同じクリックの2発目は必ず同tickで
+     * 来るので値そのものに意味は無く、<b>マップが際限なく育たないようにするためだけ</b>のもの。
+     */
+    private static final int HANDLED_TICK_PRUNE_AFTER = 40;
 
     private final DedicatedEffectsConfig dedicatedEffects;
     private final CraftingFeaturesConfig gimmickConfig;
+    /**
+     * 直近に格納/取出を<b>実行した</b>プレイヤーと、そのときのサーバtick。
+     * 目的と真因は {@link #alreadyActedThisTick} を参照。
+     */
+    private final Map<UUID, Integer> lastHandledTick = new HashMap<>();
 
     /**
      * 視線上の「バニラの瓶が汲める流体ブロック」を返す。既定は実レイトレース。
@@ -121,6 +133,13 @@ public final class XpBottleListener implements Listener {
         if (heldType != Material.GLASS_BOTTLE && heldType != Material.EXPERIENCE_BOTTLE) {
             return;
         }
+        if (alreadyActedThisTick(player)) {
+            // 同じクリックの2発目。手の中身が既に入れ替わっているので、通すと直前の操作を
+            // そのまま巻き戻す(格納→取出／取出→格納)。キャンセルまでするのは、ここで
+            // バニラに譲ると充填済みの瓶がそのまま投げられて中身が消えるため(クラス javadoc)。
+            event.setCancelled(true);
+            return;
+        }
         // 2026-08-19 W-134: 取り出しは【解放判定より前】に処理する。
         // 以前はここで解放ゲートを通していたため、未解放のプレイヤーが充填済みの瓶を右クリックすると
         // そのままバニラの投擲に流れ、格納した経験値が投擲時の固定量に化けて消えていた
@@ -135,6 +154,7 @@ public final class XpBottleListener implements Listener {
             }
             // Always cancel: see class javadoc (protects the stored amount from vanilla's throw).
             event.setCancelled(true);
+            markActedThisTick(player);
             handleWithdraw(player, heldStack, storedAmount, withdrawTier(heldStack, player));
             return;
         }
@@ -154,6 +174,41 @@ public final class XpBottleListener implements Listener {
             return;
         }
         handleStore(event, player, heldStack, tier);
+    }
+
+    /**
+     * <b>同じ1クリックで2回処理してしまうのを止めるガード(2026-08-24 実サーバ報告
+     * 「スタックが1の時、空瓶だと格納→取出、充填済みだと取出→格納になる」)。</b>
+     *
+     * <p><b>機構レベルの真因。</b> ブロックに向けた右クリックでは、クライアントが
+     * {@code UseItemOn} と {@code UseItem} を<b>続けて2つ</b>送る(バニラの瓶は
+     * {@code useOn} が PASS を返すため、クライアントは「ブロックへの用途が無かった」と判断して
+     * 続けてアイテム使用を送る)。CraftBukkit はこれを承知していて、{@code handleUseItem} 側で
+     * 「直前の {@code RIGHT_CLICK_BLOCK} と<b>同じ位置・同じ手・同じアイテム</b>
+     * ({@code ItemStack.isSameItemSameComponents})なら 2発目の
+     * {@link PlayerInteractEvent}({@code RIGHT_CLICK_AIR})を発火しない」という抑止を持つ。
+     *
+     * <p>ところが {@link #consumeOneAndGive} は<b>スタックが1のときだけ手の中身を差し替える</b>
+     * (2本以上なら手には同じガラス瓶が残り、新しい瓶はインベントリの別枠へ入る)。
+     * つまりスタック1のときだけ「直前と同じアイテム」の条件が崩れ、<b>抑止が外れて2発目が飛んでくる</b>。
+     * 2発目には手の中身が入れ替わった状態で入ってくるので、格納の直後に取出が、
+     * 取出の直後に格納が走り、報告どおり操作が丸ごと巻き戻る。
+     * <b>「スタックが1のときだけ」という条件はここから来ている。</b>
+     *
+     * <p>2発は必ず同tick(同じパケット処理の中)で来るので、判定は「同じプレイヤーが同tickに
+     * 既に格納/取出を実行したか」で足りる。実行しなかった空振り(水汲み・経験値0・未解放)は
+     * 記録しないので、通常のクリックを取りこぼさない。
+     */
+    private boolean alreadyActedThisTick(Player player) {
+        Integer last = lastHandledTick.get(player.getUniqueId());
+        return last != null && last == org.bukkit.Bukkit.getCurrentTick();
+    }
+
+    /** 格納/取出を実際に行ったことを記録する(詳細は {@link #alreadyActedThisTick})。 */
+    private void markActedThisTick(Player player) {
+        int tick = org.bukkit.Bukkit.getCurrentTick();
+        lastHandledTick.entrySet().removeIf(entry -> tick - entry.getValue() > HANDLED_TICK_PRUNE_AFTER);
+        lastHandledTick.put(player.getUniqueId(), tick);
     }
 
     /**
@@ -216,6 +271,7 @@ public final class XpBottleListener implements Listener {
             return;
         }
         event.setCancelled(true);
+        markActedThisTick(player);
 
         int remaining = available - toStore;
         resetExperience(player);
