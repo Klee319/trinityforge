@@ -3541,6 +3541,7 @@ CMD・respack 系 8 ファイルで 112/112 通過。
 | W-198 | ソースリンクの生成倍率を 2 の階梯乗にしたい | ✅ 実装（無印 2 〜 最上段 512。**転送レートも同率へ**。**config 配備が要る**） |
 | W-199 | 手置きの鉱石でも一括破壊を発動させたい（ただしバニラEXPと職業EXPは入れない） | ✅ 実装（**TF jar が要る**。実際に要った変更は「門を外す」だけで、**抑止は1つも足していない**。⚠ **GTH-02 の増殖経路が開く**） |
 | W-200 | 一括破壊の連鎖分にバニラの経験値オーブが出ていない | ✅ 修正（**TF jar が要る**。**一括破壊が存在して以来ずっとの取りこぼし**で、鉱脈を一括で掘ると起点1ブロック分しか経験値が入っていなかった） |
+| W-209 | 醸造台にクリスタルリンゴを入れようとしてもインベントリから動かない | ✅ 修正（**ArsPaper jar が要る**。TF 側の変更なし。**出荷 config の醸造素材 8 件すべてが入れられず、カスタム素材を使う醸造レシピが 1 件残らず死んでいた**） |
 
 #### W-191 真因: 杖は `catalysts:` に1本も登録されていない
 
@@ -4020,6 +4021,60 @@ TF_RCON_DEV_PASSWORD       process=False user=False machine=False
 - `VeinMiningListenerTest` **13 件・失敗 0・スキップ 0**（倍率／シルクタッチ／連鎖 0／手置きの 4 方向）。
   連鎖系の周辺 19 クラス（`TreeFelling*` `FarmingHarvest*` `NativeSkillExperienceListener*`
   `gathering.*` `mining.*`）も**全件緑・スキップ 0**。
+
+#### W-209 醸造台にカスタム素材が入らない — **カスタム素材の醸造レシピは 1 件も成立していなかった**
+
+> 「醸造台にクリスタルリンゴを入れようとドラッグやクイック移動をしようとしても
+> そもそもインベントリから動かない。キャンセルされる。カスタムアイテムが入れられないかも」
+
+**原因は 2 つ重なっていた。両方 ArsPaper フォークの `CustomItemListener` 側。**
+
+**① 醸造台がまるごと「入れさせない装置」に入っていた。**
+W-132（2026-08-19）で入れた `CONSUMING_MACHINES` ガードは、`materials.yml` 素材が
+かまど等で黙って消えるのを止めるものだが、その集合に**醸造台を入れていた**。根拠として
+javadoc に書いてあった「醸造台は材料スロットが Material しか見ずに飲み込む」は**誤り**で、
+TF の `BrewPotionMixRegistrar` は `PotionMix` を**述語**（`createPredicateChoice`）で登録しており、
+素材スロットの受け入れ判定（`PotionBrewing#isIngredient`）はその述語を見る
+＝ **醸造台は PDC 付きのカスタム素材をちゃんと見分ける**。
+
+被害はクリスタルリンゴ 1 件ではない。`progression/crafting-features.yml` の
+`brew-unlocks` が宣言している醸造素材は **8 件で全部 `materials.yml` 素材**
+（`tf_crystal_apple` / `ravager_hide` / `witch_elixir` / `endermite_soot` /
+`stray_cloth` / `piglin_ear` / `sweet_berries_2x` / `bogged_mossy_bone`）なので、
+**カスタム素材を使う醸造レシピは 1 件残らず成立していなかった**。
+起動ログに `registered 15 custom potion mix(es)` は出ており TF 側は正常なので、
+**症状はどのログにも例外にも現れない**。
+
+→ かまど／燻製器の `compressed-smelting` と**同じ形**で穴を開けた。
+`TrinityForgeBridge#tfBrewIngredientMaterialIds()` が `brew-unlocks` の `ingredient` から
+`custom:` 付きの id を集め、**その id だけ**醸造台へ通す。TF 未ロード時は空集合＝
+従来どおり全部塞がる **fail-closed**。解放していないプレイヤーの投入を弾くのは
+従来どおり TF 側の `BrewUnlockListener` の仕事で、**解放判定をフォーク側に二重に持たせていない**。
+
+**② ガードがクリックしたスロットを一切見ていなかった。**
+`InventoryClickEvent#getInventory()` は**クリックした位置に関係なく常に上段（＝装置）**を返す。
+そのため `getCurrentItem()` だけで判定していた旧実装は、**装置を開いている間、
+プレイヤー側インベントリに入っている `materials.yml` 素材を掴むことすらできなかった**
+——「そもそもインベントリから動かない」の半分はこれで、醸造台に限らず
+かまど・石切台・製図台・機織り機・ビーコンでも同じことが起きていた。
+
+→ 装置へ素材が入る経路は「装置側スロットを直接触る」か「シフトクリックのクイック移動」の
+2 つだけなので、その 2 つに絞った。判定は `clickCanReachMachine(rawSlot, size, shiftClick)` へ
+純関数として切り出してテストで固定（フォークに MockBukkit も Mockito も無いため）。
+
+**残っている穴（今回は塞いでいない）**: 数字キーによるホットバー入れ替え（`getHotbarButton()`）と
+`InventoryDragEvent` は、この装置ガードが元々見ていない。醸造台は `isIngredient` が
+別途受け入れを判定するので実害は無いが、かまど系には素通り経路として残る。
+
+- ArsPaper フォーク `3bc4c55`。push 済み（`origin feat/trinityforge-fork`）。
+  **ArsPaper jar の配備が要る**（`build/libs/ArsPaper-1.0.0.jar` 1,211,100 バイト / 08-24 12:54）。
+- **TF 本体の変更は無い。**
+- `BrewingIngredientGuardTest` **5 件**を追加。フォーク全体 **557 件・失敗 0・スキップ 0**。
+
+⚠ **醸造できるようになった後の使い方**: クリスタルリンゴのレシピは
+`base: MUNDANE`（＝**ありふれたポーション**）なので、水入り瓶のままでは醸造が始まらない。
+先に「水入り瓶 + レッドストーン → ありふれたポーション」を作ってから入れる。
+またグループ `luck` は `skilltree/alchemy.yml` の `brew:luck` ノードで解放する。
 
 ---
 

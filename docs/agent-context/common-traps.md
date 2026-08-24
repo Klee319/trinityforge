@@ -453,7 +453,26 @@ Paper のサーバ実装ソースは Gradle キャッシュに `.java` のまま
 化けるのを防ぐため）。**かまどで何かをさせたいならレシピ登録だけでは一度も発火しない。**
 穴あけは `TrinityForgeBridge#tfSmeltableMaterialIds()`（`compressed-smelting` の入力＋結果）を通す。
 **結果側も通さないと、焼き上がった品を結果スロットから取り出すクリックまで塞がる。**
-穴はかまど／燻製器に限る（醸造台は材料スロットが Material しか見ずに飲み込むため）。
+穴はかまど／燻製器に限る（溶鉱炉では圧縮食料が焼けないので通す意味が無い）。
+
+**醸造台も同じ集合で塞がっていた（2026-08-24 / W-209 で修正）。** 塞いだ根拠として書かれていた
+「醸造台は材料スロットが Material しか見ずに飲み込む」は**誤り** —— TF の `BrewPotionMixRegistrar` は
+`PotionMix` を**述語**（`PotionMix.createPredicateChoice`）で登録しており、
+素材スロットの受け入れ判定 `PotionBrewing#isIngredient` はその述語を見るので、
+**醸造台は PDC 付きのカスタム素材をちゃんと見分ける**。この誤解のせいで
+`brew-unlocks` の醸造素材 8 件（全部 materials.yml 素材）が 1 件も入れられず、
+**カスタム素材を使う醸造レシピが 1 件残らず死んでいた**。
+起動ログには `registered N custom potion mix(es)` が正常に出るので**ログには何も現れない**。
+穴あけは `TrinityForgeBridge#tfBrewIngredientMaterialIds()`（`brew-unlocks` の `ingredient`）。
+
+### ⚠️ `InventoryClickEvent#getInventory()` はクリック位置に関係なく常に「上段」を返す
+
+装置インベントリを見張るガードで `getInventory().getType()` だけを条件にすると、
+**プレイヤー側インベントリのスロットを触ったクリックにも同じ判定が掛かる**。
+ArsPaper の装置ガードがこれを踏み、**かまど／醸造台／石切台などを開いている間は
+手持ちの materials.yml 素材を掴むことすらできなかった**（W-209 の症状の半分）。
+装置へ物が入る経路は「上段のスロットを直接触る（`rawSlot < topInventory.getSize()`）」か
+「シフトクリックのクイック移動」の 2 つだけなので、ガードはその 2 つに絞ること。
 
 ### 消費キャンセル型の「+1で返す」リスナーは、全キャンセラより後の優先度でないと複製になる
 素材消費をキャンセルしてから `+1` して返すタイプのリスナー（醸造素材の保存など）で、
