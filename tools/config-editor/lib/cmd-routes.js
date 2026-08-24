@@ -177,6 +177,12 @@ function registerCmdRoutes(app, ctx) {
     try {
       const removed = removeAllocationEverywhere(ctx, material, cmd);
       if (removed.length === 0) {
+        // fork の Java が material と CMD をハードコードしているアイテムは、どの yml にも
+        // 実体が無いので上の走査では1件も当たらない。この場合は台帳の行だけを落として
+        // 「リソパの配線を外す」(アイテム自体は fork 側に残る) 意味の登録解除にする。
+        removed.push(...removeExternalAllocation(ctx, material, cmd));
+      }
+      if (removed.length === 0) {
         return res.status(404).json({ error: `${material}#${cmd} を参照するconfigが見つかりませんでした` });
       }
       const syncWarning = syncCmdRegistryAfterSave(ctx);
@@ -308,6 +314,28 @@ function removeAllocationEverywhere(ctx, material, cmd) {
       removed.push(...r.removed);
     }
   }
+  return removed;
+}
+
+// スキャン対象の config には実体が無い外部由来(fork の Java ハードコード等)の割当を
+// 台帳から落とす。scanUsage に現れない行なので、config を書き換える経路では消せない。
+// 戻り値: 削除された [{file,id}] の配列 (該当なしなら空)。
+function removeExternalAllocation(ctx, material, cmd) {
+  const registryPath = ctx.cmdRegistryPath();
+  const registry = CmdRegistry.loadRegistry(registryPath);
+  const list = Array.isArray(registry.allocations) ? registry.allocations : [];
+  const kept = [];
+  const removed = [];
+  for (const allocation of list) {
+    if (allocation.material === material && allocation.cmd === cmd
+        && CmdRegistry.isExternalSource(allocation.source)) {
+      removed.push({ file: String(allocation.source), id: allocation.id || "(no-id)" });
+      continue;
+    }
+    kept.push(allocation);
+  }
+  if (removed.length === 0) return [];
+  CmdRegistry.saveRegistry(registryPath, { ...registry, allocations: kept });
   return removed;
 }
 

@@ -43,10 +43,12 @@ test("H-1: catalog↔materials の意図的ミラーペアは警告しない", (
 });
 
 test("H-1: catalog↔spellbooks(books) の意図的ミラーペアは警告しない", () => {
-  // 予約値(100001-3)ではなく通常のCMD値で「ミラーペア除外」だけを単独検証する。
+  // 予約値ではなく通常のCMD値で「ミラーペア除外」だけを単独検証する
+  // (2026-08-24: 元は 500001 を使っていたが、fork の infinity_source_core が
+  //  ハードコードで使っているため予約値に入り、予約衝突の警告で落ちるようになった)。
   const fixtures = {
-    catalog: { items: { spell_book_novice: { material: "BOOK", "custom-model-data": 500001 } } },
-    spellbooks: { "spell-books": [{ id: "spell_book_novice", "custom-model-data": 500001 }] }
+    catalog: { items: { spell_book_novice: { material: "BOOK", "custom-model-data": 4321 } } },
+    spellbooks: { "spell-books": [{ id: "spell_book_novice", "custom-model-data": 4321 }] }
   };
   const ctx = makeCtx(fixtures);
   const warnings = computeCmdWarnings(ctx, "catalog", {}, fixtures.catalog);

@@ -1,2 +1,4 @@
 node_modules/
 *.bak-*
+# テストが作る一時パック(test/.tmp/)。ルートの .gitignore の tmp/ は先頭ドットに当たらない。
+test/.tmp/

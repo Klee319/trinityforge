@@ -135,6 +135,19 @@ const SCANNERS = {
   sourcelinks: scanSourceLinks
 };
 const CMD_SCAN_IDS = Object.keys(SCANNERS);
+const CMD_SCAN_ID_SET = new Set(CMD_SCAN_IDS);
+
+// 台帳の行が「CMDスキャン対象の config には実体が無い外部由来」かどうか。
+// fork の Java が material と CMD をハードコードしているアイテム (functional-items の
+// infinity_source_core など) が該当し、どの yml にも書かれていないので scanUsage には
+// 絶対に現れない。reconcile がこれを usage 起点の行と同じ扱いで落とすと、
+// 次に誰かが editor で config を1つ保存した瞬間にリソパの配線ごと黙って消える。
+// source 未設定(null)は usage 起点の行なので外部扱いしない(従来どおり usage に従う)。
+function isExternalSource(source) {
+  const base = String(source == null ? "" : source).split(":")[0];
+  if (!base) return false;
+  return !CMD_SCAN_ID_SET.has(base);
+}
 
 // readEntryFn(configId) は上記 id を受け取り、パース済み YAML データ (無ければ null) を返す。
 // 戻り値: [{material, cmd, sources:[{file, id}]}]  (同一 (material,cmd) は sources に集約)
@@ -410,6 +423,14 @@ function reconcileWithUsageDetailed(usage, registry) {
   }
   const nextKeys = new Set(entries.map((entry) => `${entry.material}#${entry.cmd}`));
 
+  // fork の Java 由来など、スキャン対象の config には実体が無い行は usage で判断できない。
+  // usage に同じ (material,cmd) が現れていない限りそのまま残す(消せるのは登録解除だけ)。
+  const preserved = priorList.filter(
+    (allocation) => isExternalSource(allocation.source)
+      && !nextKeys.has(`${allocation.material}#${allocation.cmd}`)
+  );
+  const preservedKeys = new Set(preserved.map((a) => `${a.material}#${a.cmd}`));
+
   // 引き継ぎ候補 = 「assetName を持ち、かつ元の (material,cmd) が今回の usage に残っていない」行。
   // 元のキーが残っているなら別アイテムがそこに居るということなので移動ではない。
   // 同じ id が複数行にあると引き継ぎ先を決められないため、その id ごと候補から落とす
@@ -419,6 +440,8 @@ function reconcileWithUsageDetailed(usage, registry) {
     const id = allocation.id;
     if (!id || !allocation.assetName) continue;
     if (nextKeys.has(`${allocation.material}#${allocation.cmd}`)) continue;
+    // 残す行は移動元にしない(引き継がれると assetName が二重に使われる)。
+    if (preservedKeys.has(`${allocation.material}#${allocation.cmd}`)) continue;
     movable.set(id, movable.has(id) ? null : allocation);
   }
 
@@ -428,6 +451,9 @@ function reconcileWithUsageDetailed(usage, registry) {
   for (const entry of entries) {
     const prior = existing.get(`${entry.material}#${entry.cmd}`);
     if (prior && prior.assetName) claimed.add(prior.assetName);
+  }
+  for (const allocation of preserved) {
+    if (allocation.assetName) claimed.add(allocation.assetName);
   }
 
   const allocations = [];
@@ -469,6 +495,7 @@ function reconcileWithUsageDetailed(usage, registry) {
     }
     allocations.push(next);
   }
+  allocations.push(...preserved);
 
   return { registry: { version: (registry && registry.version) || 1, allocations }, moved };
 }
@@ -479,6 +506,7 @@ module.exports = {
   CMD_SCAN_IDS,
   RegistryCorruptError,
   isValidMaterial,
+  isExternalSource,
   loadRegistry,
   loadRegistrySafe,
   saveRegistry,
