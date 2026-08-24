@@ -187,9 +187,22 @@ class SpecialRewardsConfigTest {
     }
 
     @Test
-    void negativeNametagClearanceFallsBackToTheDefault(@TempDir File tempDir) throws IOException {
-        // 負の余白は称号をネームタグへ重ねて名前を隠す(＝報告されたバグそのもの)ので、
-        // 設定ミスで再現できないように既定へ戻す。
+    void negativeNametagClearanceIsHonoredDownToTheFloor(@TempDir File tempDir) throws IOException {
+        // ⚠ 2026-08-24(W-212): 負値は【そのまま使う】。以前は既定 0.4 へ戻していたので、
+        //   0 まで下げた人がさらに下げようとすると逆に 0.4 上がっていた。
+        SpecialRewardsConfig config = loaded(tempDir, """
+                display:
+                  nametag-clearance: -0.3
+                titles: {}
+                particles: {}
+                particle-seeds: {}
+                """);
+        assertEquals(-0.3, config.titleNametagClearance(), 1e-9);
+    }
+
+    @Test
+    void nametagClearanceIsClampedAtTheFloorInsteadOfCoveringTheName(@TempDir File tempDir) throws IOException {
+        // 下限より下は下限として扱う(これ以上下げると称号が名前を完全に覆う)。
         SpecialRewardsConfig config = loaded(tempDir, """
                 display:
                   nametag-clearance: -2.0
@@ -197,7 +210,57 @@ class SpecialRewardsConfigTest {
                 particles: {}
                 particle-seeds: {}
                 """);
+        assertEquals(-0.35, config.titleNametagClearance(), 1e-9);
+    }
+
+    @Test
+    void nonFiniteNametagClearanceFallsBackToTheDefault(@TempDir File tempDir) throws IOException {
+        // NaN を teleport 先に入れると追従が丸ごと壊れるので、ここだけは既定へ戻す。
+        SpecialRewardsConfig config = loaded(tempDir, """
+                display:
+                  nametag-clearance: .nan
+                titles: {}
+                particles: {}
+                particle-seeds: {}
+                """);
         assertEquals(0.4, config.titleNametagClearance(), 1e-9);
+    }
+
+    // --- display.title-teleport-duration (2026-08-24 W-212: 追従のズレ) -----------------------------
+
+    @Test
+    void titleTeleportDurationDefaultsToThePlayerInterpolationLength(@TempDir File tempDir) throws IOException {
+        // 3 = クライアントがプレイヤー本体の位置を補間する長さ。1 にすると称号だけ先に着く。
+        SpecialRewardsConfig config = loaded(tempDir, "titles: {}\nparticles: {}\nparticle-seeds: {}\n");
+        assertEquals(3, config.titleTeleportDurationTicks());
+    }
+
+    @Test
+    void titleTeleportDurationHonorsZeroAndClampsOutOfRange(@TempDir File tempDir) throws IOException {
+        // 0 は「補間なし」として正式に許容する(カクつくが遅れは最小)。
+        assertEquals(0, loaded(tempDir, """
+                display:
+                  title-teleport-duration: 0
+                titles: {}
+                particles: {}
+                particle-seeds: {}
+                """).titleTeleportDurationTicks());
+        // 負値は setTeleportDuration が例外を投げて追従ごと止まるので 0 へ丸める。
+        assertEquals(0, loaded(tempDir, """
+                display:
+                  title-teleport-duration: -5
+                titles: {}
+                particles: {}
+                particle-seeds: {}
+                """).titleTeleportDurationTicks());
+        // 長すぎると「まだ終わっていない補間」を上書きし続けて揺れる(W-135)ので上限 10。
+        assertEquals(10, loaded(tempDir, """
+                display:
+                  title-teleport-duration: 999
+                titles: {}
+                particles: {}
+                particle-seeds: {}
+                """).titleTeleportDurationTicks());
     }
 
     // --- prune-orphaned-grants / lastLoadOk (SpecialRewardPruner の安全弁, 2026-07-28) ---------------

@@ -182,6 +182,8 @@ public final class TrinityForge extends JavaPlugin {
     private ProgressionRepository progressionRepository;
     private NativeSkillCatalog progressionCatalog;
     private NativePerkService nativePerkService;
+    /** 消えたノードのperkを剥がしてSPを返す掃除役 (2026-08-24 / W-213)。 */
+    private com.trinityforge.skilltree.runtime.SkillTreePerkPruner skillTreePerkPruner;
     private NativeSkillTreeMenu nativeSkillTreeMenu;
     private CraftQualityService craftQualityService;
     private SkillPerkStatSource skillPerkStatSource;
@@ -468,6 +470,19 @@ public final class TrinityForge extends JavaPlugin {
                     ? java.util.Set.of()
                     : java.util.Set.copyOf(com.trinityforge.pdc.PlayerData.of(online).lockedPerks());
         });
+        // 消えたノードのperkを剥がしてSPを返す掃除役 (2026-08-24 / W-213)。
+        // 起動時と /trinityforge reload の直後に走らせる。スキルツリーの読み込みに
+        // 1件でも問題があった回は自分で見送るので、呼ぶ側で条件を持たない。
+        this.skillTreePerkPruner = new com.trinityforge.skilltree.runtime.SkillTreePerkPruner(
+                progressionService,
+                () -> configManager.skillTrees().all().values(),
+                () -> configManager.skillTrees().lastLoadOk());
+        try {
+            skillTreePerkPruner.pruneAll();
+        } catch (RuntimeException ex) {
+            getLogger().log(java.util.logging.Level.WARNING,
+                    "[progression] 起動時の孤児perk掃除に失敗しました(SPの返却は次回リロードへ持ち越し)", ex);
+        }
         // Public ItemStack -> AttackStats derivation, reusing the same item-category config +
         // stats/item-stats.yml (the SOLE per-item stat source) + attack-stat-keys mapping the
         // CombatListener runs for a melee weapon. Exposed via weaponAttackStats() so the ArsPaper fork can
@@ -860,7 +875,8 @@ public final class TrinityForge extends JavaPlugin {
                 configManager.specialRewards(), configManager.dedicatedEffects());
         this.titleDisplayService = new com.trinityforge.progression.TitleDisplayService(this,
                 player -> specialRewardService.equippedTitleDisplay(player).orElse(null),
-                () -> configManager.specialRewards().titleNametagClearance());
+                () -> configManager.specialRewards().titleNametagClearance(),
+                () -> configManager.specialRewards().titleTeleportDurationTicks());
         getServer().getPluginManager().registerEvents(titleDisplayService, this);
         this.particleEffectService = new com.trinityforge.progression.ParticleEffectService(
                 this, configManager.specialRewards());
@@ -1565,6 +1581,30 @@ public final class TrinityForge extends JavaPlugin {
                                     .requires(TrinityForge::isTfAdmin)
                                     .executes(ctx -> {
                                         int issues = configManager.loadAll();
+                                        // スキルツリーを編集してノードが消えたときの後始末 (2026-08-24 / W-213)。
+                                        // 曲線の再計算より【先】に走らせる: 先に spent を減らしておけば、
+                                        // 直後の ProgressionCurveReconciler が available = earned - spent を
+                                        // 書き戻す際に返却分がそのまま残高へ乗る。逆順だと
+                                        // 「spent > earned で available を 0 に切り詰め」の警告経路と噛み合わず、
+                                        // 次のリロードまで残高が食い違ったままになる。
+                                        if (skillTreePerkPruner != null) {
+                                            try {
+                                                var pruned = skillTreePerkPruner.pruneAll();
+                                                if (!pruned.isEmpty()) {
+                                                    ctx.getSource().getSender().sendMessage(Component.text(
+                                                            "スキルツリーから消えたノードの解放 " + pruned.perks()
+                                                                    + " 件を取り消し、スキルポイント "
+                                                                    + pruned.refundedPoints() + " 点を "
+                                                                    + pruned.players() + " 人へ返却しました。",
+                                                            NamedTextColor.AQUA));
+                                                }
+                                            } catch (RuntimeException ex) {
+                                                issues++;
+                                                getLogger().log(java.util.logging.Level.WARNING,
+                                                        "[progression] 孤児perkの掃除に失敗しました(SPの返却は次回へ持ち越し)",
+                                                        ex);
+                                            }
+                                        }
                                         if (progressionCatalog != null
                                                 && !progressionCatalog.reload(getDataFolder(), getClassLoader())) {
                                             issues++;

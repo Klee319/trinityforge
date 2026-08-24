@@ -60,11 +60,43 @@ public final class SpecialRewardsConfig implements LoadableConfig {
 
     /** {@link #titleNametagClearance()} の既定値。ネームタグ上端と称号行のあいだに空けるブロック数。 */
     private static final double DEFAULT_TITLE_NAMETAG_CLEARANCE = 0.4;
+    /**
+     * 余白の下限。<b>負値を許すのは 2026-08-24 から</b>(実サーバ報告「称号の y 座標をあと 0.3 ほど
+     * 下げたい」)。それまでは負値を既定へ戻していたので、0 まで下げた時点で
+     * <b>config からはそれ以上下げる手段が無かった</b>。
+     *
+     * <p>下限を -0.35 で止める理由: 称号の行もネームタグの行もおよそ 0.25 ブロックの高さがあるので、
+     * -0.25 でちょうど同じ高さ、それより下げると<b>名前の下へ潜る</b>。0.1 ブロックぶんだけ
+     * 潜ることは許す(実機で見て決めるための余地)が、そこから先は名前を完全に覆うので止める。
+     * ⚠ 負にすると W-174「称号がネームタグを消す」に近づく。読みにくくなったら 0 へ戻すこと。
+     */
+    private static final double MIN_TITLE_NAMETAG_CLEARANCE = -0.35;
+    /**
+     * 称号の追従補間(tick)の既定。
+     *
+     * <p><b>3 の根拠</b>: クライアントは<b>プレイヤー本体の位置を約3tickかけて補間</b>する
+     * (移動パケットが届くたびに補間をやり直す)。一方 {@link org.bukkit.entity.Display} の位置は
+     * {@code teleport_duration} ぶんで補間される。ここを 1 にすると称号は<b>本体の描画より先に
+     * 目的地へ着く</b>ので、走り出し・停止・方向転換のたびに頭からズレる。
+     * 本体と同じ 3 にすると同じ補間の法則で動くので、他人を見たときのズレが最小になる。
+     *
+     * <p>⚠ {@code TEXT_DISPLAY} の {@code updateInterval} は <b>1</b>(稼働中の
+     * paper-1.21.11 の {@code EntityType} を逆アセンブルして確認済み)。つまり位置更新は
+     * 毎tick届いているので、「パケットが3tickに1回しか来ない」たぐいの遅れではない。
+     *
+     * <p>⚠ <b>自分の称号を F5(三人称)で見た場合の遅れは、ここを何にしても消えない。</b>
+     * 自分の本体だけはクライアントが予測して即座に描くが、称号はサーバ由来なので
+     * 必ず往復ぶん遅れる。他人から見た位置は合っている。
+     */
+    private static final int DEFAULT_TITLE_TELEPORT_DURATION_TICKS = 3;
+    /** 補間の上限。これ以上長いと「まだ終わっていない補間」を上書きし続けて揺れて見える(W-135)。 */
+    private static final int MAX_TITLE_TELEPORT_DURATION_TICKS = 10;
 
     private volatile Map<String, Title> titles = Map.of();
     private volatile Map<String, ParticleEffect> particles = Map.of();
     private volatile Map<String, ParticleSeed> particleSeeds = Map.of();
     private volatile double titleNametagClearance = DEFAULT_TITLE_NAMETAG_CLEARANCE;
+    private volatile int titleTeleportDurationTicks = DEFAULT_TITLE_TELEPORT_DURATION_TICKS;
     // 孤児化した付与分の自動剥奪 (SpecialRewardPruner) の安全弁。既定true。壊れたYAMLを「全部未定義」と
     // 誤判定して全員の報酬を消し飛ばす事故を防ぐため、これがfalseの間はプルーナー自体を丸ごとスキップできる。
     private volatile boolean pruneOrphanedGrants = true;
@@ -112,6 +144,20 @@ public final class SpecialRewardsConfig implements LoadableConfig {
     }
 
     /**
+     * 称号の追従補間の長さ(tick)。{@code display.title-teleport-duration}、既定 3。
+     *
+     * <p>クライアントはプレイヤー本体の位置を約3tickかけて補間するので、称号も同じ長さにすると
+     * 同じ法則で動いてズレが最小になる。1 にすると称号だけが先に目的地へ着くため、
+     * 走り出し・停止・方向転換で頭からズレて見える。長くしすぎると「まだ終わっていない補間」を
+     * 上書きし続けて揺れる(W-135)ので上限 10。0 は補間なし(20Hz で段階的に動く)。
+     *
+     * <p>{@code /trinityforge reload} で次tickから反映される(毎tick読み直している)。
+     */
+    public int titleTeleportDurationTicks() {
+        return titleTeleportDurationTicks;
+    }
+
+    /**
      * true(既定) = このファイルから削除された報酬IDを、プレイヤーの保持分(付与リスト/装備欄)からも
      * 自動で取り除く({@code SpecialRewardPruner})。false ならプルーナーはオンライン参加/reload の
      * どちらでも一切走らない(安全弁)。
@@ -147,12 +193,34 @@ public final class SpecialRewardsConfig implements LoadableConfig {
         this.titles = result.titles();
         this.particles = result.particles();
         this.particleSeeds = result.particleSeeds();
-        // display.nametag-clearance: 0 も「ネームタグ上端にぴったり載せる」として正式に許容する。
-        // 負値/非有限値だけ既定へ戻す(負にするとネームタグへ再び重なり、直したはずのバグが戻るため)。
+        // display.nametag-clearance:
+        //   0 は「ネームタグ上端にぴったり載せる」。
+        //   ⚠ 2026-08-24 から【負値も許す】(報告「称号のy座標をあと0.3くらい下げたい」)。
+        //     それまでは負値を既定 0.4 へ戻していたので、0 まで下げた人が更に下げようとすると
+        //     【逆に 0.4 上がる】という最悪の挙動だった。下限は MIN_TITLE_NAMETAG_CLEARANCE。
+        //   非有限値(NaN/∞)だけは既定へ戻す。
         double clearance = yaml.getDouble("display.nametag-clearance", DEFAULT_TITLE_NAMETAG_CLEARANCE);
-        this.titleNametagClearance = Double.isFinite(clearance) && clearance >= 0.0
-                ? clearance
-                : DEFAULT_TITLE_NAMETAG_CLEARANCE;
+        if (!Double.isFinite(clearance)) {
+            log.warning("[" + PATH + "] display.nametag-clearance が数値ではないため既定値 "
+                    + DEFAULT_TITLE_NAMETAG_CLEARANCE + " を使います");
+            this.titleNametagClearance = DEFAULT_TITLE_NAMETAG_CLEARANCE;
+        } else if (clearance < MIN_TITLE_NAMETAG_CLEARANCE) {
+            log.warning("[" + PATH + "] display.nametag-clearance: " + clearance
+                    + " は下限 " + MIN_TITLE_NAMETAG_CLEARANCE
+                    + " を下回るため下限として扱います(これ以上下げると称号が名前を完全に覆います)");
+            this.titleNametagClearance = MIN_TITLE_NAMETAG_CLEARANCE;
+        } else {
+            this.titleNametagClearance = clearance;
+        }
+        // display.title-teleport-duration: 称号の追従補間(tick)。既定3(本体の補間と同じ長さ)。
+        int duration = yaml.getInt("display.title-teleport-duration", DEFAULT_TITLE_TELEPORT_DURATION_TICKS);
+        int clampedDuration = Math.max(0, Math.min(MAX_TITLE_TELEPORT_DURATION_TICKS, duration));
+        if (clampedDuration != duration) {
+            log.warning("[" + PATH + "] display.title-teleport-duration: " + duration
+                    + " は範囲外(0.." + MAX_TITLE_TELEPORT_DURATION_TICKS + ")のため "
+                    + clampedDuration + " として扱います");
+        }
+        this.titleTeleportDurationTicks = clampedDuration;
         this.pruneOrphanedGrants = yaml.getBoolean("prune-orphaned-grants", true);
 
         if (result.skipped() > 0) {

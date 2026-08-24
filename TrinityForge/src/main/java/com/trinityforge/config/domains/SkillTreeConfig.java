@@ -55,6 +55,21 @@ public final class SkillTreeConfig implements LoadableConfig {
     // skill id (from the file's `skill:` field) -> immutable tree. Swapped atomically on reload.
     private volatile Map<String, SkillTree> trees = Map.of();
 
+    /**
+     * 直近の {@link #load(Plugin)} が<b>1件も問題なく</b>終わったか (2026-08-24 / W-213)。
+     *
+     * <p>「ツリーから消えたノードのperkを剥がしてSPを返す」掃除
+     * ({@code SkillTreePerkPruner}) の安全弁。ノードが1つでも壊れて読み飛ばされた回は
+     * 「消えた」と「読めなかった」を区別できないので、掃除ごと見送らせる。
+     * 初期値 {@code false} = まだ一度も読んでいない状態では掃除しない。
+     */
+    private volatile boolean lastLoadOk;
+
+    /** 直近のロードが完全成功したか。{@code SkillTreePerkPruner} の起動条件。 */
+    public boolean lastLoadOk() {
+        return lastLoadOk;
+    }
+
     /** The tree for {@code skillId} (case-insensitive), or empty when none is loaded. */
     public Optional<SkillTree> tree(String skillId) {
         if (skillId == null) {
@@ -74,6 +89,14 @@ public final class SkillTreeConfig implements LoadableConfig {
 
     @Override
     public boolean load(Plugin plugin) {
+        // 成否の記録は【出口を1つに絞って】行う。個々の return 側に書くと、
+        // 後から分岐が増えたときに書き忘れて「壊れた回も掃除が走る」側へ倒れる。
+        boolean ok = loadTrees(plugin);
+        this.lastLoadOk = ok;
+        return ok;
+    }
+
+    private boolean loadTrees(Plugin plugin) {
         Logger log = plugin.getLogger();
         saveBundledDefaults(plugin, log);
 

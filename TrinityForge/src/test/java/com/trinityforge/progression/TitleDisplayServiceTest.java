@@ -92,13 +92,50 @@ class TitleDisplayServiceTest {
     }
 
     @Test
-    void negativeOrBrokenClearanceFallsBackInsteadOfSinkingIntoTheNametag() {
+    void brokenClearanceFallsBackInsteadOfBreakingTheFollow() {
+        // 非有限値だけは既定へ戻す。NaN を teleport 先に入れると追従が丸ごと壊れる。
         double fallback = TitleDisplayService.titleAnchorY(1.8, 0.4);
 
-        assertEquals(fallback, TitleDisplayService.titleAnchorY(1.8, -1.0), 1e-9,
-                "負の余白は既定へ戻す(そのまま使うと名前へ重なる)");
         assertEquals(fallback, TitleDisplayService.titleAnchorY(1.8, Double.NaN), 1e-9);
         assertEquals(fallback, TitleDisplayService.titleAnchorY(1.8, Double.POSITIVE_INFINITY), 1e-9);
+        assertEquals(fallback, TitleDisplayService.titleAnchorY(1.8, Double.NEGATIVE_INFINITY), 1e-9);
+    }
+
+    @Test
+    void negativeClearanceLowersTheTitleInsteadOfRaisingIt() {
+        // ⚠ 2026-08-24(W-212)の回帰テスト。以前は負値を既定 0.4 へ落としていたので、
+        //   「0 まで下げた人がさらに下げようとすると【逆に 0.4 上がる】」という最悪の挙動だった。
+        double atZero = TitleDisplayService.titleAnchorY(1.8, 0.0);
+        double lowered = TitleDisplayService.titleAnchorY(1.8, -0.3);
+
+        assertEquals(atZero - 0.3, lowered, 1e-9, "負の余白はそのぶん下げる(既定へ戻さない)");
+        assertTrue(lowered < atZero, "下げたいのに上がってはいけない");
+        // ⚠ ここで「ネームタグと重ならない」までは主張しない。TextDisplay のテキストが
+        //   アンカーの上か中心かはサーバ側から観測できず、余白 0 でも実機に隙間が残っていた
+        //   (だから 0.3 下げる要望が来た)。つまり式の 0.25 は見積りで、真の重なり判定はできない。
+        //   守れるのは「下げる指示が下げる向きに働く」ことと、下限より下へは行かないことだけ。
+    }
+
+    @Test
+    void shippedClearanceStaysWithinTheConfiguredFloor() throws Exception {
+        // 出荷 yml の値が config 側の下限より下だと、起動ごとに警告が出て意図した位置にならない。
+        // 「Java の下限」と「出荷 yml」を必ず同時に動かすためのガード。
+        java.lang.reflect.Field floor = com.trinityforge.config.domains.SpecialRewardsConfig.class
+                .getDeclaredField("MIN_TITLE_NAMETAG_CLEARANCE");
+        floor.setAccessible(true);
+        double min = (double) floor.get(null);
+
+        String yaml = java.nio.file.Files.readString(
+                java.nio.file.Path.of("src/main/resources/progression/special-rewards.yml"));
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("(?m)^\\s{2}nametag-clearance:\\s*(-?[0-9.]+)").matcher(yaml);
+        assertTrue(matcher.find(), "出荷 yml に nametag-clearance が無い");
+        double shipped = Double.parseDouble(matcher.group(1));
+
+        assertTrue(shipped >= min,
+                "出荷値 " + shipped + " が下限 " + min + " を下回っている(起動ごとに警告が出る)");
+        assertTrue(shipped <= 0.0,
+                "出荷値は「ネームタグ上端 + 余白」の 0 以下(=下げる側)であること: " + shipped);
     }
 
     @Test
@@ -178,7 +215,14 @@ class TitleDisplayServiceTest {
                 "騎乗ブリッジが復活している。ネームタグが消えるので戻してはいけない");
     }
 
-    /** テレポート追従(＝唯一の経路)が名前の行と重ならないこと。 */
+    /**
+     * テレポート追従(＝唯一の経路)が名前の行と重ならないこと。
+     *
+     * <p>⚠ 2026-08-24(W-212)以降、余白は<b>負にもできる</b>(実機で見て詰めるため)。
+     * この検査が守るのは「余白 0 以上なら絶対に重ならない」という部分だけで、
+     * 負にしたときの重なりは<b>運用者が選んだ結果</b>として許す。下限は
+     * {@code SpecialRewardsConfig.MIN_TITLE_NAMETAG_CLEARANCE} が持つ。
+     */
     @Test
     void teleportFollowedTitleNeverOverlapsTheVanillaNametagEither() {
         double[][] postures = {{1.8, 1.62}, {1.5, 1.27}, {0.6, 1.27}};

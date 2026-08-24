@@ -32,6 +32,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.DoubleSupplier;
 import java.util.function.Function;
+import java.util.function.IntSupplier;
 
 /**
  * 称号(titles) の頭上表示 (2026-07-23-stat-gate-overhaul §6.1): 装備中プレイヤーの<b>頭上の別行</b>に
@@ -113,15 +114,27 @@ public final class TitleDisplayService implements Listener {
     /** 追従tick間隔。{@code FocusHpDisplay} と揃える。 */
     private static final long PERIOD_TICKS = 1L;
     /**
-     * テレポート間をクライアント側で補間するtick数。
+     * テレポート間をクライアント側で補間するtick数の<b>フォールバック</b>。
+     * 実際の値は {@code progression/special-rewards.yml} の
+     * {@code display.title-teleport-duration}（既定 3）から毎tick読む。
      *
-     * <p><b>{@link #PERIOD_TICKS} と必ず同じ値にすること(2026-08-19 / W-135)。</b>
-     * 補間長が更新間隔より長いと、毎tick「まだ終わっていない補間」を新しい目的地で
-     * 上書きし続けることになり、称号は常に本体より遅れて追いつけないまま<b>揺れて見える</b>
-     * (実サーバ報告「少し揺れる」)。等しくしておけば、補間はちょうど次の更新が届く瞬間に
-     * 完了するので、滑らかさを保ったまま遅れが出ない。
+     * <p><b>2026-08-24(W-212)に「補間長 = 更新間隔(1)」という規約をやめた。</b>
+     * 2026-08-19(W-135)の理屈は「補間長が更新間隔より長いと、まだ終わっていない補間を
+     * 毎tick上書きし続けて揺れる」だったが、<b>それはクライアントがプレイヤー本体に対して
+     * やっていることそのもの</b>(移動パケットが届くたびに約3tickの補間をやり直す)で、
+     * 本体は揺れて見えない。つまり揃えるべき相手は「自分が teleport を呼ぶ間隔」ではなく
+     * <b>本体の補間長</b>だった。1 にすると称号だけが先に目的地へ着くので、
+     * 走り出し・停止・方向転換のたびに頭からズレる。
+     *
+     * <p>⚠ 「パケットが数tickに1回しか来ない」たぐいの遅れではないことは確認済み ――
+     * 稼働中の paper-1.21.11 の {@code EntityType} を逆アセンブルすると
+     * {@code text_display} は {@code updateInterval(1)} で登録されており、位置更新は毎tick届く。
+     *
+     * <p>⚠ <b>自分の称号を F5(三人称)で見たときの遅れはここを何にしても消えない。</b>
+     * 自分の本体だけはクライアントが予測して即座に描くのに対し、称号はサーバ由来なので
+     * 必ず往復ぶん遅れる。他人から見えている位置はズレていない。
      */
-    private static final int TELEPORT_DURATION_TICKS = (int) PERIOD_TICKS;
+    private static final int FALLBACK_TELEPORT_DURATION_TICKS = 3;
     /**
      * バニラがネームタグを描画する高さ(足元から {@code 高さ + この値})。Minecraft 側の定数であり
      * 設定値ではない。ここを config にすると「バニラの描画位置」という観測事実が設定ミスで
@@ -149,8 +162,13 @@ public final class TitleDisplayService implements Listener {
     private final Plugin plugin;
     /** プレイヤーの現在の装備称号MiniMessage文字列を返す(未装備/未保有なら null)。 */
     private final Function<Player, String> textResolver;
-    /** ネームタグ上端からさらに上へ空ける余白(ブロック)。config駆動、reloadで次tickから反映。 */
+    /**
+     * ネームタグ上端からさらに上へ空ける余白(ブロック)。config駆動、reloadで次tickから反映。
+     * <b>負値も来る</b>(2026-08-24 / W-212。下限は {@code SpecialRewardsConfig} 側でクランプ済み)。
+     */
     private final DoubleSupplier nametagClearance;
+    /** 追従補間の長さ(tick)。config駆動、reloadで次tickから反映。 */
+    private final IntSupplier teleportDurationTicks;
     private final Map<UUID, TextDisplay> active = new ConcurrentHashMap<>();
     /**
      * 迷子掃除の間隔(tick)。5秒 —— 二重表示に気付く前に消える速さと、
@@ -168,9 +186,25 @@ public final class TitleDisplayService implements Listener {
     private BukkitTask orphanSweepTask;
 
     public TitleDisplayService(Plugin plugin, Function<Player, String> textResolver, DoubleSupplier nametagClearance) {
+        this(plugin, textResolver, nametagClearance, () -> FALLBACK_TELEPORT_DURATION_TICKS);
+    }
+
+    public TitleDisplayService(Plugin plugin, Function<Player, String> textResolver,
+                               DoubleSupplier nametagClearance, IntSupplier teleportDurationTicks) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.textResolver = Objects.requireNonNull(textResolver, "textResolver");
         this.nametagClearance = Objects.requireNonNull(nametagClearance, "nametagClearance");
+        this.teleportDurationTicks = Objects.requireNonNull(teleportDurationTicks, "teleportDurationTicks");
+    }
+
+    /**
+     * config から補間長を読む。壊れた値(負)はフォールバックへ落とす ――
+     * {@code setTeleportDuration} に負値を渡すと {@code IllegalArgumentException} で
+     * 毎tick例外を吐き、称号の追従が丸ごと止まる。
+     */
+    private int resolvedTeleportDuration() {
+        int ticks = teleportDurationTicks.getAsInt();
+        return ticks >= 0 ? ticks : FALLBACK_TELEPORT_DURATION_TICKS;
     }
 
     /**
@@ -178,10 +212,18 @@ public final class TitleDisplayService implements Listener {
      *
      * <p>{@code playerHeight + 0.5} がバニラのネームタグの描画高さ(<b>中心</b>)。そこへ
      * {@link #NAMETAG_LINE_HEIGHT}(名前の行を跨ぐぶん)と {@code clearance}(設定で足す余白)を
-     * 足したところに称号の<b>中心</b>を置く。返り値が常に
-     * {@code playerHeight + 0.5 + NAMETAG_LINE_HEIGHT} 以上であることが、
-     * 「称号が名前に重ならない」＝報告されたバグが再発しないことの保証になる
-     * (2026-08-20 W-174 で「下に来ない」から「重ならない」へ強めた)。
+     * 足したところに称号の<b>中心</b>を置く。
+     *
+     * <p><b>2026-08-24(W-212)に不変条件を緩めた。</b> それまでは
+     * 「返り値は常に {@code playerHeight + 0.5 + NAMETAG_LINE_HEIGHT} 以上」＝
+     * 名前に絶対重ならないことを保証していた(W-174 の再発防止)。しかし実サーバの余白は既に 0 で、
+     * <b>それでも実機では高すぎる</b>という報告(「y座標をあと0.3くらい下げたい」)が来た。
+     * この式の {@code NAMETAG_LINE_HEIGHT} は「1行の高さ 0.25」という<b>見積り</b>であって
+     * 実測ではないので、見積りが過大なら余白 0 でも隙間が残る。
+     * そこで負の余白を許し、下限は {@code SpecialRewardsConfig} 側
+     * ({@code MIN_TITLE_NAMETAG_CLEARANCE = -0.35}) で持つことにした。
+     * 今の保証は「<b>名前を完全に覆う位置までは下げられない</b>」に弱まっている ――
+     * 名前が読みにくくなったら {@code display.nametag-clearance} を 0 へ戻すこと。
      *
      * <p>{@code playerHeight} は {@code player.getHeight()} をそのまま渡す。スニーク中(1.5)や
      * スケール変更にも自動追従し、立ち状態(1.8)を定数で埋め込まない。
@@ -205,7 +247,11 @@ public final class TitleDisplayService implements Listener {
     static double titleAnchorY(double playerHeight, double eyeHeight, double clearance) {
         double height = Double.isFinite(playerHeight) && playerHeight > 0 ? playerHeight : 1.8;
         double eyes = Double.isFinite(eyeHeight) && eyeHeight > 0 ? eyeHeight : 0.0;
-        double gap = Double.isFinite(clearance) && clearance >= 0 ? clearance : FALLBACK_CLEARANCE;
+        // ⚠ 2026-08-24(W-212): 負値を FALLBACK へ落とさない。
+        //   落としていたせいで「0 まで下げた人が更に下げようとすると逆に 0.4 上がる」という
+        //   最悪の挙動になっていた。下限のクランプは SpecialRewardsConfig 側の責務。
+        //   ここで弾くのは非有限値(NaN/∞)だけ ―― teleport 先が NaN になると追従が丸ごと壊れる。
+        double gap = Double.isFinite(clearance) ? clearance : FALLBACK_CLEARANCE;
         return Math.max(height, eyes) + VANILLA_NAMETAG_OFFSET + NAMETAG_LINE_HEIGHT + gap;
     }
 
@@ -289,9 +335,9 @@ public final class TitleDisplayService implements Listener {
                 refresh(player);
                 continue;
             }
-            // 補間長を更新間隔(PERIOD_TICKS)に揃えてあるので、次の更新が届く瞬間に補間が
-            // ちょうど終わる ── 滑らかなまま「追いつけずに揺れる」状態にはならない(W-135)。
-            display.setTeleportDuration(TELEPORT_DURATION_TICKS);
+            // 補間長は config 駆動(既定3 = クライアントがプレイヤー本体を補間するのと同じ長さ)。
+            // 毎tick読み直しているので /trinityforge reload が次tickから効く(W-212)。
+            display.setTeleportDuration(resolvedTeleportDuration());
             display.teleport(anchor);
         }
     }
@@ -313,7 +359,7 @@ public final class TitleDisplayService implements Listener {
             d.setSeeThrough(true);
             d.setDefaultBackground(false);
             d.setTextOpacity((byte) 200);
-            d.setTeleportDuration(TELEPORT_DURATION_TICKS);
+            d.setTeleportDuration(resolvedTeleportDuration());
             d.text(text);
         });
         active.put(player.getUniqueId(), display);
