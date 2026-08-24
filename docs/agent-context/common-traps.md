@@ -465,6 +465,21 @@ Paper のサーバ実装ソースは Gradle キャッシュに `.java` のまま
 起動ログには `registered N custom potion mix(es)` が正常に出るので**ログには何も現れない**。
 穴あけは `TrinityForgeBridge#tfBrewIngredientMaterialIds()`（`brew-unlocks` の `ingredient`）。
 
+### ⚠️ `PlayerInteractEvent` が通っても、その操作が実行されたとは限らない（W-210）
+
+「右クリックできた」を報酬の根拠にすると、**操作が実行されなかったケースで無限に稼げる**。
+`PlayerInteractEvent#isCancelled()` は **`useInteractedBlock()` と等価**なので、
+`ignoreCancelled = true` は `setUseItemInHand(DENY)` を素通しする。さらにバニラ自身が
+「イベントは通すが何もしない」ことがある —— 代表例が斧の皮剥ぎで、
+**`AxeItem#useOn` はオフハンドに `blocks_attacks` を持つ品（＝盾）があり、かつスニークしていなければ
+何もせず `PASS` を返す**（盾を構えて原木を剥いでしまう事故を防ぐための意図的な挙動）。
+実際に「盾を持って原木を連打するだけで伐採EXPが無限に入る」報告になった。
+
+**報酬は「操作が起きた」ではなく「状態が変わった」で判定する。**
+ブロック変換なら `EntityChangeBlockEvent`（MONITOR / `ignoreCancelled = true`）が
+`setBlock` の直前に発火するので、ここまで届けば変換は必ず起きる。
+バニラ側の門を自前で真似るのは禁物（バージョンが上がると静かにズレる）。
+
 ### ⚠️ `InventoryClickEvent#getInventory()` はクリック位置に関係なく常に「上段」を返す
 
 装置インベントリを見張るガードで `getInventory().getType()` だけを条件にすると、

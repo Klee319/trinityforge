@@ -3731,6 +3731,7 @@ CMD・respack 系 8 ファイルで 112/112 通過。
 | W-199 | 手置きの鉱石でも一括破壊を発動させたい（ただしバニラEXPと職業EXPは入れない） | ✅ 実装（**TF jar が要る**。実際に要った変更は「門を外す」だけで、**抑止は1つも足していない**。⚠ **GTH-02 の増殖経路が開く**） |
 | W-200 | 一括破壊の連鎖分にバニラの経験値オーブが出ていない | ✅ 修正（**TF jar が要る**。**一括破壊が存在して以来ずっとの取りこぼし**で、鉱脈を一括で掘ると起点1ブロック分しか経験値が入っていなかった） |
 | W-209 | 醸造台にクリスタルリンゴを入れようとしてもインベントリから動かない | ✅ 修正（**ArsPaper jar が要る**。TF 側の変更なし。**出荷 config の醸造素材 8 件すべてが入れられず、カスタム素材を使う醸造レシピが 1 件残らず死んでいた**） |
+| W-210 | 盾を持っていると皮を剥ぐ動作がキャンセルされるのに伐採EXPだけ入り、放置連打で稼げる | ✅ 修正（**TF jar が要る**。**真因はバニラの仕様**。盾だけの話ではなく「右クリックは通るが剥がれない」全経路で無限に稼げていた） |
 
 #### W-191 真因: 杖は `catalysts:` に1本も登録されていない
 
@@ -4264,6 +4265,56 @@ TF の `BrewPotionMixRegistrar` は `PotionMix` を**述語**（`createPredicate
 `base: MUNDANE`（＝**ありふれたポーション**）なので、水入り瓶のままでは醸造が始まらない。
 先に「水入り瓶 + レッドストーン → ありふれたポーション」を作ってから入れる。
 またグループ `luck` は `skilltree/alchemy.yml` の `brew:luck` ノードで解放する。
+
+#### W-210 盾を持つと皮を剥げないのに伐採EXPだけ入る — **真因はバニラの仕様**
+
+> 「伐採のスキル経験値が、盾を持っていると革をはぐ動作がキャンセルされ、
+> 革が無限にはげるため放置連打するだけで経験値が稼げてしまう」
+
+**バニラの `AxeItem#useOn` は最初に `playerHasBlockingItemUseIntent` を見る**
+（Paper 1.21.11 のサーバソースを実物で確認。
+`~/.gradle/caches/paperweight-userdev/v2/work/applyDevBundlePatches_*/output.jar` の
+`net/minecraft/world/item/AxeItem.java`）:
+
+```java
+private static boolean playerHasBlockingItemUseIntent(UseOnContext context) {
+    return context.getHand().equals(InteractionHand.MAIN_HAND)
+        && player.getOffhandItem().has(DataComponents.BLOCKS_ATTACKS)   // ＝盾
+        && !player.isSecondaryUseActive();                              // ＝スニークしていない
+}
+```
+
+真なら**何もせず `PASS` を返す**（盾を構えようとして原木の皮を剥いでしまう事故を防ぐための
+意図的な挙動）。**ブロックは原木のまま残る。**
+
+一方 TF の旧 `onWoodStrip` は `PlayerInteractEvent`（MONITOR / `ignoreCancelled = true`）で
+**「斧を持って原木を右クリックした」だけ**を見て配っていた。上のケースで
+`PlayerInteractEvent` は**キャンセルされない**ので素通りし、
+ブロックが変わらないので**同じ原木を連打するだけで無限に伐採EXPが入る**。
+
+**盾だけの話ではない。**「右クリックは通るが剥がれない」経路は他にもある:
+
+| 経路 | なぜ `ignoreCancelled` で止まらないか |
+|---|---|
+| オフハンドに盾（本報告） | バニラが `PASS` を返すだけで、イベントはキャンセルされない |
+| 他プラグインが `setUseItemInHand(DENY)` だけ立てた | `PlayerInteractEvent#isCancelled()` は `useInteractedBlock()` と**等価**なので false のまま |
+| `EntityChangeBlockEvent` を他プラグインがキャンセル | 剥がれないが `PlayerInteractEvent` は既に通過済み |
+
+**直し方**: バニラの門を TF 側で真似ない（真似ると次のバージョンで静かにズレる）。
+**「変換が実際に起きる瞬間」だけを見る**ように入口を `EntityChangeBlockEvent` へ移した。
+このイベントは `AxeItem#useOn` が変換先を確定して `setBlock` を呼ぶ**直前**に発火するので、
+MONITOR かつ `ignoreCancelled = true` まで届いた時点で**変換は必ず起きる**。
+斧が通る他の変換（銅の酸化落とし・蝋落とし）は `getTo()` が `STRIPPED_<元の材質>` と
+一致しないので自然に外れる。
+
+**挙動が 1 つだけ増える**: イベントは「どちらの手で使ったか」を教えないので斧はメインハンド優先で
+両手を見る。バニラは**オフハンドの斧でも皮を剥げる**ため、旧実装（メインハンド限定）で
+0 だったぶんが今回から入るようになる。
+
+- TF 本体 `7d602d6`。push 済み。**TF jar の再ビルドと配備が要る**
+  （`TrinityForge-0.1.0-SNAPSHOT-all.jar` 16,625,953 バイト / 08-24 16:19）。
+- `WoodStripExpRequiresRealStripTest` **8 件**を追加。
+  `listeners` パッケージ **982 件・失敗 0・スキップ 0**。
 
 ---
 
