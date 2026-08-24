@@ -28,7 +28,9 @@ import java.util.logging.Logger;
  * エラーもログも出ないので、気づけるのは「受け取った本人が何も起きないと気づいたとき」だけだった。
  *
  * <p>このクラスは「配る」側を担う: 解放と同時に {@code seed-item} を1個手渡し、
- * <b>使い方(道具/武器と一緒に作業台へ置く)を文章で伝える</b>。
+ * <b>使い方(道具/武器と一緒に金床へ置く)を文章で伝える</b>
+ * (付与の場は 2026-08-25 / W-214 で作業台から金床へ移した ──
+ * 理由は {@link com.trinityforge.listeners.ParticleSeedListener} のクラスjavadoc)。
  * もう一方(保有していないシードは刻印できない)は {@code ParticleSeedListener} 側のゲートで担保する
  * ── 配るだけにすると「素材はバニラ材(ブレイズパウダー等)なので誰でも自前で用意できる」ため、
  * 報酬としての意味が戻らない。
@@ -69,9 +71,12 @@ public final class ParticleSeedDelivery {
                 ? given.displayName()
                 : Component.text(seed.seedItem(), NamedTextColor.WHITE);
         player.sendMessage(Component.text("使い方: ", NamedTextColor.GRAY)
+                .append(Component.text("金床の左に 道具/武器、右に ", NamedTextColor.GRAY))
                 .append(seedName)
-                .append(Component.text(" と 道具/武器 の2つだけを作業台に置くと、その道具に粒子が焼き付きます"
+                .append(Component.text(" を置くと、その道具に粒子が焼き付きます"
                         + "(ブロック破壊・攻撃のたびに発生)。", NamedTextColor.GRAY)));
+        player.sendMessage(Component.text("持っているシードは /tf settings の最下段で確認できます。",
+                NamedTextColor.DARK_GRAY));
         return true;
     }
 

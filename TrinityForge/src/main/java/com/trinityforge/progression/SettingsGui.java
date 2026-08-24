@@ -23,6 +23,7 @@ import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -34,6 +35,9 @@ import java.util.function.Consumer;
  * 15件を超えたらページ送りで全件に届く。<b>件数で黙って切ってはいけない</b> —
  * 2026-08-17 まで1行8件で打ち切っており、出荷 special-rewards.yml の称号20件のうち
  * 12件が GUI から永久に見えなかった(エラーも警告も出ないので気づけない)。
+ *
+ * <p>最下段はパーティクルシードの<b>閲覧専用</b>一覧(2026-08-25 / W-215)。
+ * こちらは装備するものではなく道具へ刻印するものなので、クリックしても何も起きない。
  */
 public final class SettingsGui implements Listener {
 
@@ -59,6 +63,24 @@ public final class SettingsGui implements Listener {
     private static final int PREV_PAGE_OFFSET = 16;
     private static final int NEXT_PAGE_OFFSET = 17;
 
+    /**
+     * パーティクルシードの一覧(2026-08-25 / W-215、実サーバ報告
+     * 「現状何のパーティクルシードがあるかをGUIで確認するすべがない」)。
+     *
+     * <p>称号・パーティクルと違って<b>装備するものではない</b>(道具に刻印する)ので、ここは閲覧専用。
+     * それでも同じ画面に置くのは、解放通知を見逃した人が「自分が何を持っていて、
+     * どの素材で、どこで付けるのか」を確かめられる場所が他に1つも無かったため。
+     *
+     * <p>5行目(45〜53)の9枠に収める: 45=説明、46〜51=6件、52/53=ページ送り。
+     * 出荷は6件なのでいまは1ページだが、<b>件数で黙って切らない</b>
+     * (称号が1行8件で打ち切られ12件が永久に見えなかった 2026-08-17 の再発防止)。
+     */
+    private static final int SEED_INFO_SLOT = 45;
+    private static final int SEED_ROW_START = 46;
+    private static final int SEED_OPTIONS_PER_PAGE = 6;
+    private static final int SEED_PREV_SLOT = 52;
+    private static final int SEED_NEXT_SLOT = 53;
+
     private final Plugin plugin;
     private final SpecialRewardsConfig config;
     private final SpecialRewardService rewardService;
@@ -69,6 +91,7 @@ public final class SettingsGui implements Listener {
     private final NamespacedKey gatherToggleKey;
     private final NamespacedKey titlePageKey;
     private final NamespacedKey particlePageKey;
+    private final NamespacedKey seedPageKey;
     private Consumer<Player> onTitleChanged = p -> { };
     /** メール受信箱を開くフック。メール機能の初期化に失敗した回は null のままで、ボタンも出さない。 */
     private Consumer<Player> onOpenMail;
@@ -85,6 +108,7 @@ public final class SettingsGui implements Listener {
         this.gatherToggleKey = new NamespacedKey(plugin, "settings_gui_gather_toggle");
         this.titlePageKey = new NamespacedKey(plugin, "settings_gui_title_page");
         this.particlePageKey = new NamespacedKey(plugin, "settings_gui_particle_page");
+        this.seedPageKey = new NamespacedKey(plugin, "settings_gui_seed_page");
     }
 
     /** メール受信箱を開くフック({@code MailInboxGui::open})。未設定ならボタンを描かない。 */
@@ -106,7 +130,12 @@ public final class SettingsGui implements Listener {
     }
 
     public void open(Player player) {
-        open(player, 0, 0);
+        open(player, 0, 0, 0);
+    }
+
+    /** 既存の呼び出し互換(シードのページは先頭)。 */
+    void open(Player player, int titlePage, int particlePage) {
+        open(player, titlePage, particlePage, 0);
     }
 
     /** ページ数(0件でも1ページある扱いにして、ページ番号を常に 0 に丸められるようにする)。 */
@@ -119,7 +148,7 @@ public final class SettingsGui implements Listener {
         return Math.max(0, Math.min(page, pageCount(optionCount) - 1));
     }
 
-    void open(Player player, int titlePage, int particlePage) {
+    void open(Player player, int titlePage, int particlePage, int seedPage) {
         Session session = new Session();
         Inventory inventory = Bukkit.createInventory(session, SIZE, Component.text("設定"));
         session.inventory = inventory;
@@ -175,7 +204,103 @@ public final class SettingsGui implements Listener {
         }
         applyPageButtons(inventory, PARTICLE_ROW_START, particles, particleIds.size(), particlePageKey, "パーティクル");
 
+        // 読み込みに失敗した回は空(実装によっては null)になりうる。設定画面そのものは開けること。
+        Map<String, SpecialRewardsConfig.ParticleSeed> seedDefs = config.particleSeeds();
+        if (seedDefs == null) {
+            seedDefs = Map.of();
+        }
+        List<String> seedIds = new ArrayList<>(seedDefs.keySet());
+        int seeds = Math.max(0, Math.min(seedPage, seedPageCount(seedIds.size()) - 1));
+        session.seedPage = seeds;
+        inventory.setItem(SEED_INFO_SLOT, seedInfoButton());
+        for (int i = 0; i < SEED_OPTIONS_PER_PAGE; i++) {
+            int index = seeds * SEED_OPTIONS_PER_PAGE + i;
+            if (index >= seedIds.size()) {
+                break;
+            }
+            String id = seedIds.get(index);
+            inventory.setItem(SEED_ROW_START + i, seedButton(
+                    id, seedDefs.get(id), rewardService.isUnlocked(player, id)));
+        }
+        int seedPages = seedPageCount(seedIds.size());
+        if (seedPages > 1) {
+            if (seeds > 0) {
+                inventory.setItem(SEED_PREV_SLOT, pageButton(seedPageKey, seeds - 1,
+                        "シード 前のページ (" + seeds + "/" + seedPages + ")"));
+            }
+            if (seeds < seedPages - 1) {
+                inventory.setItem(SEED_NEXT_SLOT, pageButton(seedPageKey, seeds + 1,
+                        "シード 次のページ (" + (seeds + 2) + "/" + seedPages + ")"));
+            }
+        }
+
         player.openInventory(inventory);
+    }
+
+    /** シード一覧のページ数(0件でも1ページある扱い)。 */
+    static int seedPageCount(int seedCount) {
+        return Math.max(1, (seedCount + SEED_OPTIONS_PER_PAGE - 1) / SEED_OPTIONS_PER_PAGE);
+    }
+
+    /** 一覧の見出し。<b>付け方をここに書く</b>のが目的(解放通知を見逃すと他に知る手段が無い)。 */
+    private ItemStack seedInfoButton() {
+        ItemStack stack = new ItemStack(Material.ANVIL);
+        ItemMeta meta = stack.getItemMeta();
+        meta.displayName(Component.text("パーティクルシード", NamedTextColor.LIGHT_PURPLE)
+                .decoration(TextDecoration.ITALIC, false));
+        meta.lore(List.of(
+                Component.text("金床の左に 道具/武器、右に素材を置くと", NamedTextColor.GRAY)
+                        .decoration(TextDecoration.ITALIC, false),
+                Component.text("その道具に粒子が焼き付きます", NamedTextColor.GRAY)
+                        .decoration(TextDecoration.ITALIC, false),
+                Component.text("ブロック破壊・攻撃のたびに発生", NamedTextColor.DARK_GRAY)
+                        .decoration(TextDecoration.ITALIC, false),
+                Component.text("付け替えは上書き(元の粒子は消えます)", NamedTextColor.DARK_GRAY)
+                        .decoration(TextDecoration.ITALIC, false)));
+        stack.setItemMeta(meta);
+        return stack;
+    }
+
+    /**
+     * シード1件分の表示(閲覧専用・クリックしても何も起きない)。
+     *
+     * <p>アイコンは<b>その シードの素材そのもの</b>にする ── プレイヤーが探すのは ID ではなく
+     * 「どのアイテムを金床へ持っていけばいいか」なので、そこを見た目で答える。
+     * {@code custom:<カタログID>} のように {@link Material} へ解決できない指定のときだけ
+     * 代用アイコンにして、素材名は lore の文字で示す。
+     */
+    private ItemStack seedButton(String id, SpecialRewardsConfig.ParticleSeed seed, boolean unlocked) {
+        Material icon = unlocked ? seedIconOf(seed) : Material.BARRIER;
+        ItemStack stack = new ItemStack(icon);
+        ItemMeta meta = stack.getItemMeta();
+        meta.displayName(Component.text(unlocked ? id : "？？？ (未解放)",
+                        unlocked ? NamedTextColor.LIGHT_PURPLE : NamedTextColor.WHITE)
+                .decoration(TextDecoration.ITALIC, false));
+        List<Component> lore = new ArrayList<>();
+        if (unlocked && seed != null) {
+            lore.add(Component.text("素材: " + seed.seedItem(), NamedTextColor.GRAY)
+                    .decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("粒子: " + seed.particle().name() + " ×" + seed.count(),
+                    NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("金床で 道具/武器 に付与できます", NamedTextColor.GREEN)
+                    .decoration(TextDecoration.ITALIC, false));
+        } else {
+            lore.add(Component.text("アチーブメントで解放", NamedTextColor.RED)
+                    .decoration(TextDecoration.ITALIC, false));
+        }
+        meta.lore(lore);
+        stack.setItemMeta(meta);
+        return stack;
+    }
+
+    /** {@code seed-item} を表すアイコン。解決できない指定(custom:等)は代用アイコン。 */
+    private static Material seedIconOf(SpecialRewardsConfig.ParticleSeed seed) {
+        if (seed == null || seed.seedItem() == null || seed.seedItem().isBlank()) {
+            return Material.FIREWORK_STAR;
+        }
+        Material material = Material.matchMaterial(seed.seedItem().trim());
+        return material == null || material.isAir() || !material.isItem()
+                ? Material.FIREWORK_STAR : material;
     }
 
     /**
@@ -334,15 +459,21 @@ public final class SettingsGui implements Listener {
         // 称号を選んだ瞬間に1ページ目へ飛ばされて「選べない」ように見える。
         int titlePage = session.titlePage;
         int particlePage = session.particlePage;
+        int seedPage = session.seedPage;
         ItemMeta meta = clicked.getItemMeta();
         Integer nextTitlePage = meta.getPersistentDataContainer().get(titlePageKey, PersistentDataType.INTEGER);
         if (nextTitlePage != null) {
-            open(player, nextTitlePage, particlePage);
+            open(player, nextTitlePage, particlePage, seedPage);
             return;
         }
         Integer nextParticlePage = meta.getPersistentDataContainer().get(particlePageKey, PersistentDataType.INTEGER);
         if (nextParticlePage != null) {
-            open(player, titlePage, nextParticlePage);
+            open(player, titlePage, nextParticlePage, seedPage);
+            return;
+        }
+        Integer nextSeedPage = meta.getPersistentDataContainer().get(seedPageKey, PersistentDataType.INTEGER);
+        if (nextSeedPage != null) {
+            open(player, titlePage, particlePage, nextSeedPage);
             return;
         }
         if (meta.getPersistentDataContainer().has(mailKey, PersistentDataType.BYTE)) {
@@ -356,13 +487,13 @@ public final class SettingsGui implements Listener {
         if (meta.getPersistentDataContainer().has(toggleKey, PersistentDataType.BYTE)) {
             PlayerData data = PlayerData.of(player);
             data.setHideOthersCosmetics(!data.hideOthersCosmetics());
-            open(player, titlePage, particlePage);
+            open(player, titlePage, particlePage, seedPage);
             return;
         }
         String gatherToggleId = meta.getPersistentDataContainer().get(gatherToggleKey, PersistentDataType.STRING);
         if (gatherToggleId != null) {
             toggleGatherPref(player, gatherToggleId);
-            open(player, titlePage, particlePage);
+            open(player, titlePage, particlePage, seedPage);
             return;
         }
         String titleId = meta.getPersistentDataContainer().get(titleKey, PersistentDataType.STRING);
@@ -370,7 +501,7 @@ public final class SettingsGui implements Listener {
             if (rewardService.equipTitle(player, titleId.isBlank() ? null : titleId)) {
                 onTitleChanged.accept(player);
             }
-            open(player, titlePage, particlePage);
+            open(player, titlePage, particlePage, seedPage);
             return;
         }
         String particleId = meta.getPersistentDataContainer().get(particleKey, PersistentDataType.STRING);
@@ -378,7 +509,7 @@ public final class SettingsGui implements Listener {
             if (rewardService.equipParticle(player, particleId.isBlank() ? null : particleId)) {
                 onParticleChanged.accept(player);
             }
-            open(player, titlePage, particlePage);
+            open(player, titlePage, particlePage, seedPage);
         }
     }
 
@@ -410,6 +541,7 @@ public final class SettingsGui implements Listener {
         /** 開いている画面のページ。片方を送ってももう片方のページを保つために持つ。 */
         private int titlePage;
         private int particlePage;
+        private int seedPage;
 
         @Override
         public Inventory getInventory() {

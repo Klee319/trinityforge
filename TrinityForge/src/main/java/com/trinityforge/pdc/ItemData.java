@@ -153,7 +153,7 @@ public final class ItemData {
                 Objects.requireNonNull(catalogId, "catalogId"));
     }
 
-    /** パーティクルシード合成済みID(2026-07-23-stat-gate-overhaul §6.1)。未合成なら空。 */
+    /** パーティクルシードの刻印済みID(2026-07-23-stat-gate-overhaul §6.1)。未刻印なら空。 */
     public Optional<String> particleSeed() {
         String raw = container.get(PdcKeys.ITEM_PARTICLE_SEED, PersistentDataType.STRING);
         return raw == null || raw.isBlank() ? Optional.empty() : Optional.of(raw);

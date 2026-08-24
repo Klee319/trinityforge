@@ -37,7 +37,7 @@ public final class ParticleSeedMatcher {
         return material != null && stack.getType() == material;
     }
 
-    /** ツール/武器判定(パーティクルシードの合成先・使用トリガー対象)。 */
+    /** ツール/武器判定(パーティクルシードの付与先・使用トリガー対象)。 */
     public static boolean isToolOrWeapon(Material material) {
         if (material == null) {
             return false;

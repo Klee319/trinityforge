@@ -90,7 +90,13 @@ class WoodRepairAnvilGuardTest {
         when(catalog.template(CATALOG_ID)).thenReturn(Optional.of(chestplate));
 
         woodRepair = new WoodRepairListener(dedicatedEffects, features);
-        guard = new CatalogVanillaOperationGuardListener(catalog, features, dedicatedEffects);
+        // パーティクルシードの除外(2026-08-25 / W-214)はこのテストの対象外なので、
+        // シードが1つも定義されていない = 常に「シード付与ではない」状態にしておく。
+        com.trinityforge.config.domains.SpecialRewardsConfig specialRewards =
+                mock(com.trinityforge.config.domains.SpecialRewardsConfig.class);
+        when(specialRewards.particleSeeds()).thenReturn(Map.of());
+        guard = new CatalogVanillaOperationGuardListener(catalog, features, dedicatedEffects,
+                specialRewards, mock(com.trinityforge.progression.SpecialRewardService.class));
     }
 
     @AfterEach
