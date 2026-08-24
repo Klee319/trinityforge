@@ -54,8 +54,30 @@ public final class SkillTreeLayout {
      * 画面の半分が空くため。
      */
     private final boolean halfPlaneByRole;
+    /**
+     * 空きセル探索の優先順 (2026-08-24 / W-216)。
+     *
+     * <p>{@code true}(既定) = <b>まず同じ行を外側へ</b>探し、行が尽きてから1段上へ逃げる。
+     * {@code false} = 2026-07-30〜08-24 の挙動で、横へ探す前に上へ逃げる。
+     *
+     * <p>旧挙動では、チェーンの続きが置きたい行を<b>次の主軸の枝の根</b>に先取りされると
+     * 1段上（＝1レベル帯ぶん上）へ落ちてしまい、コネクタが他チェーンの間の通路を
+     * 縦に走る。実サーバ報告「総合で足元強化のノードが変なつながり方している」の正体
+     * （足元強化 II が lv40 の行に入れず lv60 の行へ、III が玉突きで lv80 の行へ）。
+     *
+     * <p>横へ探すと BRANCH が排他路線側の半平面へ滑り込む——これが旧挙動が深さ優先だった
+     * 理由——ので、行優先にするときは {@link #fits} の半平面ガードとセットでなければならない。
+     * {@code false} は<b>比較シミュレーション専用</b>で、実運用の経路からは渡されない。
+     */
+    private final boolean rowFirstSearch;
 
     public SkillTreeLayout(SkillTree tree) {
+        this(tree, true);
+    }
+
+    /** 旧挙動との比較用。{@code rowFirstSearch=false} で 2026-08-24 以前の配置を再現する。 */
+    SkillTreeLayout(SkillTree tree, boolean rowFirstSearch) {
+        this.rowFirstSearch = rowFirstSearch;
         this.nodes = tree.nodes();
         int[] start = parseCoords(tree.startingCoords());
         this.startX = start[0];
@@ -239,7 +261,7 @@ public final class SkillTreeLayout {
             } else {
                 offset = trunkParent ? (trunkFanOrdinal % 2 == 0 ? SIDE_STEP : -SIDE_STEP) : 0;
             }
-            put(only.id(), findFreeInLayer(new Coord(parent.x() + offset, y), parent));
+            put(only.id(), findFreeInLayer(new Coord(parent.x() + offset, y), parent, halfPlane(only)));
             return;
         }
         List<List<SkillNode>> buckets = groupBuckets(siblings);
@@ -251,7 +273,7 @@ public final class SkillTreeLayout {
             for (SkillNode member : bucket) {
                 int lane = ++lanesPerSide[side];
                 Coord preferred = new Coord(parent.x() + sign * lane * SIDE_STEP, y);
-                put(member.id(), findFreeInLayer(preferred, parent));
+                put(member.id(), findFreeInLayer(preferred, parent, halfPlane(member)));
             }
         }
     }
@@ -259,6 +281,17 @@ public final class SkillTreeLayout {
     /** 半平面分離の向き: GREEK(排他路線)は左(-1)、それ以外(BRANCH)は右(+1)。 */
     private static int sideSign(SkillNode node) {
         return node.role() == SkillRole.GREEK ? -1 : 1;
+    }
+
+    /**
+     * 空きセル探索で越えてはいけない側。{@code 0} は制約なし。
+     *
+     * <p>{@link #placeSiblingLayer} は「希望の座標」を半平面へ寄せるが、そこが埋まっていたときの
+     * <b>探索は半平面を見ていなかった</b>。行優先で横へ探すと BRANCH が排他側へ滑り込むので、
+     * 行優先のときだけ側を固定する({@link #rowFirstSearch} 参照)。
+     */
+    private int halfPlane(SkillNode node) {
+        return rowFirstSearch && halfPlaneByRole ? sideSign(node) : 0;
     }
 
     /**
@@ -295,44 +328,58 @@ public final class SkillTreeLayout {
      * <p>どうしても見つからない場合は「迂回なしコネクタ」→ 隣接禁止 → 主軸列予約の順に条件を
      * 緩めるので、「配置できずに例外」という結果が改修前より増えることはない。
      */
-    private Coord findFreeInLayer(Coord preferred, Coord parent) {
-        Coord strict = search(preferred, parent, true, true, true);
+    private Coord findFreeInLayer(Coord preferred, Coord parent, int halfPlane) {
+        Coord strict = search(preferred, parent, halfPlane, true, true, true);
         if (strict != null) return strict;
-        Coord relaxedRoute = search(preferred, parent, true, true, false);
+        Coord relaxedRoute = search(preferred, parent, halfPlane, true, true, false);
         if (relaxedRoute != null) return relaxedRoute;
-        Coord relaxedAdjacency = search(preferred, parent, false, true, false);
+        Coord relaxedAdjacency = search(preferred, parent, halfPlane, false, true, false);
         if (relaxedAdjacency != null) return relaxedAdjacency;
-        Coord anyFree = search(preferred, parent, false, false, false);
+        // 最後の砦では半平面も捨てる(置けずに例外で落とすより、ずれた側でも出したほうがまし)。
+        Coord anyFree = search(preferred, parent, 0, false, false, false);
         if (anyFree != null) return anyFree;
         throw new IllegalStateException("no free branch coordinate near " + preferred.format());
     }
 
-    private Coord search(Coord preferred, Coord parent, boolean requireGap, boolean avoidTrunkColumn,
-                         boolean requireDirectRoute) {
+    private Coord search(Coord preferred, Coord parent, int halfPlane, boolean requireGap,
+                         boolean avoidTrunkColumn, boolean requireDirectRoute) {
         for (int cost = 0; cost <= MAX_DETOUR; cost++) {
-            for (int depth = Math.min(cost, MAX_DEEPER_ROWS); depth >= 0; depth--) {
+            int maxDepth = Math.min(cost, MAX_DEEPER_ROWS);
+            for (int step = 0; step <= maxDepth; step++) {
+                // 行優先(既定): depth 0 から = まず同じ行を外側へ。深さ優先(旧): depth 最大から。
+                int depth = rowFirstSearch ? step : maxDepth - step;
                 int ring = cost - depth;
                 int y = preferred.y() - depth * TRUNK_STEP;
                 if (ring == 0) {
                     Coord center = new Coord(preferred.x(), y);
-                    if (fits(center, parent, requireGap, avoidTrunkColumn, requireDirectRoute)) return center;
+                    if (fits(center, parent, halfPlane, requireGap, avoidTrunkColumn, requireDirectRoute)) {
+                        return center;
+                    }
                     continue;
                 }
                 Coord left = new Coord(preferred.x() - ring * SIDE_STEP, y);
-                if (fits(left, parent, requireGap, avoidTrunkColumn, requireDirectRoute)) return left;
+                if (fits(left, parent, halfPlane, requireGap, avoidTrunkColumn, requireDirectRoute)) {
+                    return left;
+                }
                 Coord right = new Coord(preferred.x() + ring * SIDE_STEP, y);
-                if (fits(right, parent, requireGap, avoidTrunkColumn, requireDirectRoute)) return right;
+                if (fits(right, parent, halfPlane, requireGap, avoidTrunkColumn, requireDirectRoute)) {
+                    return right;
+                }
             }
         }
         return null;
     }
 
-    private boolean fits(Coord candidate, Coord parent, boolean requireGap, boolean avoidTrunkColumn,
-                         boolean requireDirectRoute) {
+    private boolean fits(Coord candidate, Coord parent, int halfPlane, boolean requireGap,
+                         boolean avoidTrunkColumn, boolean requireDirectRoute) {
         if (occupied.contains(candidate) || candidate.equals(parent) || candidate.equals(rootCoord())) {
             return false;
         }
         if (avoidTrunkColumn && candidate.x() == startX) {
+            return false;
+        }
+        // 行優先で横へ探すとき、主軸をまたいで反対側の半平面へ滑り込むのを禁じる。
+        if (halfPlane != 0 && Integer.signum(candidate.x() - startX) != halfPlane) {
             return false;
         }
         if (requireGap && touchesPlacedNode(candidate)) {
