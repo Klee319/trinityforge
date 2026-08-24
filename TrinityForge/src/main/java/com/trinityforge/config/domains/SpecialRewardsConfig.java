@@ -55,7 +55,23 @@ public final class SpecialRewardsConfig implements LoadableConfig {
      * @param particle Bukkit Particle
      * @param count    ブロック破壊/攻撃時に発生させる数
      */
-    public record ParticleSeed(String id, String seedItem, Particle particle, int count) {
+    public record ParticleSeed(String id, String seedItem, Particle particle, int count,
+                               String display, boolean clears) {
+
+        /**
+         * 通常のシード(表示名は ID、刻印を消すシードではない)。既存の呼び出しとテスト向けの短縮形。
+         */
+        public ParticleSeed(String id, String seedItem, Particle particle, int count) {
+            this(id, seedItem, particle, count, null, false);
+        }
+
+        /**
+         * lore / GUI に出す名前。{@code display} 未設定なら ID を返す
+         * ── <b>行そのものを消さない</b>(ID のほうが「何も出ない」よりは辿れる)。
+         */
+        public String displayName() {
+            return display == null || display.isBlank() ? id : display;
+        }
     }
 
     /** {@link #titleNametagClearance()} の既定値。ネームタグ上端と称号行のあいだに空けるブロック数。 */
@@ -293,15 +309,20 @@ public final class SpecialRewardsConfig implements LoadableConfig {
                     skipped++;
                     continue;
                 }
+                // clears: true は「刻印を消すシード」。粒子を出さないので particle は要らない
+                // (2026-08-25 / W-221)。ここで particle 必須を掛けると、消し専用のシードが
+                // 起動のたびに warning ごと落とされて【config に書いたのに存在しない】になる。
+                boolean clears = entry.getBoolean("clears", false);
                 Particle particle = parseParticle(entry.getString("particle"));
-                if (particle == null) {
+                if (particle == null && !clears) {
                     log.warning("[" + PATH + "] particle-seed '" + id
                             + "' has invalid/missing particle name; skipped");
                     skipped++;
                     continue;
                 }
                 int count = Math.max(1, entry.getInt("count", 1));
-                seeds.put(id, new ParticleSeed(id, seedItem.trim(), particle, count));
+                seeds.put(id, new ParticleSeed(id, seedItem.trim(), particle, count,
+                        entry.getString("display"), clears));
             }
         }
 

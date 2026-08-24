@@ -219,8 +219,10 @@ public final class SettingsGui implements Listener {
                 break;
             }
             String id = seedIds.get(index);
-            inventory.setItem(SEED_ROW_START + i, seedButton(
-                    id, seedDefs.get(id), rewardService.isUnlocked(player, id)));
+            SpecialRewardsConfig.ParticleSeed seed = seedDefs.get(id);
+            // 消すシード(clears)は解放を要求しないので常に「持っている」扱いで出す。
+            boolean unlocked = (seed != null && seed.clears()) || rewardService.isUnlocked(player, id);
+            inventory.setItem(SEED_ROW_START + i, seedButton(id, seed, unlocked));
         }
         int seedPages = seedPageCount(seedIds.size());
         if (seedPages > 1) {
@@ -273,17 +275,31 @@ public final class SettingsGui implements Listener {
         Material icon = unlocked ? seedIconOf(seed) : Material.BARRIER;
         ItemStack stack = new ItemStack(icon);
         ItemMeta meta = stack.getItemMeta();
-        meta.displayName(Component.text(unlocked ? id : "？？？ (未解放)",
-                        unlocked ? NamedTextColor.LIGHT_PURPLE : NamedTextColor.WHITE)
-                .decoration(TextDecoration.ITALIC, false));
+        // 表示は日本語名(display)。未設定なら ID へ落とす。運用でIDが要るので lore に必ず出す。
+        String label = seed == null ? id : seed.displayName();
+        meta.displayName(unlocked
+                ? com.trinityforge.text.MiniText.render(label, NamedTextColor.LIGHT_PURPLE)
+                : Component.text("？？？ (未解放)", NamedTextColor.WHITE)
+                        .decoration(TextDecoration.ITALIC, false));
         List<Component> lore = new ArrayList<>();
         if (unlocked && seed != null) {
+            lore.add(Component.text("ID: " + id, NamedTextColor.DARK_GRAY)
+                    .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("素材: " + seed.seedItem(), NamedTextColor.GRAY)
                     .decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text("粒子: " + seed.particle().name() + " ×" + seed.count(),
-                    NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text("金床で 道具/武器 に付与できます", NamedTextColor.GREEN)
-                    .decoration(TextDecoration.ITALIC, false));
+            if (seed.clears()) {
+                lore.add(Component.text("道具に付いている粒子を取り除きます", NamedTextColor.GREEN)
+                        .decoration(TextDecoration.ITALIC, false));
+                lore.add(Component.text("解放は不要(誰でも使えます)", NamedTextColor.DARK_GRAY)
+                        .decoration(TextDecoration.ITALIC, false));
+            } else {
+                if (seed.particle() != null) {
+                    lore.add(Component.text("粒子: " + seed.particle().name() + " ×" + seed.count(),
+                            NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, false));
+                }
+                lore.add(Component.text("金床で 道具/武器 に付与できます", NamedTextColor.GREEN)
+                        .decoration(TextDecoration.ITALIC, false));
+            }
         } else {
             lore.add(Component.text("アチーブメントで解放", NamedTextColor.RED)
                     .decoration(TextDecoration.ITALIC, false));

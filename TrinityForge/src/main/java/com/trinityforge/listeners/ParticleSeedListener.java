@@ -4,6 +4,7 @@ import com.trinityforge.config.domains.SpecialRewardsConfig;
 import com.trinityforge.pdc.ItemData;
 import com.trinityforge.progression.ParticleEffectService;
 import com.trinityforge.progression.SpecialRewardService;
+import com.trinityforge.stats.ParticleSeedLore;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.GameMode;
@@ -192,7 +193,9 @@ public final class ParticleSeedListener implements Listener {
             player.setLevel(player.getLevel() - APPLY_LEVEL_COST);
         }
         player.updateInventory();
-        player.sendActionBar(Component.text("パーティクルシードを付与しました", NamedTextColor.GREEN));
+        player.sendActionBar(Component.text(
+                seed.clears() ? "パーティクルシードを取り除きました" : "パーティクルシードを付与しました",
+                NamedTextColor.GREEN));
     }
 
     /** {@code stack} を1個減らしたもの。0個になるなら {@code null}(=スロットを空にする)。 */
@@ -205,8 +208,14 @@ public final class ParticleSeedListener implements Listener {
         return left;
     }
 
-    /** {@code tool} のクローンに {@code seed} を刻印したもの。メタが無ければ {@code null}。 */
-    private static ItemStack stamp(ItemStack tool, SpecialRewardsConfig.ParticleSeed seed) {
+    /**
+     * {@code tool} のクローンに {@code seed} を適用したもの。メタが無ければ {@code null}。
+     *
+     * <p>{@code clears: true} のシードは刻印を<b>消す</b>。どちらの場合も lore の行
+     * ({@link ParticleSeedLore}) を PDC に合わせて入れ直す ── 付け替えたのに前の名前が
+     * lore に残る、消したのに行だけ残る、のどちらも「壊れている」と読まれる。
+     */
+    private ItemStack stamp(ItemStack tool, SpecialRewardsConfig.ParticleSeed seed) {
         if (tool == null) {
             return null;
         }
@@ -215,7 +224,12 @@ public final class ParticleSeedListener implements Listener {
         if (meta == null) {
             return null;
         }
-        ItemData.of(meta).setParticleSeed(seed.id());
+        if (seed.clears()) {
+            ItemData.of(meta).clearParticleSeed();
+        } else {
+            ItemData.of(meta).setParticleSeed(seed.id());
+        }
+        ParticleSeedLore.reapply(meta, config);
         stamped.setItemMeta(meta);
         return stamped;
     }
@@ -256,7 +270,17 @@ public final class ParticleSeedListener implements Listener {
                 ? ItemData.of(tool.getItemMeta()).particleSeed()
                 : Optional.empty();
         for (Map.Entry<String, SpecialRewardsConfig.ParticleSeed> entry : seeds.entrySet()) {
-            if (!ParticleSeedMatcher.matchesSeed(seedCandidate, entry.getValue().seedItem())) {
+            SpecialRewardsConfig.ParticleSeed seed = entry.getValue();
+            if (!ParticleSeedMatcher.matchesSeed(seedCandidate, seed.seedItem())) {
+                continue;
+            }
+            if (seed.clears()) {
+                // 消すシードは【解放を要求しない】。剥がす操作は報酬ではないし、
+                // 付け間違いを取り消せないほうが害が大きい。何も刻印されていない道具には出さない
+                // (結果に「何も変わらないもの」を出すと素材とレベルだけ消える)。
+                if (already.isPresent()) {
+                    return seed;
+                }
                 continue;
             }
             if (already.isPresent() && already.get().equals(entry.getKey())) {
@@ -265,7 +289,7 @@ public final class ParticleSeedListener implements Listener {
             if (!rewards.isUnlocked(player, entry.getKey())) {
                 continue;
             }
-            return entry.getValue();
+            return seed;
         }
         return null;
     }
@@ -293,7 +317,9 @@ public final class ParticleSeedListener implements Listener {
         }
         ItemData.of(item.getItemMeta()).particleSeed().ifPresent(seedId -> {
             SpecialRewardsConfig.ParticleSeed seed = config.particleSeeds().get(seedId);
-            if (seed == null) {
+            // particle が null なのは clears: true のシード(粒子を持たない)。刻印されることは
+            // 無いが、config を書き換えて同じIDを消し用へ転用すると既存の道具がここへ来る。
+            if (seed == null || seed.clears() || seed.particle() == null) {
                 return;
             }
             if (!throttleReady(player.getUniqueId())) {

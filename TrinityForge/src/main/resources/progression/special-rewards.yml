@@ -19,8 +19,13 @@
 #
 # particle-seeds.<id>: (ツール/武器へ粒子を焼き付ける「種」アイテム)
 #   seed-item: 付与に使う素材。Material名 または custom:<カタログID>
-#   particle:  Bukkit Particle 名
+#   display:   道具の説明文(lore)と /tf settings に出す日本語名。省略するとIDがそのまま出る
+#   particle:  Bukkit Particle 名 (clears: true のときは不要)
 #   count:     ブロック破壊/攻撃時に発生させる数
+#   clears:    true にすると「刻印を消すシード」になる (2026-08-25)
+#              ・粒子を持たないので particle は要らない
+#              ・解放を要求しない(剥がす操作は報酬ではないし、付け間違いを取り消せない方が害が大きい)
+#              ・何も刻印されていない道具には結果が出ない(素材とレベルだけ消えるのを防ぐ)
 #
 #   【付与は金床】 2026-08-25 (W-214)。金床の左に 道具/武器、右にこの seed-item を置くと
 #   結果に刻印済みの道具が出る。レベルコストは 1。作業台から移したのは、作業台には
@@ -198,25 +203,39 @@ particles:
 particle-seeds:
   seed_flame:
     seed-item: BLAZE_POWDER
+    display: 焔
     particle: FLAME
     count: 6
   seed_frost:
     seed-item: BLUE_ICE
+    display: 氷華
     particle: SNOWFLAKE
     count: 6
   seed_soul:
     seed-item: SOUL_SAND
+    display: 魂火
     particle: SOUL
     count: 6
   seed_spark:
     seed-item: COPPER_INGOT
+    display: 雷花
     particle: ELECTRIC_SPARK
     count: 8
   seed_void:
     seed-item: ENDER_EYE
+    display: 虚空
     particle: PORTAL
     count: 10
   seed_bloom:
     seed-item: PINK_PETALS
+    display: 花吹雪
     particle: CHERRY_LEAVES
     count: 6
+  # 刻印を消すシード。誰でも最初から使える(解放は要らない)。
+  # 素材をイカスミにしているのは「塗り潰して消す」の見立てと、
+  # 取り消しに希少素材を要求すると付け間違いが取り返せなくなるため。
+  # 変えたいときはこの seed-item の1行だけ差し替えればよい。
+  seed_clear:
+    seed-item: INK_SAC
+    display: 消去
+    clears: true

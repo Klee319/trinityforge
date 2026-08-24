@@ -164,6 +164,11 @@ public final class ItemData {
                 Objects.requireNonNull(particleSeedId, "particleSeedId"));
     }
 
+    /** 刻印を消す({@code clears: true} のシードで金床にかけたとき。2026-08-25 / W-221)。 */
+    public void clearParticleSeed() {
+        container.remove(PdcKeys.ITEM_PARTICLE_SEED);
+    }
+
     /**
      * The crafter's stage-2 (ステータスロール) perk deltas baked into this item at craft time, or
      * {@link CraftRollMods#NONE} when absent (never crafted with such perks, or a pre-feature item).

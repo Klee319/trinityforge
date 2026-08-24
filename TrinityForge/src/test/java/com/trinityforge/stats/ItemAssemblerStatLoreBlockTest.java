@@ -137,7 +137,8 @@ class ItemAssemblerStatLoreBlockTest {
                 new TableGeneration(),
                 new ItemCatalogConfig(),
                 new SkillTreeConfig(),
-                new CraftingFeaturesConfig());
+                new CraftingFeaturesConfig(),
+                new com.trinityforge.config.domains.SpecialRewardsConfig());
     }
 
     /**

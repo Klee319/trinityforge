@@ -720,7 +720,8 @@ public final class TrinityForge extends JavaPlugin {
                 tableGeneration,
                 configManager.itemCatalog(),
                 configManager.skillTrees(),
-                configManager.craftingFeatures());
+                configManager.craftingFeatures(),
+                configManager.specialRewards());
         this.itemFactory = new ItemFactory(itemAssembler, configManager.itemStats(),
                 configManager.craftingFeatures(), configManager.equipmentAssets());
         // Single id->ItemStack resolution seam (TF catalog -> ArsPaper registry -> vanilla Material) used

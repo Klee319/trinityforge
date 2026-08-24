@@ -3024,6 +3024,17 @@ function validateTfSpecialRewards(data, errors) {
       if (entry.count !== undefined && entry.count !== null && !isNonNegInteger(entry.count)) {
         errors.push(`particle-seeds.${id}.count: 0以上の整数である必要があります`);
       }
+      if (entry.display !== undefined && entry.display !== null && typeof entry.display !== "string") {
+        errors.push(`particle-seeds.${id}.display: 文字列(loreとGUIに出す日本語名)である必要があります`);
+      }
+      if (entry.clears !== undefined && entry.clears !== null && typeof entry.clears !== "boolean") {
+        errors.push(`particle-seeds.${id}.clears: true/false である必要があります`);
+      }
+      // clears でないシードは particle が要る。Java 側は particle を解決できないと
+      // 起動時に warning を出してそのシードごと捨てるので、editor では保存前に止める。
+      if (!entry.clears && (entry.particle === undefined || entry.particle === null || entry.particle === "")) {
+        errors.push(`particle-seeds.${id}.particle: 必須です(粒子を出さない「消すシード」にするなら clears: true を付けてください)`);
+      }
     }
   }
 }

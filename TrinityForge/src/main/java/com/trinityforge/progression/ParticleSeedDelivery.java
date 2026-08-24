@@ -66,7 +66,7 @@ public final class ParticleSeedDelivery {
         }
         ItemStack given = giveSeedItem(player, seed);
         player.sendMessage(Component.text("パーティクルシード解放: ", NamedTextColor.LIGHT_PURPLE)
-                .append(Component.text(rewardId, NamedTextColor.WHITE)));
+                .append(com.trinityforge.text.MiniText.render(seed.displayName(), NamedTextColor.WHITE)));
         Component seedName = given != null
                 ? given.displayName()
                 : Component.text(seed.seedItem(), NamedTextColor.WHITE);

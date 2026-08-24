@@ -82,6 +82,14 @@ public final class ItemAssembler {
     private final ItemCatalogConfig itemCatalog;
     private final SkillTreeConfig skillTrees;
     private final CraftingFeaturesConfig craftingFeatures;
+    /**
+     * 刻印されたパーティクルシードの lore 行に使う(2026-08-25 / W-221)。
+     *
+     * <p><b>null 可の setter ではなくコンストラクタ引数で持つ。</b> ここは lore を毎回ゼロから
+     * 組み直す場所なので、配線を忘れると<b>「付けた直後だけ行が出て、持ち替えた瞬間に消える」</b>
+     * という、例外もログも出ない壊れ方をする。
+     */
+    private final com.trinityforge.config.domains.SpecialRewardsConfig specialRewards;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     public ItemAssembler(ItemStatsConfig itemStats,
@@ -93,7 +101,9 @@ public final class ItemAssembler {
                          TableGeneration tableGeneration,
                          ItemCatalogConfig itemCatalog,
                          SkillTreeConfig skillTrees,
-                         CraftingFeaturesConfig craftingFeatures) {
+                         CraftingFeaturesConfig craftingFeatures,
+                         com.trinityforge.config.domains.SpecialRewardsConfig specialRewards) {
+        this.specialRewards = Objects.requireNonNull(specialRewards, "specialRewards");
         this.itemStats = Objects.requireNonNull(itemStats, "itemStats");
         this.attributeMapping = Objects.requireNonNull(attributeMapping, "attributeMapping");
         this.applier = Objects.requireNonNull(applier, "applier");
@@ -246,6 +256,9 @@ public final class ItemAssembler {
                         chanceKeys, loreMultipliers, tierColor),
                 loreSnapshot.displayTable(), loreSnapshot.layout(), loreSnapshot.bind()));
         appendBindLore(lore, data, loreSnapshot.bind());
+        // 刻印されたパーティクルシードの行(W-221)。ここは lore を毎回ゼロから組み直すので、
+        // 付与側だけで足すと持ち替えた瞬間に消える。
+        ParticleSeedLore.appendTo(meta, lore, specialRewards);
         ArsThreadLore.appendTo(meta, lore);
         meta.lore(lore);
 

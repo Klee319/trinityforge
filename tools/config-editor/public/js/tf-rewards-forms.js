@@ -611,7 +611,8 @@
       if (!ids.length) list.appendChild(emptyHint("パーティクルシードがありません。"));
       for (const id of ids) {
         const entry = seeds[id] && typeof seeds[id] === "object" ? seeds[id] : (seeds[id] = {});
-        if (entry.count == null) entry.count = 4;
+        // clears(消すシード)は粒子を出さないので count を持たせない。
+        if (entry.count == null && !entry.clears) entry.count = 4;
         const c = h("div", { class: "cf-mat-card" });
         c.appendChild(h("div", { class: "cf-mat-card-head" }, [
           h("span", { class: "entry-key-label", text: "シードID" }),
@@ -624,10 +625,22 @@
         c.appendChild(field("seed-item", window.materialInput(entry["seed-item"] || "", "material-list", (v) => {
           entry["seed-item"] = v;
         }, { allowCustom: true })));
-        c.appendChild(field("particle", particleSelect(entry.particle, (v) => { entry.particle = v; })));
-        c.appendChild(field("count", window.numberInput(entry.count, (v) => {
-          if (v != null) entry.count = Math.max(0, Math.floor(v));
-        }, { int: true })));
+        // 表示名(日本語)。道具の説明文(lore)と /tf settings のシード一覧に出る。未設定だとIDが出る。
+        c.appendChild(field("表示名 (display)", window.textInput(entry.display || "", (v) => {
+          if (v) entry.display = v; else delete entry.display;
+        })));
+        // clears: true は「刻印を消すシード」。粒子を持たないので particle/count の欄を隠す。
+        c.appendChild(field("刻印を消すシード (clears)", window.checkboxInput(!!entry.clears, (v) => {
+          if (v) { entry.clears = true; delete entry.particle; delete entry.count; }
+          else { delete entry.clears; if (entry.particle == null) entry.particle = "CRIT"; if (entry.count == null) entry.count = 4; }
+          renderSeeds();
+        })));
+        if (!entry.clears) {
+          c.appendChild(field("particle", particleSelect(entry.particle, (v) => { entry.particle = v; })));
+          c.appendChild(field("count", window.numberInput(entry.count, (v) => {
+            if (v != null) entry.count = Math.max(0, Math.floor(v));
+          }, { int: true })));
+        }
         list.appendChild(c);
       }
       list.appendChild(h("button", {

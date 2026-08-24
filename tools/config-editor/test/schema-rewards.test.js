@@ -30,6 +30,31 @@ test("tf-special-rewards: shape不正・型不正はエラー", () => {
   assert.ok(errors.some((e) => /particles\.bad\.shape/.test(e)));
 });
 
+// 刻印を消すシード / 表示名 (2026-08-25 / W-221)
+test("tf-special-rewards: clears:true のシードは particle 無しで通る", () => {
+  const errors = validate("tf-special-rewards", {
+    "particle-seeds": { seed_clear: { "seed-item": "INK_SAC", display: "消去", clears: true } }
+  });
+  assert.deepStrictEqual(errors, []);
+});
+
+test("tf-special-rewards: clears でないシードの particle 欠落はエラー", () => {
+  // Java 側は particle を解決できないとそのシードごと捨てる(警告1行だけ)。
+  // 保存前に止めないと「config に書いたのに金床に出ない」で終わる。
+  const errors = validate("tf-special-rewards", {
+    "particle-seeds": { seed_broken: { "seed-item": "BLAZE_POWDER", display: "焔" } }
+  });
+  assert.ok(errors.some((e) => /particle-seeds\.seed_broken\.particle/.test(e)), errors.join(" / "));
+});
+
+test("tf-special-rewards: display/clears の型不正はエラー", () => {
+  const errors = validate("tf-special-rewards", {
+    "particle-seeds": { bad: { "seed-item": "INK_SAC", display: 1, clears: "yes" } }
+  });
+  assert.ok(errors.some((e) => /particle-seeds\.bad\.display/.test(e)));
+  assert.ok(errors.some((e) => /particle-seeds\.bad\.clears/.test(e)));
+});
+
 test("tf-special-rewards: titles.display は文字列必須", () => {
   const errors = validate("tf-special-rewards", { titles: { x: { display: 123 } } });
   assert.ok(errors.some((e) => /titles\.x\.display/.test(e)));
