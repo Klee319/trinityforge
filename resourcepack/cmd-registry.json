@@ -3731,15 +3731,6 @@
     },
     {
       "material": "NETHER_STAR",
-      "cmd": 5445,
-      "id": "infinity_source_core",
-      "source": "functional-items",
-      "allocatedAt": "2026-07-31T09:10:00.000Z",
-      "assetName": "infinity_source_core",
-      "parent": "generated"
-    },
-    {
-      "material": "NETHER_STAR",
       "cmd": 500001,
       "id": "infinity_source_core",
       "source": "functional-items",

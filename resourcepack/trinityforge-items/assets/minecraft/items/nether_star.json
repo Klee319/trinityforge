@@ -8,13 +8,6 @@
     },
     "entries": [
       {
-        "threshold": 5445,
-        "model": {
-          "type": "minecraft:model",
-          "model": "trinityforge:item/infinity_source_core"
-        }
-      },
-      {
         "threshold": 500001,
         "model": {
           "type": "minecraft:model",
