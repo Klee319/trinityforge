@@ -42,6 +42,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDropItemEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityBreedEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
@@ -432,27 +433,70 @@ public final class NativeSkillExperienceListener implements Listener {
     }
 
     /**
-     * Valhalla {@code woodcutting_strip}: right-clicking a natural log/wood with an axe rewards the
-     * configured value of the resulting {@code STRIPPED_*} material. The source-to-result mapping is
-     * derived from the Bukkit material name; every numeric value remains in the progression YAML.
+     * Valhalla {@code woodcutting_strip}: 斧で原木の皮を剥ぐと、剥いだ結果の {@code STRIPPED_*}
+     * 材質に設定された値を配る。source→result の対応は Bukkit の材質名から導き、数値は
+     * progression YAML に置いたままにする。
+     *
+     * <h2>⚠ なぜ {@link PlayerInteractEvent} ではなく {@link EntityChangeBlockEvent} なのか
+     * (2026-08-24 / W-210)</h2>
+     * 旧実装は {@code PlayerInteractEvent}(MONITOR)で<b>「斧を持って原木を右クリックした」だけ</b>を
+     * 見て配っていた。ところが<b>右クリックが通っても皮が剥がれないことがある</b>。その場合
+     * ブロックは原木のまま残るので、<b>同じ原木を連打するだけで無限に経験値が入る</b>
+     * (実サーバ報告「盾を持っていると皮を剥ぐ動作がキャンセルされ、放置連打で経験値が稼げる」)。
+     *
+     * <p>筆頭の原因は<b>バニラの仕様</b>で、{@code AxeItem#useOn} は
+     * <b>「オフハンドに {@code blocks_attacks} を持つ品(＝盾)があり、かつスニークしていない」なら
+     * 何もせず {@code PASS} を返す</b>(盾を構えようとして原木の皮を剥いでしまう事故を防ぐため。
+     * Paper 1.21.11 のサーバソースで確認済み)。このとき {@code PlayerInteractEvent} は
+     * <b>キャンセルされない</b>ので {@code ignoreCancelled = true} では素通りする。
+     * 同じ形の穴は他にもある —— 他プラグインが {@code setUseItemInHand(DENY)} だけを立てた場合
+     * ({@code PlayerInteractEvent#isCancelled()} は {@code useInteractedBlock()} と等価なので
+     * false のまま) や、{@code EntityChangeBlockEvent} を別プラグインがキャンセルした場合など。
+     *
+     * <p>そこで<b>「実際に皮が剥がれる瞬間」だけ</b>を見る。{@code EntityChangeBlockEvent} は
+     * {@code AxeItem#useOn} が変換先を確定して {@code setBlock} を呼ぶ<b>直前</b>に発火するので、
+     * MONITOR かつ {@code ignoreCancelled = true} まで届いた時点で<b>変換は必ず起きる</b>。
+     * バニラ側の門を TF で真似する必要も無くなる(真似ると次のバージョンで静かにズレる)。
+     *
+     * <p>斧が通る他の変換(銅の酸化落とし・蝋落とし)も同じイベントを通るが、
+     * {@code getTo()} が {@code STRIPPED_<元の材質>} と一致しないので自然に外れる。
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onWoodStrip(PlayerInteractEvent event) {
-        if (event.getAction() != Action.RIGHT_CLICK_BLOCK || event.getHand() != EquipmentSlot.HAND
-                || event.getClickedBlock() == null) {
+    public void onWoodStrip(EntityChangeBlockEvent event) {
+        if (!(event.getEntity() instanceof Player player) || excluded(player)) {
             return;
         }
-        Player player = event.getPlayer();
-        if (excluded(player)) return;
-        ItemStack tool = event.getItem();
-        if (tool == null || !tool.getType().name().endsWith("_AXE")) return;
-        Block source = event.getClickedBlock();
+        Block source = event.getBlock();
+        Material stripped = Material.matchMaterial("STRIPPED_" + source.getType().name());
+        if (stripped == null || event.getTo() != stripped) {
+            return;
+        }
         if (placedBlockTracker.isPlaced(source)) return;
+        ItemStack tool = strippingAxe(player);
+        if (tool == null) return;
 
         double exp = woodStripExp(catalog.get(SkillId.WOODCUTTING), source.getType());
         if (exp <= 0.0) return;
         grant(player, SkillId.WOODCUTTING,
                 exp * useLevelExpMultiplier(SkillId.WOODCUTTING, tool));
+    }
+
+    /**
+     * 皮剥ぎに使われた斧。{@link EntityChangeBlockEvent} は<b>どちらの手で使ったかを教えてくれない</b>
+     * ので、メインハンドを優先して探す(バニラはオフハンドの斧でも皮を剥げる)。
+     * どちらの手も斧でなければ、この変換は斧によるものではないので対象外。
+     */
+    private static ItemStack strippingAxe(Player player) {
+        ItemStack main = player.getInventory().getItemInMainHand();
+        if (isAxe(main)) {
+            return main;
+        }
+        ItemStack off = player.getInventory().getItemInOffHand();
+        return isAxe(off) ? off : null;
+    }
+
+    private static boolean isAxe(ItemStack stack) {
+        return stack != null && stack.getType().name().endsWith("_AXE");
     }
 
     /**
