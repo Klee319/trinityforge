@@ -114,10 +114,12 @@ nodes:
     dedicated-effects:
       - id: ars-tier
         value: 1
+      - id: glyph:orbit
     description: |-
       詠唱レベル+1
       グリフ配置数+1
       マナ消費効率-2
+      旋回グリフ解放
   A-1:
     name: ユーティリティー
     level: 20
@@ -187,7 +189,7 @@ nodes:
     name: 炸裂
     level: 80
     role: branch
-    parent: C
+    parent: C-1-1
     icon: FIRE_CHARGE
     cost: 1
     effect-text: 炸裂グリフ解放
@@ -199,7 +201,7 @@ nodes:
     name: 魔法ダメージ強化Ⅰ
     level: 60
     role: branch
-    parent: B
+    parent: C
     icon: FERMENTED_SPIDER_EYE
     cost: 1
     effect-text: 害悪が強力に(ダメージ+30%)
@@ -210,7 +212,7 @@ nodes:
     description: 魔法ダメージ強化+25%
   C-2-2:
     role: branch
-    parent: C
+    parent: C-2-1
     name: 魔法ダメージ強化Ⅱ
     buffs:
       glyph-damage-multiplier-bonus: 0.25
@@ -219,7 +221,9 @@ nodes:
   B-1-1:
     name: 氷風Ⅰ
     level: 40
-    role: intermediate
+    # 対になる B-2-1 と同じ枝の根。intermediate だと主軸の列に置かれ、
+    # B と C の間にコネクタの隙間が無くなって線が読めなくなる。
+    role: branch
     parent: B
     icon: BLUE_ICE
     cost: 1
@@ -252,7 +256,7 @@ nodes:
     name: 転送Ⅰ
     level: 40
     role: branch
-    parent: A
+    parent: B
     icon: ELYTRA
     cost: 1
     effect-text: 滑空・疾風グリフ解放
@@ -292,7 +296,7 @@ nodes:
     name: 焦熱・雷撃
     level: 80
     role: branch
-    parent: B
+    parent: D
     icon: BLAZE_POWDER
     cost: 1
     effect-text: 焦熱解放
@@ -306,7 +310,7 @@ nodes:
       雷撃グリフ解放
   D-2-1:
     role: branch
-    parent: B-2-3
+    parent: D
     level: 80
     cost: 1
     buffs:
