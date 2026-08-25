@@ -1,47 +1,35 @@
 "use strict";
 
-// One-shot, deterministic authoring helper for the shipped item-stat table. It deliberately
-// writes only static YAML: runtime balancing never depends on this script. It only emits fields
-// consumed by ItemStatsConfig; unsupported legacy fields must not be copied back into the table.
+// One-shot, deterministic authoring helper for the item-stat table. It deliberately writes only
+// static YAML: runtime balancing never depends on this script. It only emits fields consumed by
+// ItemStatsConfig; unsupported legacy fields must not be copied back into the table.
 const fs = require("node:fs");
 const path = require("node:path");
 const YAML = require("yaml");
 
 const root = path.resolve(__dirname, "..", "..", "..");
 const catalogPath = path.join(root, "TrinityForge", "src", "main", "resources", "items", "catalog.yml");
-const targetPath = path.join(root, "TrinityForge", "src", "main", "resources", "stats", "item-stats.yml");
+const shippedPath = path.join(root, "TrinityForge", "src", "main", "resources", "stats", "item-stats.yml");
 
 // ---------------------------------------------------------------------------
-// 実行ゲート (2026-08-02 追加)
+// 出荷 item-stats.yml へは書き込まない (2026-08-25、構造的に巻き戻せなくした)
 //
-// このスクリプトは出荷 item-stats.yml を【丸ごと上書きする】。ところが tiers 表は
-// 手で入れた調整を1つも持っていないため、うっかり走らせると以下が無言で巻き戻る:
-//
+// 【旧仕様の問題】以前は --force を付けると出荷 item-stats.yml を【丸ごと上書き】していた。
+// tiers 表は手で入れた調整を1つも持っていないため、実行するたびに次が無言で巻き戻っていた:
 //   ・U5 重武器 attack-power ×1.157 (目標帯 +15% への引き下げ)
 //   ・U6 遠隔武器の attack-speed 0.1 (近接素振りの抑止)
 //   ・yml 内の日本語コメント全部 (YAML.stringify は再生成なのでコメントを持てない)
 //   ・generator が生成しない孤児CMD (GOLDEN_SWORD#59 / WOODEN_SWORD#60 / #51 …)
+// --force という「確認して回避できる」ゲートでは、確認を怠った瞬間に事故る (エディタが
+// 真源として使われている前提と矛盾する)。「editor を絶対優先」＝「出荷 yml が真源で、
+// 生成スクリプトはそれを壊せない」を満たすには、上書き経路そのものを消す必要がある。
 //
-// 「気づけない事故」なので、意図の表明なしには走らせない。復旧は git checkout だけなので
-// 実害は小さいが、他セッションの WIP を巻き込むと戻せなくなる。
+// 【現仕様】このスクリプトは出荷 yml を一切開かず (読み込みすらしない)、生成結果を
+// git 管理外の tmp/generated/ 配下へ書くだけになった。出荷側を更新したいときは、
+// このプレビューを見ながら手で yml を編集するか、設定エディタから保存する
+// (どちらの経路でも lib/yaml-merge.js がコメント・孤児エントリを保持する)。
 // ---------------------------------------------------------------------------
-if (!process.argv.includes("--force")) {
-  console.error(`generate-item-stats.js は出荷 item-stats.yml を丸ごと上書きします。
-
-  上書きすると失われるもの:
-    - U5 重武器 attack-power ×1.157 (この generator の tiers 表は持っていません)
-    - U6 遠隔武器 attack-speed 0.1
-    - yml 内の日本語コメント全部 (再生成なのでコメントは復元されません)
-    - generator が生成しない孤児CMD (GOLDEN_SWORD#59 / WOODEN_SWORD#60 / #51 など)
-
-  出荷 yml が真源です。表を書き換えたいときは generator ではなく yml を直接編集するか、
-  設定エディタから保存してください。
-
-  それでも再生成する場合:  node scripts/generate-item-stats.js --force
-  実行後は必ず  git diff -- TrinityForge/src/main/resources/stats/item-stats.yml  で
-  意図しない巻き戻りが無いか確認してください。`);
-  process.exit(1);
-}
+const previewPath = path.join(root, "tmp", "generated", "item-stats.generated-preview.yml");
 
 const catalog = YAML.parse(fs.readFileSync(catalogPath, "utf8"));
 
@@ -442,17 +430,27 @@ const itemTabs = {};
 for (const [tab, rows] of Object.entries(categories)) for (const row of rows || []) for (const id of row.itemIds || []) itemTabs[id] = tab;
 const orders = Object.fromEntries(Object.entries(categories).map(([tab, rows]) => [tab, (rows || []).flatMap((row) => row.itemIds || [])]));
 const generated = { items, _editor: { categories, itemTabs, orders } };
-const original = fs.readFileSync(targetPath, "utf8");
-const header = original.slice(0, original.indexOf("\nitems:\n") + 1);
-fs.writeFileSync(targetPath, `${header}${YAML.stringify(generated)}`, "utf8");
-console.log(`wrote ${Object.keys(items).length} item-stat profiles`);
-// 注意: このスクリプトは source tree の item-stats.yml のみを書き換える(deployミラーはしない)。
-// エディタの保存経路と違い稼働サーバへ自動反映されないため、実サーバに反映するには
-// エディタで item-stats を一度保存する(mirrorToDeployが走る)か、deploy先へ手動同期し、
-// 最後に /trinityforge reload かサーバ再起動を行うこと。
-console.log("⚠ deployミラーは未実施です。実サーバ反映にはエディタで再保存 or deploy先へ同期 + /trinityforge reload が必要です。");
-// ⚠ 既知の乖離: 出荷中(deploy)の item-stats.yml には、この generator が生成しない孤児CMD
-//   (GOLDEN_SWORD#59 / WOODEN_SWORD#60 / WOODEN_SWORD#51 等)や、GOLD武器のギャンブル幅・GOLD防具の
-//   旧値が含まれる。再生成すると孤児は消え、GOLD系は generator 値に上書きされる。4要件
-//   (武器耐久 / 厳選幅 / ダメージ補正0.50〜0.90 / ツール use-skill) は本 generator にも反映済みだが、
-//   稼働サーバへは常に deploy 中の item-stats.yml を真源として扱い、単純再生成前に diff で乖離を確認すること。
+
+const previewHeader = `# generate-item-stats.js の出力プレビュー (git 管理外・自動生成)。
+#
+# ⚠ これは出荷 item-stats.yml ではありません。このスクリプトはもう出荷 yml を
+#   開きも書きもしません (2026-08-25 に上書き経路を撤去)。出荷側を更新したいときは、
+#   このファイルと下記コマンドの diff を見ながら【手で】yml を編集するか、設定エディタ
+#   から保存してください (どちらの経路でも lib/yaml-merge.js がコメント・generator が
+#   知らないエントリ = 孤児CMD等を保持します)。このファイルをそのまま出荷側へコピーしないこと。
+#
+#   git diff --no-index -- \\
+#     ${path.relative(root, shippedPath).replace(/\\/g, "/")} \\
+#     ${path.relative(root, previewPath).replace(/\\/g, "/")}
+#
+# 既知の乖離 (再生成のたび毎回出るので、diff レビュー時に驚かないこと):
+#   ・出荷側にはこの generator が生成しない孤児CMD
+#     (GOLDEN_SWORD#59 / WOODEN_SWORD#60 / WOODEN_SWORD#51 等) がある → このプレビューには無い
+#   ・出荷側には手で調整した値がある (例: 重武器 attack-power の引き下げ倍率、
+#     遠隔武器の attack-speed) → generator の tiers 表はそれを再現していない
+`;
+
+fs.mkdirSync(path.dirname(previewPath), { recursive: true });
+fs.writeFileSync(previewPath, `${previewHeader}\n${YAML.stringify(generated)}`, "utf8");
+console.log(`generated ${Object.keys(items).length} item-stat profiles -> ${path.relative(root, previewPath)}`);
+console.log("出荷 item-stats.yml には一切書き込んでいません。上の diff コマンドで内容を確認してから、必要な差分だけ手で反映してください。");

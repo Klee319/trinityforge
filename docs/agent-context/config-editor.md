@@ -78,6 +78,27 @@ config-editor 保存経路（`mirrorToDeploy` 等）を通さない自作の生�
 **ソース→デプロイ先の同期が本当に行われるか**を必ず確認する。過去に、生成スクリプトがソースにしか書かず
 デプロイ先（実サーバ config）を素通りしたため、「値を変えたのに反映されない」を実装バグと誤認した事例がある。
 
+### `scripts/generate-item-stats.js` は出荷 item-stats.yml へ二度と書き込まない（2026-08-25）
+
+※かつては `--force` を付けると出荷 `stats/item-stats.yml` を丸ごと `YAML.stringify` で
+上書きする設計だった（`--force` はただの確認ゲートで、実行経路自体は残っていた）。
+「editor を絶対優先＝出荷ymlが真源で生成スクリプトはそれを壊せない」という方針のもと、
+**上書き経路そのものを撤去した**。現在の挙動:
+- 出荷 `TrinityForge/src/main/resources/stats/item-stats.yml` は**読み込みすらしない**
+  （ヘッダ流用のために読んでいた旧コードも削除済み）。
+- 生成結果は常に `tmp/generated/item-stats.generated-preview.yml`（git管理外）へ書く。
+  出荷側を更新したいときは、このプレビューと出荷ymlを diff で見比べながら**手で反映する**か、
+  設定エディタから保存する（どちらの経路でも `lib/yaml-merge.js` がコメント・
+  generator が知らない孤児CMD等のエントリを保持する）。
+- generator の `tiers` 表は手で調整した値（重武器 attack-power の引き下げ倍率、遠隔武器の
+  attack-speed 等）や孤児CMDを持っていないので、**プレビューと出荷ymlは恒常的に差分が出る。
+  これは仕様**（diffレビュー時に驚かないこと）。
+回帰テストは `test/generate-item-stats-no-shipped-write-2026-08-25.test.js`
+（実行しても出荷ymlが1バイトも変わらないことを動的に固定 + ソースの静的ガード）。
+似た性質の `scripts/retune-item-stats.js`（出荷ymlを直接・部分的に書き換える「surgical」スクリプト）
+は今回のタスク範囲外で未調査。出荷ymlへ書き込むスクリプトを新設・変更するときは、
+まずこのファイルと同じ「巻き戻りが原理的に起きないか」を先に検討すること。
+
 ### 語彙・定義ファイルはサーバ側（`lib/`）とブラウザ側（`public/js/`）で分かれている
 `lib/gate-vocabulary.js` / `lib/tier-vocabulary.js` のように、検証・API 側（Node, `lib/`）に語彙定義が
 存在する一方、UI 描画側（ブラウザ, `public/js/`）にも同名または対応する語彙・定数ファイルが存在する
@@ -175,6 +196,42 @@ weapon/armor/tool/other/catalyst/spellbook/thread の7値）は `idsInCategory` 
 3. 識別不能な配列 → 従来通り衝突として記録し local を優先する
 マージロジックを変更するときは `test/merge.test.js` を必ず通す。ブラウザは `merge.js` を再読込するために
 ハードリロード（Ctrl+F5 / Ctrl+Shift+R）が要る。
+
+### 楽観ロック(revision)はサーバがファイルの中身ハッシュしか見ないので「エージェントの直接編集」も自動的に守られる（2026-08-25 確認+穴を1つ修正）
+
+「エディタを開いたまま別プロセス(エージェントの Edit/Write 等)が yml を直接書き換えると、
+保存した瞬間にその編集が黙って上書きされるのでは」という懸念は、**調査の結果、既存の
+`server.js` の `PUT /api/config/:id` が持つ楽観ロックで構造的に防がれている**ことを確認した。
+`fileRevision(abs)`（sha256、`server.js`）はファイルの**中身**をハッシュするだけで、
+誰がその中身を書いたか（config-editor の保存経路か、エージェントの直接編集か）は一切区別しない。
+そのため:
+- エディタが GET でロードした時点の revision と、保存(PUT)時点の実ファイルの revision が
+  食い違えば、書いた主体に関わらず 409 で拒否される。
+- クライアント側(`public/js/app.js` の `putConfig`)は 409 を受けると
+  `window.threeWayMerge`(`public/js/merge.js`)で「読み込み時点のbase / 自分の編集 / 相手の最新」
+  の3-wayマージを行い、ユーザーに確認モーダルを出す。**無言の上書きは起きない。**
+- この仕組みは「エディタ経由の同時編集」用に作られたものだが、比較対象が常にディスクの実体
+  なので**エージェントによる直接編集にも自動的に同じ保護が効く**。専用の実装は不要だった。
+
+**ただし1点、実際に穴があった（2026-08-25 に発見・修正）**: `expectedRevision` が `null`
+（＝エディタが「未作成」としてロードした config）のときだけ、サーバが revision チェックを
+一律スキップしていた。そのため「エディタが未作成として開いた config を、開いている間に
+エージェントが新規作成し、そのまま保存する」経路だけ**サイレントに上書きされていた**。
+修正は `server.js` を `expected !== undefined && expected !== null && ...` から
+`Object.prototype.hasOwnProperty.call(req.body, "expectedRevision") && expected !== currentRev`
+へ変更し、`null` も比較対象にした。**この修正はクライアント側とペアでないと効かない**——
+クライアントが `revision != null` のときだけ `expectedRevision` を送る書き方をしていると、
+そもそも `null` が送られてこないので上のサーバ修正が意味を持たない。
+`public/js/app.js`(`putConfig`)・`public/js/respack-view.js`(`putConfigRevision`)・
+`public/js/cmd-tools.js`(`putConfigRevision`) の3箇所を「一度もロードしていない
+(stateに記録が無い)ときだけ省略し、`null` を含めロード済みなら必ず送る」へ揃えた
+(`public/js/material-lists.js` は元から正しく実装されていた。参考実装として残す)。
+**新しく `PUT /api/config/:id` を呼ぶ独自ヘルパーを追加するときは、この3ファイルと同じ契約
+（`expectedRevision` は「一度もロードしていない」ときだけ省略し、`null` も含めて送る）を守ること。**
+`!= null` で省略条件を書くと、この穴が個別に再発する。
+回帰テストは `test/server-optimistic-lock-agent-edit-2026-08-25.test.js`
+（実際に外部プロセスがファイルを直接書き換える/新規作成するケースをHTTPレベルで再現し、
+409で拒否されディスクが1バイトも変わらないことを固定）。
 
 ### companion（連動オプション）マージの一般化に注意する
 複数 yml にまたがる「companion」設定（例: `stat-caps` / `alchemy-quality` / `enchant-luck` /

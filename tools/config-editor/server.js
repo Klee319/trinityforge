@@ -680,7 +680,9 @@ function readMultiplierLayers() {
 }
 
 // 保存: 検証 -> (楽観的ロック) -> バックアップ -> 書き込み (検証NG時はバックアップを作らない)
-// body.expectedRevision が現ファイルと不一致なら 409。body.force=true で上書き可。
+// body に expectedRevision キーがあり、それが現ファイルの revision と不一致なら 409
+// (値が null でも「読み込み時点で未作成だった」という比較対象になる。省略時のみ無条件書き込み)。
+// body.force=true で上書き可。
 app.put("/api/config/:id", (req, res) => {
   const entry = findById(req.params.id);
   if (!entry) return res.status(404).json({ error: "未登録のconfig id です" });
@@ -708,9 +710,18 @@ app.put("/api/config/:id", (req, res) => {
     fs.mkdirSync(path.dirname(abs), { recursive: true });
 
     const force = !!(req.body && req.body.force);
-    const expected = req.body && req.body.expectedRevision;
+    // body に expectedRevision キーがあるか (値が null でも「読み込み時点でファイルが
+    // 存在しなかった」という有効な情報として扱う。2026-08-25: 以前は expected === null を
+    // 一律「チェックしない」として素通ししていたため、①エディタが「未作成」として開いた config を、
+    // ②その間に別プロセス(config-editor を経由しないエージェントの直接編集等)がファイルを新規作成し、
+    // ③そのままエディタで保存すると、②の内容を無言で上書きしていた(サイレントロールバック)。
+    // hasOwnProperty で判定することで「null を明示的に送った(=読み込み時は未作成だった)」と
+    // 「そもそも expectedRevision を一度も送っていない(=楽観ロックに参加しないレガシー呼び出し)」を
+    // 区別し、前者だけ通常どおり比較対象にする。
+    const hasExpectedRevision = !!(req.body && Object.prototype.hasOwnProperty.call(req.body, "expectedRevision"));
+    const expected = hasExpectedRevision ? req.body.expectedRevision : undefined;
     const currentRev = fileRevision(abs);
-    if (!force && expected !== undefined && expected !== null && currentRev !== null && expected !== currentRev) {
+    if (!force && hasExpectedRevision && expected !== currentRev) {
       const { exists, data: latest } = readConfig(abs);
       return res.status(409).json({
         error: "他の編集者が先に保存したため、そのままでは上書きできません",

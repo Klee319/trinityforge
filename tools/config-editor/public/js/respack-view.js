@@ -188,13 +188,17 @@
     return box;
   }
 
-  // revision付き楽観ロックPUT。app.js の putConfig と同じ契約 (expectedRevisionは revision != null
-  // の時のみ送る / 409+payload.conflict をコンフリクトとして判定)。
+  // revision付き楽観ロックPUT。呼び出し元は必ず直前のGETで取得した revision を渡す想定
+  // (409+payload.conflict をコンフリクトとして判定)。
   // マージUIは持たない (このビューはワンショットのバッチ処理のため、コンフリクト時は中断して
   // ユーザーに再読込・再実行を促すだけに留める)。
+  // ⚠ 2026-08-25: 以前は `expectedRevision != null` の時だけ送っていたため、GETした時点で
+  // ファイルが未作成(revision:null)だったケースで expectedRevision を省略してしまい、
+  // その間に外部プロセスがファイルを新規作成しても楽観ロックが一切効かなかった
+  // (server.js 側は expectedRevision キー自体の有無で判定するため、null も明示的に送る必要がある。
+  // app.js の putConfig と契約を揃えた)。
   async function putConfigRevision(configId, data, expectedRevision) {
-    const body = { data };
-    if (expectedRevision != null) body.expectedRevision = expectedRevision;
+    const body = { data, expectedRevision };
     try {
       const r = await apiCall("PUT", `/api/config/${configId}`, body);
       return { ok: true, revision: r.revision };
