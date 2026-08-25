@@ -102,6 +102,21 @@ public final class ParticleGeometry {
                     out.add(new Emit(0, y + emission.height() * t, 0, 1, r, 0, r, speed));
                 }
             }
+            case TRAIL -> {
+                // 後ろへ等間隔に並べる。前方は (-sin(yaw), cos(yaw)) なので、後ろはその符号反転。
+                // ⚠ ここに渡ってくる yawDegrees は「向いている方向」ではなく
+                //   【進んでいる方向】(止まっているときだけ向いている方向)。決めるのは駆動側
+                //   (ParticleEffectService)で、この層は「渡された向きの後ろ」だけを描く。
+                double trailYaw = Math.toRadians(yawDegrees);
+                double backX = Math.sin(trailYaw);
+                double backZ = -Math.cos(trailYaw);
+                for (int i = 0; i < count; i++) {
+                    // 足元そのもの(t=0)は置かない。プレイヤーの真下は本人の視点で見えないので、
+                    // 1点ぶん無駄になる。
+                    double t = (i + 1.0) / count;
+                    out.add(directional(r * backX * t, y, r * backZ * t, backX, 0, backZ, speed));
+                }
+            }
             case ARC -> {
                 double sweep = Math.toRadians(emission.arcDegrees());
                 // Bukkit の yaw は「南(+Z)が 0 で時計回り」。前方は (-sin(yaw), cos(yaw))。

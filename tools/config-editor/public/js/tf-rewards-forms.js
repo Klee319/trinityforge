@@ -492,6 +492,7 @@
     helix: "螺旋",
     pillar: "垂直の柱",
     arc: "薙ぐ弧",
+    trail: "足元から後ろへ流れる軌跡",
     point: "1点だけ"
   };
   // その形状が実際に読むキー。ここに無いキーは Java 側で無視されるので、画面にも出さない
@@ -504,22 +505,25 @@
     helix: ["count", "radius", "height", "turns"],
     pillar: ["count", "radius", "height"],
     arc: ["count", "radius", "arc-degrees", "height"],
+    trail: ["count", "radius", "speed"],
     point: ["count", "speed"]
   };
   // 形状ごとの既定値 (Java 側 Emission.of(Shape) と同値)。形状を切り替えたときに埋める。
+  // ⚠ 2026-08-25: 点の数を一段下げた(実機で「量が多すぎる」報告)。Java 側 Emission.of と同値。
   const SHAPE_DEFAULTS = {
     aura: { count: 8, radius: 0.6, speed: 0 },
-    circle: { count: 12, radius: 1, speed: 0 },
-    sphere: { count: 24, radius: 0.8, speed: 0 },
-    burst: { count: 20, speed: 0.25 },
-    helix: { count: 24, radius: 0.6, height: 2, turns: 3 },
-    pillar: { count: 12, radius: 0.3, height: 2 },
-    arc: { count: 12, radius: 1.2, "arc-degrees": 120, height: 0 },
+    circle: { count: 10, radius: 1, speed: 0 },
+    sphere: { count: 12, radius: 0.8, speed: 0 },
+    burst: { count: 12, speed: 0.25 },
+    helix: { count: 12, radius: 0.6, height: 2, turns: 3 },
+    pillar: { count: 10, radius: 0.3, height: 2 },
+    arc: { count: 10, radius: 1.2, "arc-degrees": 120, height: 0 },
+    trail: { count: 6, radius: 1.2, speed: 0.05 },
     point: { count: 4, speed: 0 }
   };
   const PARAM_META = {
-    count: { label: "count", int: true, min: 0, max: 400,
-      hint: "1回に出す点の数。上限400(粒子は見ている人数ぶん送るため)" },
+    count: { label: "count", int: true, min: 0, max: 64,
+      hint: "1回に出す点の数。上限64(点の数 × 見ている人数ぶんパケットが飛ぶ)" },
     radius: { label: "radius", min: 0, max: 16, hint: "半径/ばらつき(ブロック)。形状で意味が変わる" },
     speed: { label: "speed", min: 0, max: 8,
       hint: "初速。0でその場に留まる。輪/球/射出では『どちらへ飛ぶか』が決まる" },
@@ -537,6 +541,8 @@
     helix: "螺旋。radius が太さ、height が高さ、turns が巻き数",
     pillar: "垂直の柱。radius は横のばらつき",
     arc: "向いている方向へ薙ぐ弧。height は端の持ち上げ",
+    trail: "足元から後ろへ流れる軌跡。radius が後ろへ伸ばす長さ、speed が流れる速さ。"
+      + "『後ろ』は進んでいる向きの逆(止まっているときだけ向いている方向の逆)",
     point: "1点だけ。最小構成"
   };
   const ORIGIN_LABELS = {

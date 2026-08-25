@@ -33,8 +33,8 @@ test("tf-special-rewards: shape不正・型不正はエラー", () => {
 // 形状と発生パラメータ (2026-08-25 / W-242・W-243・W-244)
 // ★ ここが緩いと「editor では保存できるのに、起動時に warning でそのエントリごと捨てられる」になる。
 //   Java 側 SpecialRewardsConfig.Shape / Emission の範囲と一字一句そろえること。
-test("tf-special-rewards: 増えた8形状すべてが particles / particle-seeds の両方で通る", () => {
-  const shapes = ["aura", "circle", "sphere", "burst", "helix", "pillar", "arc", "point"];
+test("tf-special-rewards: 形状すべてが particles / particle-seeds の両方で通る", () => {
+  const shapes = ["aura", "circle", "sphere", "burst", "helix", "pillar", "arc", "trail", "point"];
   for (const shape of shapes) {
     const particleErrors = validate("tf-special-rewards", {
       particles: { s: { particle: "FLAME", "interval-ticks": 10, shape } }
@@ -373,4 +373,55 @@ test("tf-collection: reward-tiers.job-exp の skill不正はエラー", () => {
     "reward-tiers": { bronze: { "job-exp": [{ skill: "BOGUS", amount: 1 }] } }
   });
   assert.ok(errors.some((e) => /reward-tiers\.bronze\.job-exp\[0\]\.skill/.test(e)));
+});
+
+// ---------------------------------------------------------------------------
+// 形状の語彙は【3箇所】に散っている: Java の enum / lib/schema.js(保存時の検査) /
+// public/js の画面定義。2026-08-25 に「Java と出荷 yml は新しい形状を知っているのに
+// 起動中の editor が古い語彙で弾く」を実際に踏んだので、ずれを機械的に見つけられるようにする。
+// ⚠ このテストが通っても【起動中の editor プロセス】は直らない ―― Node は require したモジュールを
+//   キャッシュするので、lib/schema.js を書き替えたら editor の再起動が必要。
+// ---------------------------------------------------------------------------
+const fs = require("node:fs");
+const path = require("node:path");
+
+function shapeNamesFromJava() {
+  const javaPath = path.join(__dirname, "..", "..", "..", "TrinityForge", "src", "main", "java",
+    "com", "trinityforge", "config", "domains", "SpecialRewardsConfig.java");
+  const source = fs.readFileSync(javaPath, "utf8");
+  const block = source.slice(source.indexOf("public enum Shape {"));
+  const body = block.slice(0, block.indexOf("\n    }"));
+  // 「行頭のインデント + 大文字の識別子 + , または改行」だけを拾う(javadoc の語は拾わない)
+  return (body.match(/^\s{8}([A-Z][A-Z_]*),?$/gm) || []).map((line) => line.trim().replace(/,$/, "").toLowerCase());
+}
+
+function shapeKeysFromBrowserTable(tableName) {
+  const jsPath = path.join(__dirname, "..", "public", "js", "tf-rewards-forms.js");
+  const source = fs.readFileSync(jsPath, "utf8");
+  const start = source.indexOf(`const ${tableName} = {`);
+  assert.ok(start > 0, `${tableName} が public/js/tf-rewards-forms.js に無い`);
+  const body = source.slice(start, source.indexOf("\n  };", start));
+  return (body.match(/^\s{4}"?([a-z-]+)"?:/gm) || []).map((line) => line.trim().replace(/[":]/g, ""));
+}
+
+test("tf-special-rewards: 形状の語彙が Java / 保存時の検査 / 画面 の3箇所でそろっている", () => {
+  const java = shapeNamesFromJava();
+  assert.ok(java.length >= 9, `Java 側の形状が読めていない: ${java.join(",")}`);
+  const schemaShapes = require("../lib/schema.js").particleShapesForTest;
+  assert.deepStrictEqual([...schemaShapes].sort(), [...java].sort(),
+    "lib/schema.js の PARTICLE_SHAPES が Java の Shape とずれている(保存できない形状が生まれる)");
+  for (const table of ["SHAPE_LABELS", "SHAPE_PARAMS", "SHAPE_DEFAULTS", "SHAPE_HINTS"]) {
+    assert.deepStrictEqual(shapeKeysFromBrowserTable(table).sort(), [...java].sort(),
+      `public/js の ${table} が Java の Shape とずれている`);
+  }
+});
+
+test("tf-special-rewards: count の上限は 64 (境界)", () => {
+  assert.deepStrictEqual(validate("tf-special-rewards", {
+    particles: { p: { particle: "FLAME", "interval-ticks": 10, count: 64 } }
+  }), []);
+  const errors = validate("tf-special-rewards", {
+    particles: { p: { particle: "FLAME", "interval-ticks": 10, count: 65 } }
+  });
+  assert.ok(errors.some((e) => /particles\.p\.count/.test(e)), errors.join(" / "));
 });

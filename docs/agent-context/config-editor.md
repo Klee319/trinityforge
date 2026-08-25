@@ -23,6 +23,31 @@ curl -s http://127.0.0.1:8000/api/constants | python -c "import sys,json;d=json.
 古いプロセスのまま保存しても未知キーは `yaml-merge` がロスレスに温存するので、
 設定が消える事故にはならない。
 
+### ⚠ 同じ原因のもう1つの症状: **「保存できませんでした: スキーマ検証に失敗しました」**
+
+`lib/schema.js` も**起動時に `require` された1本**が使われる（Node のモジュールキャッシュ）。
+つまり検証の語彙を増やしても、**走りっぱなしのプロセスは古い語彙で弾き続ける**。
+新しい値を出荷 yml に書いた直後は、editor から見ると
+
+> ・particles.particle_void_aura.shape: circle / aura のいずれかである必要があります
+
+のように「**自分が読み込んだ yml の値を、自分が保存拒否する**」状態になる（2026-08-25 実例。
+Java と出荷 yml は 9 形状を知っているのに、8/21 から走っていたプロセスは 2 形状のままだった）。
+
+切り分け: **エラー文に出ている選択肢がリポジトリの `lib/schema.js` と食い違っていれば確定**
+（メッセージは配列から組み立てているので、古い配列がそのまま文面に出る）。
+
+```bash
+# プロセスの起動時刻 vs 変更のコミット時刻を比べる
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Select-Object ProcessId,CreationDate,CommandLine | Format-List"
+```
+
+**対処は再起動だけ。**「Java 側と yml と `lib/schema.js` の 3 点が合っているか」は
+`test/schema-rewards.test.js` の「形状の語彙が Java / 保存時の検査 / 画面 の3箇所でそろっている」が
+機械的に見ているので、**テストが緑でも実機が直っているとは限らない**ことに注意。
+併せて `public/js/*` を変えたときは**ブラウザ側のリロードも要る**（静的ファイルは取り直されるが、
+開いたままのページは古い JS のまま動く）。
+
 ## データの真源と保存の仕組み
 
 ### yml 本文コメントは保存で消える → **2026-08-16 に解消済み**

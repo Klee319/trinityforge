@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 形状 8 種と、形状ごとに効くパラメータを固定する (2026-08-25 / W-244、実サーバ要望
+ * 形状 9 種と、形状ごとに効くパラメータを固定する (2026-08-25 / W-244、実サーバ要望
  * 「形状のバリエーションを増やしたい。発生パラメータも形状に応じて動的に変わるべきでは？
  * 円形拡散なら速度パラメータとか大事」)。
  *
@@ -29,7 +29,7 @@ class ParticleShapeGeometryTest {
     }
 
     @Test
-    @DisplayName("形状は8種すべてが呼び出し列を生む（選べるのに何も出ない形状が無い）")
+    @DisplayName("形状はすべてが呼び出し列を生む（選べるのに何も出ない形状が無い）")
     void everyShapeProducesEmits() {
         for (Shape shape : Shape.values()) {
             List<ParticleGeometry.Emit> emits = ParticleGeometry.emits(Emission.of(shape), 0.0);
@@ -178,13 +178,21 @@ class ParticleShapeGeometryTest {
     @DisplayName("y-offset は全形状に効く（負値で下げられる）")
     void yOffsetShiftsEveryShape() {
         for (Shape shape : Shape.values()) {
-            Emission base = Emission.of(shape);
-            Emission lowered = new Emission(shape, base.count(), base.radius(), base.speed(),
-                    base.height(), base.turns(), base.arcDegrees(), -1.0);
+            // ⚠ Emission.of(shape) をそのまま基準にしない ―― TRAIL だけ既定の y-offset が
+            //   足元寄り(0.1)なので、「既定 vs -1.0」で比べると差が 1.0 にならない。
+            //   ここで見たいのは「y-offset が効くか」だけなので、両方を明示して比べる。
+            Emission base = withYOffset(shape, 0.0);
+            Emission lowered = withYOffset(shape, -1.0);
             // 形状ごとに点の散り方が違う(球は上端から並ぶ)ので、代表点ではなく平均の高さで見る。
             assertEquals(meanHeight(base) - 1.0, meanHeight(lowered), 1e-9,
                     shape + " が y-offset を無視している");
         }
+    }
+
+    private static Emission withYOffset(Shape shape, double yOffset) {
+        Emission base = Emission.of(shape);
+        return new Emission(shape, base.count(), base.radius(), base.speed(),
+                base.height(), base.turns(), base.arcDegrees(), yOffset);
     }
 
     private static double meanHeight(Emission emission) {
@@ -223,5 +231,63 @@ class ParticleShapeGeometryTest {
         for (Shape shape : Shape.values()) {
             assertTrue(Emission.of(shape).count() > 0, shape + " の既定 count が 0");
         }
+    }
+
+    // --- TRAIL: 足元から後ろへ流れる軌跡 (2026-08-25、実サーバ要望) -------------------------
+
+    /**
+     * ★ 「後ろ」の向きが正しいことの固定。Bukkit の yaw は<b>南(+Z)が 0 で時計回り</b>なので、
+     * yaw 0 の前方は +Z ── 軌跡は -Z 側へ伸びなければならない。ここを取り違えると
+     * 「走ると軌跡が体の前に出る」という一目で分かる壊れ方をする。
+     */
+    @Test
+    @DisplayName("軌跡は渡された向きの真後ろへ伸びる（yaw 0 なら -Z 側）")
+    void trailExtendsBehindTheGivenDirection() {
+        List<ParticleGeometry.Emit> emits =
+                ParticleGeometry.emits(emission(Shape.TRAIL, 3, 1.5, 0.0), 0.0);
+        assertEquals(3, emits.size());
+        for (ParticleGeometry.Emit emit : emits) {
+            assertTrue(emit.dz() < 0.0, "yaw 0(南向き)の後ろは -Z なのに dz=" + emit.dz());
+            assertEquals(0.0, emit.dx(), 1e-9, "真後ろなので横ズレは無い");
+        }
+        // 東(yaw -90 = 前方 +X)を向いていれば後ろは -X。
+        for (ParticleGeometry.Emit emit : ParticleGeometry.emits(emission(Shape.TRAIL, 2, 1.0, 0.0), -90.0)) {
+            assertTrue(emit.dx() < 0.0, "東向きの後ろは -X なのに dx=" + emit.dx());
+        }
+    }
+
+    @Test
+    @DisplayName("軌跡の点は radius まで等間隔（足元そのものには置かない）")
+    void trailPointsAreEvenlySpacedUpToRadius() {
+        List<ParticleGeometry.Emit> emits =
+                ParticleGeometry.emits(emission(Shape.TRAIL, 4, 2.0, 0.0), 0.0);
+        double[] expected = {0.5, 1.0, 1.5, 2.0};
+        for (int i = 0; i < expected.length; i++) {
+            assertEquals(expected[i], Math.hypot(emits.get(i).dx(), emits.get(i).dz()), 1e-9);
+        }
+    }
+
+    @Test
+    @DisplayName("軌跡に speed を入れると後ろへ流れる（方向指定モードへ落ちる）")
+    void trailWithSpeedStreamsBackward() {
+        List<ParticleGeometry.Emit> emits =
+                ParticleGeometry.emits(emission(Shape.TRAIL, 2, 1.0, 0.3), 0.0);
+        for (ParticleGeometry.Emit emit : emits) {
+            assertEquals(0, emit.count(), "向きを持たせるには count 0 で撃つしかない");
+            assertEquals(0.3, emit.extra(), 1e-9);
+            assertTrue(emit.offZ() < 0.0, "流れる向きも後ろ(-Z)であるべき");
+            assertEquals(0.0, emit.offX(), 1e-9);
+        }
+    }
+
+    /**
+     * 軌跡の既定の高さだけ他の形状と違う。ここが胸の高さ(1.0)のままだと
+     * <b>形状を trail に変えただけで軌跡が空中に浮く</b>。
+     */
+    @Test
+    @DisplayName("軌跡の既定の高さは足元寄り（他の形状と違う唯一の点）")
+    void trailDefaultsToFootLevel() {
+        assertEquals(Emission.DEFAULT_TRAIL_Y_OFFSET, Emission.of(Shape.TRAIL).yOffset(), 1e-9);
+        assertTrue(Emission.of(Shape.TRAIL).yOffset() < Emission.DEFAULT_PLAYER_Y_OFFSET);
     }
 }

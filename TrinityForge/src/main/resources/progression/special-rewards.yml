@@ -16,7 +16,7 @@
 #   shape ほかの発生パラメータは particles / particle-seeds で共通。↓の「発生パラメータ」を参照
 #
 # 【発生パラメータ】 particles と particle-seeds の両方で同じ意味・同じ既定値 (2026-08-25 / W-243・W-244)
-#   shape: 形状。書ける値は 8 つ。★ 形状ごとに「効くパラメータ」が違う ので、
+#   shape: 形状。書ける値は 9 つ。★ 形状ごとに「効くパラメータ」が違う ので、
 #          その形状が使わないキーは書いても無視される(下の一覧のとおり)
 #     aura    まとわりつく雲       … count / radius(ばらつきの箱) / speed
 #     circle  水平の輪             … count / radius(半径) / speed ★speed>0 で外向きに飛び散る(円形拡散)
@@ -25,8 +25,15 @@
 #     helix   螺旋                 … count / radius(半径) / height(高さ) / turns(回転数)
 #     pillar  垂直の柱             … count / radius(横のばらつき) / height(高さ)
 #     arc     向いた方向へ薙ぐ弧   … count / radius(半径) / arc-degrees(開き角) / height(端の持ち上げ)
+#     trail   足元から後ろへ流れる軌跡 … count / radius(後ろへ伸ばす長さ) / speed(流れる速さ)
+#             ★「後ろ」は【進んでいる向きの逆】(止まっているときだけ向いている方向の逆)
+#             ★ y-offset の既定だけ他の形状と違い足元寄り(0.1)。空中に浮かせたいなら明示的に書く
 #     point   1点だけ              … count / speed
-#   count:       1回の発生あたりの点の数 (上限 400。粒子は見ている人数ぶん送るのでここは保護のための上限)
+#   count:       1回の発生あたりの点の数 (上限 64)
+#                ★ ここは見た目だけでなく【負荷】も決める。輪・球・螺旋・軌跡のように
+#                  点ごとに座標が違う形状は「点の数だけ」パケットが出て、しかも見ている人ごとに送るので
+#                  実際の量は 点の数 × 近くの人数。多すぎると感じたら count を下げるか
+#                  interval-ticks を伸ばす(2026-08-25 に出荷値を一段下げた)
 #   radius:      半径/ばらつき(ブロック)。形状によって意味が変わる(上の一覧)
 #   speed:       粒子の初速。0 = その場に留まる。circle/sphere/burst では「どちらへ飛ぶか」が決まる
 #   height:      垂直方向の伸び(ブロック)。helix / pillar / arc だけ
@@ -192,10 +199,13 @@ titles:
 particles:
   particle_sparkle:
     particle: END_ROD
+    # 2026-08-25: 足元から後ろへ流れる軌跡の実例(shape: trail)。
+    # radius = 後ろへ伸ばす長さ、speed = 流れる速さ。高さは足元寄りの既定(0.1)に任せる。
     count: 6
-    radius: 0.8
-    interval-ticks: 15
-    shape: aura
+    radius: 1.4
+    interval-ticks: 6
+    shape: trail
+    speed: 0.02
   particle_ember_aura:
     particle: FLAME
     count: 8
@@ -204,7 +214,7 @@ particles:
     shape: aura
   particle_void_aura:
     particle: PORTAL
-    count: 14
+    count: 10
     interval-ticks: 10
     # 半径ゼロの爆発。radius は使わず speed で広がりが決まる
     shape: burst
@@ -219,23 +229,23 @@ particles:
     speed: 0.04
   particle_snow_ring:
     particle: SNOWFLAKE
-    count: 12
+    count: 10
     radius: 1.1
-    interval-ticks: 14
+    interval-ticks: 16
     shape: circle
   particle_petal_ring:
     particle: CHERRY_LEAVES
-    count: 24
+    count: 12
     radius: 0.7
-    interval-ticks: 16
+    interval-ticks: 20
     shape: helix
     height: 2.2
     turns: 3
   particle_spark_ring:
     particle: ELECTRIC_SPARK
-    count: 20
+    count: 12
     radius: 0.9
-    interval-ticks: 12
+    interval-ticks: 16
     shape: sphere
   particle_dragon_aura:
     # 2026-08-16: DRAGON_BREATH は Paper 1.21.11 で「追加データ(Float)が必須の粒子」になっており、

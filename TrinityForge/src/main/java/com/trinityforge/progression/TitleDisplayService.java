@@ -64,6 +64,20 @@ import java.util.function.IntSupplier;
  * <b>パッセンジャーが付いたエンティティはプラグインからのテレポートを妨げる</b>という
  * 旧実装のもう1つの欠陥(ダンジョン入口の転送が失敗しうる)も同時に消えている。
  *
+ * <h2>2026-08-25: 残っていた遅れを「1tick先読み」で詰めた(W-248)</h2>
+ * 実サーバ報告「称号の位置同期がまだネームタグより遅い」。W-212 で補間長を本体と揃えても
+ * 遅れが残るのは、<b>揃えたのが補間の“長さ”だけで、目標地点そのものが過去だから</b> ──
+ * 毎tick読む {@code player.getLocation()} はクライアントが送ってきた位置で、
+ * ネームタグ(＝本体そのもの)より必ず後ろに居る。
+ *
+ * <p>そこで {@link MotionLead} で<b>直前1tickの移動量ぶん進めた位置</b>へテレポートする。
+ * 等速移動中はズレが消え、加速・減速の瞬間だけ最大「1tickの移動量」(走行時 0.3 ブロック弱)
+ * 行き過ぎる。テレポートのような巨大な差分は先読みを丸ごと捨てる(上限
+ * {@link MotionLead#MAX_LEAD_BLOCKS})ので、称号が遠くへ飛ぶことはない。
+ *
+ * <p>⚠ <b>自分の称号を F5 で見たときの遅れはこれでも完全には消えない</b>(往復ぶんの遅れは
+ * 先読み1tickより大きいことがある)。他人から見えている位置のズレを消すのが目的。
+ *
  * <h2>2026-08-21: クライアント騎乗(W-153)は撤去した —— <b>名前が消える代償が大きすぎた</b></h2>
  * 実サーバ報告「ネームタグが表示されていない(他人の名前も見えない)」。切り分けで
  * <b>「称号を外している人のネームタグは出る」</b>ことが確認され、称号表示が原因と確定した。
@@ -170,6 +184,12 @@ public final class TitleDisplayService implements Listener {
     /** 追従補間の長さ(tick)。config駆動、reloadで次tickから反映。 */
     private final IntSupplier teleportDurationTicks;
     private final Map<UUID, TextDisplay> active = new ConcurrentHashMap<>();
+    /**
+     * 追従の遅れを詰めるための先読み(2026-08-25 / W-248)。<b>毎tick 1回だけ sample する</b>こと ──
+     * 差分は「前回 sample からの移動量」なので、抜け道を通って sample を飛ばすと
+     * 次のtickで2tickぶん先読みして称号が行き過ぎる。
+     */
+    private final MotionLead motion = new MotionLead();
     /**
      * 迷子掃除の間隔(tick)。5秒 —— 二重表示に気付く前に消える速さと、
      * 近傍検索を毎tick回さない安さの折衷。
@@ -320,6 +340,8 @@ public final class TitleDisplayService implements Listener {
                 despawn(playerId);
                 continue;
             }
+            // ⚠ どの分岐へ抜けるより先に位置を決める(sample を飛ばすと次tickの先読みが2倍になる)。
+            Location target = nextAnchorFor(player);
             if (display == null || !display.isValid()) {
                 // ⚠️ 追跡から外すだけでは【実体が残る】(2026-08-21 実サーバ報告「称号が二個付いている」)。
                 // isValid() が false になるのは「死んだ」ときだけではない ── CraftEntity#isValid() は
@@ -330,16 +352,32 @@ public final class TitleDisplayService implements Listener {
                 refresh(player);
                 continue;
             }
-            Location anchor = anchorFor(player);
-            if (!Objects.equals(display.getWorld(), anchor.getWorld())) {
+            if (!Objects.equals(display.getWorld(), target.getWorld())) {
                 refresh(player);
                 continue;
             }
             // 補間長は config 駆動(既定3 = クライアントがプレイヤー本体を補間するのと同じ長さ)。
             // 毎tick読み直しているので /trinityforge reload が次tickから効く(W-212)。
             display.setTeleportDuration(resolvedTeleportDuration());
-            display.teleport(anchor);
+            display.teleport(target);
         }
+    }
+
+    /**
+     * 次のtickで称号を置く位置。<b>{@link #tick()} が使う唯一の位置決め</b>で、
+     * 「頭上の高さ」({@link #anchorFor})に<b>1tickぶんの先読み</b>({@link MotionLead})を足したもの。
+     *
+     * <p>先読みを足す理由: ネームタグはプレイヤー本体そのものなので、サーバが知っている位置に
+     * 置いた称号は<b>構造的に本体より後ろへズレる</b>(2026-08-25 / W-248)。
+     *
+     * <p>package-private なのは<b>試験のため</b>。{@code TextDisplay} の生成は MockBukkit が
+     * 未実装で、{@link #tick()} をそのまま呼ぶテストは書けない(踏むと FAILED ではなく
+     * <b>SKIPPED に化ける</b>)。位置決めだけを切り出しておけば、追従の遅れの回帰は実サーバ無しで
+     * 固定できる ―― <b>1tickに1回しか呼んではいけない</b>点だけ注意(移動量の差分を消費する)。
+     */
+    Location nextAnchorFor(Player player) {
+        double[] lead = motion.sample(player, MotionLead.DEFAULT_LEAD_TICKS);
+        return anchorFor(player).add(lead[0], lead[1], lead[2]);
     }
 
     private Location anchorFor(Player player) {
@@ -367,6 +405,8 @@ public final class TitleDisplayService implements Listener {
 
     private void despawn(UUID playerId) {
         safeRemove(active.remove(playerId));
+        // 消してから張り直すまでの間に動いていることがある。その差分は「1tickの移動」ではない。
+        motion.forget(playerId);
     }
 
     /**

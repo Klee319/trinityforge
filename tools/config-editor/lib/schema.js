@@ -2967,11 +2967,14 @@ function validateTfLevelBroadcast(data, errors) {
 // ---- progression/special-rewards.yml (tf-special-rewards) ----
 // Java 側 SpecialRewardsConfig.Shape と一字一句合わせること。ここに無い形状は保存時に弾かれ、
 // ここにだけ有る形状は「保存できるのに起動時に warning でシードごと捨てられる」になる。
-const PARTICLE_SHAPES = ["aura", "circle", "sphere", "burst", "helix", "pillar", "arc", "point"];
+const PARTICLE_SHAPES = ["aura", "circle", "sphere", "burst", "helix", "pillar", "arc", "trail", "point"];
 const PARTICLE_ORIGINS = ["impact", "player"];
 // 1回の発生あたりの点の数の上限。Java 側 Emission.MAX_COUNT と同値 —— 向こうは黙って丸めるので、
 // editor 側で先に止めて「書いた数と出る数が違う」を作らない。
-const PARTICLE_MAX_COUNT = 400;
+// ⚠ 2026-08-25 に 400 から 64 へ下げた。座標が1点ずつ違う形状(輪/球/螺旋/軌跡)は
+// 点の数だけ spawnParticle を呼び、しかも per-viewer 送信なので
+// 実際のパケットは「点の数 × 近くの人数」。実機で「量が多すぎる」報告が出た。
+const PARTICLE_MAX_COUNT = 64;
 
 /**
  * particles / particle-seeds で共通の発生パラメータ (2026-08-25 / W-243・W-244)。
@@ -3986,5 +3989,7 @@ module.exports = {
   validateSkillTreeLayerRefs,
   BIND_TYPES,
   APPLIES_TO,
-  TF_CRAFT_QUALITY_SPREAD_DEFAULTS
+  TF_CRAFT_QUALITY_SPREAD_DEFAULTS,
+  // 形状の語彙は Java の enum・画面定義との3点一致をテストで固定している(schema-rewards.test.js)。
+  particleShapesForTest: PARTICLE_SHAPES
 };

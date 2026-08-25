@@ -38,6 +38,12 @@ public final class ParticleEffectService implements Listener {
     private final Plugin plugin;
     private final SpecialRewardsConfig config;
     private final ConcurrentHashMap<UUID, Optional<String>> equippedCache = new ConcurrentHashMap<>();
+    /**
+     * 追従の遅れを詰めるための先読み(2026-08-25 / W-247)。
+     * <b>毎tick sample し、発生させるtickだけ結果を使う</b> ── 差分は「前回 sample からの移動量」なので、
+     * 発生間隔(10tick 等)ごとにしか sample しないと 10tick ぶんの移動量になり先読みが暴れる。
+     */
+    private final MotionLead motion = new MotionLead();
     private long tickCounter;
     private BukkitTask task;
 
@@ -69,11 +75,14 @@ public final class ParticleEffectService implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
         equippedCache.remove(event.getPlayer().getUniqueId());
+        // 参加直前の位置との差分は「移動」ではない(別ワールド/別座標からの復帰)。
+        motion.forget(event.getPlayer().getUniqueId());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         equippedCache.remove(event.getPlayer().getUniqueId());
+        motion.forget(event.getPlayer().getUniqueId());
     }
 
     private void tick() {
@@ -90,11 +99,13 @@ public final class ParticleEffectService implements Listener {
             if (equippedId.isEmpty()) {
                 continue;
             }
+            // ⚠ 先読みの sample は発生間隔に関係なく【毎tick】。下の interval 判定より前に置くこと。
+            double[] lead = motion.sample(owner, MotionLead.DEFAULT_LEAD_TICKS);
             SpecialRewardsConfig.ParticleEffect effect = config.particles().get(equippedId.get());
             if (effect == null || effect.intervalTicks() <= 0 || tickCounter % effect.intervalTicks() != 0) {
                 continue;
             }
-            render(owner, effect);
+            render(owner, effect, lead);
         }
     }
 
@@ -119,12 +130,43 @@ public final class ParticleEffectService implements Listener {
         if (anchor.getWorld() == null || !anchor.getWorld().equals(origin.getWorld())) {
             return;
         }
-        emitFor(origin, anchor, particle, emission, yaw);
+        // ワンショット(シード)は「当たった場所」＝静止した座標なので先読みは要らない。
+        emitFor(origin, anchor, anchor, particle, emission, yaw);
     }
 
-    private void render(Player owner, SpecialRewardsConfig.ParticleEffect effect) {
-        emitFor(owner, owner.getLocation(), effect.particle(), effect.emission(),
-                owner.getLocation().getYaw());
+    /**
+     * 装備パーティクル1回ぶん。
+     *
+     * <h2>先読みは「自分の視点」だけに掛ける(2026-08-25 / W-247)</h2>
+     * <b>自分の本体はクライアントが予測して即座に描く</b>ので、サーバ位置に出した粒子は必ず後ろへズレる
+     * (実サーバ報告「位置同期が遅い」)。一方<b>他人から見た本体は逆に補間で遅れて描かれる</b>ので、
+     * 同じ先読みを他人にも掛けると今度は<b>本体より前に粒子が出る</b>。
+     * 送信は元々 per-viewer なので、閲覧者が本人かどうかで基準座標を替えるのが正しい。
+     *
+     * <h2>{@code TRAIL} だけ「進んでいる向き」を渡す</h2>
+     * 軌跡は<b>走った跡</b>として見せるものなので、向いている方向の後ろではなく
+     * <b>進行方向の逆</b>へ伸ばす(横歩き・後ろ歩きでも足元から後ろへ流れる)。
+     * 止まっているときは向いている方向へ倒れる({@link MotionLead#travelYaw})。
+     */
+    private void render(Player owner, SpecialRewardsConfig.ParticleEffect effect, double[] lead) {
+        Location anchor = owner.getLocation();
+        Location ownerAnchor = anchor.clone().add(lead[0], lead[1], lead[2]);
+        emitFor(owner, anchor, ownerAnchor, effect.particle(), effect.emission(),
+                emitYaw(effect.emission(), anchor.getYaw(), lead));
+    }
+
+    /**
+     * その発生に使う「向き」。{@link SpecialRewardsConfig.Shape#TRAIL} だけ
+     * <b>進んでいる向き</b>(止まっているときは向いている方向)、それ以外は<b>向いている方向</b>。
+     *
+     * <p>package-private なのは試験のため ―― MockBukkit は {@code Player#spawnParticle} を
+     * 観測できないので、発生そのものからは「軌跡が進行方向の後ろへ出ているか」を確かめられない。
+     */
+    static double emitYaw(SpecialRewardsConfig.Emission emission, float lookYaw, double[] lead) {
+        if (emission == null || emission.shape() != SpecialRewardsConfig.Shape.TRAIL) {
+            return lookYaw;
+        }
+        return MotionLead.travelYaw(lead[0], lead[2], lookYaw);
     }
 
     /**
@@ -135,7 +177,7 @@ public final class ParticleEffectService implements Listener {
      * {@code spawnParticle} を書き分けていた頃は、{@code speed}(Bukkit の {@code extra})が
      * <b>どの形状でも 0 固定</b>で、円形拡散のような「向きのある演出」が原理的に書けなかった。
      */
-    private static void emitFor(Player owner, Location anchor, Particle particle,
+    private static void emitFor(Player owner, Location anchor, Location ownerAnchor, Particle particle,
                                 SpecialRewardsConfig.Emission emission, double yaw) {
         java.util.List<ParticleGeometry.Emit> emits = ParticleGeometry.emits(emission, yaw);
         if (emits.isEmpty()) {
@@ -148,8 +190,9 @@ public final class ParticleEffectService implements Listener {
             if (viewer.getLocation().distanceSquared(anchor) > VIEW_RADIUS * VIEW_RADIUS) {
                 continue;
             }
+            Location base = viewer == owner ? ownerAnchor : anchor;
             for (ParticleGeometry.Emit emit : emits) {
-                Location point = anchor.clone().add(emit.dx(), emit.dy(), emit.dz());
+                Location point = base.clone().add(emit.dx(), emit.dy(), emit.dz());
                 viewer.spawnParticle(particle, point, emit.count(),
                         emit.offX(), emit.offY(), emit.offZ(), emit.extra());
             }

@@ -58,6 +58,15 @@ public final class SpecialRewardsConfig implements LoadableConfig {
         PILLAR,
         /** 向いている方向へ薙ぐ弧。{@code radius}=半径、{@code arcDegrees}=開き角、{@code height}=傾き。 */
         ARC,
+        /**
+         * 足元から<b>後ろへ流れる軌跡</b>(2026-08-25)。{@code radius}=後ろへ伸ばす長さ、
+         * {@code speed}=後ろへ流す速さ、{@code count}=点の数。
+         *
+         * <p>「後ろ」は<b>進んでいる向きの逆</b>で決まる(止まっているときだけ向いている方向の逆)。
+         * 走った軌跡として見せるものなので、既定の高さ補正だけ他の形状と違い<b>足元寄り</b>になる
+         * ({@link Emission#DEFAULT_TRAIL_Y_OFFSET})。
+         */
+        TRAIL,
         /** 1点だけ。{@code count} と {@code speed} しか効かない(最小構成)。 */
         POINT
     }
@@ -86,8 +95,23 @@ public final class SpecialRewardsConfig implements LoadableConfig {
         public static final double DEFAULT_PLAYER_Y_OFFSET = 1.0;
         /** 当たった場所(ブロック中心/敵の胴)基準の既定の高さ補正。中心そのままなので 0。 */
         public static final double DEFAULT_IMPACT_Y_OFFSET = 0.0;
-        /** 1回の発生あたりの点の数の上限(クライアント保護)。 */
-        public static final int MAX_COUNT = 400;
+        /**
+         * 1回の発生あたりの点の数の上限(クライアント保護)。
+         *
+         * <p><b>2026-08-25 に 400 から下げた。</b> 400 は「パケット数の上限」として見ると桁が違う ──
+         * 輪・球・螺旋のような<b>座標が1点ずつ違う形状は、点の数だけ {@code spawnParticle} を呼ぶ</b>
+         * (座標が違うものを1パケットに束ねる方法は Bukkit に無い)。しかも粒子は
+         * {@code Player#spawnParticle} による per-viewer 送信なので、
+         * <b>実際に飛ぶパケットは「点の数 × 近くに居る人数」</b>になる。
+         * count 400 を 10 人が見ていると 1 回の発生で 4000 パケットで、これが interval-ticks ごとに出る。
+         * 装備パーティクルは常時走る演出なので、ここは「見た目の好み」ではなく安全弁として持つ。
+         */
+        public static final int MAX_COUNT = 64;
+        /**
+         * {@link Shape#TRAIL} の既定の高さ補正。軌跡は<b>足元</b>から出るものなので、
+         * 他の形状の既定(胸の高さ = {@link #DEFAULT_PLAYER_Y_OFFSET})では意味が変わってしまう。
+         */
+        public static final double DEFAULT_TRAIL_Y_OFFSET = 0.1;
 
         public Emission {
             shape = shape == null ? Shape.AURA : shape;
@@ -106,14 +130,18 @@ public final class SpecialRewardsConfig implements LoadableConfig {
          */
         public static Emission of(Shape shape) {
             Shape s = shape == null ? Shape.AURA : shape;
+            // ⚠ 2026-08-25: 点の数を一段下げた。初版(sphere 24 / helix 24 / burst 20)は
+            //   実機で「量が多すぎる」報告。1点ずつ座標が違う形状は点の数だけパケットが出るので、
+            //   ここの既定値は見た目と負荷の両方を決めている(理由は MAX_COUNT の説明)。
             return switch (s) {
                 case AURA -> new Emission(s, 8, 0.6, 0.0, 0.0, 1, 120.0, 0.0);
-                case CIRCLE -> new Emission(s, 12, 1.0, 0.0, 0.0, 1, 120.0, 0.0);
-                case SPHERE -> new Emission(s, 24, 0.8, 0.0, 0.0, 1, 120.0, 0.0);
-                case BURST -> new Emission(s, 20, 0.0, 0.25, 0.0, 1, 120.0, 0.0);
-                case HELIX -> new Emission(s, 24, 0.6, 0.0, 2.0, 3, 120.0, 0.0);
-                case PILLAR -> new Emission(s, 12, 0.3, 0.0, 2.0, 1, 120.0, 0.0);
-                case ARC -> new Emission(s, 12, 1.2, 0.0, 0.0, 1, 120.0, 0.0);
+                case CIRCLE -> new Emission(s, 10, 1.0, 0.0, 0.0, 1, 120.0, 0.0);
+                case SPHERE -> new Emission(s, 12, 0.8, 0.0, 0.0, 1, 120.0, 0.0);
+                case BURST -> new Emission(s, 12, 0.0, 0.25, 0.0, 1, 120.0, 0.0);
+                case HELIX -> new Emission(s, 12, 0.6, 0.0, 2.0, 3, 120.0, 0.0);
+                case PILLAR -> new Emission(s, 10, 0.3, 0.0, 2.0, 1, 120.0, 0.0);
+                case ARC -> new Emission(s, 10, 1.2, 0.0, 0.0, 1, 120.0, 0.0);
+                case TRAIL -> new Emission(s, 6, 1.2, 0.05, 0.0, 1, 120.0, DEFAULT_TRAIL_Y_OFFSET);
                 case POINT -> new Emission(s, 4, 0.0, 0.0, 0.0, 1, 120.0, 0.0);
             };
         }
@@ -566,7 +594,19 @@ public final class SpecialRewardsConfig implements LoadableConfig {
                 entry.getDouble("height", defaults.height()),
                 entry.getInt("turns", defaults.turns()),
                 entry.getDouble("arc-degrees", defaults.arcDegrees()),
-                entry.getDouble("y-offset", defaultYOffset));
+                entry.getDouble("y-offset", defaultYOffsetFor(defaults.shape(), defaultYOffset)));
+    }
+
+    /**
+     * 高さ補正を書かなかったときの既定値。<b>{@link Shape#TRAIL} だけ足元寄りに落とす</b> ──
+     * 軌跡は「足元から後ろへ流れる」ものなので、他の形状と同じ胸の高さ(1.0)を既定にすると
+     * <b>形状を選び替えただけで空中に軌跡が浮く</b>。書いてあればもちろんそれに従う。
+     */
+    private static double defaultYOffsetFor(Shape shape, double categoryDefault) {
+        if (shape != Shape.TRAIL) {
+            return categoryDefault;
+        }
+        return Math.min(categoryDefault, Emission.DEFAULT_TRAIL_Y_OFFSET);
     }
 
     record ParseResult(Map<String, Title> titles, Map<String, ParticleEffect> particles,
