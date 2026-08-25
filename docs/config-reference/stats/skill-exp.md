@@ -39,6 +39,42 @@ combat.kill-exp のスキル別基礎値、モブレベル、最大体力、敵�
 プレイヤーでない場合(溶岩・落下・他モブ)は近接と同じく誰にも支払われない。
 ```
 
+### `ars-magic`(討伐・ブロック破壊EXP。機械突き合わせで判明した未収録キー)
+
+```
+ars-magic:
+  kill-exp:
+    enabled: true
+    base: 20
+    per-mob-level: 1.5
+    per-max-health: 0.188
+    per-max-health-anchor: 8000
+    per-max-health-exponent: 0.74
+    unlisted-entity-multiplier: 0
+    entity-type-multipliers: { ... }
+  block-break-exp:
+    enabled: true
+    source-multiplier: 1
+```
+
+ARS_MAGIC の討伐EXPは `combat.kill-exp`(軽武器・重武器・弓術)と**同一構造**(base + per-mob-level +
+per-max-health 項)だが、対象が Ars 魔法の討伐なので独立したキーとして分離している。値の意味は
+`combat.kill-exp` と共通:
+
+- `per-max-health` / `per-max-health-anchor` / `per-max-health-exponent`: HP項 =
+  `per-max-health * min(HP, anchor * (HP/anchor)^exponent)`。HP <= anchor の帯は min が線形側を選ぶので
+  【1ミリも変わらない】(序盤の上がり方はそのまま)。HP > anchor では `(HP/anchor)^(exponent-1)` 倍に
+  圧縮される。`anchor: 0` か `exponent: 1` で従来どおりの線形に戻る。2026-08-19 ユーザー要望「80lvエンダー
+  マンで約4000へ。ただし序盤の上がり方は変えたくないのでHPに応じた経験値指数だけ調整して」への対処で、
+  `combat.kill-exp` 側と同じ値・同じ理由で揃えてある(HP項は全帯で支配的なので `per-max-health` を
+  単純に下げると序盤も一緒に下がってしまうため、指数側で高HP帯だけ圧縮する)。
+- 2026-08-12: `per-max-health` を 0.25 → 0.188(×0.75)。火力/防御の再較正でモブ最大HPを2倍にした
+  ぶん、このキーは最大HPに線形なので1キルのEXPも約2倍になっていたのを「以前比 約1.5倍」まで戻した。
+  `base` / `per-mob-level` は最大HPに依らないので触っていない。
+- `unlisted-entity-multiplier: 0`: `entity-type-multipliers` に無いモブ(非敵対モブ)は討伐EXPの対象外。
+  行を書かない＝EXPゼロなので、明示的に 0 を書く必要は無い。
+- `block-break-exp.source-multiplier`: Ars のブロック破壊儀式/作業で消費したソース量に掛ける係数。
+
 ### 直後: `exp-display:`
 
 ```
@@ -145,6 +181,23 @@ break-vanilla-exp:
   そのもの)。`64` の根拠: 出荷 tier の一括伐採は tier1=16 / tier2=64 / tier3=128 本なので、通常の
   伐採はほぼ全部数えつつ、最上位の1振りでも64ブロック分で止まる。段階破壊される葉はそもそも採取
   扱いにならない(出荷ymlに葉の行が無い)ので数に入らない。
+
+### `power`(総合レベルからのスキルポイント付与レート。機械突き合わせで判明した未収録キー)
+
+```
+power:
+  levels-per-skill-point: 1
+```
+
+総合(POWER)を何レベル進めるごとにスキルポイントを1点与えるか。`1` = 1レベルごとに1点(従来の挙動)。
+`2` なら2レベルで1点、`5` なら5レベルで1点。ポイント総数 = 初期3点 + 総合レベル ÷ この値(切り捨て)。
+`0` 以下を書いても `1` として扱う(ゼロ除算とポイント無限増加の防止)。
+
+⚠️ この値を大きくすると既存プレイヤーの獲得済みポイントが減る。既に使った分が新しい上限を超える場合は
+「使った分はそのまま・残りを0」に整えられる(取得済みパークは剥がさない)。
+
+⚠️ 変更後は必ず `/trinityforge reload` を打つこと。全員のポイント残高を新しい値で書き直すのは reload の
+中の再計算処理だけで、**ログインでは走らない**(打たないと次のレベルアップまで旧残高のまま)。
 
 ### 直後: `level-diminishing:`（2026-07-26 EXP調整タスク3、既定OFF）
 

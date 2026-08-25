@@ -168,6 +168,11 @@ magic-flat-defense
 
 ### GENERAL チャネル (totalOf 経由 — 採集/経済/クラフト/Ars 等の総合ステ)
 
+`coating-charges-bonus`(武器コーティングの実効上限スタック数への加算、`WeaponCoatingListener`が
+`PlayerCombatAggregate#totalOf` 経由で消費)は実装済みで実際にクランプが効くのに、2026-08-25まで
+このキー一覧にも config-editor の `STAT_CAPS_SECTIONS` にも載っていなかった(出荷 `StatVocabulary.java`
+に `coating_charges_bonus` として登録済みなことと突き合わせて発見)。両方に追記済み。
+
 ```
 mining-fortune
 fishing-luck
@@ -240,6 +245,7 @@ potion-quality-bonus
 brew-speed-bonus
 enchant-cost-reduction
 glyph-damage-multiplier-bonus
+coating-charges-bonus
 ```
 
 ### ATTRIBUTE チャネル (PerkAttributeApplier が直接クランプ — 2026-07-27 実装)

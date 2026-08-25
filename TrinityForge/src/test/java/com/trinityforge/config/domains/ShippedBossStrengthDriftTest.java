@@ -415,8 +415,32 @@ class ShippedBossStrengthDriftTest {
      * {@link #noIntermediatePhaseOfAClearBossCarriesAbilities} に合わせて外してあり、
      * 「二重掲載で数が増えた」ではないことはそちらの緑が保証する。
      * 雑魚に付けない方針は変わっていない(同時湧きの頭数ぶん AoE が重なるため)。
+     *
+     * <p><b>2026-08-25: この総数を厳密一致(assertEquals)で縛るのをやめた。</b> モブを1体増やす
+     * だけで(本件と無関係な)赤が出る母数直書きだったため、以下の2定数による<b>下限だけ</b>を
+     * 検査するように {@link #abilityCarrierCountDoesNotCollapse} を書き直した。増加方向は
+     * 自由(単発の追加/削除では絶対に割らない帯にしてある)。実測は出荷 {@code mob-overrides.yml}
+     * の {@code abilities:} 出現数(2026-08-25 時点 130。うち1件は空リスト等で
+     * {@link #allAbilityUsages} には数えられず 129 になる)と整合する。
      */
-    private static final int EXPECTED_ABILITY_CARRIER_COUNT = 129;
+
+    /**
+     * abilities を持つモブ数の<b>空振り検出用の下限</b>(厳密一致ではない)。実測 129 に対して
+     * 十分低い 80 に設定してある —— 単発のモブ追加/削除ではここまで下がらないが、走査対象や
+     * 正規表現が壊れて 0 件・数件しかヒットしなくなる事故(このリポジトリで実際に踏んだ事故クラス)
+     * は確実に捕まえる。
+     */
+    private static final int MIN_ABILITY_CARRIER_COUNT = 80;
+
+    /**
+     * abilities を持つモブの、全モブ(overrides 配下の全ワールド合算)に対する<b>下限割合</b>。
+     * 2026-08-25 時点の実測比は 129 / {@link #totalMobEntryCount()} ≒ 33%。トラッシュモブが
+     * 増えるだけでこの比率まで薄まることは想定しにくいので、余裕を見て 15% を下限にする。
+     * 母数(全モブ数)が増えただけでは落ちない(増分の大半にも技を配る設計変更が起きない限り
+     * 比率は 33% 近辺を保つ)ので、「既存の技持ちモブから abilities がまとめて剥がれた」事故
+     * だけを検出する。
+     */
+    private static final double MIN_ABILITY_CARRIER_RATIO = 0.15;
 
     // === 読み込みヘルパ(出荷リソースの bytes をそのまま使う。写しを手書きしない) ===
 
@@ -833,7 +857,7 @@ class ShippedBossStrengthDriftTest {
      * <p>※2026-08-01〜2026-08-16 は「そのダンジョンで技を持つのは踏破ボス<b>1体だけ</b>」という
      * より強い契約だったが、K の指示でミニボス／節目のボスにも配る方針へ変わったため、
      * <b>この契約は撤回して「途中フェーズ禁止」だけを残した</b>
-     * （{@link #EXPECTED_ABILITY_CARRIER_COUNT} の javadoc 参照）。
+     * （{@link #MIN_ABILITY_CARRIER_COUNT} の javadoc 参照）。
      * 途中フェーズ禁止のほうは方針が変わっても正しい ── phases は HP 割合で次段へ移るので
      * 中間段は数秒で通過し、<b>一番長く戦う最終段が無技になる</b>という症状は変わらない。
      */
@@ -877,15 +901,46 @@ class ShippedBossStrengthDriftTest {
         return bossId.replaceAll("_(p|phase_)\\d+$", "");
     }
 
+    /**
+     * 母数を数値で固定する {@code assertEquals(129, ...)} をやめ、<b>「空振りしていないか」だけを
+     * 件数と比率の両方から下限で縛る</b>形にした(2026-08-25)。モブを1体増やしただけで無関係な赤が
+     * 出る事故を無くしつつ、「走査対象や正規表現が壊れて0件ヒットでも緑」という、このリポジトリで
+     * 実際に踏んだ事故クラスは両方の下限が捕まえる。
+     */
     @Test
-    @DisplayName("abilities を持つモブの総数が 129(既存99 + 2026-08-21 W-183 のボス/中ボス30)")
-    void abilityCarrierCountIsPinned() throws IOException {
-        assertEquals(EXPECTED_ABILITY_CARRIER_COUNT, allAbilityUsages().size(),
-                "abilities を持つモブの数が変わった。内訳は【既存49】(default のバニラモブ9 + "
-                        + "束縛者7 + 柱2-1 の踏破ボス18 + エンチャント試練1〜9の9 + 派生カスタムボス6)"
-                        + " + 【2026-08-16 追加の50】(各ダンジョンのミニボス・節目のボス)。"
-                        + "増減させたときはこの定数と理由を一緒に更新すること。"
-                        + "実際の内訳: " + allAbilityUsages().keySet());
+    @DisplayName("abilities を持つモブが件数・比率の下限を割らない(空振り検出。厳密件数は縛らない)")
+    void abilityCarrierCountDoesNotCollapse() throws IOException {
+        Map<String, List<String>> usages = allAbilityUsages();
+        int totalMobs = totalMobEntryCount();
+
+        assertTrue(usages.size() >= MIN_ABILITY_CARRIER_COUNT,
+                "abilities を持つモブの実測数が " + usages.size() + " しかない(下限 "
+                        + MIN_ABILITY_CARRIER_COUNT + ")。単発のモブ追加/削除ではここまで下がらないので、"
+                        + "mob-overrides.yml の走査経路(overrides.<world>.mobs.<id>.abilities)か"
+                        + "MobAbilitiesConfig 側のパースが壊れて空振りしている可能性が高い。"
+                        + "実際の内訳: " + usages.keySet());
+
+        double ratio = totalMobs == 0 ? 0.0 : usages.size() / (double) totalMobs;
+        assertTrue(ratio >= MIN_ABILITY_CARRIER_RATIO,
+                "abilities を持つモブの比率が " + String.format("%.3f", ratio) + "(" + usages.size()
+                        + "/" + totalMobs + ")で下限 " + MIN_ABILITY_CARRIER_RATIO + " を割っている。"
+                        + "トラッシュモブが増えただけではここまで下がらない帯なので、既存の技持ちモブから"
+                        + "abilities がまとめて剥がれた可能性が高い。");
+    }
+
+    /** overrides 配下の全ワールドの全モブID数(abilities の有無を問わない)。上の比率検査の分母。 */
+    private static int totalMobEntryCount() throws IOException {
+        YamlConfiguration yaml = loadShippedYaml(MobOverridesConfig.PATH);
+        ConfigurationSection overrides = yaml.getConfigurationSection("overrides");
+        assertNotNull(overrides, "出荷 mob-overrides.yml に overrides セクションが無い");
+        int total = 0;
+        for (String world : overrides.getKeys(false)) {
+            ConfigurationSection mobs = overrides.getConfigurationSection(world + ".mobs");
+            if (mobs != null) {
+                total += mobs.getKeys(false).size();
+            }
+        }
+        return total;
     }
 
     @Test
