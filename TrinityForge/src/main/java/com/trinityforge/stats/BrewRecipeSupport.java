@@ -3,6 +3,7 @@ package com.trinityforge.stats;
 import com.trinityforge.config.domains.CraftingFeaturesConfig.BrewPotionSpec;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
+import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
@@ -185,7 +186,73 @@ public final class BrewRecipeSupport {
         meta.setBasePotionType(PotionType.WATER);
         meta.addCustomEffect(effect, true);
         meta.displayName(potionDisplayName(type, List.of(effect)));
+        applyMixedColor(meta, List.of(effect));
         out.setItemMeta(meta);
         return out;
+    }
+
+    /**
+     * base を {@code WATER} へ倒したポーションに、効果から導出した色を焼き付ける
+     * (2026-08-25 / 統合版で「水入り瓶」に見える件の修正)。
+     *
+     * <h2>なぜ必要か</h2>
+     * Geyser はポーションの見た目(タイル色)を {@code PotionContents} の base(醸造の素の種類)から
+     * 引く。TF は段階の異なる効果を一意に確定させるため base を常に {@code WATER} へ倒すが、
+     * {@link PotionMeta#setColor} を一度も焼いていなかったため、Geyser 側は「色の無い WATER」
+     * ＝水入り瓶として描画していた。Java 版のクライアントは custom effects から色を都度計算して
+     * 表示するため気づかれなかった(Java 版では症状が出ない)。
+     *
+     * <p>色の合成規則はバニラの複数効果ポーション色計算({@code PotionContents#getColor} /
+     * 旧 {@code PotionUtils#mixColor})に倣い、<b>持続時間で重み付けした effect 色の平均</b>を使う。
+     * パーティクル非表示({@link PotionEffect#hasParticles()} が false)の効果はバニラ同様に
+     * 色計算から除外するが、全効果が非表示だった場合は色が無くなって再び水入り瓶化してしまうため、
+     * その場合だけ全効果を対象にフォールバックする。
+     *
+     * @return 焼き付けた色。焼く効果が1つも無ければ {@code null}(呼び出し側は何もしない)
+     */
+    public static Color applyMixedColor(PotionMeta meta, List<PotionEffect> effects) {
+        Color color = mixColor(effects);
+        if (color != null) {
+            meta.setColor(color);
+        }
+        return color;
+    }
+
+    /**
+     * バニラの複数効果ポーション色計算(持続時間で重み付けした平均)を再現する。
+     * {@link PotionEffect#hasParticles()} が true の効果だけを対象にし、1件も無ければ
+     * 全効果へフォールバックする。色を持つ効果が1つも無ければ {@code null}。
+     */
+    public static Color mixColor(List<PotionEffect> effects) {
+        if (effects == null || effects.isEmpty()) {
+            return null;
+        }
+        Color visibleOnly = mixColor(effects, true);
+        return visibleOnly != null ? visibleOnly : mixColor(effects, false);
+    }
+
+    private static Color mixColor(List<PotionEffect> effects, boolean particlesOnly) {
+        long red = 0;
+        long green = 0;
+        long blue = 0;
+        long totalWeight = 0;
+        for (PotionEffect effect : effects) {
+            if (effect == null || (particlesOnly && !effect.hasParticles())) {
+                continue;
+            }
+            Color effectColor = effect.getType().getColor();
+            if (effectColor == null) {
+                continue;
+            }
+            long weight = Math.max(1, effect.getDuration());
+            totalWeight += weight;
+            red += (long) effectColor.getRed() * weight;
+            green += (long) effectColor.getGreen() * weight;
+            blue += (long) effectColor.getBlue() * weight;
+        }
+        if (totalWeight == 0) {
+            return null;
+        }
+        return Color.fromRGB((int) (red / totalWeight), (int) (green / totalWeight), (int) (blue / totalWeight));
     }
 }

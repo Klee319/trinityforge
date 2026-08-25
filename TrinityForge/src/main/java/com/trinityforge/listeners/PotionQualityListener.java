@@ -184,6 +184,11 @@ public final class PotionQualityListener implements Listener {
         for (PotionEffect effect : boosted) {
             meta.addCustomEffect(effect, true);
         }
+        // baseをWATERへ倒すと【統合版での見た目も「水入り瓶」に化ける】。GeyserはPotionContentsの
+        // baseから色を引くため、setColorを焼かないと色が無いまま=水入り瓶として描画される
+        // (2026-08-25)。効果から導出した色を焼き付ける(BrewRecipeSupport#applyMixedColorへ集約、
+        // customPotionと同じ規則)。
+        BrewRecipeSupport.applyMixedColor(meta, boosted);
         // baseをWATERへ倒すと【名前も「水入り瓶」に化ける】。ポーション名はベースの種類からしか
         // 引かれないので(PotionContents#getName)、効果を足しても名前は戻らない。
         // 2026-08-18 実サーバ報告「進捗バーも動いて完了音も鳴るのに水入り瓶が完成する」の真因がこれ。
