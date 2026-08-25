@@ -512,10 +512,12 @@ items:
         - " D "
         - WQS
         - " A "
+    # 2026-08-25: 旧 lore は「踏破の証を5つ束ねる」と書いていたが、上のレシピは印を1つも
+    # 要求していない(印を集める形をやめたのは意図した変更)。表示の側を実態へ合わせた。
     lore:
       - ""
-      - <dark_gray><italic>踏破の証を5つ束ねると、繋ぎ目そのものが鍵になる。</italic></dark_gray>
-      - <gray>どのダンジョンの印でもよい。5つ集まればいい。</gray>
+      - <dark_gray><italic>世界の縫い目から抜いた糸を、五つの異物で結び留めた。</italic></dark_gray>
+      - <gray>印は要らない。繋ぎ目に耐える素材だけがいる。</gray>
   thread_angler:
     external-source: arspaper
     material: STRING
@@ -7676,7 +7678,7 @@ items:
         - custom:wither_skull_fragment
         - custom:warden_tendril
       core-item: NETHER_STAR
-      source: 9998
+      source: 10000
       amount: 11
   skill_tree_reset:
     material: ECHO_SHARD
