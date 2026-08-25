@@ -16,6 +16,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
@@ -23,9 +24,12 @@ import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * {@code /tf settings} — 称号/パーティクル選択 + 「他人の演出を非表示」トグル
@@ -92,15 +96,30 @@ public final class SettingsGui implements Listener {
     private final NamespacedKey titlePageKey;
     private final NamespacedKey particlePageKey;
     private final NamespacedKey seedPageKey;
+    /**
+     * {@code custom:<カタログID>} を実体へ解決する種(本番は
+     * {@code CrossPluginItemResolver::create})。<b>シードのアイコンを「素材そのもの」で出すため</b>に要る ──
+     * カタログ品は material と custom-model-data(=テクスチャ)を持つので、実体を作らないと
+     * その見た目を再現できない。解決できない指定のときだけ Material 名から引く。
+     */
+    private final Function<String, Optional<ItemStack>> itemResolver;
     private Consumer<Player> onTitleChanged = p -> { };
     /** メール受信箱を開くフック。メール機能の初期化に失敗した回は null のままで、ボタンも出さない。 */
     private Consumer<Player> onOpenMail;
     private Consumer<Player> onParticleChanged = p -> { };
 
-    public SettingsGui(Plugin plugin, SpecialRewardsConfig config, SpecialRewardService rewardService) {
+    /**
+     * @param itemResolver {@code custom:<カタログID>} → {@link ItemStack}(本番は
+     *                     {@code CrossPluginItemResolver::create})。<b>省略可能な setter にしない</b> ──
+     *                     配線を忘れると「カタログ品のシードだけ代用アイコンで出る」という、
+     *                     エラーも警告も出ない見た目の劣化になり、気づく手段が実機の目視しか無くなる。
+     */
+    public SettingsGui(Plugin plugin, SpecialRewardsConfig config, SpecialRewardService rewardService,
+                       Function<String, Optional<ItemStack>> itemResolver) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.config = Objects.requireNonNull(config, "config");
         this.rewardService = Objects.requireNonNull(rewardService, "rewardService");
+        this.itemResolver = Objects.requireNonNull(itemResolver, "itemResolver");
         this.titleKey = new NamespacedKey(plugin, "settings_gui_title");
         this.particleKey = new NamespacedKey(plugin, "settings_gui_particle");
         this.toggleKey = new NamespacedKey(plugin, "settings_gui_toggle");
@@ -272,9 +291,15 @@ public final class SettingsGui implements Listener {
      * 代用アイコンにして、素材名は lore の文字で示す。
      */
     private ItemStack seedButton(String id, SpecialRewardsConfig.ParticleSeed seed, boolean unlocked) {
-        Material icon = unlocked ? seedIconOf(seed) : Material.BARRIER;
-        ItemStack stack = new ItemStack(icon);
+        ItemStack resolved = unlocked ? resolveSeedItem(seed) : null;
+        ItemStack stack = resolved != null ? resolved : new ItemStack(unlocked ? seedIconOf(seed) : Material.BARRIER);
         ItemMeta meta = stack.getItemMeta();
+        // カタログ品をそのまま持ってきたときは、その品の説明文・属性・エンチャントが付いてくる。
+        // ここは閲覧専用のボタンなので、見た目(material と custom-model-data)だけ借りて中身は隠す。
+        if (resolved != null) {
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ENCHANTS,
+                    ItemFlag.HIDE_ADDITIONAL_TOOLTIP);
+        }
         // 表示は日本語名(display)。未設定なら ID へ落とす。運用でIDが要るので lore に必ず出す。
         String label = seed == null ? id : seed.displayName();
         meta.displayName(unlocked
@@ -285,7 +310,8 @@ public final class SettingsGui implements Listener {
         if (unlocked && seed != null) {
             lore.add(Component.text("ID: " + id, NamedTextColor.DARK_GRAY)
                     .decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text("素材: " + seed.seedItem(), NamedTextColor.GRAY)
+            lore.add(Component.text("素材: ", NamedTextColor.GRAY)
+                    .append(seedItemLabel(seed, resolved))
                     .decoration(TextDecoration.ITALIC, false));
             if (seed.clears()) {
                 lore.add(Component.text("道具に付いている粒子を取り除きます", NamedTextColor.GREEN)
@@ -307,6 +333,50 @@ public final class SettingsGui implements Listener {
         meta.lore(lore);
         stack.setItemMeta(meta);
         return stack;
+    }
+
+    /**
+     * {@code seed-item} が {@code custom:<カタログID>} のとき、その<b>実体</b>を1個だけ作って返す。
+     * バニラ Material 指定・解決できないID・準備中(draft)のときは null(呼び出し側が Material から引く)。
+     *
+     * <p>これがあることで、シードは<b>特殊アイテム設定(items/catalog.yml)側だけで</b>
+     * material・テクスチャ(custom-model-data)・クラフトレシピを定義できる ──
+     * 専用の設定層を増やさずに済む唯一の経路なので、ここで実体を引けないと
+     * 「カタログでテクスチャを定義したのに一覧では別物のアイコンが出る」で破綻する。
+     *
+     * <p>実体の生成はカタログ側の任意コード(ステータス抽選など)を通るので、
+     * <b>設定画面を開く操作で例外を投げさせない</b>。壊れたエントリ1件で画面全体が開かなくなる。
+     */
+    private ItemStack resolveSeedItem(SpecialRewardsConfig.ParticleSeed seed) {
+        if (seed == null || seed.seedItem() == null) {
+            return null;
+        }
+        String spec = seed.seedItem().trim();
+        if (!spec.toLowerCase(Locale.ROOT).startsWith("custom:")) {
+            return null;
+        }
+        try {
+            ItemStack built = itemResolver.apply(spec).orElse(null);
+            if (built == null || built.getType().isAir() || built.getItemMeta() == null) {
+                return null;
+            }
+            ItemStack copy = built.clone();
+            copy.setAmount(1);
+            return copy;
+        } catch (RuntimeException ex) {
+            plugin.getLogger().warning("パーティクルシード " + seed.id() + " の素材 " + spec
+                    + " を設定画面用に作れませんでした: " + ex.getMessage());
+            return null;
+        }
+    }
+
+    /** lore の「素材:」に出す名前。カタログ品は実体の表示名(日本語)、それ以外は指定そのまま。 */
+    private static Component seedItemLabel(SpecialRewardsConfig.ParticleSeed seed, ItemStack resolved) {
+        if (resolved != null && resolved.getItemMeta() != null && resolved.getItemMeta().hasDisplayName()) {
+            return resolved.getItemMeta().displayName().decoration(TextDecoration.ITALIC, false);
+        }
+        return Component.text(seed.seedItem(), NamedTextColor.GRAY)
+                .decoration(TextDecoration.ITALIC, false);
     }
 
     /** {@code seed-item} を表すアイコン。解決できない指定(custom:等)は代用アイコン。 */

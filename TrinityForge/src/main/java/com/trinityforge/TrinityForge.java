@@ -890,7 +890,10 @@ public final class TrinityForge extends JavaPlugin {
                 this, configManager.specialRewards());
         getServer().getPluginManager().registerEvents(particleEffectService, this);
         com.trinityforge.progression.SettingsGui settingsGui = new com.trinityforge.progression.SettingsGui(
-                this, configManager.specialRewards(), specialRewardService);
+                this, configManager.specialRewards(), specialRewardService,
+                // シード一覧のアイコン用。custom:<カタログID> のシードは実体を作らないと
+                // material と custom-model-data(テクスチャ)を再現できない。
+                crossPluginItemResolver::create);
         settingsGui.setOnTitleChanged(titleDisplayService::refresh);
         settingsGui.setOnParticleChanged(particleEffectService::invalidate);
         getServer().getPluginManager().registerEvents(settingsGui, this);

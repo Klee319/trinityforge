@@ -53,7 +53,8 @@ class SettingsGuiPagingTest {
         when(config.particles()).thenReturn(Map.of());
         SpecialRewardService rewardService = mock(SpecialRewardService.class);
         when(rewardService.isUnlocked(any(), anyString())).thenReturn(true);
-        gui = new SettingsGui(MockBukkit.createMockPlugin(), config, rewardService);
+        gui = new SettingsGui(MockBukkit.createMockPlugin(), config, rewardService,
+                id -> java.util.Optional.empty());
         player = server.addPlayer();
     }
 

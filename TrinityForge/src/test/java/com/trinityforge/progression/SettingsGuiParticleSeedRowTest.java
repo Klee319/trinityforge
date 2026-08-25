@@ -1,10 +1,12 @@
 package com.trinityforge.progression;
 
 import com.trinityforge.config.domains.SpecialRewardsConfig;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -44,6 +46,10 @@ class SettingsGuiParticleSeedRowTest {
 
     private static final String OWNED = "seed_flame";
     private static final String LOCKED = "seed_frost";
+    /** 特殊アイテム設定(items/catalog.yml)側で material/テクスチャ/レシピを定義したシード。 */
+    private static final String CATALOG = "seed_catalog";
+    private static final String CATALOG_ITEM = "custom:ember_seed";
+    private static final int CATALOG_CMD = 7401;
 
     private ServerMock server;
     private SettingsGui gui;
@@ -51,6 +57,20 @@ class SettingsGuiParticleSeedRowTest {
 
     private static SpecialRewardsConfig.ParticleSeed seed(String id, Material item) {
         return new SpecialRewardsConfig.ParticleSeed(id, item.name(), Particle.FLAME, 6);
+    }
+
+    private static SpecialRewardsConfig.ParticleSeed seed(String id, String itemSpec) {
+        return new SpecialRewardsConfig.ParticleSeed(id, itemSpec, Particle.FLAME, 6);
+    }
+
+    /** カタログが返す実体の代役: material と custom-model-data(=テクスチャ)と表示名を持つ。 */
+    private static ItemStack catalogItem() {
+        ItemStack stack = new ItemStack(Material.FIRE_CHARGE, 3);
+        ItemMeta meta = stack.getItemMeta();
+        meta.setCustomModelData(CATALOG_CMD);
+        meta.displayName(Component.text("燃え種"));
+        stack.setItemMeta(meta);
+        return stack;
     }
 
     @BeforeEach
@@ -62,13 +82,16 @@ class SettingsGuiParticleSeedRowTest {
         Map<String, SpecialRewardsConfig.ParticleSeed> seeds = new LinkedHashMap<>();
         seeds.put(OWNED, seed(OWNED, Material.BLAZE_POWDER));
         seeds.put(LOCKED, seed(LOCKED, Material.BLUE_ICE));
+        seeds.put(CATALOG, seed(CATALOG, CATALOG_ITEM));
         when(config.particleSeeds()).thenReturn(seeds);
 
         SpecialRewardService rewardService = mock(SpecialRewardService.class);
         when(rewardService.isUnlocked(any(), eq(OWNED))).thenReturn(true);
         when(rewardService.isUnlocked(any(), eq(LOCKED))).thenReturn(false);
+        when(rewardService.isUnlocked(any(), eq(CATALOG))).thenReturn(true);
 
-        gui = new SettingsGui(MockBukkit.createMockPlugin(), config, rewardService);
+        gui = new SettingsGui(MockBukkit.createMockPlugin(), config, rewardService,
+                id -> CATALOG_ITEM.equals(id) ? java.util.Optional.of(catalogItem()) : java.util.Optional.empty());
         player = server.addPlayer();
     }
 
@@ -96,7 +119,33 @@ class SettingsGuiParticleSeedRowTest {
         assertNotNull(locked, "未解放シードも枠は出す(存在は見えてよい)");
         assertEquals(Material.BARRIER, locked.getType(), "未解放は素材を明かさない");
 
-        assertNull(open.getItem(SEED_NEXT_SLOT), "2件なら1ページなのでページ送りは出さない");
+        assertNull(open.getItem(SEED_NEXT_SLOT), "3件なら1ページなのでページ送りは出さない");
+    }
+
+    /**
+     * {@code seed-item: custom:<カタログID>} のシードは、特殊アイテム設定側で決めた
+     * material と custom-model-data(=テクスチャ)でアイコンが出ること
+     * (2026-08-25、ユーザー要望「seedは特殊アイテム設定みたいな感じでクラフトレシピや
+     * material/テクスチャを定義できるようにしたい」)。
+     *
+     * <p>着手前は custom: 指定を {@link Material} へ解決できないので<b>一律 FIREWORK_STAR</b> に
+     * 落としていた。カタログでテクスチャを定義しても一覧には出ず、
+     * 「金床へ持っていくのはどれか」が見た目から分からないまま。
+     */
+    @Test
+    @DisplayName("カタログ品のシードはそのカタログ品の見た目(material と custom-model-data)で出る")
+    void aCatalogBackedSeedShowsTheCatalogItemsOwnLook() {
+        gui.open(player);
+        Inventory open = player.getOpenInventory().getTopInventory();
+
+        ItemStack icon = open.getItem(SEED_ROW_START + 2);
+        assertNotNull(icon, "カタログ品シードの枠が空");
+        assertEquals(Material.FIRE_CHARGE, icon.getType(),
+                "カタログ側の material ではなく代用アイコンで出ている");
+        assertNotNull(icon.getItemMeta(), "meta が無い");
+        assertEquals(CATALOG_CMD, icon.getItemMeta().getCustomModelData(),
+                "custom-model-data(テクスチャ)が落ちている");
+        assertEquals(1, icon.getAmount(), "一覧のアイコンは個数を持ち込まない");
     }
 
     @Test

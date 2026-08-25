@@ -622,9 +622,13 @@
             onclick: () => { delete seeds[id]; renderSeeds(); }
           })
         ]));
+        // シード専用のアイテム設定は持たせない。見た目(material)・テクスチャ・クラフトレシピが
+        // 要るなら「特殊アイテム設定」でカタログ品を作り、ここではそれを選ぶ(custom:<ID>)。
+        // 二重に持つと editor とカタログのどちらが正か決まらなくなる。
         c.appendChild(field("seed-item", window.materialInput(entry["seed-item"] || "", "material-list", (v) => {
           entry["seed-item"] = v;
-        }, { allowCustom: true })));
+        }, { allowCustom: true }),
+          "レシピ・テクスチャ付きの専用アイテムにしたいときは、特殊アイテム設定で作ってから custom:<ID> を選ぶ"));
         // 表示名(日本語)。道具の説明文(lore)と /tf settings のシード一覧に出る。未設定だとIDが出る。
         c.appendChild(field("表示名 (display)", window.textInput(entry.display || "", (v) => {
           if (v) entry.display = v; else delete entry.display;

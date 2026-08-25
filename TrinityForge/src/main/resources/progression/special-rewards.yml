@@ -19,6 +19,25 @@
 #
 # particle-seeds.<id>: (ツール/武器へ粒子を焼き付ける「種」アイテム)
 #   seed-item: 付与に使う素材。Material名 または custom:<カタログID>
+#              【専用アイテムにしたいとき】 custom:<カタログID> を書き、その中身は
+#              特殊アイテム設定(items/catalog.yml)側で定義する。シード専用の設定層は無い
+#              ── 見た目(material)・テクスチャ(custom-model-data)・入手方法(recipe)は
+#              すべてカタログのエントリに書く。ここでその3つを二重に持つと、
+#              editor とカタログのどちらが正か決まらなくなるので増やさない。
+#                例) items/catalog.yml:
+#                      ember_seed:
+#                        material: FIRE_CHARGE
+#                        display-name: <color:#ff7043>焔の種火</color>
+#                        custom-model-data: 7401     # テクスチャはリソースパック側
+#                        recipe:
+#                          method: workbench
+#                          type: shapeless
+#                          ingredients: [BLAZE_POWDER, BLAZE_POWDER, GOLD_NUGGET]
+#                    ここ(special-rewards.yml):
+#                      seed_flame:
+#                        seed-item: custom:ember_seed
+#              金床の判定・配布・/tf settings のアイコンはすべてカタログの実体を見るので、
+#              Material 指定と同じように動く(準備中 draft のIDだけは解決されない)。
 #   display:   道具の説明文(lore)と /tf settings に出す日本語名。省略するとIDがそのまま出る
 #   particle:  Bukkit Particle 名 (clears: true のときは不要)
 #   count:     ブロック破壊/攻撃時に発生させる数
