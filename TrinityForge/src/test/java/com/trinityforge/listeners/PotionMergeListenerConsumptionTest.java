@@ -33,6 +33,13 @@ import static org.mockito.Mockito.when;
  * explicitly re-assigning the result slot and cursor via {@code setCurrentItem}/{@code setItemOnCursor},
  * nulling out at amount 0 rather than leaving a "ghost" zero-amount {@link ItemStack} behind. Mirrors
  * the established consumption pattern in {@code WoodRepairListener#onInventoryClick}.
+ *
+ * <p><b>2026-08-25 書き直し(W-115)</b>: 旧版は {@code InventoryAction.PLACE_ALL} をスタブしていたが、
+ * ポーションはスタック上限1なので「カーソルにもスロットにも既にポーションがある」状態でこの
+ * アクションは実クライアントからは絶対に来ない({@code PLACE_*} は対象スロットが空/同一種未満枠が
+ * 前提)。この組み合わせで実際に飛ぶのは {@link InventoryAction#SWAP_WITH_CURSOR}
+ * ({@code BrewInsertion#insertedStack} が同じ判定を採用済み)。また統合可能なのは
+ * 「同一効果のカスタムポーション同士」だけ(ユーザー決定)なので、両方 {@code SPEED} に揃えた。
  */
 class PotionMergeListenerConsumptionTest {
 
@@ -76,7 +83,7 @@ class PotionMergeListenerConsumptionTest {
         when(event.getInventory()).thenReturn(inventory);
         when(event.getWhoClicked()).thenReturn(player);
         when(event.getClick()).thenReturn(ClickType.LEFT);
-        when(event.getAction()).thenReturn(InventoryAction.PLACE_ALL);
+        when(event.getAction()).thenReturn(InventoryAction.SWAP_WITH_CURSOR);
         when(event.getCursor()).thenReturn(cursorItem);
         when(event.getCurrentItem()).thenReturn(slotItem);
         return event;
@@ -85,7 +92,7 @@ class PotionMergeListenerConsumptionTest {
     @Test
     void mergingTwoStackOfOnePotionsFullyConsumesBothSources() {
         ItemStack slot = potionWith(PotionEffectType.SPEED, 0, 200);
-        ItemStack cursor = potionWith(PotionEffectType.STRENGTH, 0, 200);
+        ItemStack cursor = potionWith(PotionEffectType.SPEED, 1, 200);
         InventoryClickEvent event = brewingClickEvent(slot, cursor);
 
         listener().onBrewingClick(event);
@@ -102,7 +109,7 @@ class PotionMergeListenerConsumptionTest {
     void mergingDoesNotDoubleGrantWhenSourceStackHasMoreThanOne() {
         ItemStack slot = potionWith(PotionEffectType.SPEED, 0, 200);
         slot.setAmount(2);
-        ItemStack cursor = potionWith(PotionEffectType.STRENGTH, 0, 200);
+        ItemStack cursor = potionWith(PotionEffectType.SPEED, 1, 200);
         InventoryClickEvent event = brewingClickEvent(slot, cursor);
 
         listener().onBrewingClick(event);
@@ -116,7 +123,7 @@ class PotionMergeListenerConsumptionTest {
     @Test
     void mergeAlwaysCancelsTheEventSoVanillaNeverAlsoMovesTheStack() {
         ItemStack slot = potionWith(PotionEffectType.SPEED, 0, 200);
-        ItemStack cursor = potionWith(PotionEffectType.STRENGTH, 0, 200);
+        ItemStack cursor = potionWith(PotionEffectType.SPEED, 1, 200);
         InventoryClickEvent event = brewingClickEvent(slot, cursor);
 
         listener().onBrewingClick(event);

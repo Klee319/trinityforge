@@ -2,6 +2,7 @@ package com.trinityforge.listeners;
 
 import com.trinityforge.config.domains.CraftingFeaturesConfig;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
+import com.trinityforge.stats.BrewRecipeSupport;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
@@ -17,6 +18,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.potion.PotionType;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -24,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalDouble;
+import java.util.Set;
 
 /** Merge two potion bottles in a brewing stand (alchemy potion-merge). */
 public final class PotionMergeListener implements Listener {
@@ -55,9 +58,15 @@ public final class PotionMergeListener implements Listener {
             return;
         }
         int tier = (int) tierValue.getAsDouble();
+        // 2026-08-25 修正: ポーションはスタック上限1なので、既にポーションが入っているスロットへ
+        // カーソルのポーションを重ねるクリックはバニラでは PLACE_* ではなく SWAP_WITH_CURSOR になる
+        // (BrewInsertion#insertedStack と同じ idiom で確認済み)。旧条件は PLACE_* だけを許可しており、
+        // 「カーソルにもスロットにもポーションがある」状態と PLACE_* が同時に成立しないため、
+        // このリスナーが永久に発火しなかった。SWAP_OFFHAND(Fキー)はそのまま維持する。
         if (event.getClick() != ClickType.SWAP_OFFHAND && event.getAction() != InventoryAction.PLACE_ALL
                 && event.getAction() != InventoryAction.PLACE_ONE
-                && event.getAction() != InventoryAction.PLACE_SOME) {
+                && event.getAction() != InventoryAction.PLACE_SOME
+                && event.getAction() != InventoryAction.SWAP_WITH_CURSOR) {
             return;
         }
         ItemStack cursor = event.getCursor();
@@ -100,8 +109,18 @@ public final class PotionMergeListener implements Listener {
         player.sendActionBar(Component.text("ポーションを統合しました。", NamedTextColor.GREEN));
     }
 
+    /**
+     * 統合できるのは「同一効果のカスタムポーション同士」だけ(2026-08-25 ユーザー決定 / W-115)。
+     * 効果を持たないもの同士(素の水入り瓶やバニラのままの醸造品など)は統合不可。
+     * 片方だけ効果を持つ・効果の種類集合が食い違う場合も不可(何を統合したか分からなくなるため)。
+     */
     private ItemStack mergePotions(ItemStack a, ItemStack b, int tier) {
         if (!(a.getItemMeta() instanceof PotionMeta metaA) || !(b.getItemMeta() instanceof PotionMeta metaB)) {
+            return null;
+        }
+        Set<PotionEffectType> typesA = effectTypes(metaA);
+        Set<PotionEffectType> typesB = effectTypes(metaB);
+        if (typesA.isEmpty() || typesB.isEmpty() || !typesA.equals(typesB)) {
             return null;
         }
         Map<PotionEffectType, PotionEffect> effects = new LinkedHashMap<>();
@@ -122,12 +141,28 @@ public final class PotionMergeListener implements Listener {
         for (PotionEffect eff : effects.values()) {
             applied.add(new PotionEffect(eff.getType(), Math.min(maxTicks, eff.getDuration()), eff.getAmplifier()));
         }
+        // TFの他のカスタム効果ポーション組み立て(BrewRecipeSupport#customPotion /
+        // PotionQualityListener#applyQuality)と同じ既存パターンに揃える: baseをWATERへ倒して
+        // 全部custom effectsで表現し、統合版で水入り瓶に見えないよう色も焼く(W-113と同根の問題)。
+        outMeta.setBasePotionType(PotionType.WATER);
         outMeta.clearCustomEffects();
         for (PotionEffect eff : applied) {
             outMeta.addCustomEffect(eff, true);
         }
+        BrewRecipeSupport.applyMixedColor(outMeta, applied);
+        if (!outMeta.hasDisplayName()) {
+            outMeta.displayName(BrewRecipeSupport.potionDisplayName(Material.POTION, applied));
+        }
         out.setItemMeta(outMeta);
         return out;
+    }
+
+    private static Set<PotionEffectType> effectTypes(PotionMeta meta) {
+        Set<PotionEffectType> types = new java.util.LinkedHashSet<>();
+        for (PotionEffect eff : meta.getCustomEffects()) {
+            types.add(eff.getType());
+        }
+        return types;
     }
 
     private static boolean isPotion(ItemStack stack) {
