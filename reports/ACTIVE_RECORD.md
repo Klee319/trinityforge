@@ -98,9 +98,7 @@
 | **W-132** | **圧縮素材のホッパー搬入が素通りし、精錬可能な圧縮食材が 9 個分 1 個に焼き潰される** | 【決定】**バグが出ない前提で「圧縮のまま焼ける」を広げてよい**。⚠ **精錬時間は素材の圧縮段数ぶん増やす**（9 倍圧縮なら 9 倍）。**ステータスボーナス（精錬速度）も考慮に入れる**。塞ぐのではなく成立させる方向 |
 | **W-22** | **`em_id_enchantment_challenge_1〜9` の 9 ボスが特殊攻撃ゼロ** | 【決定】**技の内容はお任せ**。さらに**技の種類を増やしてよい**（回避・ガードなど、戦闘を複雑にしてマンネリを防ぐ方向）。W-63 の予兆機構と合わせて設計する |
 | **W-45** | **特殊報酬 `particle_dragon_aura` が毎起動で捨てられている** | 【決定】**近いものへ置き換える**（Void 型のパーティクルから見た目の近いものを選ぶ）。出荷 yml を `parseParticle` に通す回帰テストも足す。⚠ `progression/special-rewards.yml` は**他セッションが編集中**なので、着手前に持ち主を確認する |
-| **W-14** | **カタログレシピ 1 件が起動時に無言で登録失敗**（`iron_axe_tool`） | 配備先 `items/material-lists.yml` の誤記。修正はユーザーが editor から（→ §3.5） |
-| **W-15** | **WEAPONSMITH の追加取引 2 件が実行時に丸ごと消える**（`tf_scrap` / `tf_core_jewelry`） | `economy/villager-trades.yml`。職業まるごと死んでいる |
-| **W-19** | **テストの名前と実挙動が食い違う 3 件** | ①`CatalogRecipeRegistrarNetheriteTest`（08-20 の鍛冶台対応で状況が変わっている可能性あり）②`ShippedBossStrengthDriftTest`（ランプ定数ハードコード）③`ShippedBrewDeadEndMaterialTest`（→ W-233 で書き直すので同時に処理） |
+| **W-19** | **テストの名前と実挙動が食い違う（残り1件）** | ~~①`CatalogRecipeRegistrarNetheriteTest`~~ 2026-08-25 実走: 13件全緑・メソッド名も現仕様（`theWandsNetheriteUpgradeNowUsesTheVanillaSwordBase` 等）で、08-20 の鍛冶台対応時に更新済み。**②`ShippedBossStrengthDriftTest` だけ残る** ── 13件全緑だが「abilities を持つモブの総数が 129」のように**母数を数値で焼いている**ので、モブを増やすたびに無関係な赤が出る。数え方（＝どういう条件を満たすモブが対象か）で固定し直す。③`ShippedBrewDeadEndMaterialTest` は W-233 で処理 |
 | **W-20** | **`docs/config-reference/` の stale 2 件** | ①`combat/stat-caps.md` の値が古い ②`stats/skill-exp.md` に 2 キーが未収録 |
 | **W-23** | **「直したが証明されていない」12 件に回帰テストを付ける** | 一覧はアーカイブ「2026-08-03 全面監査」の節。ソース文字列走査型テストは再発を素通りさせるので挙動で固定する |
 | **N-3** | **K-39 の残り（重ねられるカタログ品を弾いたときの通知）が足りているか確認** | W-87 のアクションバー名指し通知で足りていれば K-39 を閉じる |
@@ -130,7 +128,7 @@
 4. **起動**: `ops\launch\set-rcon-env.cmd` → `deploy-launch.cmd`。資源サーバのリセットは `reset-resource.cmd`（`RESET` 入力で本実行）
 5. **起動後コマンド**:
    - `/trinityforge reload`（reconciler は reload の中でしか走らない）
-   - **SP 補填（W-213。対象がオンラインのとき）**: `/trinityforge progression level <name> POWER add <n>` — Sora0608 2 / .NAGIdayo5655 3 / Rando4649 4 / Kuragemal 5 / ame3398610 7
+   - **SP 補填（W-193 の旧プレステージ減衰ぶん。対象がオンラインのとき）**: `/trinityforge progression level <name> POWER add <n>` — **残り Sora0608 2 / .NAGIdayo5655 3 / Rando4649 4**（Kuragemal 5 と ame3398610 7 は 08-24 10:54〜11:03 に実行済み＝サーバログで確認）。**これは W-213 の返却とは別物**（こちらは POWER EXP の取りこぼし、W-213 は消えたノードへの支払い）なので**両方やってよい。二重補填にはならない**
    - HuskSync: **Sora0608 の 08-23 21:06:38 以前のスナップショットを pin → restore**
    - WorldGuard: `ops\scripts\apply-mob-griefing-guard.ps1` → `/wg reload` → `/gamerule mobGriefing true`
    - W-27①: `/em language japanese`／W-46: Dev_Server で `/nightbreaklogin <token>`（トークンは nightbreak.io/account）
@@ -143,7 +141,13 @@
    - W-157: DiscordSRV `AvatarUrl: "https://crafthead.net/helm/{texture}/{size}"` → `/discordsrv reload`
    - W-24: `plugins/EliteMobs/trinityforge.yml` の `currency-shower` / `boss-unique-loot` / `treasure-chest-loot` / `arena-loot` を false
    - W-14: 配備先 `items/material-lists.yml` の `iron_axe_tool` を editor で修正（おそらく `iron_axe_tf`）
-7. **配備後の実機確認**: W-44（起動ログから `failed to register recipe for 'key_binder'` が消えたか）／W-158/W-160/W-161（統合版のクラフト・鍛冶台・ちらつき）／統合版レシピブック増殖の再現（`0c4feb3` の修正）／W-27③ 虚空右クリックでガチャ券・鍵が使えるか
+7. **配備後の実機確認**:
+   - **W-213 の SP 返却（自動。コマンド不要）**: 新 jar で起動した瞬間に `SkillTreePerkPruner` が走る。起動ログに
+     `[skilltree] loaded 16 tree(s) OK` が出たうえで `[progression] 消えたノードのperkを 30 件剥がし、SP 30 点を 14 人へ返却しました` が出れば成功。
+     `孤児perkの掃除を見送りました` が出た回は**ツリー yml が壊れていて安全弁が働いた**ので、原因を直して再起動（放置しても悪化はしない）。
+     返却先: HinataS2010 4 / .kenntoaya 4 / Rando4649 3 / .yuzu3850 3 / .taputeru 2 / Sora0608 2 / .NAGIdayo5655 2 / haru_harura 2 / .shizurei555 2 / .natsuking003 2 / Kuragemal 1 / Eroder256 1 / .tomi0071 1 / .pale4780 1。
+     伐採 `A-2-1`〜`A-2-4` は現行の `B-2-1`〜`B-2-4`（効率伐採Ⅰ〜Ⅳ）へ**付け替えではなく SP で戻す**ので、対象者は取り直しになる。
+   - W-44（起動ログから `failed to register recipe for 'key_binder'` が消えたか）／W-158/W-160/W-161（統合版のクラフト・鍛冶台・ちらつき）／統合版レシピブック増殖の再現（`0c4feb3` の修正）／W-27③ 虚空右クリックでガチャ券・鍵が使えるか
 
 ---
 
