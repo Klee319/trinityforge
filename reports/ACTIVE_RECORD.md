@@ -108,6 +108,15 @@
 旧 W-214・W-215（パーティクルシード）は別セッションが実装済み（§7）／
 旧 W-49（防具 36 セット）は **inv テクスチャ未設定分を保留**とし C-2 の結果しだいで縮小。
 
+**2026-08-25 に実物を見て「もう直っていた」と分かって閉じたもの**:
+旧 W-15（WEAPONSMITH の追加取引が消える）── `VillagerTradeListener#resolveStack` は 2026-08-02/03 に
+**TF カタログで解決できなければ ArsPaper のレジストリへフォールバック**するよう直っており（`amount:` の
+適用漏れも同時に修正済み）、`ShippedVillagerTradeItemResolvabilityTest` が「`tf_scrap` / `core_jewelry` /
+`iron_ingot_scrap` は Ars 供給」を明示的に固定していて全緑。⚠ **この3IDは TF の `items/catalog.yml` には
+存在しない**ので、grep で見つからないことを「壊れている」と読み違えないこと。
+旧 W-14（`iron_axe_tool` のレシピが登録失敗）── リポジトリ側の `items/catalog.yml` に `iron_axe_tool` は
+もう存在せず、`everyReferencedMaterialListIsDefined` も緑。**残っているのは配備先の yml だけ**なので §3.5 へ一本化。
+
 ---
 
 ## 3.5 配備・運用待ち（ユーザー実行。エージェントは `D:\game` に書けない）
