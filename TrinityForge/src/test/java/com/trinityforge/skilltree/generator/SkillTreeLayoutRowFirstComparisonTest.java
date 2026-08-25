@@ -50,11 +50,12 @@ class SkillTreeLayoutRowFirstComparisonTest {
             "digging.yml", "smithing.yml", "alchemy.yml", "fishing.yml", "ars_smithing.yml", "power.yml");
 
     /** 1ツリーぶんの読みやすさ指標。 */
-    private record Metrics(int bandDrift, int touching, int detours, int onTrunk, int shared,
-                           int width, int height) {
+    private record Metrics(int bandDrift, int laneDrift, int touching, int detours, int onTrunk,
+                           int shared, int fused, int width, int height) {
         String format() {
-            return String.format("帯ずれ%2d 接触%2d 迂回%2d 主軸侵入%2d 線の重なり%2d (幅%2d 高さ%2d)",
-                    bandDrift, touching, detours, onTrunk, shared, width, height);
+            return String.format(
+                    "帯ずれ%2d 列ずれ%2d 接触%2d 迂回%2d 主軸侵入%2d 重なり%2d 融合%2d (幅%2d 高さ%2d)",
+                    bandDrift, laneDrift, touching, detours, onTrunk, shared, fused, width, height);
         }
     }
 
@@ -87,10 +88,11 @@ class SkillTreeLayoutRowFirstComparisonTest {
         return config.all().values();
     }
 
-    private static Metrics measure(SkillTree tree, boolean rowFirst) {
-        SkillTreeLayout layout = new SkillTreeLayout(tree, rowFirst);
+    private static Metrics measure(SkillTree tree, boolean rowFirst, boolean continuationFirst) {
+        SkillTreeLayout layout = new SkillTreeLayout(tree, rowFirst, continuationFirst);
         int startX = layout.startX();
         int bandDrift = 0;
+        int laneDrift = 0;
         int detours = 0;
         int onTrunk = 0;
         int minX = Integer.MAX_VALUE;
@@ -100,6 +102,12 @@ class SkillTreeLayoutRowFirstComparisonTest {
         List<Coord> placed = new ArrayList<>();
         // 中継セルごとの利用本数。2本以上が同じセルを通ると1本の線に見える。
         java.util.Map<Coord, Integer> usage = new java.util.HashMap<>();
+        // 中継セルごとに「そのセルを横向きに通った連結子」の集合。
+        // ⚠ 報告の「つながり方がおかしい」の実体は<b>同じセルの重なりではない</b>。
+        //   別々の連結子が同じ行の<b>隣り合うセル</b>を横向きに通ると、GUI では
+        //   境目が無いので<b>1本の長い横線に見える</b>（どのノードから来た線か追えなくなる）。
+        //   逆に同じ連結子が続いているだけなら、長い横線でも1本として正しく読める。
+        java.util.Map<Coord, java.util.Set<String>> horizontalOwners = new java.util.HashMap<>();
 
         for (SkillNode node : tree.nodes().values()) {
             Coord here = layout.coordOf(node.id());
@@ -122,6 +130,15 @@ class SkillTreeLayoutRowFirstComparisonTest {
                 if (here.y() != parent.y() - SkillTreeLayout.TRUNK_STEP) {
                     bandDrift++;
                 }
+                // 列ずれ: 「チェーンの続き」(親も枝である)は親と同じ列に置けるのが正しい。
+                // 横へずれるとコネクタが斜めに走り、他の線と同じ通路の行で合流する。
+                // 主軸から新しく出る枝は主軸の真上に来られないので、ここでは数えない。
+                SkillNode parentNode = tree.nodes().get(parentId);
+                boolean continuation = parentNode.role() == SkillRole.BRANCH
+                        || parentNode.role() == SkillRole.GREEK;
+                if (continuation && here.x() != parent.x()) {
+                    laneDrift++;
+                }
             }
             int manhattan = Math.abs(parent.x() - here.x()) + Math.abs(parent.y() - here.y());
             try {
@@ -131,13 +148,29 @@ class SkillTreeLayoutRowFirstComparisonTest {
                 }
                 // 端点(ノード自身)を除いた中継セルだけを数える。
                 for (int i = 1; i < path.size() - 1; i++) {
-                    usage.merge(path.get(i), 1, Integer::sum);
+                    Coord cell = path.get(i);
+                    usage.merge(cell, 1, Integer::sum);
+                    Coord prev = path.get(i - 1);
+                    Coord next = path.get(i + 1);
+                    if (prev.y() == cell.y() || next.y() == cell.y()) {
+                        horizontalOwners
+                                .computeIfAbsent(cell, ignored -> new java.util.HashSet<>())
+                                .add(parentId + ">" + node.id());
+                    }
                 }
             } catch (RuntimeException unreachable) {
                 detours++;
             }
         }
         int shared = (int) usage.values().stream().filter(count -> count > 1).count();
+        int fused = 0;
+        for (java.util.Map.Entry<Coord, java.util.Set<String>> entry : horizontalOwners.entrySet()) {
+            java.util.Set<String> right =
+                    horizontalOwners.get(new Coord(entry.getKey().x() + 1, entry.getKey().y()));
+            if (right != null && java.util.Collections.disjoint(entry.getValue(), right)) {
+                fused++;
+            }
+        }
 
         int touching = 0;
         for (int i = 0; i < placed.size(); i++) {
@@ -149,7 +182,7 @@ class SkillTreeLayoutRowFirstComparisonTest {
                 }
             }
         }
-        return new Metrics(bandDrift, touching, detours, onTrunk, shared,
+        return new Metrics(bandDrift, laneDrift, touching, detours, onTrunk, shared, fused,
                 maxX - minX + 1, maxY - minY + 1);
     }
 
@@ -164,8 +197,10 @@ class SkillTreeLayoutRowFirstComparisonTest {
         int sharedAfter = 0;
 
         for (SkillTree tree : loadAll(dataFolder)) {
-            Metrics before = measure(tree, false);
-            Metrics after = measure(tree, true);
+            // ⚠ どちらも continuationFirst=false ―― これは 2026-08-24 当時の比較を
+            //   そのまま保存したもの。既定を変えた後もこの比較の結論が変わらないことを見る。
+            Metrics before = measure(tree, false, false);
+            Metrics after = measure(tree, true, false);
             driftBefore += before.bandDrift();
             driftAfter += after.bandDrift();
             report.add(String.format("%-14s 旧: %s%n               新: %s",
@@ -207,5 +242,94 @@ class SkillTreeLayoutRowFirstComparisonTest {
         assertTrue(sharedAfter <= sharedBefore,
                 "別々の線が同じセルを通る箇所が全体で増えた (旧 " + sharedBefore + " -> 新 " + sharedAfter + ")"
                         + System.lineSeparator() + table);
+    }
+
+    /**
+     * レーンを配る順序を「行を下から / 同じ行ではチェーンの続きを先に」へ変えても
+     * <b>どのツリーも読みにくくならない</b>ことを確かめる (2026-08-25 / W-250)。
+     *
+     * <p>実サーバ報告「エンチャントと総合のノードのつながり方がおかしい」の正体は、
+     * <b>主軸ノードが最初に全部トランクへ置かれる</b>ため、どの主軸の扇も
+     * 「下から伸びてきたチェーンの続き」より先にレーンを取ってしまうこと。
+     * 押し出された続きは斜めに 4〜6 セル走り、通路の行はノード行の間に1本しか無いので、
+     * 扇の線と合流して T 字・十字に描き替わる（付呪では1本の通路に5本のコネクタが載っていた）。
+     *
+     * <p>ここで一番見たいのは<b>線の重なり</b>(別々のコネクタが同じセルを通る箇所)。
+     * 前回(W-216)は帯ずれを消す代償として1つ増えるのを許したが、今回はそこを減らすのが目的。
+     */
+    @Test
+    @DisplayName("チェーン優先のレーン配りは、出荷16ツリーのどれも読みにくくしない")
+    void continuationFirstNeverRegressesAnyShippedTree(@TempDir File dataFolder) throws IOException {
+        List<String> report = new ArrayList<>();
+        List<String> regressions = new ArrayList<>();
+        int driftBefore = 0;
+        int driftAfter = 0;
+        int laneBefore = 0;
+        int laneAfter = 0;
+        int fusedBefore = 0;
+        int fusedAfter = 0;
+
+        for (SkillTree tree : loadAll(dataFolder)) {
+            Metrics before = measure(tree, true, false);
+            Metrics after = measure(tree, true, true);
+            report.add(String.format("%-14s 旧: %s%n               新: %s",
+                    tree.skill(), before.format(), after.format()));
+            driftBefore += before.bandDrift();
+            driftAfter += after.bandDrift();
+            laneBefore += before.laneDrift();
+            laneAfter += after.laneDrift();
+            fusedBefore += before.fused();
+            fusedAfter += after.fused();
+
+            if (after.bandDrift() > before.bandDrift()) {
+                regressions.add(tree.skill() + ": レベル帯を飛ばしたノードが増えた "
+                        + before.bandDrift() + " -> " + after.bandDrift());
+            }
+            if (after.laneDrift() > before.laneDrift()) {
+                regressions.add(tree.skill() + ": チェーンが親の列から外れる数が増えた "
+                        + before.laneDrift() + " -> " + after.laneDrift());
+            }
+            if (after.fused() > before.fused()) {
+                regressions.add(tree.skill() + ": 別々の線が1本に見える箇所が増えた "
+                        + before.fused() + " -> " + after.fused());
+            }
+            if (after.touching() > before.touching()) {
+                regressions.add(tree.skill() + ": ノードの接触が増えた "
+                        + before.touching() + " -> " + after.touching());
+            }
+            if (after.detours() > before.detours()) {
+                regressions.add(tree.skill() + ": 迂回コネクタが増えた "
+                        + before.detours() + " -> " + after.detours());
+            }
+            if (after.onTrunk() > before.onTrunk()) {
+                regressions.add(tree.skill() + ": 枝が主軸の列に着地した数が増えた "
+                        + before.onTrunk() + " -> " + after.onTrunk());
+            }
+            // 注: shape を問わない重なり(shared)は増えてよい。チェーンが真上へ伸びると、
+            //   その縦線は主軸の扇の通路を1セルだけ横切るので shared は +1 される。
+            //   しかしそれは十字に描かれる交差で、線をたどれば親子は読める。
+            //   読めなくなるのは同じ向きが重なったときだけなので、縛るのは融合の方。
+        }
+
+        String table = String.join(System.lineSeparator(), report);
+        assertTrue(regressions.isEmpty(),
+                "チェーン優先で悪化したツリーがある:" + System.lineSeparator()
+                        + String.join(System.lineSeparator(), regressions)
+                        + System.lineSeparator() + table);
+        assertTrue(driftAfter <= driftBefore,
+                "レベル帯を飛ばすノードが増えた (旧 " + driftBefore + " -> 新 " + driftAfter + ")"
+                        + System.lineSeparator() + table);
+        assertTrue(laneAfter < laneBefore,
+                "チェーンが親の列から外れる数が減っていない (旧 " + laneBefore + " -> 新 " + laneAfter + ")"
+                        + System.lineSeparator() + table);
+        // 目的そのもの: 別々の線が隣り合って1本に見える箇所が減っていること。
+        assertTrue(fusedAfter < fusedBefore,
+                "別々の線が1本に見える箇所が減っていない (旧 " + fusedBefore
+                        + " -> 新 " + fusedAfter + ")" + System.lineSeparator() + table);
+        System.out.println("[W-250 continuationFirst]" + System.lineSeparator() + table
+                + System.lineSeparator()
+                + String.format("合計 帯ずれ %d -> %d / 列ずれ %d -> %d / 融合 %d -> %d",
+                        driftBefore, driftAfter, laneBefore, laneAfter,
+                        fusedBefore, fusedAfter));
     }
 }

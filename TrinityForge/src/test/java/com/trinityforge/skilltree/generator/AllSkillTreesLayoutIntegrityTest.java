@@ -145,4 +145,84 @@ class AllSkillTreesLayoutIntegrityTest {
 
         assertTrue(problems.isEmpty(), () -> "skill tree layout interference:\n  " + String.join("\n  ", problems));
     }
+
+    /**
+     * <b>出荷ツリーの既定の配置</b>そのものを縛る (2026-08-25 / W-250)。
+     *
+     * <p>実サーバ報告「エンチャントと総合のノードのつながり方がおかしい」の正体は2つ。
+     * どちらも<b>ノードの座標</b>の問題で、コネクタの描画側は正しく動いていた。
+     * <ol>
+     *   <li><b>チェーンの続きが親の列から横へずれる</b>。付呪では 5 箇所・総合では 2 箇所で
+     *       2〜4 列ずれ、その分コネクタが斜めに走っていた（例: 総合の {@code A-1(4,6)} →
+     *       {@code A-2(8,4)}）。原因は<b>主軸ノードが最初に全部トランクへ置かれる</b>ため、
+     *       どの主軸の扇も「下から伸びてきたチェーンの続き」より先にレーンを取ること。</li>
+     *   <li><b>別々のコネクタが同じ行の隣り合うセルを横向きに通る</b>。GUI にはセルの境目が無いので
+     *       <b>1本の長い横線に見え</b>、どのノードから伸びた線なのか追えなくなる
+     *       （付呪の最上段では 8 セル連続でこれが起きていた）。</li>
+     * </ol>
+     *
+     * <p>同じ連結子が横に長く続くのは<b>問題にしない</b>（主軸から複数の枝が出る扇は、
+     * 1本の線として正しく読める）。縛るのは「別々の線が隣り合っていないか」だけ。
+     */
+    @Test
+    @DisplayName("チェーンの続きは親の真上に一直線で、別々のコネクタが1本の線に見える箇所は無い")
+    void chainsStayInTheirColumnAndNoTwoConnectorsLookLikeOneLine(@TempDir File dataFolder)
+            throws IOException {
+        List<String> problems = new ArrayList<>();
+
+        for (SkillTree tree : loadAll(dataFolder)) {
+            String skill = tree.skill();
+            SkillTreeLayout layout = new SkillTreeLayout(tree);
+            // セルごとに「そこを横向きに通った連結子」の集合。
+            Map<Coord, java.util.Set<String>> horizontalOwners = new LinkedHashMap<>();
+
+            for (SkillNode node : tree.nodes().values()) {
+                String parentId = node.parent();
+                if (parentId == null || parentId.isBlank() || !tree.nodes().containsKey(parentId)) {
+                    continue;
+                }
+                SkillNode parentNode = tree.nodes().get(parentId);
+                Coord parent = layout.coordOf(parentId);
+                Coord child = layout.coordOf(node.id());
+                boolean chain = (node.role() == SkillRole.BRANCH || node.role() == SkillRole.GREEK)
+                        && (parentNode.role() == SkillRole.BRANCH
+                                || parentNode.role() == SkillRole.GREEK);
+                if (chain && child.x() != parent.x()) {
+                    problems.add(skill + ": チェーンの続き " + parentId + " -> " + node.id()
+                            + " が親の列から外れている " + parent.format() + " -> " + child.format());
+                }
+                if (chain && child.y() != parent.y() - SkillTreeLayout.TRUNK_STEP) {
+                    problems.add(skill + ": チェーンの続き " + parentId + " -> " + node.id()
+                            + " が親のちょうど1段上にない " + parent.format() + " -> " + child.format());
+                }
+                List<Coord> path;
+                try {
+                    path = layout.route(parent, child);
+                } catch (RuntimeException unreachable) {
+                    continue; // 経路が無いこと自体は上のテストが報告する。
+                }
+                for (int i = 1; i < path.size() - 1; i++) {
+                    Coord cell = path.get(i);
+                    if (path.get(i - 1).y() == cell.y() || path.get(i + 1).y() == cell.y()) {
+                        horizontalOwners
+                                .computeIfAbsent(cell, ignored -> new java.util.LinkedHashSet<>())
+                                .add(parentId + " -> " + node.id());
+                    }
+                }
+            }
+
+            for (Map.Entry<Coord, java.util.Set<String>> entry : horizontalOwners.entrySet()) {
+                Coord cell = entry.getKey();
+                java.util.Set<String> right =
+                        horizontalOwners.get(new Coord(cell.x() + 1, cell.y()));
+                if (right != null && java.util.Collections.disjoint(entry.getValue(), right)) {
+                    problems.add(skill + ": 別々のコネクタが " + cell.format()
+                            + " で横に隣り合って1本の線に見える (" + entry.getValue() + " / " + right + ")");
+                }
+            }
+        }
+
+        assertTrue(problems.isEmpty(),
+                () -> "スキルツリーの配置が読めない:\n  " + String.join("\n  ", problems));
+    }
 }
