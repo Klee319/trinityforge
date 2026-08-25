@@ -36,14 +36,19 @@ public final class CombatLevelConfig {
     private static final int DEFAULT_MIN_LEVEL = 0;
     private static final int DEFAULT_MAX_LEVEL = 100;
 
-    /** Default pillars (max-of-top-N). A pure specialist scores top1/1.0; two, three and four-skill
-     *  builds score sum(top2)/1.5, sum(top3)/2.1 and sum(top4)/2.8 respectively. Used when
-     *  {@code pillars:} is missing or every entry is invalid, so the model always has a rule. */
+    /** Default pillars (max-of-top-N). Used when {@code pillars:} is missing or every entry is
+     *  invalid, so the model always has a rule.
+     *
+     *  <p>⚠ 出荷 {@code progression/combat-level.yml} と同じ値にすること。ここが古い
+     *  (top1/1.0, top2/1.5, top3/2.1, top4/2.8) ままだと、{@code pillars:} を持たない
+     *  config を読んだ環境だけ【純特化 100 のプレイヤーの戦闘レベルが 67 ではなく 100】に
+     *  なり、それを前提に書かれている {@code combat/damage.yml} の level-cutoff が
+     *  丸ごとずれる。既定値を書く場所が 2 つある以上、片方だけ直すと必ずまた割れる。 */
     private static final List<CombatLevelModel.PillarRule> DEFAULT_PILLARS =
-            List.of(new CombatLevelModel.PillarRule(1, 1.0),
-                    new CombatLevelModel.PillarRule(2, 1.5),
-                    new CombatLevelModel.PillarRule(3, 2.1),
-                    new CombatLevelModel.PillarRule(4, 2.8));
+            List.of(new CombatLevelModel.PillarRule(1, 1.5),
+                    new CombatLevelModel.PillarRule(2, 2.0),
+                    new CombatLevelModel.PillarRule(3, 2.5),
+                    new CombatLevelModel.PillarRule(4, 3.0));
 
     /** Short per-player TTL for progression/skill-level read caches. 0 disables caching; the range
      *  keeps a misconfigured value from either doing nothing
@@ -146,7 +151,7 @@ public final class CombatLevelConfig {
         if (pillars.isEmpty()) {
             if (pillarSkipped > 0) {
                 log.warning("[" + resourcePath + "] no valid 'pillars:' entries; using defaults "
-                        + "(top1/1.0, top2/1.5, top3/2.1, top4/2.8)");
+                        + "(top1/1.5, top2/2.0, top3/2.5, top4/3.0)");
             }
             pillars = DEFAULT_PILLARS;
         }
