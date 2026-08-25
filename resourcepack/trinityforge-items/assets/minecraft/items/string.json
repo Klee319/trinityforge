@@ -629,6 +629,13 @@
           "type": "minecraft:model",
           "model": "trinityforge:item/thread_wardstone"
         }
+      },
+      {
+        "threshold": 300080,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_stealth"
+        }
       }
     ]
   }

@@ -468,6 +468,7 @@ categories:
         - thread_scholar
         - thread_slow_falling
         - thread_source_thrift
+        - thread_stealth
         - thread_speed
         - thread_spell_cost_down
         - thread_spoils

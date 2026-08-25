@@ -704,147 +704,127 @@ items:
         max: 10
   STRING#300032:
     per-quality:
-      health-regen-bonus: 0.006
+      health-regen-bonus: 0.0069
     random:
       health-regen-bonus:
-        min: 0.011
-        max: 0.14
+        min: 0.01265
+        max: 0.161
       phys-flat-defense:
         min: 0.2
         max: 3.6
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      armor-strength:
-        min: 0.003
-        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
         phys-flat-defense: 0.45
-        damage-reduction: 0.45
-        magic-resistance: 0.45
-        armor-strength: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300035:
     per-quality:
-      reflect-percent: 0.006
+      reflect-percent: 0.0069
     random:
       reflect-percent:
-        min: 0.011
-        max: 0.14
+        min: 0.01265
+        max: 0.161
       bleed-chance:
         min: 0.002
         max: 0.045
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      crit-damage:
-        min: 0.004
-        max: 0.076
-      damage-reduction:
-        min: 0.002
-        max: 0.02
     advanced:
       randomize-grants: true
       grant-chances:
         bleed-chance: 0.45
-        percent-bonus-damage: 0.45
-        crit-damage: 0.45
-        damage-reduction: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300036:
     per-quality:
-      stun-chance: 0.003
+      stun-chance: 0.00345
     random:
       stun-chance:
-        min: 0.006
-        max: 0.074
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
+        min: 0.0069
+        max: 0.0851
       crit-chance:
         min: 0.002
-        max: 0.038
-      penetration:
-        min: 0.002
-        max: 0.038
-      armor-strength:
-        min: 0.003
         max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
-        percent-bonus-damage: 0.45
         crit-chance: 0.45
-        penetration: 0.45
-        armor-strength: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300037:
     per-quality:
-      cooldown-reduction: 0.006
+      cooldown-reduction: 0.0069
     random:
       cooldown-reduction:
-        min: 0.011
-        max: 0.14
+        min: 0.01265
+        max: 0.161
       crit-damage:
         min: 0.004
         max: 0.076
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      penetration:
-        min: 0.002
-        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
         crit-damage: 0.45
-        percent-bonus-damage: 0.45
-        magic-resistance: 0.45
-        penetration: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300038:
     per-quality:
-      ammo-save-chance: 0.006
+      ammo-save-chance: 0.0069
     random:
       ammo-save-chance:
-        min: 0.011
-        max: 0.14
-      crit-damage:
-        min: 0.004
-        max: 0.076
-      penetration:
-        min: 0.002
-        max: 0.038
-      crit-chance:
-        min: 0.002
-        max: 0.038
-      percent-bonus-damage:
+        min: 0.01265
+        max: 0.161
+      distance-damage-bonus:
         min: 0.003
-        max: 0.025
+        max: 0.026
     advanced:
       randomize-grants: true
       grant-chances:
-        crit-damage: 0.45
-        penetration: 0.45
-        crit-chance: 0.45
-        percent-bonus-damage: 0.45
+        distance-damage-bonus: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300001:
     offhand-stats-apply: false
     socketed-only-stats: true
+  # 隠密のスレッド(2026-08-25 W-256)。効果の実体はフォークの ThreadType.STEALTH が持つ
+  # 常時透明化なので、ここにステ節は【置かない】(置くと「透明化のついでに戦闘ステも付く」
+  # ことになり、2026-08-21 に決めた常時効果系とステ系の住み分けが崩れる)。
+  STRING#300080:
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  # ===========================================================================
+  # スレッドの組み立て規約 【2026-08-25 (W-254) にサブ4種 → サブ1種へ】
+  # ---------------------------------------------------------------------------
+  # ★ユーザー確定要件:
+  #   「各スレッドを特定のステータスにとがらせ、微強化する」
+  #   「回避、ダメージ軽減等の強いステータスに尖ったスレッドは種類を2個以下、あって3種類に
+  #     絞る(100%達成の防止)。また耐性や守備力、攻撃力などとりあえず感覚でまんべんなく
+  #     ついているステータスも減らし、数種類のスレッドにまとめる。
+  #     現状のどのスレッドでも代用できるはかえってコンテンツの道を減らしている」
+  #
+  # 【形】per-quality に主軸1件 / random に主軸+副次の2件 / grant-chances に副次1件(0.45)。
+  #   崩すと ShippedThreadItemStatsTest#rollLayoutFollowsTheSharedConvention が落ちる。
+  #
+  # 【何が問題だったか】percent-bonus-damage は34種のうち【17種】に副次としてぶら下がって
+  #   いた。どのスレッドを挿しても同じステが付くので「このスレッドを選ぶ理由」が主軸の1行
+  #   しか無く、実質どれでも代用できる状態だった。副次を1種へ絞ってそこを解消した。
+  #
+  # 【強ステは主軸専用】上限で壊れる割合ステ ──
+  #   dodge-chance / damage-reduction / armor-strength / phys-resistance /
+  #   magic-resistance / defense-rate / percent-bonus-damage
+  #   ── は【副次枠に置かない】。副次に置くと、主軸が別のスレッドを何本挿しても同じステが
+  #   積み上がり、「1装備につき同種1本」(フォークの ThreadApplicationPolicy.DEFAULT_MAX_STACK)
+  #   という制限を副次経路がすり抜けてしまう。
+  #   ⚠ 上限は combat/damage.yml の max-mitigation-rate 0.9 / max-dodge-chance 0.9 /
+  #     max-crit-reduction 1.0。張り付いた先では装備を更新しても一切効かなくなる。
+  #   検査は ShippedThreadItemStatsTest#strongStatsAreOnlyEverAPrimaryAxis(主軸に持つ種類も3種まで)。
+  #
+  # 【微強化は +15%】主軸の per-quality と random の min/max に掛けてある。
+  #   ⚠ ただし percent-bonus-damage を主軸に持つ5種(300046 / 300053 / 300057 / 300059 /
+  #     300060)だけは【据え置き】。ShippedThreadBandIndependenceTest の帯目標
+  #     (Lv100 = +59%)に対して「1本 3.6% x 枠16 = 57.6%」で余裕が 1.4pt しか無く、
+  #     上げると即座に超過する(実測: +15% で +66.2% になり落ちた)。
+  #     この5種を強くしたいなら、先に帯目標そのものを動かす判断が必要。
+  # ===========================================================================
   STRING#300046:
     per-quality:
       percent-bonus-damage: 0.0012
@@ -855,190 +835,106 @@ items:
       crit-chance:
         min: 0.002
         max: 0.038
-      penetration:
-        min: 0.002
-        max: 0.038
-      armor-strength:
-        min: 0.003
-        max: 0.038
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
     advanced:
       randomize-grants: true
       grant-chances:
         crit-chance: 0.45
-        penetration: 0.45
-        armor-strength: 0.45
-        phys-flat-defense: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300047:
     per-quality:
-      crit-damage: 0.0032
+      crit-damage: 0.00368
     random:
       crit-damage:
-        min: 0.008
-        max: 0.068
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      bleed-chance:
-        min: 0.002
-        max: 0.045
-      penetration:
-        min: 0.002
-        max: 0.038
-      damage-reduction:
-        min: 0.002
-        max: 0.02
+        min: 0.0092
+        max: 0.0782
+      power-attack-damage:
+        min: 0.004
+        max: 0.034
     advanced:
       randomize-grants: true
       grant-chances:
-        percent-bonus-damage: 0.45
-        bleed-chance: 0.45
-        penetration: 0.45
-        damage-reduction: 0.45
+        power-attack-damage: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300048:
     per-quality:
-      penetration: 0.0016
+      penetration: 0.00184
     random:
       penetration:
-        min: 0.004
-        max: 0.034
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
+        min: 0.0046
+        max: 0.0391
       crit-chance:
         min: 0.002
         max: 0.038
-      phys-resistance:
-        min: 0.002
-        max: 0.031
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
     advanced:
       randomize-grants: true
       grant-chances:
-        percent-bonus-damage: 0.45
         crit-chance: 0.45
-        phys-resistance: 0.45
-        phys-flat-defense: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300049:
     per-quality:
-      bleed-chance: 0.0019
+      bleed-chance: 0.002185
     random:
       bleed-chance:
-        min: 0.005
-        max: 0.04
+        min: 0.00575
+        max: 0.046
       crit-damage:
         min: 0.004
         max: 0.076
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      dodge-chance:
-        min: 0.001
-        max: 0.016
     advanced:
       randomize-grants: true
       grant-chances:
         crit-damage: 0.45
-        percent-bonus-damage: 0.45
-        magic-resistance: 0.45
-        dodge-chance: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300050:
     per-quality:
-      armor-strength: 0.0016
+      armor-strength: 0.00184
     random:
       armor-strength:
-        min: 0.004
-        max: 0.034
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      penetration:
-        min: 0.002
-        max: 0.038
+        min: 0.0046
+        max: 0.0391
       phys-flat-defense:
         min: 0.2
         max: 3.6
-      damage-reduction:
-        min: 0.002
-        max: 0.02
     advanced:
       randomize-grants: true
       grant-chances:
-        percent-bonus-damage: 0.45
-        penetration: 0.45
         phys-flat-defense: 0.45
-        damage-reduction: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300051:
     per-quality:
-      crit-chance: 0.0016
+      crit-chance: 0.00184
     random:
       crit-chance:
-        min: 0.004
-        max: 0.034
+        min: 0.0046
+        max: 0.0391
       crit-damage:
         min: 0.004
         max: 0.076
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      dodge-chance:
-        min: 0.001
-        max: 0.016
-      penetration:
-        min: 0.002
-        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
         crit-damage: 0.45
-        percent-bonus-damage: 0.45
-        dodge-chance: 0.45
-        penetration: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300052:
     per-quality:
-      dodge-chance: 0.0007
+      dodge-chance: 0.000805
     random:
       dodge-chance:
-        min: 0.001
-        max: 0.014
-      crit-chance:
-        min: 0.002
-        max: 0.038
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      phys-resistance:
-        min: 0.002
-        max: 0.031
-      penetration:
-        min: 0.002
-        max: 0.038
+        min: 0.00115
+        max: 0.0161
+      phys-flat-defense:
+        min: 0.2
+        max: 3.6
     advanced:
       randomize-grants: true
       grant-chances:
-        crit-chance: 0.45
-        percent-bonus-damage: 0.45
-        phys-resistance: 0.45
-        penetration: 0.45
+        phys-flat-defense: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300053:
@@ -1048,109 +944,61 @@ items:
       percent-bonus-damage:
         min: 0.002
         max: 0.018
-      crit-damage:
+      power-attack-damage:
         min: 0.004
-        max: 0.076
-      armor-strength:
-        min: 0.003
-        max: 0.038
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
-      damage-reduction:
-        min: 0.002
-        max: 0.02
+        max: 0.034
     advanced:
       randomize-grants: true
       grant-chances:
-        crit-damage: 0.45
-        armor-strength: 0.45
-        phys-flat-defense: 0.45
-        damage-reduction: 0.45
+        power-attack-damage: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300054:
     per-quality:
-      damage-reduction: 0.0008
+      damage-reduction: 0.00092
     random:
       damage-reduction:
-        min: 0.002
-        max: 0.018
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      crit-damage:
-        min: 0.004
-        max: 0.076
+        min: 0.0023
+        max: 0.0207
       phys-flat-defense:
         min: 0.2
         max: 3.6
-      armor-strength:
-        min: 0.003
-        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
-        percent-bonus-damage: 0.45
-        crit-damage: 0.45
         phys-flat-defense: 0.45
-        armor-strength: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300055:
     per-quality:
-      crit-damage: 0.0032
+      crit-damage: 0.00368
     random:
       crit-damage:
-        min: 0.008
-        max: 0.068
-      percent-bonus-damage:
+        min: 0.0092
+        max: 0.0782
+      distance-damage-bonus:
         min: 0.003
-        max: 0.025
-      penetration:
-        min: 0.002
-        max: 0.038
-      crit-chance:
-        min: 0.002
-        max: 0.038
-      dodge-chance:
-        min: 0.001
-        max: 0.016
+        max: 0.026
     advanced:
       randomize-grants: true
       grant-chances:
-        percent-bonus-damage: 0.45
-        penetration: 0.45
-        crit-chance: 0.45
-        dodge-chance: 0.45
+        distance-damage-bonus: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300056:
     per-quality:
-      magic-resistance: 0.0013
+      magic-resistance: 0.001495
     random:
       magic-resistance:
-        min: 0.003
-        max: 0.028
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      crit-chance:
-        min: 0.002
-        max: 0.038
+        min: 0.00345
+        max: 0.0322
       magic-flat-defense:
         min: 0.2
         max: 3.6
-      penetration:
-        min: 0.002
-        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
-        percent-bonus-damage: 0.45
-        crit-chance: 0.45
         magic-flat-defense: 0.45
-        penetration: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300057:
@@ -1160,53 +1008,29 @@ items:
       percent-bonus-damage:
         min: 0.002
         max: 0.018
-      armor-strength:
-        min: 0.003
-        max: 0.038
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
-      crit-damage:
-        min: 0.004
-        max: 0.076
-      damage-reduction:
+      aoe-damage-rate:
         min: 0.002
-        max: 0.02
+        max: 0.018
     advanced:
       randomize-grants: true
       grant-chances:
-        armor-strength: 0.45
-        phys-flat-defense: 0.45
-        crit-damage: 0.45
-        damage-reduction: 0.45
+        aoe-damage-rate: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300058:
     per-quality:
-      penetration: 0.0016
+      penetration: 0.00184
     random:
       penetration:
-        min: 0.004
-        max: 0.034
-      crit-damage:
-        min: 0.004
-        max: 0.076
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      crit-chance:
-        min: 0.002
-        max: 0.038
-      magic-resistance:
-        min: 0.002
-        max: 0.031
+        min: 0.0046
+        max: 0.0391
+      arrow-piercing:
+        min: 0.012
+        max: 0.12
     advanced:
       randomize-grants: true
       grant-chances:
-        crit-damage: 0.45
-        percent-bonus-damage: 0.45
-        crit-chance: 0.45
-        magic-resistance: 0.45
+        arrow-piercing: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300059:
@@ -1216,25 +1040,13 @@ items:
       percent-bonus-damage:
         min: 0.002
         max: 0.018
-      magic-resistance:
-        min: 0.002
-        max: 0.031
       magic-flat-defense:
         min: 0.2
         max: 3.6
-      penetration:
-        min: 0.002
-        max: 0.038
-      crit-damage:
-        min: 0.004
-        max: 0.076
     advanced:
       randomize-grants: true
       grant-chances:
-        magic-resistance: 0.45
         magic-flat-defense: 0.45
-        penetration: 0.45
-        crit-damage: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300060:
@@ -1244,279 +1056,161 @@ items:
       percent-bonus-damage:
         min: 0.002
         max: 0.018
-      crit-chance:
-        min: 0.002
-        max: 0.038
       crit-damage:
         min: 0.004
         max: 0.076
-      penetration:
-        min: 0.002
-        max: 0.038
-      bleed-chance:
-        min: 0.002
-        max: 0.045
     advanced:
       randomize-grants: true
       grant-chances:
-        crit-chance: 0.45
         crit-damage: 0.45
-        penetration: 0.45
-        bleed-chance: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300061:
     per-quality:
-      crit-chance: 0.0016
+      crit-chance: 0.00184
     random:
       crit-chance:
-        min: 0.004
-        max: 0.034
-      crit-damage:
-        min: 0.004
-        max: 0.076
-      penetration:
-        min: 0.002
-        max: 0.038
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      dodge-chance:
+        min: 0.0046
+        max: 0.0391
+      bow-accuracy:
         min: 0.001
-        max: 0.016
+        max: 0.01
     advanced:
       randomize-grants: true
       grant-chances:
-        crit-damage: 0.45
-        penetration: 0.45
-        percent-bonus-damage: 0.45
-        dodge-chance: 0.45
+        bow-accuracy: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300062:
     per-quality:
-      crit-damage: 0.0032
+      crit-damage: 0.00368
     random:
       crit-damage:
-        min: 0.008
-        max: 0.068
+        min: 0.0092
+        max: 0.0782
       crit-chance:
         min: 0.002
         max: 0.038
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      penetration:
-        min: 0.002
-        max: 0.038
-      bleed-chance:
-        min: 0.002
-        max: 0.045
     advanced:
       randomize-grants: true
       grant-chances:
         crit-chance: 0.45
-        percent-bonus-damage: 0.45
-        penetration: 0.45
-        bleed-chance: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300063:
     per-quality:
-      penetration: 0.0016
+      penetration: 0.00184
     random:
       penetration:
-        min: 0.004
-        max: 0.034
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      crit-chance:
-        min: 0.002
-        max: 0.038
-      armor-strength:
-        min: 0.003
-        max: 0.038
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
-    advanced:
-      randomize-grants: true
-      grant-chances:
-        percent-bonus-damage: 0.45
-        crit-chance: 0.45
-        armor-strength: 0.45
-        phys-flat-defense: 0.45
-    offhand-stats-apply: false
-    socketed-only-stats: true
-  STRING#300064:
-    per-quality:
-      bleed-chance: 0.0019
-    random:
-      bleed-chance:
-        min: 0.005
-        max: 0.04
+        min: 0.0046
+        max: 0.0391
       crit-damage:
         min: 0.004
         max: 0.076
-      percent-bonus-damage:
-        min: 0.003
-        max: 0.025
-      penetration:
-        min: 0.002
-        max: 0.038
-      magic-resistance:
-        min: 0.002
-        max: 0.031
     advanced:
       randomize-grants: true
       grant-chances:
         crit-damage: 0.45
-        percent-bonus-damage: 0.45
-        penetration: 0.45
-        magic-resistance: 0.45
+    offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#300064:
+    per-quality:
+      bleed-chance: 0.002185
+    random:
+      bleed-chance:
+        min: 0.00575
+        max: 0.046
+      bleed-damage-rate:
+        min: 0.001
+        max: 0.01
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        bleed-damage-rate: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300065:
     per-quality:
-      damage-reduction: 0.0008
+      damage-reduction: 0.00092
     random:
       damage-reduction:
-        min: 0.002
-        max: 0.018
+        min: 0.0023
+        max: 0.0207
       phys-flat-defense:
         min: 0.2
         max: 3.6
-      magic-flat-defense:
-        min: 0.2
-        max: 3.6
-      armor-strength:
-        min: 0.003
-        max: 0.038
-      phys-resistance:
-        min: 0.002
-        max: 0.031
     advanced:
       randomize-grants: true
       grant-chances:
         phys-flat-defense: 0.45
-        magic-flat-defense: 0.45
-        armor-strength: 0.45
-        phys-resistance: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300066:
     per-quality:
-      magic-resistance: 0.0013
+      magic-resistance: 0.001495
     random:
       magic-resistance:
-        min: 0.003
-        max: 0.028
+        min: 0.00345
+        max: 0.0322
       magic-flat-defense:
         min: 0.2
         max: 3.6
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      armor-strength:
-        min: 0.003
-        max: 0.038
-      dodge-chance:
-        min: 0.001
-        max: 0.016
     advanced:
       randomize-grants: true
       grant-chances:
         magic-flat-defense: 0.45
-        damage-reduction: 0.45
-        armor-strength: 0.45
-        dodge-chance: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300067:
     per-quality:
-      phys-resistance: 0.0013
+      phys-resistance: 0.001495
     random:
       phys-resistance:
-        min: 0.003
-        max: 0.028
+        min: 0.00345
+        max: 0.0322
       phys-flat-defense:
         min: 0.2
         max: 3.6
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      armor-strength:
-        min: 0.003
-        max: 0.038
-      magic-resistance:
-        min: 0.002
-        max: 0.031
     advanced:
       randomize-grants: true
       grant-chances:
         phys-flat-defense: 0.45
-        damage-reduction: 0.45
-        armor-strength: 0.45
-        magic-resistance: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300068:
     per-quality:
-      dodge-chance: 0.0007
+      dodge-chance: 0.000805
     random:
       dodge-chance:
-        min: 0.001
-        max: 0.014
-      crit-chance:
-        min: 0.002
-        max: 0.038
-      phys-resistance:
-        min: 0.002
-        max: 0.031
-      magic-resistance:
-        min: 0.002
-        max: 0.031
-      damage-reduction:
-        min: 0.002
-        max: 0.02
+        min: 0.00115
+        max: 0.0161
+      magic-flat-defense:
+        min: 0.2
+        max: 3.6
     advanced:
       randomize-grants: true
       grant-chances:
-        crit-chance: 0.45
-        phys-resistance: 0.45
-        magic-resistance: 0.45
-        damage-reduction: 0.45
+        magic-flat-defense: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300069:
     per-quality:
-      armor-strength: 0.0016
+      armor-strength: 0.00184
     random:
       armor-strength:
-        min: 0.004
-        max: 0.034
-      damage-reduction:
-        min: 0.002
-        max: 0.02
-      phys-flat-defense:
-        min: 0.2
-        max: 3.6
+        min: 0.0046
+        max: 0.0391
       magic-flat-defense:
         min: 0.2
         max: 3.6
-      phys-resistance:
-        min: 0.002
-        max: 0.031
     advanced:
       randomize-grants: true
       grant-chances:
-        damage-reduction: 0.45
-        phys-flat-defense: 0.45
         magic-flat-defense: 0.45
-        phys-resistance: 0.45
     offhand-stats-apply: false
     socketed-only-stats: true
+  # ==========================================================================
+  # ==========================================================================
   # トレジャーチェスト専用スレッド 10種 (2026-08-23、CMD 300070-300079) — W-187
   # ==========================================================================
   # 儀式でもクラフトでも作れない。**構造物のルートチェストからしか出ない**枠。
@@ -1561,293 +1255,173 @@ items:
   # (ここを増やしたいなら、まず既存スレッドの整理か新ステの新設が要る)。
   # ==========================================================================
   STRING#300070:
-    # 渦動のスレッド ── 主軸: aoe-damage-rate
     per-quality:
-      aoe-damage-rate: 0.0009
+      aoe-damage-rate: 0.001035
     random:
       aoe-damage-rate:
-        min: 0.002
-        max: 0.018
+        min: 0.0023
+        max: 0.0207
       power-attack-damage:
         min: 0.004
         max: 0.034
-      bleed-damage-rate:
-        min: 0.001
-        max: 0.01
-      defense-rate:
-        min: 0.002
-        max: 0.018
-      phys-flat-defense:
-        min: 0.2
-        max: 2.2
     advanced:
       randomize-grants: true
       grant-chances:
         power-attack-damage: 0.45
-        bleed-damage-rate: 0.45
-        defense-rate: 0.45
-        phys-flat-defense: 0.45
+    # 渦動のスレッド ── 主軸: aoe-damage-rate
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300071:
-    # 瀉血のスレッド ── 主軸: bleed-damage-rate
     per-quality:
-      bleed-damage-rate: 0.0005
+      bleed-damage-rate: 0.000575
     random:
       bleed-damage-rate:
-        min: 0.001
-        max: 0.01
-      aoe-damage-rate:
+        min: 0.00115
+        max: 0.0115
+      bleed-chance:
         min: 0.002
-        max: 0.018
-      power-attack-damage:
-        min: 0.004
-        max: 0.034
-      defense-rate:
-        min: 0.002
-        max: 0.018
-      magic-flat-defense:
-        min: 0.2
-        max: 2.2
+        max: 0.045
     advanced:
       randomize-grants: true
       grant-chances:
-        aoe-damage-rate: 0.45
-        power-attack-damage: 0.45
-        defense-rate: 0.45
-        magic-flat-defense: 0.45
+        bleed-chance: 0.45
+    # 瀉血のスレッド ── 主軸: bleed-damage-rate
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300072:
-    # 墜撃のスレッド ── 主軸: power-attack-damage
     per-quality:
-      power-attack-damage: 0.0016
+      power-attack-damage: 0.00184
     random:
       power-attack-damage:
-        min: 0.004
-        max: 0.034
+        min: 0.0046
+        max: 0.0391
       aoe-damage-rate:
         min: 0.002
         max: 0.018
-      bleed-damage-rate:
-        min: 0.001
-        max: 0.01
-      defense-rate:
-        min: 0.002
-        max: 0.018
-      phys-flat-defense:
-        min: 0.2
-        max: 2.2
     advanced:
       randomize-grants: true
       grant-chances:
         aoe-damage-rate: 0.45
-        bleed-damage-rate: 0.45
-        defense-rate: 0.45
-        phys-flat-defense: 0.45
+    # 墜撃のスレッド ── 主軸: power-attack-damage
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300073:
-    # 遠見のスレッド ── 主軸: distance-damage-bonus
     per-quality:
-      distance-damage-bonus: 0.0012
+      distance-damage-bonus: 0.00138
     random:
       distance-damage-bonus:
-        min: 0.003
-        max: 0.026
+        min: 0.00345
+        max: 0.0299
       arrow-velocity:
         min: 0.003
         max: 0.026
-      bow-accuracy:
-        min: 0.001
-        max: 0.01
-      arrow-piercing:
-        min: 0.012
-        max: 0.12
-      defense-rate:
-        min: 0.002
-        max: 0.018
     advanced:
       randomize-grants: true
       grant-chances:
         arrow-velocity: 0.45
-        bow-accuracy: 0.45
-        arrow-piercing: 0.45
-        defense-rate: 0.45
+    # 遠見のスレッド ── 主軸: distance-damage-bonus
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300074:
-    # 精射のスレッド ── 主軸: bow-accuracy
     per-quality:
-      bow-accuracy: 0.0005
+      bow-accuracy: 0.000575
     random:
       bow-accuracy:
-        min: 0.001
-        max: 0.01
-      arrow-velocity:
-        min: 0.003
-        max: 0.026
-      distance-damage-bonus:
-        min: 0.003
-        max: 0.026
+        min: 0.00115
+        max: 0.0115
       arrow-piercing:
         min: 0.012
         max: 0.12
-      magic-flat-defense:
-        min: 0.2
-        max: 2.2
     advanced:
       randomize-grants: true
       grant-chances:
-        arrow-velocity: 0.45
-        distance-damage-bonus: 0.45
         arrow-piercing: 0.45
-        magic-flat-defense: 0.45
+    # 精射のスレッド ── 主軸: bow-accuracy
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300075:
-    # 疾矢のスレッド ── 主軸: arrow-velocity
     per-quality:
-      arrow-velocity: 0.0012
+      arrow-velocity: 0.00138
     random:
       arrow-velocity:
-        min: 0.003
-        max: 0.026
+        min: 0.00345
+        max: 0.0299
       distance-damage-bonus:
         min: 0.003
         max: 0.026
-      bow-accuracy:
-        min: 0.001
-        max: 0.01
-      arrow-piercing:
-        min: 0.012
-        max: 0.12
-      phys-flat-defense:
-        min: 0.2
-        max: 2.2
     advanced:
       randomize-grants: true
       grant-chances:
         distance-damage-bonus: 0.45
-        bow-accuracy: 0.45
-        arrow-piercing: 0.45
-        phys-flat-defense: 0.45
+    # 疾矢のスレッド ── 主軸: arrow-velocity
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300076:
-    # 貫矢のスレッド ── 主軸: arrow-piercing
     per-quality:
-      arrow-piercing: 0.006
+      arrow-piercing: 0.0069
     random:
       arrow-piercing:
-        min: 0.012
-        max: 0.12
-      distance-damage-bonus:
-        min: 0.003
-        max: 0.026
-      arrow-velocity:
-        min: 0.003
-        max: 0.026
+        min: 0.0138
+        max: 0.138
       bow-accuracy:
         min: 0.001
         max: 0.01
-      defense-rate:
-        min: 0.002
-        max: 0.018
     advanced:
       randomize-grants: true
       grant-chances:
-        distance-damage-bonus: 0.45
-        arrow-velocity: 0.45
         bow-accuracy: 0.45
-        defense-rate: 0.45
+    # 貫矢のスレッド ── 主軸: arrow-piercing
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300077:
-    # 城塞のスレッド ── 主軸: defense-rate
     per-quality:
-      defense-rate: 0.0009
+      defense-rate: 0.001035
     random:
       defense-rate:
-        min: 0.002
-        max: 0.018
+        min: 0.0023
+        max: 0.0207
       phys-flat-defense:
         min: 0.2
-        max: 2.2
-      magic-flat-defense:
-        min: 0.2
-        max: 2.2
-      aoe-damage-rate:
-        min: 0.002
-        max: 0.018
-      power-attack-damage:
-        min: 0.004
-        max: 0.034
+        max: 3.6
     advanced:
       randomize-grants: true
       grant-chances:
         phys-flat-defense: 0.45
-        magic-flat-defense: 0.45
-        aoe-damage-rate: 0.45
-        power-attack-damage: 0.45
+    # 城塞のスレッド ── 主軸: defense-rate
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300078:
-    # 鉄壁のスレッド ── 主軸: phys-flat-defense
     per-quality:
-      phys-flat-defense: 0.1
+      phys-flat-defense: 0.115
     random:
       phys-flat-defense:
-        min: 0.2
-        max: 2.2
-      defense-rate:
-        min: 0.002
-        max: 0.018
+        min: 0.23
+        max: 2.53
       magic-flat-defense:
         min: 0.2
-        max: 2.2
-      aoe-damage-rate:
-        min: 0.002
-        max: 0.018
-      bleed-damage-rate:
-        min: 0.001
-        max: 0.01
+        max: 3.6
     advanced:
       randomize-grants: true
       grant-chances:
-        defense-rate: 0.45
         magic-flat-defense: 0.45
-        aoe-damage-rate: 0.45
-        bleed-damage-rate: 0.45
+    # 鉄壁のスレッド ── 主軸: phys-flat-defense
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300079:
-    # 護法のスレッド ── 主軸: magic-flat-defense
     per-quality:
-      magic-flat-defense: 0.1
+      magic-flat-defense: 0.115
     random:
       magic-flat-defense:
-        min: 0.2
-        max: 2.2
-      defense-rate:
-        min: 0.002
-        max: 0.018
+        min: 0.23
+        max: 2.53
       phys-flat-defense:
         min: 0.2
-        max: 2.2
-      aoe-damage-rate:
-        min: 0.002
-        max: 0.018
-      power-attack-damage:
-        min: 0.004
-        max: 0.034
+        max: 3.6
     advanced:
       randomize-grants: true
       grant-chances:
-        defense-rate: 0.45
         phys-flat-defense: 0.45
-        aoe-damage-rate: 0.45
-        power-attack-damage: 0.45
+    # 護法のスレッド ── 主軸: magic-flat-defense
     offhand-stats-apply: false
     socketed-only-stats: true
   WOODEN_SWORD:
@@ -4455,7 +4029,7 @@ items:
       move-speed:
         min: -0.02
         max: 0.004
-  NETHERITE_HOE#52:
+  NETHERITE_SWORD#52:
     fixed:
       attack-power: 2265
       attack-speed: 2
@@ -4489,7 +4063,7 @@ items:
       crit-damage:
         min: -0.1
         max: 0.15
-  DIAMOND_HOE#53:
+  DIAMOND_SWORD#53:
     fixed:
       attack-power: 739.76
       attack-speed: 2
@@ -4523,7 +4097,7 @@ items:
       crit-damage:
         min: -0.1
         max: 0.15
-  GOLDEN_HOE#54:
+  GOLDEN_SWORD#54:
     fixed:
       attack-power: 342
       attack-speed: 2
@@ -4563,7 +4137,7 @@ items:
       damage-modifier:
         min: -0.16
         max: 0.2
-  IRON_HOE#55:
+  IRON_SWORD#55:
     fixed:
       attack-power: 173.2
       attack-speed: 2
@@ -4597,7 +4171,7 @@ items:
       crit-damage:
         min: -0.1
         max: 0.15
-  COPPER_HOE#56:
+  COPPER_SWORD#56:
     fixed:
       attack-power: 70.69
       attack-speed: 2
@@ -4631,7 +4205,7 @@ items:
       crit-damage:
         min: -0.1
         max: 0.15
-  STONE_HOE#57:
+  STONE_SWORD#57:
     fixed:
       attack-power: 61.34
       attack-speed: 2
@@ -4665,7 +4239,7 @@ items:
       crit-damage:
         min: -0.1
         max: 0.15
-  WOODEN_HOE#58:
+  WOODEN_SWORD#58:
     fixed:
       attack-power: 37.6
       attack-speed: 2
@@ -4736,7 +4310,7 @@ items:
       move-speed:
         min: -0.02
         max: 0.004
-  DIAMOND_HOE#49:
+  DIAMOND_SWORD#49:
     fixed:
       attack-power: 158.07
       attack-speed: 2
@@ -4771,7 +4345,7 @@ items:
       crit-damage:
         min: -0.1
         max: 0.15
-  NETHERITE_HOE#124:
+  NETHERITE_SWORD#124:
     fixed:
       attack-power: 26158
       attack-speed: 2
@@ -4805,7 +4379,7 @@ items:
       crit-damage:
         min: -0.1
         max: 0.15
-  NETHERITE_HOE#125:
+  NETHERITE_SWORD#125:
     fixed:
       attack-power: 15956
       attack-speed: 2
@@ -4840,7 +4414,7 @@ items:
       crit-damage:
         min: -0.1
         max: 0.15
-  NETHERITE_HOE#126:
+  NETHERITE_SWORD#126:
     fixed:
       attack-power: 8005
       attack-speed: 2
@@ -4879,17 +4453,17 @@ items:
         max: 0.004
   WOODEN_SWORD#22:
     fixed:
-      attack-power: 82.16
+      attack-power: 86.1
       attack-speed: 1
       attack-reach: 1
       crit-chance: 0.025
       crit-damage: 0.805
       penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 4.2
+      fixed-damage: 4.4
       durability: 35
     per-quality:
-      attack-power: 3.91
+      attack-power: 4.1
       crit-chance: 0.0015
       crit-damage: 0.023
       penetration: 0.0014
@@ -4899,8 +4473,8 @@ items:
     quality-mode-offset: 0
     random:
       attack-power:
-        min: -12.79
-        max: 16.41
+        min: -13.4
+        max: 17.2
       crit-damage:
         min: -0.138
         max: 0.207
@@ -4909,17 +4483,17 @@ items:
         max: 0.03
   STONE_SWORD#23:
     fixed:
-      attack-power: 136.82
+      attack-power: 143
       attack-speed: 1
       attack-reach: 1
       crit-chance: 0.025
       crit-damage: 0.805
       penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 7.08
+      fixed-damage: 7.4
       durability: 78
     per-quality:
-      attack-power: 6.6
+      attack-power: 6.9
       crit-chance: 0.0015
       crit-damage: 0.023
       penetration: 0.0014
@@ -4929,8 +4503,8 @@ items:
     quality-mode-offset: -1
     random:
       attack-power:
-        min: -22.01
-        max: 27.46
+        min: -23
+        max: 28.7
       crit-damage:
         min: -0.138
         max: 0.207
@@ -4939,17 +4513,17 @@ items:
         max: 0.03
   COPPER_SWORD#24:
     fixed:
-      attack-power: 154.78
+      attack-power: 164
       attack-speed: 1
       attack-reach: 1
       crit-chance: 0.025
       crit-damage: 0.805
       penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 10.85
+      fixed-damage: 11.5
       durability: 114
     per-quality:
-      attack-power: 25.76
+      attack-power: 27.3
       crit-chance: 0.0015
       crit-damage: 0.023
       penetration: 0.0014
@@ -4959,8 +4533,8 @@ items:
     quality-mode-offset: -2
     random:
       attack-power:
-        min: -24.35
-        max: 30.67
+        min: -25.8
+        max: 32.5
       crit-damage:
         min: -0.138
         max: 0.207
@@ -4969,17 +4543,17 @@ items:
         max: 0.03
   IRON_SWORD#25:
     fixed:
-      attack-power: 386.23
+      attack-power: 400
       attack-speed: 1
       attack-reach: 1
       crit-chance: 0.025
       crit-damage: 0.805
       penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 20.28
+      fixed-damage: 21
       durability: 150
     per-quality:
-      attack-power: 18.35
+      attack-power: 19
       crit-chance: 0.0015
       crit-damage: 0.023
       penetration: 0.0014
@@ -4989,8 +4563,8 @@ items:
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -61.89
-        max: 77.63
+        min: -64.1
+        max: 80.4
       crit-damage:
         min: -0.138
         max: 0.207
@@ -5035,17 +4609,17 @@ items:
         max: 0.2
   DIAMOND_SWORD#1104:
     fixed:
-      attack-power: 1666.17
+      attack-power: 1715
       attack-speed: 1
       attack-reach: 1
       crit-chance: 0.025
       crit-damage: 0.805
       penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 85.49
+      fixed-damage: 88
       durability: 936
     per-quality:
-      attack-power: 79.37
+      attack-power: 81.7
       crit-chance: 0.0015
       crit-damage: 0.023
       penetration: 0.0014
@@ -5055,8 +4629,8 @@ items:
     quality-mode-offset: -5
     random:
       attack-power:
-        min: -267.17
-        max: 333.23
+        min: -275
+        max: 343
       crit-damage:
         min: -0.138
         max: 0.207
@@ -5065,17 +4639,17 @@ items:
         max: 0.03
   NETHERITE_SWORD#27:
     fixed:
-      attack-power: 5014.81
+      attack-power: 5146
       attack-speed: 1
       attack-reach: 1
       crit-chance: 0.025
       crit-damage: 0.805
       penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 258.24
+      fixed-damage: 265
       durability: 1218
     per-quality:
-      attack-power: 238.75
+      attack-power: 245
       crit-chance: 0.0015
       crit-damage: 0.023
       penetration: 0.0014
@@ -5085,8 +4659,8 @@ items:
     quality-mode-offset: -6
     random:
       attack-power:
-        min: -802.99
-        max: 1002.77
+        min: -824
+        max: 1029
       crit-damage:
         min: -0.138
         max: 0.207
@@ -5095,18 +4669,18 @@ items:
         max: 0.03
   DIAMOND_SWORD#1109:
     fixed:
-      attack-power: 353.88
+      attack-power: 366
       attack-speed: 1
       attack-reach: 1
       crit-chance: 0.025
       crit-damage: 0.805
       penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 18.47
+      fixed-damage: 19.1
       thread-slots: 2
       durability: 936
     per-quality:
-      attack-power: 16.82
+      attack-power: 17.4
       crit-chance: 0.0015
       crit-damage: 0.023
       penetration: 0.0014
@@ -5116,8 +4690,8 @@ items:
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -56.47
-        max: 71.26
+        min: -58.4
+        max: 73.7
       crit-damage:
         min: -0.138
         max: 0.207
@@ -5126,17 +4700,17 @@ items:
         max: 0.03
   NETHERITE_SWORD#133:
     fixed:
-      attack-power: 50473.45
+      attack-power: 51469
       attack-speed: 1
       attack-reach: 1
       crit-chance: 0.025
       crit-damage: 0.805
       penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 2596.78
+      fixed-damage: 2648
       durability: 1218
     per-quality:
-      attack-power: 2403.59
+      attack-power: 2451
       crit-chance: 0.0015
       crit-damage: 0.023
       penetration: 0.0014
@@ -5146,8 +4720,8 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -8075.71
-        max: 10094.89
+        min: -8235
+        max: 10294
       crit-damage:
         min: -0.138
         max: 0.207
@@ -5156,18 +4730,18 @@ items:
         max: 0.03
   NETHERITE_SWORD#134:
     fixed:
-      attack-power: 31405.72
+      attack-power: 32025
       attack-speed: 1
       attack-reach: 1
       crit-chance: 0.025
       crit-damage: 0.805
       penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 1616.13
+      fixed-damage: 1648
       thread-slots: 3
       durability: 1218
     per-quality:
-      attack-power: 1495.51
+      attack-power: 1525
       crit-chance: 0.0015
       crit-damage: 0.023
       penetration: 0.0014
@@ -5177,8 +4751,8 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -5024.92
-        max: 6281.14
+        min: -5124
+        max: 6405
       crit-damage:
         min: -0.138
         max: 0.207
@@ -5187,20 +4761,20 @@ items:
         max: 0.03
   NETHERITE_SWORD#135:
     fixed:
-      attack-power: 16732.57
+      attack-power: 17096
       attack-speed: 1
       attack-reach: 1
       crit-chance: 0.025
       crit-damage: 0.805
       penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 861.29
+      fixed-damage: 880
       thread-slots: 2
       move-speed: -0.018
       dodge-chance: -0.02
       durability: 1218
     per-quality:
-      attack-power: 796.7
+      attack-power: 814
       crit-chance: 0.0015
       crit-damage: 0.023
       penetration: 0.0014
@@ -5210,8 +4784,8 @@ items:
     quality-mode-offset: -7
     random:
       attack-power:
-        min: -2676.86
-        max: 3346.32
+        min: -2735
+        max: 3419
       phys-resistance:
         min: -0.08
         max: 0.04
@@ -8089,7 +7663,7 @@ items:
   WOODEN_SWORD#400008:
     fixed:
       attack-power: 82
-      attack-speed: 0.1
+      attack-speed: 1.4
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -8128,7 +7702,7 @@ items:
   STONE_SWORD#400002:
     fixed:
       attack-power: 136
-      attack-speed: 0.1
+      attack-speed: 1.4
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -8167,7 +7741,7 @@ items:
   COPPER_SWORD#400003:
     fixed:
       attack-power: 154
-      attack-speed: 0.1
+      attack-speed: 1.4
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -8206,7 +7780,7 @@ items:
   IRON_SWORD#400004:
     fixed:
       attack-power: 375
-      attack-speed: 0.1
+      attack-speed: 1.4
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -8245,7 +7819,7 @@ items:
   GOLDEN_SWORD#400005:
     fixed:
       attack-power: 755
-      attack-speed: 0.1
+      attack-speed: 1.4
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -8284,7 +7858,7 @@ items:
   DIAMOND_SWORD#400006:
     fixed:
       attack-power: 1575
-      attack-speed: 0.1
+      attack-speed: 1.4
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -8323,7 +7897,7 @@ items:
   NETHERITE_SWORD#400007:
     fixed:
       attack-power: 4695
-      attack-speed: 0.1
+      attack-speed: 1.4
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -8362,7 +7936,7 @@ items:
   NETHERITE_SWORD#400012:
     fixed:
       attack-power: 46069
-      attack-speed: 0.1
+      attack-speed: 1.4
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -8401,7 +7975,7 @@ items:
   NETHERITE_SWORD#400013:
     fixed:
       attack-power: 28845
-      attack-speed: 0.1
+      attack-speed: 1.4
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -8440,7 +8014,7 @@ items:
   NETHERITE_SWORD#400014:
     fixed:
       attack-power: 15551
-      attack-speed: 0.1
+      attack-speed: 1.4
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -10865,18 +10439,18 @@ items:
         max: 0.168
   NETHERITE_SWORD#5603:
     fixed:
-      attack-power: 40378.84
+      attack-power: 41175
       attack-speed: 1
       attack-reach: 1
       crit-chance: 0.025
       crit-damage: 0.805
       penetration: 0.056
       damage-modifier: 0.84
-      fixed-damage: 2077.05
+      fixed-damage: 2118
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 1923.08
+      attack-power: 1961
       crit-chance: 0.0015
       crit-damage: 0.023
       penetration: 0.0014
@@ -10886,8 +10460,8 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -6459.63
-        max: 8075.77
+        min: -6587
+        max: 8235
       crit-damage:
         min: -0.138
         max: 0.207
@@ -11282,18 +10856,18 @@ items:
         max: 0.168
   NETHERITE_SWORD#5609:
     fixed:
-      attack-power: 58044.61
+      attack-power: 59189
       attack-speed: 1
       attack-reach: 1
       crit-chance: 0.025
       crit-damage: 0.805
       penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 2986.13
+      fixed-damage: 3045
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 2763.52
+      attack-power: 2818
       crit-chance: 0.0015
       crit-damage: 0.023
       penetration: 0.0014
@@ -11303,8 +10877,8 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -9286.9
-        max: 11609.12
+        min: -9470
+        max: 11838
       crit-damage:
         min: -0.138
         max: 0.207
@@ -11801,20 +11375,20 @@ items:
         max: 0.168
   NETHERITE_SWORD#5703:
     fixed:
-      attack-power: 34294.1
+      attack-power: 35950
       attack-speed: 1
       attack-reach: 1
       crit-chance: 0.025
       crit-damage: 0.805
       penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 2521.26
+      fixed-damage: 2643
       durability: 1218
       thread-slots: 2
       bleed-chance: 0.12
       bleed-damage: 3766
     per-quality:
-      attack-power: 1633.14
+      attack-power: 1712
       crit-chance: 0.0015
       crit-damage: 0.023
       penetration: 0.0014
@@ -11824,8 +11398,8 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -5487.06
-        max: 6858.82
+        min: -5752
+        max: 7190
       crit-damage:
         min: -0.138
         max: 0.207
@@ -12230,18 +11804,18 @@ items:
         max: 0.168
   NETHERITE_SWORD#5723:
     fixed:
-      attack-power: 42705.98
+      attack-power: 43746
       attack-speed: 1
       attack-reach: 1
       crit-chance: 0.025
       crit-damage: 0.805
       penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 2585.05
+      fixed-damage: 2648
       durability: 3654
       thread-slots: 2
     per-quality:
-      attack-power: 2033.48
+      attack-power: 2083
       crit-chance: 0.0015
       crit-damage: 0.023
       penetration: 0.0014
@@ -12251,8 +11825,8 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -6832.6
-        max: 8541
+        min: -6999
+        max: 8749
       crit-damage:
         min: -0.138
         max: 0.207
@@ -12879,14 +12453,14 @@ items:
   # 数値はバランス調整の対象 ── 設定エディタの「盾」カテゴリから変更できる。
   SHIELD:
     fixed:
-      damage-reduction: 0.35
+      damage-reduction: 0.45
       phys-flat-defense: 2.0
-      magic-flat-defense: 1.0
+      magic-flat-defense: 2
       durability: 201
     per-quality:
       damage-reduction: 0.01
-      phys-flat-defense: 0.6
-      magic-flat-defense: 0.3
+      phys-flat-defense: 0.5
+      magic-flat-defense: 0.5
       durability: 34
     offhand-stats-apply: true
     offhand-stats-require-blocking: true
@@ -12939,18 +12513,18 @@ _editor:
       - id: cat_1784732119145
         label: 鎌
         itemIds:
-          - NETHERITE_HOE#52
-          - DIAMOND_HOE#53
-          - GOLDEN_HOE#54
-          - IRON_HOE#55
-          - COPPER_HOE#56
-          - STONE_HOE#57
-          - WOODEN_HOE#58
+          - NETHERITE_SWORD#52
+          - DIAMOND_SWORD#53
+          - GOLDEN_SWORD#54
+          - IRON_SWORD#55
+          - COPPER_SWORD#56
+          - STONE_SWORD#57
+          - WOODEN_SWORD#58
           - NETHERITE_HOE#1
-          - DIAMOND_HOE#49
-          - NETHERITE_HOE#124
-          - NETHERITE_HOE#125
-          - NETHERITE_HOE#126
+          - DIAMOND_SWORD#49
+          - NETHERITE_SWORD#124
+          - NETHERITE_SWORD#125
+          - NETHERITE_SWORD#126
       - id: cat_1784732138435
         label: ウォーハンマー
         itemIds:
@@ -13551,6 +13125,7 @@ _editor:
         label: 無強化
         itemIds:
           - STRING#300001
+      - STRING#300080
   itemTabs:
     STRING#300046: thread
     STRING#300047: thread
@@ -13617,20 +13192,20 @@ _editor:
     GOLDEN_SPEAR: weapon
     DIAMOND_SPEAR: weapon
     NETHERITE_SPEAR: weapon
-    NETHERITE_HOE#52: weapon
-    DIAMOND_HOE#53: weapon
-    GOLDEN_HOE#54: weapon
-    IRON_HOE#55: weapon
-    COPPER_HOE#56: weapon
-    STONE_HOE#57: weapon
-    WOODEN_HOE#58: weapon
+    NETHERITE_SWORD#52: weapon
+    DIAMOND_SWORD#53: weapon
+    GOLDEN_SWORD#54: weapon
+    IRON_SWORD#55: weapon
+    COPPER_SWORD#56: weapon
+    STONE_SWORD#57: weapon
+    WOODEN_SWORD#58: weapon
     NETHERITE_HOE#1: weapon
-    DIAMOND_HOE#49: weapon
-    NETHERITE_HOE#124: weapon
+    DIAMOND_SWORD#49: weapon
+    NETHERITE_SWORD#124: weapon
     NETHERITE_HOE#5720: weapon
     NETHERITE_HOE#5700: weapon
-    NETHERITE_HOE#125: weapon
-    NETHERITE_HOE#126: weapon
+    NETHERITE_SWORD#125: weapon
+    NETHERITE_SWORD#126: weapon
     WOODEN_SWORD#22: weapon
     STONE_SWORD#23: weapon
     COPPER_SWORD#24: weapon
@@ -14030,6 +13605,7 @@ _editor:
     STRING#300037: thread
     STRING#300038: thread
     STRING#300001: thread
+    STRING#300080: thread
     STRING#100023: thread
     STRING#100024: thread
     STRING#100025: thread
@@ -14079,20 +13655,20 @@ _editor:
       - GOLDEN_SPEAR
       - DIAMOND_SPEAR
       - NETHERITE_SPEAR
-      - NETHERITE_HOE#52
-      - DIAMOND_HOE#53
-      - GOLDEN_HOE#54
-      - IRON_HOE#55
-      - COPPER_HOE#56
-      - STONE_HOE#57
-      - WOODEN_HOE#58
+      - NETHERITE_SWORD#52
+      - DIAMOND_SWORD#53
+      - GOLDEN_SWORD#54
+      - IRON_SWORD#55
+      - COPPER_SWORD#56
+      - STONE_SWORD#57
+      - WOODEN_SWORD#58
       - NETHERITE_HOE#1
-      - DIAMOND_HOE#49
-      - NETHERITE_HOE#124
+      - DIAMOND_SWORD#49
+      - NETHERITE_SWORD#124
       - NETHERITE_HOE#5720
       - NETHERITE_HOE#5700
-      - NETHERITE_HOE#125
-      - NETHERITE_HOE#126
+      - NETHERITE_SWORD#125
+      - NETHERITE_SWORD#126
       - WOODEN_SWORD#22
       - STONE_SWORD#23
       - COPPER_SWORD#24

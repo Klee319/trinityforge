@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * <b>スレッド(CMD 300001-300079)のダメージ寄与が「帯に比例する」ことを固定する</b>
+ * <b>スレッド(CMD 300001-300080)のダメージ寄与が「帯に比例する」ことを固定する</b>
  * 回帰テスト(2026-08-14 案E、2026-08-14 に導出方式へ作り直し)。
  *
  * <h2>何が壊れていたか</h2>
@@ -424,15 +424,24 @@ class ShippedThreadBandIndependenceTest {
     /**
      * フォークの {@code threads.yml} から「装備1点あたりの同一種の上限」。
      *
-     * <p><b>2026-08-18</b>: フォーク側の既定が反転した(ユーザー確定要件「同一のスレッドを重複で
-     * 入れられるようにしてほしい」)。{@code ThreadConfig#isStackable} は未記載を
-     * {@code ThreadApplicationPolicy.DEFAULT_STACKABLE}(= true)、{@code #getMaxStack} は未記載を
-     * {@code DEFAULT_MAX_STACK}(= 2)として読む ── かつては「未記載 = 1本」「max 未記載 = 無制限」
-     * だった。ここの既定をフォークに合わせ忘れると、モデルが実際より弱い編成しか作らず
-     * <b>帯目標の超過を緑で通す</b>(=検査の無効化)。
+     * <p>ここの既定をフォークに合わせ忘れると、モデルが実際より弱い編成しか作らず
+     * <b>帯目標の超過を緑で通す</b>(=検査の無効化)。値は
+     * {@code ThreadApplicationPolicy.DEFAULT_STACKABLE} / {@code DEFAULT_MAX_STACK} の写しで、
+     * フォークは {@code .gitignore} 対象なのでコンパイル時に参照できない。
+     *
+     * <p>既定の変遷:
+     * <ul>
+     *   <li>〜2026-08-18: 「未記載 = 1本」「max 未記載 = 無制限」</li>
+     *   <li>2026-08-18: ユーザー確定要件「同一のスレッドを重複で入れられるようにしてほしい」で
+     *       未記載 = 重複可・上限 2 本へ</li>
+     *   <li><b>2026-08-25 (W-254)</b>: ユーザー確定要件「同じスレッドは同じ部位に1つまでしか
+     *       付けられないように修正する」で上限 <b>1</b> 本へ。出荷 threads.yml からは
+     *       {@code stackable}/{@code max} を(backpack を除いて)全部落としたので、
+     *       実効値はこの既定の側で決まる。</li>
+     * </ul>
      */
     private static final boolean FORK_DEFAULT_STACKABLE = true;
-    private static final int FORK_DEFAULT_MAX_STACK = 2;
+    private static final int FORK_DEFAULT_MAX_STACK = 1;
 
     private static Map<String, Integer> perItemCapById() {
         ConfigurationSection threads = YamlConfiguration
@@ -490,7 +499,7 @@ class ShippedThreadBandIndependenceTest {
     void everyThreadScalesWithTheEquipmentBand() {
         Map<Integer, Map<String, Double>> threads = threadStats();
         assertTrue(threads.size() >= MIN_EXPECTED_THREADS,
-                "スレッドが " + threads.size() + " 件しか読めていない。CMD 帯(300001-300079)か"
+                "スレッドが " + threads.size() + " 件しか読めていない。CMD 帯(300001-300080)か"
                         + "節の構造が変わっていないか確認すること(期待: " + MIN_EXPECTED_THREADS + " 件以上)");
 
         TreeMap<String, String> offenders = new TreeMap<>();
@@ -611,7 +620,7 @@ class ShippedThreadBandIndependenceTest {
             }
             // ⚠ 増種したらここを伸ばすこと。帯の外に落ちたスレッドは読まれないので、
             //    実数ダメージステを配っていても**検査を素通りする**(静かに無効化される)。
-            if (cmd < 300001 || cmd > 300079) continue;
+            if (cmd < 300001 || cmd > 300080) continue;
             ConfigurationSection entry = items.getConfigurationSection(key);
             if (entry == null) continue;
 

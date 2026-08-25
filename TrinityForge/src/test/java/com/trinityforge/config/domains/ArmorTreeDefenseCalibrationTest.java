@@ -246,16 +246,27 @@ class ArmorTreeDefenseCalibrationTest {
             if (trimmed.startsWith(K_ARMOR_DEFENSE_RATE + ":")) {
                 offenders.add(trimmed);
             } else if (trimmed.startsWith(K_DEFENSE_RATE + ":")) {
+                String rhs = trimmed.substring((K_DEFENSE_RATE + ":").length()).trim();
+                if (rhs.isEmpty()) {
+                    // 「defense-rate:」だけの行は【節の見出し】。スレッドの
+                    // random: / per-quality: の下に defense-rate: { min, max } の形で現れる。
+                    // ここを数値として読もうとすると NumberFormatException で
+                    // 「範囲外」ではなく【テストが中断】する ── 中断は赤ではあるが
+                    // 何を検査したのかが分からなくなるので、見出しは明示的に飛ばす。
+                    continue;
+                }
                 rateLines++;
-                double value = Double.parseDouble(trimmed.substring((K_DEFENSE_RATE + ":").length()).trim());
+                double value = Double.parseDouble(rhs);
                 assertTrue(value > 0.0 && value <= 0.5,
                         "item-stats の defense-rate が [0,1] の軽減率の範囲を外れている: " + trimmed
                                 + "。点数(1〜8)のまま書かれた疑いがある。");
             }
         }
         assertTrue(offenders.isEmpty(), "item-stats に防具値が残っている: " + offenders);
+        // 実測 152 行(2026-08-25 (W-254) にスレッドの副次枠から defense-rate を外して 159 → 152)。
+        // 150 は「防具値の一括換算が巻き戻ったら必ず落ち、通常の増減では通る」位置。
         assertTrue(rateLines >= 150,
-                "item-stats の defense-rate が " + rateLines + " 行しかない(151 行あるはず)。"
+                "item-stats の defense-rate が " + rateLines + " 行しかない(152 行あるはず)。"
                         + "防具値の一括換算が巻き戻された疑いがある。");
     }
 

@@ -3606,6 +3606,15 @@
       "parent": "generated"
     },
     {
+      "material": "STRING",
+      "cmd": 300080,
+      "id": "thread_stealth",
+      "source": "catalog",
+      "allocatedAt": "2026-08-25T00:00:00.000Z",
+      "assetName": "thread_stealth",
+      "parent": "generated"
+    },
+    {
       "material": "AMETHYST_SHARD",
       "cmd": 3,
       "id": "skill_node_lock",
@@ -3639,6 +3648,27 @@
       "id": "quality_upgrade_ticket",
       "source": "catalog",
       "allocatedAt": "2026-08-09T10:23:03.067Z"
+    },
+    {
+      "material": "HONEY_BOTTLE",
+      "cmd": 261,
+      "id": "exp_cleanse_tonic_lesser",
+      "source": "catalog",
+      "allocatedAt": "2026-08-24T11:37:32.382Z"
+    },
+    {
+      "material": "POTION",
+      "cmd": 262,
+      "id": "exp_cleanse_tonic_greater",
+      "source": "catalog",
+      "allocatedAt": "2026-08-24T11:37:32.383Z"
+    },
+    {
+      "material": "DRAGON_BREATH",
+      "cmd": 263,
+      "id": "exp_cleanse_tonic_supreme",
+      "source": "catalog",
+      "allocatedAt": "2026-08-24T11:37:32.383Z"
     },
     {
       "material": "BLAZE_ROD",
@@ -3727,24 +3757,6 @@
       "source": "materials",
       "allocatedAt": "2026-07-31T09:10:00.000Z",
       "assetName": "source_engine",
-      "parent": "generated"
-    },
-    {
-      "material": "NETHER_STAR",
-      "cmd": 500001,
-      "id": "infinity_source_core",
-      "source": "functional-items",
-      "allocatedAt": "2026-08-24T00:00:00.000Z",
-      "assetName": "infinity_source_core",
-      "parent": "generated"
-    },
-    {
-      "material": "BEACON",
-      "cmd": 500001,
-      "id": "infinity_source_core",
-      "source": "functional-items",
-      "allocatedAt": "2026-08-24T00:00:00.000Z",
-      "assetName": "infinity_source_core",
       "parent": "generated"
     },
     {
@@ -5705,25 +5717,32 @@
       "allocatedAt": "2026-07-22T21:56:36.875Z"
     },
     {
-      "material": "HONEY_BOTTLE",
-      "cmd": 261,
-      "id": "exp_cleanse_tonic_lesser",
-      "source": "catalog",
-      "allocatedAt": "2026-08-24T11:37:32.382Z"
+      "material": "CHARCOAL",
+      "cmd": 5490,
+      "id": "charcoal_block",
+      "source": "materials",
+      "allocatedAt": "2026-08-25T14:20:00.000Z"
     },
     {
-      "material": "POTION",
-      "cmd": 262,
-      "id": "exp_cleanse_tonic_greater",
-      "source": "catalog",
-      "allocatedAt": "2026-08-24T11:37:32.383Z"
+      "material": "CHARCOAL",
+      "cmd": 5491,
+      "id": "charcoal_block_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-25T14:20:00.000Z"
     },
     {
-      "material": "DRAGON_BREATH",
-      "cmd": 263,
-      "id": "exp_cleanse_tonic_supreme",
-      "source": "catalog",
-      "allocatedAt": "2026-08-24T11:37:32.383Z"
+      "material": "CHARCOAL",
+      "cmd": 5492,
+      "id": "charcoal_block_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-25T14:20:00.000Z"
+    },
+    {
+      "material": "CHARCOAL",
+      "cmd": 5493,
+      "id": "charcoal_block_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-25T14:20:00.000Z"
     }
   ]
 }

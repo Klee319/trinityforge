@@ -1058,9 +1058,15 @@ public final class TrinityForge extends JavaPlugin {
                 aggregator, configManager.itemStats());
         PlayerLootLuckSource lootLuck = new PlayerLootLuckSource(getLogger(), aggregator);
         this.lootLuckSource = lootLuck;
-        // mobドロップ品質のmode+1は幸運ではなく専用stat(mob_drop_quality、装備+perk合算)が担う
-        // (幸運spec=「ドロップとクラフト以外」)。EliteMobsフォークからは mobDropBonus() で読む。
-        PlayerMobDropBonusSource mobDropBonus = new PlayerMobDropBonusSource(getLogger(), aggregator);
+        // mobドロップ品質のmode+1は専用stat(mob_drop_quality、装備+perk合算)が主役。
+        // 2026-08-25 (W-253): これに加えてバニラ幸運(ポーション)も合算する。旧仕様は
+        // 「幸運spec=ドロップとクラフト以外」でモブドロップを意図的に外していたが、
+        // ユーザー確定要件「幸運のポーションのエフェクトはドロップ品質に乗るように」で撤回した。
+        // 換算レートは作業台/儀式/醸造と同じ stats/quality.yml の luck-potion-quality-per-level。
+        // ⚠ 供給はラムダで渡す(値ではなく)。ここで getDouble を1回読んで固定すると
+        //   /trinityforge reload でつまみを変えても反映されない。
+        PlayerMobDropBonusSource mobDropBonus = new PlayerMobDropBonusSource(
+                getLogger(), aggregator, () -> configManager.quality().luckPotionQualityPerLevel());
         this.mobDropBonusSource = mobDropBonus;
         getServer().getPluginManager().registerEvents(
                 new CraftQualityListener(this, itemFactory, craftQualityService, configManager.craftQuality(),
@@ -1570,6 +1576,16 @@ public final class TrinityForge extends JavaPlugin {
         }
         if (gatheringEfficiencyApplier != null) {
             gatheringEfficiencyApplier.applyAllOnline();
+        }
+        // ArsPaper のスレッド/マナ系ステ(ArmorManaListener)はプッシュ型で、reload 自体は
+        // その6経路(装備変更/インベントリクリック/持ち替え/参加/GUIを閉じる等)のどれも踏まない。
+        // reload 直後に /tf status を開いても古い値が残らないよう、オンライン全員を同期的に
+        // 再計算しておく(2026-08-25、ArsPaper未導入時はfail-softで無害)。
+        // getServer() == null(テストダブル等、実サーバ未起動)は素通し(何もしない)。
+        if (getServer() != null) {
+            for (Player online : getServer().getOnlinePlayers()) {
+                com.trinityforge.integration.ars.ArsArmorStatRefreshBridge.refresh(online);
+            }
         }
     }
 

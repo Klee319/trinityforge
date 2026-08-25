@@ -77,7 +77,7 @@ class ThreadSocketedOnlyAggregationTest {
 
     /** スレッドの CMD 帯。 */
     private static final int THREAD_CMD_MIN = 300001;
-    private static final int THREAD_CMD_MAX = 300079;
+    private static final int THREAD_CMD_MAX = 300080;
 
     /**
      * 節ごと消えたことに気づくための下限。

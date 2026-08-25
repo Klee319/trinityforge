@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 出荷 {@code stats/item-stats.yml} のスレッド79種(CMD 300001-300079)の厳選定義を固定する
+ * 出荷 {@code stats/item-stats.yml} のスレッド80種(CMD 300001-300080)の厳選定義を固定する
  * (2026-08-03 ユーザー指摘「一部スレッドが名称と効果が一致していない(マナ増幅のスレッドなど)」)。
  *
  * <h2>なぜ机上で落とす必要があるのか</h2>
@@ -43,8 +43,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 意味そのものが消えていた。そこで {@link Kind} で3種類に分け、規約を種類ごとに変える。
  *
  * <ul>
- *   <li>{@link Kind#COMBAT} … 戦闘そのものが正体のスレッド。<b>従来の規約をそのまま維持</b>
- *       (主ステ1件 + {@code random} 5件 + サブ4種を各 0.45 で確率付与)。</li>
+ *   <li>{@link Kind#COMBAT} … 戦闘そのものが正体のスレッド。
+ *       主ステ1件 + {@code random} 2件 + サブ1種を 0.45 で確率付与
+ *       (2026-08-25 (W-254) にサブ4種から絞った。下の見出し参照)。</li>
  *   <li>{@link Kind#DOMAIN} … 採取・制作・マナなど非戦闘のスレッド。<b>主ステ(と、名称が2軸を
  *       指す場合のみその2軸)だけ</b>を持ち、{@code advanced} ブロックは持たない
  *       (0.45 の確率付与は戦闘サブ専用の仕組みだったため、サブが消えると置き場所が無い)。</li>
@@ -57,11 +58,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 「DOMAIN / STATLESS のスレッドに ATTACK / DEFENSE チャネルのステが1件でもあれば落ちる」。
  * 表を書き換えただけでは通らないので、逆流(誰かが戦闘サブを足し戻す)をここで止められる。
  *
+ * <h2>2026-08-25 (W-254): サブ4種 → サブ1種、強ステは主軸専用に</h2>
+ * <p>ユーザー確定要件は2つ:
+ * <ol>
+ *   <li>「各スレッドを特定のステータスにとがらせ、微強化する」</li>
+ *   <li>「回避、ダメージ軽減等の強いステータスに尖ったスレッドは種類を2個以下、あって3種類に絞る
+ *       (100%達成の防止)。また耐性や守備力、攻撃力などとりあえず感覚でまんべんなくついている
+ *       ステータスも減らし、数種類のスレッドにまとめる。現状のどのスレッドでも代用できるは
+ *       かえってコンテンツの道を減らしている」</li>
+ * </ol>
+ * <p>実際、{@code percent-bonus-damage} は34種のうち<b>17種にサブとして</b>ぶら下がっていた ──
+ * どのスレッドを挿しても同じステが付くので「このスレッドを選ぶ理由」が主ステ1行しか無かった。
+ * そこで<b>サブを1種へ絞り</b>、さらに<b>上限で壊れる割合ステ</b>
+ * ({@code dodge-chance} / {@code damage-reduction} / {@code armor-strength} /
+ *  {@code phys-resistance} / {@code magic-resistance} / {@code defense-rate} /
+ *  {@code percent-bonus-damage})は<b>主軸にしか置かない</b>ことにした。
+ * 主軸に置く種類数は {@link #strongStatsAreOnlyEverAPrimaryAxis()} が実データで検査する。
+ * <p>主軸の数値は +15%。ただし {@code percent-bonus-damage} を主軸に持つ5種だけは据え置き ──
+ * {@code ShippedThreadBandIndependenceTest} の帯目標(Lv100 = +59%)に対して
+ * 「1本 3.6% × 枠16」で余裕が 1.4pt しか無く、上げると即座に超過する(実測で確認)。
+ *
  * <h2>組み立ての規約(COMBAT のみ。崩すと厳選が機能しなくなる)</h2>
  * <ul>
  *   <li>{@code per-quality:} は<b>主ステ1件だけ</b>(品質0..9で伸びる軸)。</li>
- *   <li>{@code random:} は<b>主ステ + サブ4種</b>の5件。主ステは {@code random} の先頭。</li>
- *   <li>{@code advanced.randomize-grants: true} + {@code grant-chances} でサブ4種を各 0.45。
+ *   <li>{@code random:} は<b>主ステ + サブ1種</b>の2件。主ステは {@code random} の先頭。</li>
+ *   <li>{@code advanced.randomize-grants: true} + {@code grant-chances} でサブ1種を 0.45。
  *       <b>主ステは grant-chances に書かない</b>。</li>
  *   <li>{@code offhand-stats-apply: false}(スレッド自体をオフハンドに持って効かせない)。</li>
  * </ul>
@@ -109,11 +130,11 @@ class ShippedThreadItemStatsTest {
 
     /** スレッドの CMD 帯。増種したらここを伸ばす。 */
     private static final int THREAD_CMD_MIN = 300001;
-    private static final int THREAD_CMD_MAX = 300079;
+    private static final int THREAD_CMD_MAX = 300080;
 
     /** スレッドの種類。規約が種類ごとに違う(クラス Javadoc 参照)。 */
     private enum Kind {
-        /** 戦闘そのものが正体。主ステ + 戦闘サブ4種。 */
+        /** 戦闘そのものが正体。主ステ + 戦闘サブ1種(2026-08-25 に4種から絞った)。 */
         COMBAT,
         /** 採取・制作・マナなど非戦闘。主ステ(名称が2軸を指すならその2軸)だけ。 */
         DOMAIN,
@@ -255,6 +276,11 @@ class ShippedThreadItemStatsTest {
         m.put(300077, Thread.combat("城塞", "defense-rate"));
         m.put(300078, Thread.combat("鉄壁", "phys-flat-defense"));
         m.put(300079, Thread.combat("護法", "magic-flat-defense"));
+        // --- 2026-08-25 追加(W-256): 透明化の常時効果 ---
+        // ユーザー依頼「透明化エフェクトのつく隠密のスレッドの追加」。効果の実体は
+        // フォークの ThreadType.STEALTH(PotionEffectType.INVISIBILITY)なので、
+        // TF 側にステ節は【持たない】= STATLESS。
+        m.put(300080, Thread.statless("隠密"));
         return Map.copyOf(m);
     }
 
@@ -288,7 +314,7 @@ class ShippedThreadItemStatsTest {
     }
 
     @Test
-    @DisplayName("スレッド79種(300001-300079)が漏れなく1件ずつ定義されている")
+    @DisplayName("スレッド80種(300001-300080)が漏れなく1件ずつ定義されている")
     void everyThreadHasExactlyOneEntry() {
         Map<Integer, ConfigurationSection> entries = threadEntries(items());
 
@@ -414,7 +440,7 @@ class ShippedThreadItemStatsTest {
                 offenders.add(where + ": per-quality=" + pqKeys + " と random=" + randomKeys + " が一致しない");
             }
             if (entry.contains("advanced")) {
-                // 0.45 の確率付与は戦闘サブ4種のための仕組み。サブが無いのに残っていると、
+                // 0.45 の確率付与は戦闘サブ枠のための仕組み。サブが無いのに残っていると、
                 // 主ステが「確率で付くステ」の色でロアに出る(LoreColorRules)。
                 offenders.add(where + ": advanced ブロックが残っている(サブ枠が無いので置き場所が無い)");
             }
@@ -424,8 +450,77 @@ class ShippedThreadItemStatsTest {
                 "非戦闘スレッドの形が規約から外れている: " + offenders);
     }
 
+    /**
+     * 「そこへ集中させると上限へ張り付く」割合ステ。
+     *
+     * <p>上限は {@code combat/damage.yml}: {@code max-mitigation-rate} 0.9 /
+     * {@code max-dodge-chance} 0.9 / {@code max-crit-reduction} 1.0。張り付いた先では
+     * 装備を更新しても一切効かなくなるので、<b>その先の育成が無意味</b>という壊れ方をする。
+     *
+     * <p>{@code percent-bonus-damage} は上限を持たないが、同じ「どのスレッドにも付いてくる」
+     * 状態(34種中17種にサブとしてぶら下がっていた)だったのでここに含める。
+     * ただし種類数の上限({@link #MAX_THREADS_PER_CAPPED_STAT})は<b>掛けない</b> ──
+     * 上限張り付きが起きないステなので、総量の歯止めは
+     * {@code ShippedThreadBandIndependenceTest} の帯目標が別に持っている。
+     */
+    private static final Set<String> STRONG_RATE_STATS = Set.of(
+            "dodge-chance", "damage-reduction", "armor-strength",
+            "phys-resistance", "magic-resistance", "defense-rate", "percent-bonus-damage");
+
+    /** 上限で壊れる割合ステを主軸に持ってよいスレッドの種類数(ユーザー指示「2個以下、あって3種類」)。 */
+    private static final int MAX_THREADS_PER_CAPPED_STAT = 3;
+
     @Test
-    @DisplayName("戦闘系の組み立て規約: 主ステ+サブ4種 / サブは各0.45の確率付与 / 主ステは確率ゲートしない")
+    @DisplayName("W-254: 上限で壊れる割合ステは主軸にしか現れない / 主軸に持つ種類も3種まで")
+    void strongStatsAreOnlyEverAPrimaryAxis() {
+        Map<Integer, ConfigurationSection> entries = threadEntries(items());
+        List<String> asSecondary = new ArrayList<>();
+        Map<String, List<Integer>> asPrimary = new java.util.TreeMap<>();
+
+        for (Map.Entry<Integer, Thread> declared : THREADS.entrySet()) {
+            Thread thread = declared.getValue();
+            ConfigurationSection entry = entries.get(declared.getKey());
+            if (entry == null) continue;
+            ConfigurationSection random = entry.getConfigurationSection("random");
+            if (random == null) continue;
+            for (String key : random.getKeys(false)) {
+                if (!STRONG_RATE_STATS.contains(key)) continue;
+                if (key.equals(thread.primary())) {
+                    asPrimary.computeIfAbsent(key, k -> new ArrayList<>()).add(declared.getKey());
+                } else {
+                    asSecondary.add(thread.name() + "のスレッド(" + declared.getKey() + ")."
+                            + key + " が副次枠にある(主軸は " + thread.primary() + ")");
+                }
+            }
+        }
+
+        // ユーザー確定要件「回避やダメージ軽減等の一部100%に達成するとバランスの壊れる
+        // ステータスを防ぐ」。副次に置くと、主軸が別のスレッドを何本挿しても同じステが
+        // 積み上がる ── 1装備1本の制限(ThreadApplicationPolicy.DEFAULT_MAX_STACK)を
+        // 副次経路がすり抜けてしまう。
+        assertEquals(List.of(), asSecondary,
+                "上限で壊れる割合ステが副次枠に残っている(1装備1本の制限を副次経路がすり抜ける): "
+                        + asSecondary);
+
+        List<String> tooMany = new ArrayList<>();
+        asPrimary.forEach((stat, cmds) -> {
+            if (stat.equals("percent-bonus-damage")) {
+                return; // 上限を持たないステ。総量は帯目標テストが縛る(上の Javadoc 参照)。
+            }
+            if (cmds.size() > MAX_THREADS_PER_CAPPED_STAT) {
+                tooMany.add(stat + " を主軸に持つスレッドが " + cmds.size() + " 種: " + cmds);
+            }
+        });
+        assertEquals(List.of(), tooMany,
+                "ユーザー指示『強いステータスに尖ったスレッドは2個以下、あって3種類』を超えている: "
+                        + tooMany);
+
+        assertFalse(asPrimary.isEmpty(),
+                "強ステを主軸に持つスレッドが1件も見つからない(CMD 帯か節の構造が変わった可能性)");
+    }
+
+    @Test
+    @DisplayName("戦闘系の組み立て規約: 主ステ+サブ1種 / サブは0.45の確率付与 / 主ステは確率ゲートしない")
     void rollLayoutFollowsTheSharedConvention() {
         Map<Integer, ConfigurationSection> entries = threadEntries(items());
 
@@ -438,7 +533,13 @@ class ShippedThreadItemStatsTest {
 
             ConfigurationSection random = randomSection(entry, thread);
             List<String> randomKeys = new ArrayList<>(random.getKeys(false));
-            assertEquals(5, randomKeys.size(), where + " の random が5件(主ステ+サブ4種)でない: " + randomKeys);
+            // 2026-08-25 (W-254): サブ4種 → 【サブ1種】。ユーザー確定要件
+            //   「各スレッドを特定のステータスにとがらせ」「どのスレッドでも代用できるのは
+            //     かえってコンテンツの道を減らしている」。
+            // サブが4種あると、どのスレッドを挿しても同じ4ステが付いてくるので
+            // 「このスレッドを選ぶ理由」が主ステの1行しか無くなる。
+            assertEquals(2, randomKeys.size(),
+                    where + " の random が2件(主ステ+サブ1種)でない: " + randomKeys);
             assertEquals(randomKeys.size(), new LinkedHashSet<>(randomKeys).size(),
                     where + " の random にキーの重複がある: " + randomKeys);
 
@@ -453,13 +554,13 @@ class ShippedThreadItemStatsTest {
             }
 
             assertTrue(entry.getBoolean("advanced.randomize-grants", false),
-                    where + " の advanced.randomize-grants が true でない。false だとサブ4種が"
-                            + "全部確定で付き、個体差が『品質だけ』に潰れる");
+                    where + " の advanced.randomize-grants が true でない。false だとサブ枠が"
+                            + "確定で付き、個体差が『品質だけ』に潰れる");
 
             ConfigurationSection grants = entry.getConfigurationSection("advanced.grant-chances");
             assertNotNull(grants, where + " に advanced.grant-chances が無い");
             Set<String> grantKeys = new LinkedHashSet<>(grants.getKeys(false));
-            assertEquals(4, grantKeys.size(), where + " の grant-chances が4件でない: " + grantKeys);
+            assertEquals(1, grantKeys.size(), where + " の grant-chances が1件でない: " + grantKeys);
             assertFalse(grantKeys.contains(thread.primary()),
                     where + " の主ステ(" + thread.primary() + ")が grant-chances に載っている。"
                             + "主ステが確率で付かない個体が出ると、名前どおりの効果を持たないスレッドになる");
@@ -467,7 +568,7 @@ class ShippedThreadItemStatsTest {
             Set<String> expectedGrants = new LinkedHashSet<>(randomKeys);
             expectedGrants.remove(thread.primary());
             assertEquals(expectedGrants, grantKeys,
-                    where + " の grant-chances が random のサブ4種と一致しない(random に無いキーを"
+                    where + " の grant-chances が random のサブ1種と一致しない(random に無いキーを"
                             + "確率付与しても何も起きない)");
             for (String key : grantKeys) {
                 assertEquals(GRANT_CHANCE, grants.getDouble(key), 1e-9,

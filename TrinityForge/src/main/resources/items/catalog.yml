@@ -961,6 +961,32 @@ items:
       source: 8000
       type: shapeless
       ingredients: []
+  thread_stealth:
+    external-source: arspaper
+    material: STRING
+    display-name: <dark_gray>隠密のスレッド</dark_gray>
+    custom-model-data: 300080
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>気配を断ち、姿を消す</color>
+    # 2026-08-25 (W-256) 追加。透明化は【防具に挿したときだけ】走る
+    # (手に持っただけで透明になると PvP が成立しない)。
+    # 素材はバニラの透明化ポーション経路(発酵したクモの目)に合わせてある。
+    recipe:
+      method: ritual
+      core-item: custom:thread_empty
+      pedestal-items:
+        - FERMENTED_SPIDER_EYE x4
+        - ENDER_PEARL x3
+        - PHANTOM_MEMBRANE x2
+        - GLASS x2
+        - SPIDER_EYE
+      source: 8000
+      type: shapeless
+      ingredients: []
   thread_perfumer:
     external-source: arspaper
     material: STRING
@@ -7732,17 +7758,17 @@ items:
       type: shapeless
       ingredients: []
       pedestal-items:
-        - custom:netherite_block_1x
-        - custom:diamond_block_2x
-        - custom:gold_block_2x
-        - custom:iron_block_2x
-        - custom:elder_guardian_spike
-        - custom:dragon_scale
-        - custom:wither_skull_fragment
-        - custom:warden_tendril
-      core-item: NETHER_STAR
-      source: 10000
-      amount: 11
+        - NETHERITE_INGOT
+        - custom:diamond_block_1x
+        - custom:gold_block_1x
+        - custom:iron_block_1x
+        - custom:piglin_ear
+        - custom:hoglin_fang
+        - custom:pillager_plate
+        - custom:husk_cloth
+      core-item: HEART_OF_THE_SEA
+      source: 50000
+      amount: 1
   skill_tree_reset:
     material: ECHO_SHARD
     display-name: <color:aqua>スキル再構築の書</color>
@@ -7762,8 +7788,8 @@ items:
         - OCHRE_FROGLIGHT x2
         - PEARLESCENT_FROGLIGHT x2
         - VERDANT_FROGLIGHT x2
-        - SLIME_BALL
-        - MAGMA_CREAM
+        - SLIME_BLOCK
+        - MAGMA_BLOCK
       core-item: BOOK
       source: 10000
       amount: 1
@@ -7811,8 +7837,8 @@ items:
         - RABBIT_FOOT
         - TURTLE_EGG
         - custom:witch_elixir
-        - custom:piglin_ear
-        - custom:hoglin_fang
+        - custom:stray_cloth
+        - custom:piglin_brute_plate
         - custom:guardian_spine
         - custom:bogged_mossy_bone
         - custom:parched_sandy_bone
@@ -7871,18 +7897,6 @@ items:
       - <gray>取得量の下限そのものは変わりませんが、等倍へ戻るまでの時間が縮みます。</gray>
       - <dark_gray>※目減りしていないときは消費しません。</dark_gray>
     custom-model-data: 261
-    recipe:
-      method: ritual
-      type: shapeless
-      ingredients: []
-      pedestal-items:
-        - custom:witch_elixir
-        - PHANTOM_MEMBRANE
-        - ECHO_SHARD
-        - custom:source_gem
-      core-item: AMETHYST_SHARD
-      source: 10000
-      amount: 1
   exp_cleanse_tonic_greater:
     material: POTION
     display-name: <color:aqua>EXP解呪の良薬・上</color>
@@ -7894,18 +7908,6 @@ items:
       - <gray>全スキルのEXP取得量を <white>75%</white> 以上まで引き戻します。</gray>
       - <dark_gray>※目減りしていないときは消費しません。</dark_gray>
     custom-model-data: 262
-    recipe:
-      method: ritual
-      type: shapeless
-      ingredients: []
-      pedestal-items:
-        - custom:witch_elixir x2
-        - ECHO_SHARD x2
-        - DRAGON_BREATH
-        - custom:source_gem x2
-      core-item: AMETHYST_SHARD
-      source: 10000
-      amount: 1
   exp_cleanse_tonic_supreme:
     material: DRAGON_BREATH
     display-name: <color:light_purple>EXP解呪の良薬・極</color>
@@ -7917,18 +7919,6 @@ items:
       - <gray>全スキルのEXP取得量を <white>90%</white> 以上まで引き戻します。</gray>
       - <dark_gray>※目減りしていないときは消費しません。</dark_gray>
     custom-model-data: 263
-    recipe:
-      method: ritual
-      type: shapeless
-      ingredients: []
-      pedestal-items:
-        - custom:witch_elixir x2
-        - DRAGON_BREATH x2
-        - HEART_OF_THE_SEA
-        - custom:elder_guardian_spike
-      core-item: AMETHYST_SHARD
-      source: 10000
-      amount: 1
 _editor:
   categories:
     weapon:
@@ -8801,6 +8791,7 @@ _editor:
       - thread_scholar
       - thread_slow_falling
       - thread_source_thrift
+      - thread_stealth
       - thread_speed
       - thread_spell_cost_down
       - thread_spoils
@@ -8814,6 +8805,16 @@ _editor:
       - thread_role_effeciency
       - thread_blindness
       - thread_translate
+      - thread_bastion
+      - thread_exsanguinate
+      - thread_farsight
+      - thread_maelstrom
+      - thread_piercingshot
+      - thread_rampart
+      - thread_skyfall
+      - thread_swiftarrow
+      - thread_truesight
+      - thread_wardstone
     key:
       - key_mines
       - key_deep_mines
@@ -8879,6 +8880,7 @@ _editor:
     thread_empty: thread
     thread_mana_regen: thread
     thread_mana_boost: thread
+    thread_stealth: thread
     thread_speed: thread
     thread_jump_boost: thread
     thread_night_vision: thread
@@ -9144,3 +9146,13 @@ _editor:
     infinity_wand: catalyst
     hero_wand: catalyst
     nuclear_wand: catalyst
+    thread_bastion: thread
+    thread_exsanguinate: thread
+    thread_farsight: thread
+    thread_maelstrom: thread
+    thread_piercingshot: thread
+    thread_rampart: thread
+    thread_skyfall: thread
+    thread_swiftarrow: thread
+    thread_truesight: thread
+    thread_wardstone: thread

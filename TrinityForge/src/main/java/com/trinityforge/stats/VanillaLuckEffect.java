@@ -13,6 +13,9 @@ import org.bukkit.potion.PotionEffectType;
  *       （このレートは装備・パーク由来の {@code loot_luck} と同じ単位なので固定）。</li>
  *   <li>作業台・儀式・醸造: {@code stats/quality.yml} の {@code luck-potion-quality-per-level} 倍して
  *       品質ポイントへ加算する（2026-08-20 ユーザー要望）。</li>
+ *   <li>モブドロップ: {@link PlayerMobDropBonusSource} が {@code mob_drop_quality} へ同じレートで
+ *       合算する（2026-08-25 / W-253）。<b>かつては「幸運はモブドロップを意図的に対象外」と
+ *       書いてあったが、その線引きはユーザー確定要件で撤回された</b>ので復元しないこと。</li>
  * </ul>
  *
  * <p>読み取りを 1 箇所に集約しているのは、{@code amplifier + 1} の変換を書き間違えても

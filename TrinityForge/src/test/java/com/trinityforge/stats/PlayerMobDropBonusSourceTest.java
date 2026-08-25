@@ -3,6 +3,8 @@ package com.trinityforge.stats;
 import com.trinityforge.combat.PlayerCombatAggregate;
 import com.trinityforge.combat.PlayerStatAggregator;
 import org.bukkit.entity.Player;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -72,5 +74,56 @@ class PlayerMobDropBonusSourceTest {
         PlayerMobDropBonusSource source = new PlayerMobDropBonusSource(Logger.getLogger("test"), aggregator);
 
         assertEquals(0.0, source.totalBonus(player));
+    }
+
+    // ------------------------------------------------------------------
+    // W-253 (2026-08-25): 幸運のポーションもモブドロップ品質へ乗る。
+    // ⚠ この4本は「幸運はモブドロップを意図的に対象外」という旧仕様へ戻すと落ちる。
+    // ------------------------------------------------------------------
+
+    @Test
+    void vanillaLuckPotionAddsToMobDropQuality() {
+        Player player = mock(Player.class);
+        when(player.getPotionEffect(PotionEffectType.LUCK))
+                .thenReturn(new PotionEffect(PotionEffectType.LUCK, 600, 1)); // amplifier1 = 幸運II
+        PlayerStatAggregator aggregator = aggregatorReturning(player, 1.0);
+        PlayerMobDropBonusSource source =
+                new PlayerMobDropBonusSource(Logger.getLogger("test"), aggregator, () -> 1.0);
+
+        // 装備ステ 1.0 + 幸運II(=2レベル) x レート1.0 = 3.0
+        assertEquals(3.0, source.totalBonus(player));
+        assertEquals(3, source.qualityModeBonus(player, 0.99));
+    }
+
+    @Test
+    void luckContributesEvenWithoutAggregator() {
+        // 装備ステが読めない構成でも幸運ぶんは効く(合算器の有無で幸運が消えない)。
+        PlayerMobDropBonusSource source =
+                new PlayerMobDropBonusSource(Logger.getLogger("test"), null, () -> 1.0);
+        Player player = mock(Player.class);
+        when(player.getPotionEffect(PotionEffectType.LUCK))
+                .thenReturn(new PotionEffect(PotionEffectType.LUCK, 600, 0));
+        assertEquals(1.0, source.totalBonus(player));
+    }
+
+    @Test
+    void luckRateZeroTurnsTheFeatureOff() {
+        // stats/quality.yml の luck-potion-quality-per-level: 0 でこの機能だけ切れる。
+        Player player = mock(Player.class);
+        when(player.getPotionEffect(PotionEffectType.LUCK))
+                .thenReturn(new PotionEffect(PotionEffectType.LUCK, 600, 4));
+        PlayerMobDropBonusSource source =
+                new PlayerMobDropBonusSource(Logger.getLogger("test"), null, () -> 0.0);
+        assertEquals(0.0, source.totalBonus(player));
+    }
+
+    @Test
+    void missingRateSupplierFallsBackToOnePerLevel() {
+        Player player = mock(Player.class);
+        when(player.getPotionEffect(PotionEffectType.LUCK))
+                .thenReturn(new PotionEffect(PotionEffectType.LUCK, 600, 2)); // 幸運III
+        PlayerMobDropBonusSource source =
+                new PlayerMobDropBonusSource(Logger.getLogger("test"), null);
+        assertEquals(3.0, source.totalBonus(player));
     }
 }
