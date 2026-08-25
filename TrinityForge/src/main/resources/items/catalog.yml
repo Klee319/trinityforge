@@ -5395,22 +5395,85 @@ items:
       method: netherite
       source-item: custom:diamond_wand
     custom-model-data: 400007
+  # インフィニティの道具4種 (2026-08-25 W-239)
+  # ----------------------------------------------------------------------
+  # 2026-08-25 の入手経路の総ざらいで、出荷カタログ 457 件のうち
+  # 【レシピもドロップもガチャも取引も報酬も無い】のはこの4件だけだった(準備中を除く)。
+  # 図鑑には載るのに永久に手に入らない状態だったので、ユーザー決定「クラフトで作れるようにする」
+  # に従って作業台レシピを付ける。
+  #
+  # 素材は同じ帯のインフィニティ武器(infinity_axe など)とそろえた
+  # 核=custom:core_jewelry / 紫水晶=custom:amethyst_block_2x / 柄=custom:breeze_rod_2x の3種。
+  # 形はバニラの各道具の並びをそのまま踏襲している(頭の枠に核と紫水晶、柄の枠にブリーズロッド)。
+  #
+  # ⚠ 統合版のクライアントには素材のカスタムモデル情報が伝わらないので、
+  #   レシピ帳を見ても「どのアイテムか」が読み取れない。素材はここに書いた3種だけに絞ってある。
+  # ⚠ custom: 参照は ExternalItemRegistry に登録されていないと
+  #   「レシピ帳には出るのに永久にクラフト不可」で無言死する。3種とも infinity_axe が
+  #   既に同じ形で使っているので、新しく登録が要る素材は増やしていない。
   infinity_pickaxe:
     material: NETHERITE_PICKAXE
     display-name: <color:#7df9ff>インフィニティのピッケル</color>
     custom-model-data: 185
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "JAJ"
+        - " R "
+        - " R "
+      ingredients:
+        J: custom:core_jewelry
+        A: custom:amethyst_block_2x
+        R: custom:breeze_rod_2x
+      amount: 1
   infinity_shovel:
     material: NETHERITE_SHOVEL
     display-name: <color:#7df9ff>インフィニティのシャベル</color>
     custom-model-data: 188
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " J "
+        - " R "
+        - " R "
+      ingredients:
+        J: custom:core_jewelry
+        R: custom:breeze_rod_2x
+      amount: 1
   infinity_axe_tool:
     material: NETHERITE_AXE
     display-name: <color:#7df9ff>インフィニティの斧</color>
     custom-model-data: 191
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "JA "
+        - "JR "
+        - " R "
+      ingredients:
+        J: custom:core_jewelry
+        A: custom:amethyst_block_2x
+        R: custom:breeze_rod_2x
+      amount: 1
   infinity_hoe:
     material: NETHERITE_HOE
     display-name: <color:#7df9ff>インフィニティのクワ</color>
     custom-model-data: 194
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "JA "
+        - " R "
+        - " R "
+      ingredients:
+        J: custom:core_jewelry
+        A: custom:amethyst_block_2x
+        R: custom:breeze_rod_2x
+      amount: 1
   wooden_trident:
     material: TRIDENT
     display-name: 木のトライデント
