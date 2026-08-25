@@ -760,6 +760,16 @@ public final class NativeSkillTreeMenu implements Listener {
      * 1つも無かった</b>ため「なんとなくEXPが渋い」としか分からなかった。段が離散なのは
      * 「あと何EXPで落ちるか数えられるように」という設計なので、その数字をここで出す。
      *
+     * <p>2026-08-25: 「戻るまでの残り時間が、下がった通知のときにしか見えない」というユーザー報告を
+     * 受けて2点足した。(1) <b>この lore を通常モードの選択バーだけでなく、一覧モード
+     * （{@link #openOverview}）の各ツリーアイコンにも出す</b>。従来はここが「レベル/プレステージ/
+     * 解放済みノード数」しか出さず、EXP取得量が下がっている最中でも一覧からは分からなかった。
+     * (2) <b>「次の段階まで」の残り時間を足す</b>。「段階的に戻る」設計（{@link DailyExpDiminishing}
+     * のコメント参照）なのに、従来は「完全に等倍へ戻るまで」の1本しか出しておらず、途中経過が
+     * 見えなかった（{@link DailyExpDiminishing.Status#millisUntilImproved()} は最初から存在して
+     * いたが production から一度も呼ばれていなかった）。EXPバッジ（{@code ×70%}等）自体には
+     * 手を入れない（ユーザー確定: バッジへ他の係数を足さない）── ここは lore だけの変更。
+     *
      * <p><b>⚠ 回復までの時間は「そのスキルを稼がずにいる」前提の目安</b>。蓄積は 2026-08-18 から
      * 永続化されており、オフライン時間も同じ式で減衰するので、ログアウトして待っても同じだけ掛かる
      * （それ以前の「再ログインで即リセット」はもう起きない）。
@@ -788,6 +798,11 @@ public final class NativeSkillTreeMenu implements Listener {
         lines.add(Component.text("EXP取得量: "
                 + com.trinityforge.progression.DailyExpRateText.percent(status.multiplier())
                 + "（稼ぎすぎによる逓減）", NamedTextColor.RED));
+        String untilImproved =
+                com.trinityforge.progression.DailyExpRateText.duration(status.millisUntilImproved());
+        if (untilImproved != null) {
+            lines.add(Component.text("次の段階まで: " + untilImproved, NamedTextColor.DARK_GRAY));
+        }
         String untilFull = com.trinityforge.progression.DailyExpRateText.duration(status.millisUntilFull());
         if (untilFull != null) {
             lines.add(Component.text("休むと戻ります: 等倍まで " + untilFull, NamedTextColor.DARK_GRAY));
@@ -964,17 +979,23 @@ public final class NativeSkillTreeMenu implements Listener {
                     .filter(id -> id.startsWith(PerkNaming.compact(tree.skill()) + "_perk_"))
                     .count();
             boolean isCurrent = tree.skill().equals(currentSkillId);
+            // 一覧モードにも日次逓減の状態を出す(2026-08-25)。従来はここが
+            // レベル/プレステージ/解放済みノード数しか出さず、EXP取得量が下がっている最中でも
+            // 「全スキルを一目で見る」画面からは分からなかった(通常モードの選択バーだけにしか
+            // 出ておらず、そこは常に7ツリーぶんしか見えない)。整形は dailyRateLore に一本化する。
+            List<Component> lore = new ArrayList<>(List.of(
+                    Component.text("レベル: " + skill.level(), NamedTextColor.GRAY),
+                    Component.text("プレステージ: " + skill.prestige(), NamedTextColor.GRAY),
+                    Component.text("解放済みノード: " + unlockedCount, NamedTextColor.GRAY)));
+            lore.addAll(dailyRateLore(snapshot.playerId(), tree.skill()));
+            lore.add(Component.text("クリックでこのツリーへ移動", NamedTextColor.DARK_GRAY));
             inventory.setItem(slot, button(
                     SkillTreeGuiVisuals.skill(
                             tree.skill(), material(tree.icon(), Material.NETHER_STAR)),
                     "select-skill", tree.skill(),
                     Component.text(tree.displayName(),
                             isCurrent ? NamedTextColor.GOLD : NamedTextColor.WHITE),
-                    List.of(
-                            Component.text("レベル: " + skill.level(), NamedTextColor.GRAY),
-                            Component.text("プレステージ: " + skill.prestige(), NamedTextColor.GRAY),
-                            Component.text("解放済みノード: " + unlockedCount, NamedTextColor.GRAY),
-                            Component.text("クリックでこのツリーへ移動", NamedTextColor.DARK_GRAY))));
+                    lore));
         }
         renderModeButtons(inventory, Mode.OVERVIEW, null);
         remember(player, holder);

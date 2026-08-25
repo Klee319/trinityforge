@@ -626,34 +626,44 @@ achievements:
       type: static
       collection:
         scope: item
+        # 2026-08-25(W-229): ダンジョン難易度(combat/mob-overrides.yml の「難易度 N/10」、
+        # 同着は id 昇順)の昇順に並べ替えた(ユーザー決定「ダンジョン難易度順に並べる」)。
+        # 判定は scope:item の集合一致なので順序自体は動作に影響しない
+        # (/tf achievement のGUIも個々のtargetsではなく件数「N / 27」だけを表示する)。
+        # ここでの並びが実際にプレイヤーへ見える形で効くのは、同じ集合を並べている
+        # progression/collection.yml の categories.items.dungeon.entries 側
+        # (図鑑「踏破の証」タブは entries の記述順そのままに一覧表示される)。
+        # 両ファイルを同じ並びに揃えておくため、こちらも書き換えてある。
+        # 突き合わせは ShippedDungeonSealDifficultyOrderTest が
+        # mob-overrides.yml のコメントを直読みして固定している。
         targets:
-          - dungeon_seal_mines
-          - dungeon_seal_deep_mines
-          - dungeon_seal_quarry
-          - dungeon_seal_cave
-          - dungeon_seal_bridge
-          - dungeon_seal_city
-          - dungeon_seal_climb
-          - dungeon_seal_palace
-          - dungeon_seal_knight_castle
-          - dungeon_seal_sewer_maze
-          - dungeon_seal_steamworks
-          - dungeon_seal_nether_bell
-          - dungeon_seal_nether_wastes
-          - dungeon_seal_dark_cathedral
-          - dungeon_seal_enchant_trial_1
-          - dungeon_seal_enchant_trial_2
-          - dungeon_seal_enchant_trial_3
-          - dungeon_seal_enchant_trial_4
-          - dungeon_seal_enchant_trial_5
-          - dungeon_seal_enchant_trial_6
-          - dungeon_seal_enchant_trial_7
-          - dungeon_seal_enchant_trial_8
-          - dungeon_seal_enchant_trial_9
-          - dungeon_seal_enchant_trial_10
-          - dungeon_seal_fireworks
-          - dungeon_seal_hallosseum
-          - dungeon_seal_north_pole
+          - dungeon_seal_dark_cathedral       # 難易度1
+          - dungeon_seal_enchant_trial_1       # 難易度1
+          - dungeon_seal_deep_mines            # 難易度2
+          - dungeon_seal_enchant_trial_2        # 難易度2
+          - dungeon_seal_hallosseum            # 難易度2
+          - dungeon_seal_bridge                # 難易度3
+          - dungeon_seal_enchant_trial_3        # 難易度3
+          - dungeon_seal_knight_castle          # 難易度3
+          - dungeon_seal_enchant_trial_4        # 難易度4
+          - dungeon_seal_palace                # 難易度4
+          - dungeon_seal_steamworks            # 難易度4
+          - dungeon_seal_enchant_trial_5        # 難易度5
+          - dungeon_seal_mines                 # 難易度5
+          - dungeon_seal_nether_bell            # 難易度5
+          - dungeon_seal_city                  # 難易度6
+          - dungeon_seal_enchant_trial_6        # 難易度6
+          - dungeon_seal_fireworks             # 難易度6
+          - dungeon_seal_nether_wastes          # 難易度6
+          - dungeon_seal_enchant_trial_7        # 難易度7
+          - dungeon_seal_north_pole            # 難易度7
+          - dungeon_seal_sewer_maze            # 難易度7
+          - dungeon_seal_climb                 # 難易度8
+          - dungeon_seal_enchant_trial_8        # 難易度8
+          - dungeon_seal_quarry                # 難易度8
+          - dungeon_seal_cave                  # 難易度9
+          - dungeon_seal_enchant_trial_9        # 難易度9
+          - dungeon_seal_enchant_trial_10       # 難易度10
         threshold: 27
         percent: false
     broadcast: true

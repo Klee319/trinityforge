@@ -967,3 +967,51 @@ config（skilltree の yml）には書かない ── 16ツリーぶん書き�
 
 ⚠ **POWER だけレベルの戻り方が違う**（0リセットではなく他スキルの現在レベルから引き直し。
 `NativePerkService` の 2026-08-04 修正）。文言は必ず `prestigeLevelNotice` の分岐を通す。
+
+### 日次逓減の残り時間は `dailyRateLore`（`NativeSkillTreeMenu`）に一本化されているが、置き場所は「通常モードの選択バー」だけだった
+
+2026-08-18 に付いた `dailyRateLore`（現在の取得量％・戻るまでの目安）は、当時
+`renderSkillSelector`（最下段の7ツリー選択ボタン）にしか配線されておらず、**一覧モード
+（`openOverview`、`/tf skills` の「一覧表示」トグルで開く全16ツリー表示）には出ていなかった**。
+一覧はレベル/プレステージ/解放済みノード数しか出さず、逓減が掛かっていてもそこからは分からない。
+2026-08-25(W-229隣接, W-225)で `openOverview` にも `dailyRateLore(snapshot.playerId(), tree.skill())`
+を足した。**新しい「常時見える系画面」を足すときは、この lore を配線し忘れていないか確認すること**
+（`/tf status` の `StatusGui#rateBadge` は等倍だと `null` を返す設計＝あちらに"次の段まで"を足す先には
+ならない。バッジへ係数を足さない、というユーザー決定があるため）。
+
+またこの時点まで `DailyExpDiminishing.Status#millisUntilImproved()`（次の段まで戻る目安）は
+**存在するのに production から一度も呼ばれていなかった**（`millisUntilFull()`＝完全に等倍へ戻るまで、
+だけが表示されていた）。「段階的に戻る」という設計（同クラスの javadoc 参照）なのに途中経過が
+見えない状態だったので、`dailyRateLore` に「次の段階まで」の行を足した。**新しい表示面を作るときは
+`millisUntilFull` だけでなく `millisUntilImproved` も出すこと**（数字の食い違いを避けるため整形は
+必ず `DailyExpRateText.duration` を通す）。
+
+### ダンジョン難易度は yml のキーではなくコメントにしか存在しない（`combat/mob-overrides.yml`）
+
+各ダンジョンの `stats:` 直下、`max-health-multiplier` の直前にある
+`# 難易度N の係数 = ...(難易度1が最大・難易度10で 1.0 の逓減梯子)。` という**コメント行だけ**が
+難易度の一次情報。`difficulty:` のような機械可読キーは無い（2026-08-25時点で28ダンジョン全件確認済み）。
+個々のボス/ミニボスに付く `難易度N の上乗せ = ...`（HP追加倍率の説明）は**別の文言**で、ダンジョン全体の
+難易度とは別物なので正規表現で混同しないこと（`難易度\d+ の係数` で前者だけを拾える）。
+
+各ダンジョンの印（`custom:dungeon_seal_<id>`）は、そのダンジョンの踏破ボスの `drops:` に
+`chance: 1.0, min: 1, max: 1` で1行だけ書かれており、**難易度コメントより必ず後（同じダンジョン
+ブロック内）に出現する**ので、行を上から順に読みながら「直近に見た難易度」を印IDへ割り当てれば
+ID→難易度の対応表を機械的に作れる（`ShippedDungeonSealDifficultyOrderTest` が実装）。
+
+`progression/achievements.yml` の `seal_27.trigger.collection.targets` と
+`progression/collection.yml` の `categories.items.dungeon.entries` は、2026-08-25(W-229) に
+このコメントを一次情報としてダンジョン難易度の昇順（同着は id 昇順）へ並べ替えた。
+**player-visible な効果があるのは `collection.yml` 側だけ**（`CollectionGuiModel.arrange` は
+`SortMode.DEFAULT` だと `entries` の宣言順をそのまま返すので、図鑑「踏破の証」タブは並び順通りに出る）。
+`achievements.yml` の `scope: item` は判定が集合一致（順序無関係）で、GUI(`AchievementGui#progressText`)
+も個々の target ではなく `N / threshold` の件数しか出さないため、`targets:` の並びを変えても
+ゲーム内の見え方は変わらない ── それでも両ファイルを同じ順に揃えているのは、可読性と
+ドリフト防止（`ShippedDungeonSealLedgerDriftTest` が集合の一致は既に固定しているが、並び順は
+見ていない）のため。
+
+※旧説「`goal_worldbinder` の parent が `delve_all_seals`（全印収集）で名目上の第1目標が
+実質いちばん最後にしか解けない」（旧 K-22(2)）は、2026-08-16 の achievements.yml 全面再構築で
+`goal_worldbinder` の parent が武器階梯側（`w_infinity`）へ切り離されたことで**解消済み**
+（`ShippedAchievementGraphReachabilityTest#firstGoalIsNotGatedBehindEveryDungeonSeal` が固定）。
+このIDを見たら「まだ壊れている」と早合点せず、まずこのテストが緑かどうかを確認すること。
