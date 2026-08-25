@@ -1253,6 +1253,12 @@ function proseLinkTargets() {
   targets.set("README.md", "Home.md");
   // 手書きの「アイテム図鑑」は公開しない（生成側と重複してすぐ腐る）。
   // 代わりに、種別ごとのページへ振り分ける索引を行き先にする。
+  //
+  // 2026-08-25: 原稿ファイル `docs/wiki-source/prose/04-アイテム図鑑.md` 自体を消した
+  // （どのページにも出力されないまま 3000 行が腐り続けていた）。
+  // ⚠ この行と LEGACY_GENERATED_PAGE_NAMES の `04-アイテム図鑑.md` は消さないこと。
+  //   他の原稿 11 箇所がまだ `](04-アイテム図鑑.md)` でリンクしていて、
+  //   行き先が無いと rewriteProseLinks が例外を投げて Wiki 生成ごと止まる。
   targets.set("04-アイテム図鑑.md", "事典-アイテム索引.md");
   return targets;
 }
