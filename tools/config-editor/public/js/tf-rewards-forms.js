@@ -475,13 +475,139 @@
       customPlaceholder: "Bukkit Particle名を入力", placeholder: "パーティクルを選択…"
     });
   }
-  const SHAPE_LABELS = { circle: "円形散布", aura: "まとわりつく" };
+  // ------------------------------------------------------------
+  // 形状と発生パラメータ (2026-08-25 / W-243・W-244)
+  //
+  // ★ 3つの表は Java 側 SpecialRewardsConfig.Shape / Emission.of(Shape) と対応している。
+  //   形状を足すときは「ラベル・使うパラメータ・既定値」の3つを必ず同時に足すこと。
+  //   1つでも欠けると「選べるのに何も設定できない形状」や
+  //   「切り替えた瞬間に高さ0の輪になる形状」が生える。
+  //   lib/schema.js の PARTICLE_SHAPES も同じ並びで持っている(保存時の検査はあちら)。
+  // ------------------------------------------------------------
+  const SHAPE_LABELS = {
+    aura: "まとわりつく雲",
+    circle: "水平の輪",
+    sphere: "球の表面",
+    burst: "全方向へ射出",
+    helix: "螺旋",
+    pillar: "垂直の柱",
+    arc: "薙ぐ弧",
+    point: "1点だけ"
+  };
+  // その形状が実際に読むキー。ここに無いキーは Java 側で無視されるので、画面にも出さない
+  // ── 出すと「書いたのに何も変わらない」欄になる。
+  const SHAPE_PARAMS = {
+    aura: ["count", "radius", "speed"],
+    circle: ["count", "radius", "speed"],
+    sphere: ["count", "radius", "speed"],
+    burst: ["count", "speed"],
+    helix: ["count", "radius", "height", "turns"],
+    pillar: ["count", "radius", "height"],
+    arc: ["count", "radius", "arc-degrees", "height"],
+    point: ["count", "speed"]
+  };
+  // 形状ごとの既定値 (Java 側 Emission.of(Shape) と同値)。形状を切り替えたときに埋める。
+  const SHAPE_DEFAULTS = {
+    aura: { count: 8, radius: 0.6, speed: 0 },
+    circle: { count: 12, radius: 1, speed: 0 },
+    sphere: { count: 24, radius: 0.8, speed: 0 },
+    burst: { count: 20, speed: 0.25 },
+    helix: { count: 24, radius: 0.6, height: 2, turns: 3 },
+    pillar: { count: 12, radius: 0.3, height: 2 },
+    arc: { count: 12, radius: 1.2, "arc-degrees": 120, height: 0 },
+    point: { count: 4, speed: 0 }
+  };
+  const PARAM_META = {
+    count: { label: "count", int: true, min: 0, max: 400,
+      hint: "1回に出す点の数。上限400(粒子は見ている人数ぶん送るため)" },
+    radius: { label: "radius", min: 0, max: 16, hint: "半径/ばらつき(ブロック)。形状で意味が変わる" },
+    speed: { label: "speed", min: 0, max: 8,
+      hint: "初速。0でその場に留まる。輪/球/射出では『どちらへ飛ぶか』が決まる" },
+    height: { label: "height", min: 0, max: 16, hint: "縦の伸び(ブロック)" },
+    turns: { label: "turns", int: true, min: 1, max: 16, hint: "回転数" },
+    "arc-degrees": { label: "arc-degrees", min: 1, max: 360, hint: "弧の開き角(度)" },
+    "y-offset": { label: "y-offset", min: -4, max: 8,
+      hint: "基準点からの高さ補正。負値可(下げる)" }
+  };
+  const SHAPE_HINTS = {
+    aura: "中心のまわりに散らす。radius はばらつきの箱",
+    circle: "水平の輪。speed を入れると輪の各点が外向きへ流れる(円形拡散)",
+    sphere: "球の表面に均等配置。speed で外向きへ射出",
+    burst: "半径ゼロの爆発。radius は使わず speed が広がりを決める",
+    helix: "螺旋。radius が太さ、height が高さ、turns が巻き数",
+    pillar: "垂直の柱。radius は横のばらつき",
+    arc: "向いている方向へ薙ぐ弧。height は端の持ち上げ",
+    point: "1点だけ。最小構成"
+  };
+  const ORIGIN_LABELS = {
+    impact: "当たった場所(壊したブロック/殴った相手/着弾点)",
+    player: "プレイヤー自身"
+  };
+
+  function shapeOf(entry) {
+    return SHAPE_LABELS[entry && entry.shape] ? entry.shape : "aura";
+  }
+
+  /**
+   * 形状を切り替える。その形状が使わないキーは消し、足りないキーは既定値で埋める
+   * ── 前の形状の値が残ると「helix の turns が circle の設定に残る」ような読めない yml になる。
+   */
+  function applyShape(entry, shape) {
+    entry.shape = shape;
+    const used = SHAPE_PARAMS[shape] || [];
+    for (const key of Object.keys(PARAM_META)) {
+      if (key === "y-offset") continue; // 全形状で意味を持つので触らない
+      if (!used.includes(key)) delete entry[key];
+    }
+    const defaults = SHAPE_DEFAULTS[shape] || {};
+    for (const key of used) {
+      if (entry[key] == null && defaults[key] != null) entry[key] = defaults[key];
+    }
+  }
+
   function shapeSelect(value, onChange) {
     return window.listSelect({
-      value: SHAPE_LABELS[value] ? value : "circle",
+      value: SHAPE_LABELS[value] ? value : "aura",
       options: Object.entries(SHAPE_LABELS).map(([v, ja]) => ({ value: v, primary: ja, secondary: v })),
       onChange
     });
+  }
+
+  function numberFor(entry, key) {
+    const meta = PARAM_META[key];
+    return window.numberInput(entry[key], (v) => {
+      if (v == null) { delete entry[key]; return; }
+      let next = meta.int ? Math.floor(v) : v;
+      if (meta.min != null) next = Math.max(meta.min, next);
+      if (meta.max != null) next = Math.min(meta.max, next);
+      entry[key] = next;
+    }, meta.int ? { int: true } : {});
+  }
+
+  /**
+   * 形状＋その形状が使うパラメータだけを並べる欄 (particles / particle-seeds で共用)。
+   * @param rerender 形状を変えたら呼ぶ再描画。欄の構成そのものが変わるため必要
+   */
+  function emissionFields(entry, rerender) {
+    const shape = shapeOf(entry);
+    const out = [];
+    out.push(field("形状 (shape)", shapeSelect(shape, (v) => {
+      applyShape(entry, v);
+      rerender();
+    }), SHAPE_HINTS[shape]));
+    const row = h("div", { class: "stat-row" });
+    for (const key of (SHAPE_PARAMS[shape] || [])) {
+      row.appendChild(h("span", { class: "range-label", text: PARAM_META[key].label, title: PARAM_META[key].hint }));
+      row.appendChild(numberFor(entry, key));
+    }
+    row.appendChild(h("span", { class: "range-label", text: PARAM_META["y-offset"].label, title: PARAM_META["y-offset"].hint }));
+    row.appendChild(numberFor(entry, "y-offset"));
+    out.push(h("div", { class: "form-field" }, [
+      h("span", { class: "form-label", text: "発生パラメータ" }),
+      row,
+      h("span", { class: "field-hint", text: "この形状が読むキーだけを出しています(形状を変えると欄も入れ替わります)" })
+    ]));
+    return out;
   }
 
   // ------------------------------------------------------------
@@ -566,10 +692,8 @@
       if (!ids.length) list.appendChild(emptyHint("パーティクルがありません。"));
       for (const id of ids) {
         const entry = particles[id] && typeof particles[id] === "object" ? particles[id] : (particles[id] = {});
-        if (entry.count == null) entry.count = 8;
-        if (entry.radius == null) entry.radius = 0.6;
         if (entry["interval-ticks"] == null) entry["interval-ticks"] = 10;
-        if (!entry.shape) entry.shape = "circle";
+        if (!SHAPE_LABELS[entry.shape]) applyShape(entry, shapeOf(entry));
         const c = h("div", { class: "cf-mat-card" });
         c.appendChild(h("div", { class: "cf-mat-card-head" }, [
           h("span", { class: "entry-key-label", text: "パーティクルID" }),
@@ -580,23 +704,18 @@
           })
         ]));
         c.appendChild(field("particle", particleSelect(entry.particle, (v) => { entry.particle = v; })));
-        const row = h("div", { class: "stat-row" });
-        row.appendChild(h("span", { class: "range-label", text: "count" }));
-        row.appendChild(window.numberInput(entry.count, (v) => { if (v != null) entry.count = Math.max(0, Math.floor(v)); }, { int: true }));
-        row.appendChild(h("span", { class: "range-label", text: "radius" }));
-        row.appendChild(window.numberInput(entry.radius, (v) => { if (v != null) entry.radius = Math.max(0, v); }));
-        row.appendChild(h("span", { class: "range-label", text: "interval-ticks" }));
-        row.appendChild(window.numberInput(entry["interval-ticks"], (v) => { if (v != null) entry["interval-ticks"] = Math.max(0, Math.floor(v)); }, { int: true }));
-        c.appendChild(h("div", { class: "form-field" }, [h("span", { class: "form-label", text: "発生パラメータ" }), row]));
-        c.appendChild(field("形状 (shape)", shapeSelect(entry.shape, (v) => { entry.shape = v; })));
+        c.appendChild(field("interval-ticks", window.numberInput(entry["interval-ticks"], (v) => {
+          if (v != null) entry["interval-ticks"] = Math.max(1, Math.floor(v));
+        }, { int: true }), "発生間隔(tick)。particles だけの設定"));
+        for (const node of emissionFields(entry, renderParticles)) c.appendChild(node);
         list.appendChild(c);
       }
       list.appendChild(h("button", {
         class: "btn-small", type: "button", text: "+ パーティクルを追加",
         onclick: () => {
-          particles[uniqueKey(particles, "new_particle")] = {
-            particle: "FLAME", count: 8, radius: 0.6, "interval-ticks": 10, shape: "circle"
-          };
+          const created = { particle: "FLAME", "interval-ticks": 10 };
+          applyShape(created, "aura");
+          particles[uniqueKey(particles, "new_particle")] = created;
           renderParticles();
         }
       }));
@@ -611,8 +730,8 @@
       if (!ids.length) list.appendChild(emptyHint("パーティクルシードがありません。"));
       for (const id of ids) {
         const entry = seeds[id] && typeof seeds[id] === "object" ? seeds[id] : (seeds[id] = {});
-        // clears(消すシード)は粒子を出さないので count を持たせない。
-        if (entry.count == null && !entry.clears) entry.count = 4;
+        // clears(消すシード)は粒子を出さないので発生パラメータを持たせない。
+        if (!entry.clears && !SHAPE_LABELS[entry.shape]) applyShape(entry, shapeOf(entry));
         const c = h("div", { class: "cf-mat-card" });
         c.appendChild(h("div", { class: "cf-mat-card-head" }, [
           h("span", { class: "entry-key-label", text: "シードID" }),
@@ -635,22 +754,38 @@
         })));
         // clears: true は「刻印を消すシード」。粒子を持たないので particle/count の欄を隠す。
         c.appendChild(field("刻印を消すシード (clears)", window.checkboxInput(!!entry.clears, (v) => {
-          if (v) { entry.clears = true; delete entry.particle; delete entry.count; }
-          else { delete entry.clears; if (entry.particle == null) entry.particle = "CRIT"; if (entry.count == null) entry.count = 4; }
+          if (v) {
+            entry.clears = true;
+            delete entry.particle;
+            delete entry.origin;
+            delete entry.shape;
+            for (const key of Object.keys(PARAM_META)) delete entry[key];
+          } else {
+            delete entry.clears;
+            if (entry.particle == null) entry.particle = "CRIT";
+            applyShape(entry, shapeOf(entry));
+          }
           renderSeeds();
         })));
         if (!entry.clears) {
           c.appendChild(field("particle", particleSelect(entry.particle, (v) => { entry.particle = v; })));
-          c.appendChild(field("count", window.numberInput(entry.count, (v) => {
-            if (v != null) entry.count = Math.max(0, Math.floor(v));
-          }, { int: true })));
+          // origin: どこから粒子を出すか (2026-08-25 / W-242)。既定は「当たった場所」で、
+          // それより前は player 相当の挙動しか無かった(遠くを掘っても足元から出ていた)。
+          c.appendChild(field("発生位置 (origin)", window.listSelect({
+            value: ORIGIN_LABELS[entry.origin] ? entry.origin : "impact",
+            options: Object.entries(ORIGIN_LABELS).map(([v, ja]) => ({ value: v, primary: ja, secondary: v })),
+            onChange: (v) => { if (v === "impact") delete entry.origin; else entry.origin = v; }
+          }), "弓・クロスボウ・トライデントは放った瞬間の武器の刻印で決まります。魔法(触媒)はこの経路を通りません"));
+          for (const node of emissionFields(entry, renderSeeds)) c.appendChild(node);
         }
         list.appendChild(c);
       }
       list.appendChild(h("button", {
         class: "btn-small", type: "button", text: "+ シードを追加",
         onclick: () => {
-          seeds[uniqueKey(seeds, "new_seed")] = { "seed-item": "", particle: "CRIT", count: 4 };
+          const createdSeed = { "seed-item": "", particle: "CRIT" };
+          applyShape(createdSeed, "aura");
+          seeds[uniqueKey(seeds, "new_seed")] = createdSeed;
           renderSeeds();
         }
       }));

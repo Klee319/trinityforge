@@ -113,10 +113,15 @@ class SpecialRewardsConfigTest {
                     particle: FLAME
                 """);
         SpecialRewardsConfig.ParticleEffect effect = result.particles().get("minimal");
-        assertEquals(1, effect.count());
-        assertEquals(0.5, effect.radius());
-        assertEquals(10, effect.intervalTicks());
+        // 2026-08-25 / W-244: 既定は「形状ごとの既定値」になった(Emission.of(Shape))。
+        // それまでは形状に関係なく count=1 / radius=0.5 の固定で、shape の既定が circle なので
+        // 【半径0.5の輪に点1個】= 実質見えない演出が既定だった。
         assertEquals(SpecialRewardsConfig.Shape.CIRCLE, effect.shape());
+        assertEquals(SpecialRewardsConfig.Emission.of(SpecialRewardsConfig.Shape.CIRCLE).count(),
+                effect.count());
+        assertEquals(SpecialRewardsConfig.Emission.of(SpecialRewardsConfig.Shape.CIRCLE).radius(),
+                effect.radius());
+        assertEquals(10, effect.intervalTicks());
     }
 
     @Test

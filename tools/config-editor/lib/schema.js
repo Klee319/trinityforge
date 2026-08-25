@@ -2965,7 +2965,48 @@ function validateTfLevelBroadcast(data, errors) {
 }
 
 // ---- progression/special-rewards.yml (tf-special-rewards) ----
-const PARTICLE_SHAPES = ["circle", "aura"];
+// Java 側 SpecialRewardsConfig.Shape と一字一句合わせること。ここに無い形状は保存時に弾かれ、
+// ここにだけ有る形状は「保存できるのに起動時に warning でシードごと捨てられる」になる。
+const PARTICLE_SHAPES = ["aura", "circle", "sphere", "burst", "helix", "pillar", "arc", "point"];
+const PARTICLE_ORIGINS = ["impact", "player"];
+// 1回の発生あたりの点の数の上限。Java 側 Emission.MAX_COUNT と同値 —— 向こうは黙って丸めるので、
+// editor 側で先に止めて「書いた数と出る数が違う」を作らない。
+const PARTICLE_MAX_COUNT = 400;
+
+/**
+ * particles / particle-seeds で共通の発生パラメータ (2026-08-25 / W-243・W-244)。
+ * 両方から同じ関数で検査する —— 画面ごとに範囲がずれると、片方で作った値がもう片方で無効になる。
+ */
+function validateParticleEmission(prefix, entry, errors) {
+  if (entry.count !== undefined && entry.count !== null) {
+    if (!isNonNegInteger(entry.count)) {
+      errors.push(`${prefix}.count: 0以上の整数である必要があります`);
+    } else if (entry.count > PARTICLE_MAX_COUNT) {
+      errors.push(`${prefix}.count: ${PARTICLE_MAX_COUNT} 以下である必要があります(粒子は見ている人数ぶん送るため)`);
+    }
+  }
+  const ranges = [
+    ["radius", 0, 16],
+    ["speed", 0, 8],
+    ["height", 0, 16],
+    ["arc-degrees", 1, 360],
+    ["y-offset", -4, 8]
+  ];
+  for (const [key, min, max] of ranges) {
+    const value = entry[key];
+    if (value === undefined || value === null) continue;
+    if (!isNumber(value) || value < min || value > max) {
+      errors.push(`${prefix}.${key}: ${min} 以上 ${max} 以下の数値である必要があります`);
+    }
+  }
+  if (entry.turns !== undefined && entry.turns !== null
+      && (!Number.isInteger(entry.turns) || entry.turns < 1 || entry.turns > 16)) {
+    errors.push(`${prefix}.turns: 1 以上 16 以下の整数である必要があります`);
+  }
+  if (entry.shape !== undefined && entry.shape !== null && !PARTICLE_SHAPES.includes(entry.shape)) {
+    errors.push(`${prefix}.shape: ${PARTICLE_SHAPES.join(" / ")} のいずれかである必要があります`);
+  }
+}
 
 function validateTfSpecialRewards(data, errors) {
   if (data === null) return;
@@ -2995,18 +3036,10 @@ function validateTfSpecialRewards(data, errors) {
       if (entry.particle !== undefined && entry.particle !== null && typeof entry.particle !== "string") {
         errors.push(`particles.${id}.particle: 文字列(Bukkit Particle名)である必要があります`);
       }
-      if (entry.count !== undefined && entry.count !== null && !isNonNegInteger(entry.count)) {
-        errors.push(`particles.${id}.count: 0以上の整数である必要があります`);
-      }
-      if (entry.radius !== undefined && entry.radius !== null && (!isNumber(entry.radius) || entry.radius < 0)) {
-        errors.push(`particles.${id}.radius: 0以上の数値である必要があります`);
-      }
       if (entry["interval-ticks"] !== undefined && entry["interval-ticks"] !== null && !isNonNegInteger(entry["interval-ticks"])) {
         errors.push(`particles.${id}.interval-ticks: 0以上の整数である必要があります`);
       }
-      if (entry.shape !== undefined && entry.shape !== null && !PARTICLE_SHAPES.includes(entry.shape)) {
-        errors.push(`particles.${id}.shape: ${PARTICLE_SHAPES.join(" / ")} のいずれかである必要があります`);
-      }
+      validateParticleEmission(`particles.${id}`, entry, errors);
     }
   }
 
@@ -3021,8 +3054,9 @@ function validateTfSpecialRewards(data, errors) {
       if (entry.particle !== undefined && entry.particle !== null && typeof entry.particle !== "string") {
         errors.push(`particle-seeds.${id}.particle: 文字列(Bukkit Particle名)である必要があります`);
       }
-      if (entry.count !== undefined && entry.count !== null && !isNonNegInteger(entry.count)) {
-        errors.push(`particle-seeds.${id}.count: 0以上の整数である必要があります`);
+      validateParticleEmission(`particle-seeds.${id}`, entry, errors);
+      if (entry.origin !== undefined && entry.origin !== null && !PARTICLE_ORIGINS.includes(entry.origin)) {
+        errors.push(`particle-seeds.${id}.origin: ${PARTICLE_ORIGINS.join(" / ")} のいずれかである必要があります`);
       }
       if (entry.display !== undefined && entry.display !== null && typeof entry.display !== "string") {
         errors.push(`particle-seeds.${id}.display: 文字列(loreとGUIに出す日本語名)である必要があります`);

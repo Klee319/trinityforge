@@ -34,35 +34,176 @@ public final class SpecialRewardsConfig implements LoadableConfig {
     public record Title(String id, String display) {
     }
 
-    /** shape: 発生パターン。circle=周囲へ円形散布 / aura=自分の周りにまとわりつく。 */
-    public enum Shape { CIRCLE, AURA }
+    /**
+     * shape: 発生パターン (2026-08-25 / W-244 で 2 種 → 8 種)。
+     *
+     * <p><b>形状ごとに「効くパラメータ」が違う。</b>それぞれの javadoc に書いてあるものだけを読み、
+     * 残りは無視する ── 全部の形状に全部のパラメータを効かせようとすると、
+     * 「書いたのに何も変わらない」と「書いていないのに勝手に変わる」が同時に起きる。
+     * どのパラメータが効くかは {@link Emission#of(Shape)} の既定値と対でしか意味を持たないので、
+     * ここを増やしたら必ずそちらも足すこと。
+     */
+    public enum Shape {
+        /** 中心のまわりに散らす雲(従来の aura)。{@code radius}=ばらつきの箱、{@code speed}=粒子の初速。 */
+        AURA,
+        /** 水平の輪(従来の circle)。{@code radius}=半径。<b>{@code speed}>0 で外向きに飛び散る</b>(円形拡散)。 */
+        CIRCLE,
+        /** 球の表面に均等配置。{@code radius}=半径。{@code speed}>0 で外向きへ射出。 */
+        SPHERE,
+        /** 中心から全方向へ射出(半径ゼロの爆発)。<b>{@code speed} が本体</b>で {@code radius} は使わない。 */
+        BURST,
+        /** 螺旋。{@code radius}=半径、{@code height}=高さ、{@code turns}=回転数。 */
+        HELIX,
+        /** 垂直の柱。{@code height}=高さ、{@code radius}=横方向のばらつき。 */
+        PILLAR,
+        /** 向いている方向へ薙ぐ弧。{@code radius}=半径、{@code arcDegrees}=開き角、{@code height}=傾き。 */
+        ARC,
+        /** 1点だけ。{@code count} と {@code speed} しか効かない(最小構成)。 */
+        POINT
+    }
+
+    /**
+     * 発生パラメータ一式 (2026-08-25 / W-243・W-244)。{@code particles:} と {@code particle-seeds:} で
+     * <b>同じ語彙・同じ既定値・同じ上限</b>を使うためにここへ集約している ── 画面ごとに別の意味を
+     * 持たせると、片方で覚えた値がもう片方で通じなくなる。
+     *
+     * <p>上限は<b>クライアント保護</b>のためのもので、見た目の好みではない。粒子は per-viewer 送信
+     * (人数ぶんパケットが出る)なので、1回の発生で数千個を撃つ設定は書けてはいけない。
+     *
+     * @param shape      発生パターン
+     * @param count      1回の発生あたりの点の数
+     * @param radius     半径/ばらつき(ブロック)。形状によって意味が変わる({@link Shape})
+     * @param speed      粒子の初速(Bukkit の {@code extra})。0 = 動かない
+     * @param height     垂直方向の伸び(ブロック)。HELIX / PILLAR / ARC で効く
+     * @param turns      回転数。HELIX で効く
+     * @param arcDegrees 開き角(度)。ARC で効く
+     * @param yOffset    基準点からの高さ補正(ブロック)。負値可
+     */
+    public record Emission(Shape shape, int count, double radius, double speed,
+                           double height, int turns, double arcDegrees, double yOffset) {
+
+        /** プレイヤー基準の既定の高さ補正(腰から胸のあたり)。従来の {@code add(0, 1.0, 0)} と同値。 */
+        public static final double DEFAULT_PLAYER_Y_OFFSET = 1.0;
+        /** 当たった場所(ブロック中心/敵の胴)基準の既定の高さ補正。中心そのままなので 0。 */
+        public static final double DEFAULT_IMPACT_Y_OFFSET = 0.0;
+        /** 1回の発生あたりの点の数の上限(クライアント保護)。 */
+        public static final int MAX_COUNT = 400;
+
+        public Emission {
+            shape = shape == null ? Shape.AURA : shape;
+            count = clampInt(count, 0, MAX_COUNT);
+            radius = clampDouble(radius, 0.0, 16.0);
+            speed = clampDouble(speed, 0.0, 8.0);
+            height = clampDouble(height, 0.0, 16.0);
+            turns = clampInt(turns, 1, 16);
+            arcDegrees = clampDouble(arcDegrees, 1.0, 360.0);
+            yOffset = clampDouble(yOffset, -4.0, 8.0);
+        }
+
+        /**
+         * その形状で「まず見栄えがする」既定値。<b>config に書かれていないキーはここから埋まる</b>ので、
+         * 形状を切り替えただけで破綻しない(例: HELIX に height を書き忘れると高さ0の輪になる)。
+         */
+        public static Emission of(Shape shape) {
+            Shape s = shape == null ? Shape.AURA : shape;
+            return switch (s) {
+                case AURA -> new Emission(s, 8, 0.6, 0.0, 0.0, 1, 120.0, 0.0);
+                case CIRCLE -> new Emission(s, 12, 1.0, 0.0, 0.0, 1, 120.0, 0.0);
+                case SPHERE -> new Emission(s, 24, 0.8, 0.0, 0.0, 1, 120.0, 0.0);
+                case BURST -> new Emission(s, 20, 0.0, 0.25, 0.0, 1, 120.0, 0.0);
+                case HELIX -> new Emission(s, 24, 0.6, 0.0, 2.0, 3, 120.0, 0.0);
+                case PILLAR -> new Emission(s, 12, 0.3, 0.0, 2.0, 1, 120.0, 0.0);
+                case ARC -> new Emission(s, 12, 1.2, 0.0, 0.0, 1, 120.0, 0.0);
+                case POINT -> new Emission(s, 4, 0.0, 0.0, 0.0, 1, 120.0, 0.0);
+            };
+        }
+
+        /** {@code shape}/{@code count}/{@code radius}/{@code yOffset} だけを指定する旧来ぶんの形。 */
+        public static Emission legacy(Shape shape, int count, double radius, double yOffset) {
+            Emission base = of(shape);
+            return new Emission(base.shape(), count, radius, base.speed(),
+                    base.height(), base.turns(), base.arcDegrees(), yOffset);
+        }
+
+        private static int clampInt(int value, int min, int max) {
+            return Math.max(min, Math.min(max, value));
+        }
+
+        private static double clampDouble(double value, double min, double max) {
+            if (!Double.isFinite(value)) {
+                return min;
+            }
+            return Math.max(min, Math.min(max, value));
+        }
+    }
+
+    /** シードの粒子をどこに出すか (2026-08-25 / W-242)。 */
+    public enum Anchor {
+        /** 道具が実際に当たった場所(壊したブロックの中心 / 殴った敵の胴 / 矢の着弾点)。既定。 */
+        IMPACT,
+        /** プレイヤー自身(2026-08-25 より前の唯一の挙動)。演出をプレイヤーに固定したいとき用の逃げ道。 */
+        PLAYER
+    }
 
     /**
      * @param id            パーティクルID
      * @param particle      Bukkit Particle
-     * @param count         1回の発生あたりのパーティクル数
-     * @param radius        発生半径(ブロック)
+     * @param emission      発生パラメータ一式
      * @param intervalTicks 発生間隔(tick)
-     * @param shape         発生パターン
      */
-    public record ParticleEffect(String id, Particle particle, int count, double radius,
-                                  int intervalTicks, Shape shape) {
+    public record ParticleEffect(String id, Particle particle, Emission emission, int intervalTicks) {
+
+        /** 旧6値の呼び出し/テスト向け。{@code speed} 等はその形状の既定値で埋まる。 */
+        public ParticleEffect(String id, Particle particle, int count, double radius,
+                              int intervalTicks, Shape shape) {
+            this(id, particle,
+                    Emission.legacy(shape, count, radius, Emission.DEFAULT_PLAYER_Y_OFFSET),
+                    intervalTicks);
+        }
+
+        public int count() {
+            return emission.count();
+        }
+
+        public double radius() {
+            return emission.radius();
+        }
+
+        public Shape shape() {
+            return emission.shape();
+        }
     }
 
     /**
      * @param id       パーティクルシードID
      * @param seedItem 合成素材(Material名 または {@code custom:<カタログID>})
      * @param particle Bukkit Particle
-     * @param count    ブロック破壊/攻撃時に発生させる数
+     * @param emission 発生パラメータ一式
+     * @param anchor   発生位置の基準
      */
-    public record ParticleSeed(String id, String seedItem, Particle particle, int count,
-                               String display, boolean clears) {
+    public record ParticleSeed(String id, String seedItem, Particle particle, Emission emission,
+                               String display, boolean clears, Anchor anchor) {
+
+        /** 旧実装の見た目(半径0.3の雲)。既定を変えると既存シードの印象が変わる。 */
+        static Emission legacySeedEmission(int count) {
+            return Emission.legacy(Shape.AURA, count, 0.3, Emission.DEFAULT_IMPACT_Y_OFFSET);
+        }
 
         /**
          * 通常のシード(表示名は ID、刻印を消すシードではない)。既存の呼び出しとテスト向けの短縮形。
          */
         public ParticleSeed(String id, String seedItem, Particle particle, int count) {
             this(id, seedItem, particle, count, null, false);
+        }
+
+        /** 旧6値の呼び出し/テスト向け。 */
+        public ParticleSeed(String id, String seedItem, Particle particle, int count,
+                            String display, boolean clears) {
+            this(id, seedItem, particle, legacySeedEmission(count), display, clears, Anchor.IMPACT);
+        }
+
+        public int count() {
+            return emission.count();
         }
 
         /**
@@ -287,14 +428,14 @@ public final class SpecialRewardsConfig implements LoadableConfig {
                 }
                 Shape shape = parseShape(entry.getString("shape", "circle"));
                 if (shape == null) {
-                    log.warning("[" + PATH + "] particle '" + id + "' has invalid shape (circle|aura); skipped");
+                    log.warning("[" + PATH + "] particle '" + id + "' has invalid shape ("
+                            + shapeVocabulary() + "); skipped");
                     skipped++;
                     continue;
                 }
-                int count = Math.max(1, entry.getInt("count", 1));
-                double radius = Math.max(0.0, entry.getDouble("radius", 0.5));
                 int interval = Math.max(1, entry.getInt("interval-ticks", 10));
-                particles.put(id, new ParticleEffect(id, particle, count, radius, interval, shape));
+                particles.put(id, new ParticleEffect(id, particle,
+                        parseEmission(entry, shape, Emission.DEFAULT_PLAYER_Y_OFFSET), interval));
             }
         }
 
@@ -320,9 +461,29 @@ public final class SpecialRewardsConfig implements LoadableConfig {
                     skipped++;
                     continue;
                 }
-                int count = Math.max(1, entry.getInt("count", 1));
-                seeds.put(id, new ParticleSeed(id, seedItem.trim(), particle, count,
-                        entry.getString("display"), clears));
+                Shape shape = parseShape(entry.getString("shape", "aura"));
+                if (shape == null) {
+                    log.warning("[" + PATH + "] particle-seed '" + id + "' has invalid shape ("
+                            + shapeVocabulary() + "); skipped");
+                    skipped++;
+                    continue;
+                }
+                Anchor anchor = parseAnchor(entry.getString("origin", "impact"));
+                if (anchor == null) {
+                    log.warning("[" + PATH + "] particle-seed '" + id
+                            + "' has invalid origin (impact|player); skipped");
+                    skipped++;
+                    continue;
+                }
+                // 既定の半径 0.3 は旧実装の見た目そのまま。shape を書いていないシードの印象を
+                // 変えないために、ここだけ Emission.of(AURA) の 0.6 ではなく 0.3 を初期値にする。
+                Emission seedDefaults = ParticleSeed.legacySeedEmission(
+                        Emission.of(shape).count());
+                Emission emission = parseEmission(entry,
+                        shape == Shape.AURA ? seedDefaults : Emission.of(shape),
+                        Emission.DEFAULT_IMPACT_Y_OFFSET);
+                seeds.put(id, new ParticleSeed(id, seedItem.trim(), particle, emission,
+                        entry.getString("display"), clears, anchor));
             }
         }
 
@@ -361,6 +522,51 @@ public final class SpecialRewardsConfig implements LoadableConfig {
         } catch (IllegalArgumentException ex) {
             return null;
         }
+    }
+
+    private static Anchor parseAnchor(String name) {
+        if (name == null || name.isBlank()) {
+            return null;
+        }
+        try {
+            return Anchor.valueOf(name.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    /** warning に出す「書ける形状の一覧」。列挙を増やしたときに文言が古びないよう組み立てる。 */
+    private static String shapeVocabulary() {
+        StringBuilder out = new StringBuilder();
+        for (Shape shape : Shape.values()) {
+            if (out.length() > 0) {
+                out.append('|');
+            }
+            out.append(shape.name().toLowerCase(Locale.ROOT));
+        }
+        return out.toString();
+    }
+
+    /**
+     * 発生パラメータを読む (2026-08-25 / W-243・W-244)。<b>書かれていないキーは
+     * {@code defaults}(= その形状の既定値)で埋める</b> ── 形状を切り替えたときに、その形状が
+     * 使うキーだけを書き足せば済むようにするため。範囲の矯正は {@link Emission} の
+     * コンパクトコンストラクタが一手に引き受ける(読み手ごとに clamp を書くと必ずズレる)。
+     */
+    private static Emission parseEmission(ConfigurationSection entry, Shape shape, double defaultYOffset) {
+        return parseEmission(entry, Emission.of(shape), defaultYOffset);
+    }
+
+    private static Emission parseEmission(ConfigurationSection entry, Emission defaults, double defaultYOffset) {
+        return new Emission(
+                defaults.shape(),
+                entry.getInt("count", defaults.count()),
+                entry.getDouble("radius", defaults.radius()),
+                entry.getDouble("speed", defaults.speed()),
+                entry.getDouble("height", defaults.height()),
+                entry.getInt("turns", defaults.turns()),
+                entry.getDouble("arc-degrees", defaults.arcDegrees()),
+                entry.getDouble("y-offset", defaultYOffset));
     }
 
     record ParseResult(Map<String, Title> titles, Map<String, ParticleEffect> particles,

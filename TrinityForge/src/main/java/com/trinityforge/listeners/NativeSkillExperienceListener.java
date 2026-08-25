@@ -53,6 +53,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.player.PlayerFishEvent;
+import org.bukkit.event.player.PlayerHarvestBlockEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerShearEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
@@ -500,9 +501,42 @@ public final class NativeSkillExperienceListener implements Listener {
     }
 
     /**
-     * Valhalla {@code farming.block_interact}: mature berry/vine harvests and full-honey hive
-     * harvests use the configured block value. Eligibility is gameplay state; the EXP amount itself
-     * is always read from the editable action table.
+     * Valhalla {@code farming.block_interact} のうち<b>実際に収穫が起きた</b>ぶん
+     * (甘いベリー / 洞窟のツタの光る果実)。
+     *
+     * <h2>⚠ なぜ {@link PlayerInteractEvent} ではなく {@link PlayerHarvestBlockEvent} なのか
+     * (2026-08-25 / W-245)</h2>
+     * 旧実装は「熟した実を右クリックした」だけを見て配っていた。ところが<b>右クリックが通っても
+     * 収穫が起きないことがある</b> ── バニラは
+     * <b>「スニーク中で、かつ手が空でない」ならブロックへの操作を丸ごと飛ばす</b>
+     * (これはブロックを設置するための仕様。{@code isSecondaryUseActive()} の分岐)。
+     * このとき {@link PlayerInteractEvent} は<b>キャンセルされない</b>ので
+     * {@code ignoreCancelled = true} でも素通りし、実は減らないまま経験値だけが入る
+     * ＝ <b>スニークしたまま連打すれば無限に農業EXPが入った</b>。
+     *
+     * <p>これは W-210(盾を持つと皮剥ぎが {@code PASS} になり、原木が残るので連打でEXP)と
+     * <b>同じ形の穴</b>で、根っこは「<em>意図</em>(クリックした)ではなく<em>結果</em>(実際に変わった)を
+     * 見ていないこと」。バニラ側の門を TF で真似すると次のバージョンで静かにズレるので、
+     * 収穫が確定した瞬間に発火するイベントへ寄せる。
+     *
+     * <p>骨粉での右クリック除外も自然に不要になる(骨粉は収穫ではないのでこのイベントを通らない)。
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onFarmingHarvest(PlayerHarvestBlockEvent event) {
+        Player player = event.getPlayer();
+        if (excluded(player)) return;
+        grantFarmingBlockInteract(player, event.getHarvestedBlock().getType());
+    }
+
+    /**
+     * Valhalla {@code farming.block_interact} の蜂の巣ぶん(満タンの蜜をガラス瓶/ハサミで採る)。
+     *
+     * <h2>⚠ ここだけ {@link PlayerInteractEvent} に残る理由</h2>
+     * 蜜の採取には「採れた」を教えてくれるイベントが無い({@link PlayerHarvestBlockEvent} は
+     * ベリー/ツタ専用)。そこで<b>次のtickに巣の蜜量を読み直し、実際に減っていたときだけ配る</b>。
+     * 上の {@link #onFarmingHarvest} と同じ「意図ではなく結果を見る」規則を、イベントが無い場所でも
+     * 守るための形 ── <b>スニーク中は手が空でない限りブロック操作自体が起きない</b>ので、
+     * クリックだけを根拠にすると蜜が満タンのまま経験値が入り続ける(W-245)。
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onFarmingInteract(PlayerInteractEvent event) {
@@ -514,9 +548,45 @@ public final class NativeSkillExperienceListener implements Listener {
         if (excluded(player)) return;
         Block block = event.getClickedBlock();
         if (!isHarvestableFarmingInteraction(block, event.getItem())) return;
+        if (!(block.getBlockData() instanceof Beehive)) {
+            // ベリー/ツタは onFarmingHarvest が「収穫できた瞬間」に配る。ここで配ると二重になる。
+            return;
+        }
+        int before = honeyLevelOf(block);
+        if (before <= 0) return;
+        honeyHarvestVerifier.accept(() -> {
+            if (honeyLevelOf(block) < before) {
+                grantFarmingBlockInteract(player, block.getType());
+            }
+        });
+    }
+
+    /**
+     * 蜜が実際に減ったかの確認を「次のtick」へ回す実行口。差し替え可能にしているのは
+     * <b>MockBukkit のスケジューラを回さないテストでも結果検証の分岐を検証できるようにするため</b>
+     * (ここを直に {@code runTask} で書くと、テストは「例外が飛ばないこと」しか言えなくなる)。
+     */
+    private java.util.function.Consumer<Runnable> honeyHarvestVerifier = this::runNextTick;
+
+    /** 既定の実行: 次のtick。{@code plugin} は空白finalなのでフィールド初期化子から直接は読めない。 */
+    private void runNextTick(Runnable task) {
+        org.bukkit.Bukkit.getScheduler().runTask(plugin, task);
+    }
+
+    /** テスト専用: 次tick確認の実行を差し替える(理由は {@link #honeyHarvestVerifier})。 */
+    void honeyHarvestVerifierForTest(java.util.function.Consumer<Runnable> verifier) {
+        this.honeyHarvestVerifier = java.util.Objects.requireNonNull(verifier, "verifier");
+    }
+
+    /** 巣の蜜量。巣でなければ {@code -1}。 */
+    private static int honeyLevelOf(Block block) {
+        return block.getBlockData() instanceof Beehive hive ? hive.getHoneyLevel() : -1;
+    }
+
+    /** {@code farming.block_interact} の付与。EXP量は常に編集可能な表から引く。 */
+    private void grantFarmingBlockInteract(Player player, Material blockType) {
         SkillCatalogEntry farming = catalog.get(SkillId.FARMING);
-        double exp = farming == null ? 0.0
-                : farming.expFor("block_interact", block.getType().name());
+        double exp = farming == null ? 0.0 : farming.expFor("block_interact", blockType.name());
         if (exp > 0.0) {
             grant(player, SkillId.FARMING, exp);
         }

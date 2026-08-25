@@ -101,38 +101,57 @@ public final class ParticleEffectService implements Listener {
     /**
      * ワンショットのパーティクル発生(パーティクルシード起動時 = {@code ParticleSeedListener} 用)。
      * 同じ「他人の演出非表示」トグルを尊重する per-viewer 送信。
+     *
+     * <p><b>{@code anchor} は「道具が実際に当たった場所」を渡す</b>(2026-08-25 / W-242)。
+     * 2026-08-25 より前はここが常に {@code origin.getLocation()} で、
+     * <b>壊したブロックや殴った敵ではなくプレイヤーの足元から粒子が出ていた</b>。
+     * どこを基準にするかは呼び出し側(config の {@code origin:})の判断で、この層では決めない。
+     *
+     * @param origin   演出の所有者(「自分の演出は常に見える」の基準)
+     * @param anchor   発生の基準座標。{@code y-offset} はここから足される
+     * @param yaw      {@link SpecialRewardsConfig.Shape#ARC} が向きに使う角度(度)
      */
-    public static void burstAt(Player origin, Particle particle, int count, double radius) {
-        Location base = origin.getLocation().add(0, 1.0, 0);
-        for (Player viewer : origin.getWorld().getPlayers()) {
-            if (viewer != origin && PlayerData.of(viewer).hideOthersCosmetics()) {
-                continue;
-            }
-            if (viewer.getLocation().distanceSquared(base) > VIEW_RADIUS * VIEW_RADIUS) {
-                continue;
-            }
-            viewer.spawnParticle(particle, base, count, radius, radius, radius, 0.0);
+    public static void burst(Player origin, Location anchor, Particle particle,
+                             SpecialRewardsConfig.Emission emission, double yaw) {
+        if (origin == null || anchor == null || particle == null || emission == null) {
+            return;
         }
+        if (anchor.getWorld() == null || !anchor.getWorld().equals(origin.getWorld())) {
+            return;
+        }
+        emitFor(origin, anchor, particle, emission, yaw);
     }
 
     private void render(Player owner, SpecialRewardsConfig.ParticleEffect effect) {
-        Location base = owner.getLocation().add(0, 1.0, 0);
+        emitFor(owner, owner.getLocation(), effect.particle(), effect.emission(),
+                owner.getLocation().getYaw());
+    }
+
+    /**
+     * {@link ParticleGeometry} が出した呼び出し列を、閲覧者ごとに撃つ。
+     *
+     * <p>ここが唯一の {@code spawnParticle} 呼び出し口。形状の追加はすべて
+     * {@link ParticleGeometry#emits} 側で済み、この層は触らない ── 形状ごとに
+     * {@code spawnParticle} を書き分けていた頃は、{@code speed}(Bukkit の {@code extra})が
+     * <b>どの形状でも 0 固定</b>で、円形拡散のような「向きのある演出」が原理的に書けなかった。
+     */
+    private static void emitFor(Player owner, Location anchor, Particle particle,
+                                SpecialRewardsConfig.Emission emission, double yaw) {
+        java.util.List<ParticleGeometry.Emit> emits = ParticleGeometry.emits(emission, yaw);
+        if (emits.isEmpty()) {
+            return;
+        }
         for (Player viewer : owner.getWorld().getPlayers()) {
             if (viewer != owner && PlayerData.of(viewer).hideOthersCosmetics()) {
                 continue;
             }
-            if (viewer.getLocation().distanceSquared(base) > VIEW_RADIUS * VIEW_RADIUS) {
+            if (viewer.getLocation().distanceSquared(anchor) > VIEW_RADIUS * VIEW_RADIUS) {
                 continue;
             }
-            switch (effect.shape()) {
-                case AURA -> viewer.spawnParticle(effect.particle(), base, effect.count(),
-                        effect.radius(), effect.radius(), effect.radius(), 0.0);
-                case CIRCLE -> {
-                    for (double[] offset : ParticleGeometry.circleOffsets(effect.count(), effect.radius())) {
-                        Location point = base.clone().add(offset[0], 0, offset[1]);
-                        viewer.spawnParticle(effect.particle(), point, 1, 0, 0, 0, 0);
-                    }
-                }
+            for (ParticleGeometry.Emit emit : emits) {
+                Location point = anchor.clone().add(emit.dx(), emit.dy(), emit.dz());
+                viewer.spawnParticle(particle, point, emit.count(),
+                        emit.offX(), emit.offY(), emit.offZ(), emit.extra());
             }
         }
     }

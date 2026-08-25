@@ -2,18 +2,23 @@ package com.trinityforge.listeners;
 
 import com.trinityforge.config.domains.SpecialRewardsConfig;
 import com.trinityforge.pdc.ItemData;
+import com.trinityforge.pdc.PdcKeys;
 import com.trinityforge.progression.ParticleEffectService;
 import com.trinityforge.progression.SpecialRewardService;
 import com.trinityforge.stats.ParticleSeedLore;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.ProjectileHitEvent;
+import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.PrepareAnvilEvent;
@@ -21,6 +26,7 @@ import org.bukkit.inventory.AnvilInventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.view.AnvilView;
+import org.bukkit.persistence.PersistentDataType;
 
 import java.util.Map;
 import java.util.Objects;
@@ -73,9 +79,16 @@ public final class ParticleSeedListener implements Listener {
      */
     static final int APPLY_LEVEL_COST = 1;
 
+    /** 粒子を実際に撃つ口。差し替え可能にしている理由は {@link #burstForTest}。 */
+    interface ParticleBurst {
+        void emit(Player origin, Location anchor, org.bukkit.Particle particle,
+                  SpecialRewardsConfig.Emission emission, double yaw);
+    }
+
     private final SpecialRewardsConfig config;
     private final SpecialRewardService rewards;
     private final ConcurrentHashMap<UUID, Long> lastTriggerMillis = new ConcurrentHashMap<>();
+    private ParticleBurst burst = ParticleEffectService::burst;
 
     /**
      * @param rewards シードIDの保有判定。<b>必須</b>(null を許す fail-soft にしない) ──
@@ -85,6 +98,18 @@ public final class ParticleSeedListener implements Listener {
     public ParticleSeedListener(SpecialRewardsConfig config, SpecialRewardService rewards) {
         this.config = Objects.requireNonNull(config, "config");
         this.rewards = Objects.requireNonNull(rewards, "rewards");
+    }
+
+    /**
+     * テスト専用: 粒子の発生を差し替える。
+     *
+     * <p><b>「どこに出したか」を挙動として固定するために必要</b> ── MockBukkit は
+     * {@code spawnParticle} の呼び出しを観測できないので、これが無いと W-242(発生位置を
+     * プレイヤーから当たった場所へ移す)の回帰は「例外が飛ばないこと」しか確認できない。
+     * {@code XpBottleListener#waterTargetLookupForTest} と同じ理由・同じ形。
+     */
+    void burstForTest(ParticleBurst burst) {
+        this.burst = Objects.requireNonNull(burst, "burst");
     }
 
     /**
@@ -294,39 +319,129 @@ public final class ParticleSeedListener implements Listener {
         return null;
     }
 
-    /** シード刻印ツールでのブロック破壊時に発動(§6.1)。 */
+    /**
+     * シード刻印ツールでのブロック破壊時に発動(§6.1)。
+     *
+     * <p>基準点は<b>壊したブロックの中心</b>(2026-08-25 / W-242、実サーバ報告「ツールが適用された位置の
+     * ほうがいい」)。着手前は {@code burstAt} が常にプレイヤーの座標を使っていたので、
+     * <b>どれだけ遠くのブロックを掘っても粒子は自分の足元から出ていた</b>。
+     */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
-        triggerIfSeeded(player, player.getInventory().getItemInMainHand());
+        triggerIfSeeded(player, player.getInventory().getItemInMainHand(),
+                event.getBlock().getLocation().add(0.5, 0.5, 0.5));
     }
 
-    /** シード刻印武器での攻撃時に発動(§6.1)。 */
+    /**
+     * シード刻印武器での攻撃時に発動(§6.1)。基準点は<b>殴った相手の胴</b>(W-242)。
+     *
+     * <p><b>飛び道具は除外する</b> ── 矢が刺さった一撃もここへ来るが、そのときの
+     * {@code getDamager()} は矢であってプレイヤーではない。飛び道具は
+     * {@link #onProjectileLaunch} / {@link #onProjectileHit} が<b>放った時点の武器</b>を根拠に扱う
+     * (飛んでいる間に持ち替えられるので、着弾時の手を見ると別のシードが出る)。
+     */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onAttack(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof Player player)) {
             return;
         }
-        triggerIfSeeded(player, player.getInventory().getItemInMainHand());
+        triggerIfSeeded(player, player.getInventory().getItemInMainHand(),
+                bodyCenter(event.getEntity()));
+    }
+
+    /**
+     * 飛び道具を放った瞬間に、放った武器のシードIDを<b>その飛び道具へ</b>書き付ける
+     * (2026-08-25 / W-242「飛び道具は個別実装がいるかもね」への回答)。
+     *
+     * <p>{@link ProjectileLaunchEvent} を使う理由: 弓・クロスボウ・トライデント・雪玉を
+     * <b>1箇所で</b>拾える(弓だけなら {@code EntityShootBowEvent} で足りるが、トライデントは通らない)。
+     *
+     * <p>着弾時に手を見ないのは、<b>飛んでいる間に持ち替えられる</b>ため ──
+     * 矢を撃ってから別の道具を握ると、着弾時にはそちらのシードが出てしまう。
+     *
+     * <p>⚠ <b>魔法(Ars の触媒)はここを通らない。</b>Ars の呪文は Bukkit の飛び道具として
+     * 飛ばないものが多く、TF 側にイベントが無い。触媒の詠唱に粒子を乗せるならフォーク側から
+     * 明示的に呼ぶ経路が必要で、それはこのクラスの担当外。
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onProjectileLaunch(ProjectileLaunchEvent event) {
+        Projectile projectile = event.getEntity();
+        if (!(projectile.getShooter() instanceof Player player)) {
+            return;
+        }
+        String seedId = seedIdOf(player.getInventory().getItemInMainHand());
+        if (seedId == null) {
+            return;
+        }
+        projectile.getPersistentDataContainer().set(
+                PdcKeys.ITEM_PARTICLE_SEED, PersistentDataType.STRING, seedId);
+    }
+
+    /** 刻印された飛び道具の着弾点で発動(W-242)。当たった相手がいればその胴、無ければ着弾座標。 */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onProjectileHit(ProjectileHitEvent event) {
+        Projectile projectile = event.getEntity();
+        if (!(projectile.getShooter() instanceof Player player)) {
+            return;
+        }
+        String seedId = projectile.getPersistentDataContainer()
+                .get(PdcKeys.ITEM_PARTICLE_SEED, PersistentDataType.STRING);
+        if (seedId == null) {
+            return;
+        }
+        Location anchor = event.getHitEntity() != null
+                ? bodyCenter(event.getHitEntity())
+                : projectile.getLocation();
+        trigger(player, seedId, anchor);
+    }
+
+    /**
+     * そのエンティティの「胴のあたり」。足元({@code getLocation()})だと地面に粒子が埋まるので、
+     * 背の半分だけ上げる。{@code null} 安全(呼び出し側の分岐を増やさないため)。
+     */
+    private static Location bodyCenter(org.bukkit.entity.Entity entity) {
+        if (entity == null) {
+            return null;
+        }
+        return entity.getLocation().add(0, entity.getHeight() * 0.5, 0);
+    }
+
+    /** {@code item} に刻印されているシードID(無ければ {@code null})。 */
+    private static String seedIdOf(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) {
+            return null;
+        }
+        return ItemData.of(item.getItemMeta()).particleSeed().orElse(null);
     }
 
     /** {@code item} がシード刻印済みなら(スロットル込みで)刻印パーティクルを発生させる。 */
-    private void triggerIfSeeded(Player player, ItemStack item) {
-        if (item == null || !item.hasItemMeta()) {
+    private void triggerIfSeeded(Player player, ItemStack item, Location impact) {
+        String seedId = seedIdOf(item);
+        if (seedId != null) {
+            trigger(player, seedId, impact);
+        }
+    }
+
+    /**
+     * シードIDを引いて発生させる。
+     *
+     * <p>基準点は config の {@code origin:} で決める ── {@code impact} は「道具が当たった場所」で、
+     * {@code null} になりうる(飛び道具が世界外へ消えた等)ので、そのときはプレイヤーへ倒す。
+     */
+    private void trigger(Player player, String seedId, Location impact) {
+        SpecialRewardsConfig.ParticleSeed seed = config.particleSeeds().get(seedId);
+        // particle が null なのは clears: true のシード(粒子を持たない)。刻印されることは
+        // 無いが、config を書き換えて同じIDを消し用へ転用すると既存の道具がここへ来る。
+        if (seed == null || seed.clears() || seed.particle() == null) {
             return;
         }
-        ItemData.of(item.getItemMeta()).particleSeed().ifPresent(seedId -> {
-            SpecialRewardsConfig.ParticleSeed seed = config.particleSeeds().get(seedId);
-            // particle が null なのは clears: true のシード(粒子を持たない)。刻印されることは
-            // 無いが、config を書き換えて同じIDを消し用へ転用すると既存の道具がここへ来る。
-            if (seed == null || seed.clears() || seed.particle() == null) {
-                return;
-            }
-            if (!throttleReady(player.getUniqueId())) {
-                return;
-            }
-            ParticleEffectService.burstAt(player, seed.particle(), seed.count(), 0.3);
-        });
+        if (!throttleReady(player.getUniqueId())) {
+            return;
+        }
+        boolean atPlayer = seed.anchor() == SpecialRewardsConfig.Anchor.PLAYER || impact == null;
+        Location anchor = atPlayer ? player.getLocation() : impact;
+        burst.emit(player, anchor, seed.particle(), seed.emission(), player.getLocation().getYaw());
     }
 
     private boolean throttleReady(UUID playerId) {

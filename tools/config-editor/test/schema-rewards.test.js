@@ -30,6 +30,62 @@ test("tf-special-rewards: shape不正・型不正はエラー", () => {
   assert.ok(errors.some((e) => /particles\.bad\.shape/.test(e)));
 });
 
+// 形状と発生パラメータ (2026-08-25 / W-242・W-243・W-244)
+// ★ ここが緩いと「editor では保存できるのに、起動時に warning でそのエントリごと捨てられる」になる。
+//   Java 側 SpecialRewardsConfig.Shape / Emission の範囲と一字一句そろえること。
+test("tf-special-rewards: 増えた8形状すべてが particles / particle-seeds の両方で通る", () => {
+  const shapes = ["aura", "circle", "sphere", "burst", "helix", "pillar", "arc", "point"];
+  for (const shape of shapes) {
+    const particleErrors = validate("tf-special-rewards", {
+      particles: { s: { particle: "FLAME", "interval-ticks": 10, shape } }
+    });
+    assert.deepStrictEqual(particleErrors, [], `particles の ${shape}: ${particleErrors.join(" / ")}`);
+    const seedErrors = validate("tf-special-rewards", {
+      "particle-seeds": { s: { "seed-item": "BLAZE_POWDER", particle: "FLAME", shape } }
+    });
+    assert.deepStrictEqual(seedErrors, [], `particle-seeds の ${shape}: ${seedErrors.join(" / ")}`);
+  }
+});
+
+test("tf-special-rewards: 発生パラメータは particles と particle-seeds で同じ語彙", () => {
+  const emission = {
+    shape: "helix", count: 30, radius: 0.9, speed: 0.2, height: 3.5, turns: 4, "y-offset": -0.5
+  };
+  assert.deepStrictEqual(
+    validate("tf-special-rewards", { particles: { p: Object.assign({ particle: "FLAME" }, emission) } }), []);
+  assert.deepStrictEqual(
+    validate("tf-special-rewards", {
+      "particle-seeds": { s: Object.assign({ "seed-item": "BLAZE_POWDER", particle: "FLAME" }, emission) }
+    }), []);
+});
+
+test("tf-special-rewards: 発生パラメータの範囲外はエラー (Java 側は黙って丸めるので editor で止める)", () => {
+  const errors = validate("tf-special-rewards", {
+    particles: {
+      bad: {
+        particle: "FLAME", shape: "arc",
+        count: 1000, radius: 99, speed: -1, height: 99, turns: 0, "arc-degrees": 400, "y-offset": 99
+      }
+    }
+  });
+  for (const key of ["count", "radius", "speed", "height", "turns", "arc-degrees", "y-offset"]) {
+    assert.ok(errors.some((e) => e.includes(`particles.bad.${key}`)), `${key} が検査されていない: ${errors.join(" / ")}`);
+  }
+});
+
+test("tf-special-rewards: シードの origin は impact / player だけ", () => {
+  assert.deepStrictEqual(validate("tf-special-rewards", {
+    "particle-seeds": { s: { "seed-item": "BLAZE_POWDER", particle: "FLAME", origin: "impact" } }
+  }), []);
+  assert.deepStrictEqual(validate("tf-special-rewards", {
+    "particle-seeds": { s: { "seed-item": "BLAZE_POWDER", particle: "FLAME", origin: "player" } }
+  }), []);
+  const errors = validate("tf-special-rewards", {
+    "particle-seeds": { s: { "seed-item": "BLAZE_POWDER", particle: "FLAME", origin: "cursor" } }
+  });
+  assert.ok(errors.some((e) => /particle-seeds\.s\.origin/.test(e)), errors.join(" / "));
+});
+
 // 刻印を消すシード / 表示名 (2026-08-25 / W-221)
 test("tf-special-rewards: clears:true のシードは particle 無しで通る", () => {
   const errors = validate("tf-special-rewards", {

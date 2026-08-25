@@ -442,7 +442,7 @@
     "exp_damage_piece": { label: "被ダメEXP(1部位)", desc: "防具スキル: ダメージを受けたときのEXP。" },
     "exp_damage_piece_min_damage": { label: "被ダメEXP 最低ダメージ", desc: "この値未満の最終ダメージ(矢の掠り等)では防具EXPを付与しない(semi-AFK farm対策)。" },
     "exp_damage_piece_cooldown_seconds": { label: "被ダメEXP CD(秒)", desc: "同一攻撃者からの被弾EXPは(被害者,攻撃者)単位でこの秒数に1回まで。" },
-    "exp_multiplier_point": { label: "防具値1点あたりEXP倍率", desc: "装備中の防具値1点ごとに被弾EXPへ加算する倍率。" },
+    "exp_multiplier_point": { label: "装備の硬さEXP係数", desc: "被弾EXPに掛ける『装備の硬さ』の係数。式は EXP×(1 + 防御率の合計 × この値)。⚠ 2026-08-15 に入力が防具値(点数・最良装備で約20)から防御率(0〜1・同 0.30)へ変わったので、桁が約1/67になった。旧スケールの 0.05 前後を書くと係数がほぼ 1.0(＝硬さボーナスなし)になる。最良装備で約2倍にしたいなら 3.3 前後。" },
     "pvp_multiplier_exponent": { label: "PvP EXP倍率指数", desc: "プレイヤーから被弾した際のPvP倍率を何乗して防具EXPへ適用するか。1はそのまま、2は倍率の2乗。" },
     "entity_exp_multipliers": { label: "敵種類別EXP倍率表", desc: "攻撃元のEntityTypeごとに防具EXPへ掛ける倍率。未指定の種類は既定倍率を使う。" },
     "exp_multiplier_mine": { label: "採掘EXP倍率", desc: "通常採掘でのEXP倍率。" },

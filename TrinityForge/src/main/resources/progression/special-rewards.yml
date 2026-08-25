@@ -12,10 +12,28 @@
 #
 # particles.<id>:
 #   particle:       Bukkit Particle 名 (例: FLAME, CRIT, END_ROD)
-#   count:          1回の発生あたりのパーティクル数
-#   radius:         発生半径(ブロック)
 #   interval-ticks: 発生間隔(tick)
-#   shape:          circle(周囲に円形散布) | aura(自分の周りにまとわりつく)
+#   shape ほかの発生パラメータは particles / particle-seeds で共通。↓の「発生パラメータ」を参照
+#
+# 【発生パラメータ】 particles と particle-seeds の両方で同じ意味・同じ既定値 (2026-08-25 / W-243・W-244)
+#   shape: 形状。書ける値は 8 つ。★ 形状ごとに「効くパラメータ」が違う ので、
+#          その形状が使わないキーは書いても無視される(下の一覧のとおり)
+#     aura    まとわりつく雲       … count / radius(ばらつきの箱) / speed
+#     circle  水平の輪             … count / radius(半径) / speed ★speed>0 で外向きに飛び散る(円形拡散)
+#     sphere  球の表面             … count / radius(半径) / speed ★speed>0 で外向きへ射出
+#     burst   全方向へ射出         … count / speed ★speed が本体。radius は使わない
+#     helix   螺旋                 … count / radius(半径) / height(高さ) / turns(回転数)
+#     pillar  垂直の柱             … count / radius(横のばらつき) / height(高さ)
+#     arc     向いた方向へ薙ぐ弧   … count / radius(半径) / arc-degrees(開き角) / height(端の持ち上げ)
+#     point   1点だけ              … count / speed
+#   count:       1回の発生あたりの点の数 (上限 400。粒子は見ている人数ぶん送るのでここは保護のための上限)
+#   radius:      半径/ばらつき(ブロック)。形状によって意味が変わる(上の一覧)
+#   speed:       粒子の初速。0 = その場に留まる。circle/sphere/burst では「どちらへ飛ぶか」が決まる
+#   height:      垂直方向の伸び(ブロック)。helix / pillar / arc だけ
+#   turns:       回転数。helix だけ
+#   arc-degrees: 開き角(度)。arc だけ
+#   y-offset:    基準点からの高さ補正。負値可。既定は particles=1.0(腰のあたり) / particle-seeds=0.0
+#   ※ 書かなかったキーはその形状の既定値で埋まる。形状を変えたら、その形状が使うキーだけ書き足せばよい
 #
 # particle-seeds.<id>: (ツール/武器へ粒子を焼き付ける「種」アイテム)
 #   seed-item: 付与に使う素材。Material名 または custom:<カタログID>
@@ -40,7 +58,14 @@
 #              Material 指定と同じように動く(準備中 draft のIDだけは解決されない)。
 #   display:   道具の説明文(lore)と /tf settings に出す日本語名。省略するとIDがそのまま出る
 #   particle:  Bukkit Particle 名 (clears: true のときは不要)
-#   count:     ブロック破壊/攻撃時に発生させる数
+#   count ほかの発生パラメータは上の「発生パラメータ」と共通
+#   origin:    粒子を出す基準 (2026-08-25 / W-242)
+#              impact = 道具が実際に当たった場所【既定】。壊したブロックの中心 / 殴った相手の胴 /
+#                       矢の着弾点。2026-08-25 より前はここが常にプレイヤーの足元だった
+#              player = プレイヤー自身。演出を自分に固定したいときだけ
+#              ※ 弓・クロスボウ・トライデントは【放った瞬間の武器】の刻印で決まる
+#                (飛んでいる間に持ち替えても最初のシードが出る)。
+#                魔法(Ars の触媒)はこの経路を通らないので粒子は出ない
 #   clears:    true にすると「刻印を消すシード」になる (2026-08-25)
 #              ・粒子を持たないので particle は要らない
 #              ・解放を要求しない(剥がす操作は報酬ではないし、付け間違いを取り消せない方が害が大きい)
@@ -179,16 +204,19 @@ particles:
     shape: aura
   particle_void_aura:
     particle: PORTAL
-    count: 12
-    radius: 1
+    count: 14
     interval-ticks: 10
-    shape: aura
+    # 半径ゼロの爆発。radius は使わず speed で広がりが決まる
+    shape: burst
+    speed: 0.15
   particle_soul_ring:
     particle: SOUL_FIRE_FLAME
     count: 10
     radius: 1.2
     interval-ticks: 14
     shape: circle
+    # circle に speed を入れると、輪の各点が外向きへ流れる(入れないと静止した輪)
+    speed: 0.04
   particle_snow_ring:
     particle: SNOWFLAKE
     count: 12
@@ -197,16 +225,18 @@ particles:
     shape: circle
   particle_petal_ring:
     particle: CHERRY_LEAVES
-    count: 10
-    radius: 1.2
+    count: 24
+    radius: 0.7
     interval-ticks: 16
-    shape: circle
+    shape: helix
+    height: 2.2
+    turns: 3
   particle_spark_ring:
     particle: ELECTRIC_SPARK
-    count: 14
-    radius: 1
+    count: 20
+    radius: 0.9
     interval-ticks: 12
-    shape: circle
+    shape: sphere
   particle_dragon_aura:
     # 2026-08-16: DRAGON_BREATH は Paper 1.21.11 で「追加データ(Float)が必須の粒子」になっており、
     # SpecialRewardsConfig#parseParticle の「データ不要(Void)のみ通す」判定で丸ごと弾かれていた
@@ -229,7 +259,11 @@ particle-seeds:
     seed-item: BLUE_ICE
     display: 氷華
     particle: SNOWFLAKE
-    count: 6
+    count: 12
+    # 当たった場所に輪が広がる
+    shape: circle
+    radius: 0.7
+    speed: 0.05
   seed_soul:
     seed-item: SOUL_SAND
     display: 魂火
@@ -239,17 +273,26 @@ particle-seeds:
     seed-item: COPPER_INGOT
     display: 雷花
     particle: ELECTRIC_SPARK
-    count: 8
+    count: 16
+    # 弾けるように全方向へ
+    shape: burst
+    speed: 0.3
   seed_void:
     seed-item: ENDER_EYE
     display: 虚空
     particle: PORTAL
-    count: 10
+    count: 20
+    shape: sphere
+    radius: 0.6
   seed_bloom:
     seed-item: PINK_PETALS
     display: 花吹雪
     particle: CHERRY_LEAVES
-    count: 6
+    count: 12
+    # 向いている方向へ薙ぐ弧(武器で振ったときに映える)
+    shape: arc
+    radius: 1
+    arc-degrees: 140
   # 刻印を消すシード。誰でも最初から使える(解放は要らない)。
   # 素材をイカスミにしているのは「塗り潰して消す」の見立てと、
   # 取り消しに希少素材を要求すると付け間違いが取り返せなくなるため。
