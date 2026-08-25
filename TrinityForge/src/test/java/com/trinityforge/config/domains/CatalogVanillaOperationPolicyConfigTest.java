@@ -29,17 +29,18 @@ import static org.mockito.Mockito.when;
 class CatalogVanillaOperationPolicyConfigTest {
 
     /**
-     * 2026-08-04追加の3特殊アイテム(role_reselect_ticket/stat_reroll_ticket/quality_upgrade_ticket)。
-     * {@code resourcepack/cmd-registry.json} が別セッションで未コミット編集中だったため、この回では
-     * 意図的に custom-model-data を未設定のまま出荷している(CMD割当は
-     * {@code reports/ACTIVE_RECORD.md} 追跡の後追いタスク)。CMDが無い間はこれらのアイテムが
-     * {@link CatalogVanillaOperationPolicy} の「素材+CMD復元ガード」を通らない(=バニラ扱いになる)が、
-     * この3件はいずれも耐久/エンチャント/派生ステを持たない単発消費アイテムなので実害は無い。
-     * CMDを割り当てたらこの例外リストからも外すこと(汎用の {@code RegisterEventsDriftTest
-     * .ALLOWED_UNREGISTERED} と同じ「意図的・追跡付きの例外」パターン)。
+     * かつて CMD 未割当を許していた3特殊アイテム
+     * (role_reselect_ticket / stat_reroll_ticket / quality_upgrade_ticket)。
+     *
+     * <p>2026-08-09 に cmd-registry.json へ採番済み(10 / 16 / 5446)で、出荷 catalog.yml も
+     * 3件とも custom-model-data を持っている。2026-08-25 に実物で確認して**例外を撤去した**。
+     *
+     * <p>⚠ ここを再び空でない集合に戻すと、その id は
+     * {@link CatalogVanillaOperationPolicy} の「素材+CMD復元ガード」の検査から丸ごと外れる。
+     * 許可リスト方式の検査はリスト自体が腐ると検査ごと無効になるので、
+     * 一時例外を足すときは必ず追跡先(台帳の行番号)を書いて、外す条件を明記すること。
      */
-    private static final Set<String> PENDING_CMD_ASSIGNMENT = Set.of(
-            "role_reselect_ticket", "stat_reroll_ticket", "quality_upgrade_ticket");
+    private static final Set<String> PENDING_CMD_ASSIGNMENT = Set.of();
 
     @BeforeEach
     void setUp() {
@@ -68,7 +69,6 @@ class CatalogVanillaOperationPolicyConfigTest {
         when(catalog.template(anyString())).thenAnswer(invocation ->
                 java.util.Optional.ofNullable(templates.get(invocation.getArgument(0, String.class))));
 
-        int placeableEntries = 0;
         for (ItemTemplate template : templates.values()) {
             if (PENDING_CMD_ASSIGNMENT.contains(template.id())) {
                 continue; // 意図的な一時的例外。理由はクラス冒頭の PENDING_CMD_ASSIGNMENT の javadoc参照。
@@ -84,15 +84,28 @@ class CatalogVanillaOperationPolicyConfigTest {
             cmdOnly.setItemMeta(cmdOnlyMeta);
             assertTrue(CatalogVanillaOperationPolicy.isCatalogItem(cmdOnly, catalog),
                     () -> template.id() + " escaped the material+CMD recovery guard");
-            if (template.material().isBlock()) {
-                placeableEntries++;
-            }
         }
 
+        // 「素材がブロックでない TF 品も同じガードを通る」ことの代表例として輪転を1件だけ固定する。
+        // 出荷 catalog.yml は 2026-08-25 時点で GLOWSTONE_DUST（かつては GLOWSTONE だった）。
         ItemTemplate halo = templates.get("novus_criculus_luminis");
         assertNotNull(halo);
-        assertEquals(Material.GLOWSTONE, halo.material());
-        assertTrue(placeableEntries > 0, "the catalog must exercise the block-placement branch");
+        assertEquals(Material.GLOWSTONE_DUST, halo.material());
+        // ブロック素材の分岐は【出荷 catalog.yml の中身に依存させない】。
+        // 以前は「輪転がたまたま GLOWSTONE(=ブロック)だった」ことに寄りかかっていて、
+        // 2026-08-25 に素材が GLOWSTONE_DUST へ変わった時点で出荷カタログの
+        // ブロック素材エントリが 0 件になり、検査が実物ではなく偶然で赤くなった。
+        ItemTemplate placeable = new ItemTemplate(
+                "test_placeable_block", Material.GLOWSTONE, "Placeable", 4242,
+                com.trinityforge.pdc.BindType.TRADEABLE, 0, null);
+        assertTrue(placeable.material().isBlock(), "the fixture must be a block material");
+        ItemCatalogConfig placeableCatalog = mock(ItemCatalogConfig.class);
+        when(placeableCatalog.all()).thenReturn(Map.of(placeable.id(), placeable));
+        when(placeableCatalog.template(anyString())).thenAnswer(invocation ->
+                java.util.Optional.ofNullable(
+                        Map.of(placeable.id(), placeable).get(invocation.getArgument(0, String.class))));
+        assertTrue(CatalogVanillaOperationPolicy.isCatalogItem(catalogStack(placeable), placeableCatalog),
+                "a block-material catalog item escaped the shared catalog identity guard");
     }
 
     @Test

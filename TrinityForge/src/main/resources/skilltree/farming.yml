@@ -29,9 +29,13 @@ prestige:
   buffs:
     food-restore-bonus: 0.1
     harvest-extra-drop-chance: 0.2
+    planted-crop-growth-bonus: 1
+    bred-animal-growth-bonus: 2
   description: |-
     満腹度回復+10%
     幸運(収穫)+20%
+    成長効率(作物)+100%
+    成長効率(動物)+200%
 nodes:
   A:
     name: はじまりの百姓
@@ -64,9 +68,9 @@ nodes:
       - 満腹時に食べた量に応じた品質と時間でバフ
     description: |-
       食料を圧縮して食事が可能になる
-      成長効率(作物)+25%
+      成長効率(作物)+100%
     buffs:
-      planted-crop-growth-bonus: 0.25
+      planted-crop-growth-bonus: 1
     dedicated-effects:
       - id: recipe:compressed_bread_1x
       - id: recipe:compressed_cooked_beef_1x
@@ -90,12 +94,13 @@ nodes:
       - バニラEXPを追加で獲得
     buffs:
       farming-break-vanilla-exp-bonus: 0.5
+      planted-crop-growth-bonus: 2
     description: |-
       破壊で1.5倍のバニラEXP
-      範囲収穫 Lv1解放
+      成長効率(作物)+200%
+      収穫グリフ解放
     dedicated-effects:
-      - id: feature:area-harvest
-        value: 1
+      - id: glyph:harvest
   D:
     name: 村の豪農
     level: 70
@@ -103,20 +108,23 @@ nodes:
     parent: C
     icon: IRON_HOE
     cost: 1
-    effect-text: 範囲収穫・バニラEXPを追加で獲得
+    # 2026-08-25: 旧 effect-text/effects は「バニラEXPを追加で獲得」と書いていたが、
+    # このノードは EXP 倍率キーを 1 つも配っていない(配るのは C「近所の農家」の
+    # farming-break-vanilla-exp-bonus)。description 側は元から正しかったので表示だけ揃えた。
+    effect-text: 範囲収穫・収穫量UP
     effects:
       - 範囲収穫
-      - バニラEXPを追加で獲得
+      - 収穫量UP
     buffs:
       harvest-extra-drop-chance: 0.2
     dedicated-effects:
       - id: feature:area-harvest
-        value: 2
-      - id: glyph:harvest
+        value: 1
+      - id: glyph:grow
     description: |-
       幸運(収穫)+20%
-      範囲収穫 Lv2解放
-      収穫グリフ解放
+      範囲収穫 Lv1解放
+      成長グリフ解放
   E:
     name: 大地主
     level: 90
@@ -130,14 +138,15 @@ nodes:
       - ベジタブルコアを解放
       - ミートコアを解放(A-4解放済みの場合)
     dedicated-effects:
-      - id: glyph:grow
       - id: recipe:core_vegetable
       - id: feature:area-harvest
-        value: 3
+        value: 2
     description: |-
-      成長グリフ解放
-      範囲収穫 Lv3解放
+      成長効率(作物)+200%
+      範囲収穫 Lv2解放
       ベジタブルコアのクラフト解放
+    buffs:
+      planted-crop-growth-bonus: 2
   A-1:
     name: 鶏小屋の世話係
     level: 20
@@ -150,8 +159,10 @@ nodes:
       - 繁殖時低確率で2倍
     buffs:
       breeding-extra-child-chance: 0.5
+      bred-animal-growth-bonus: 1
     description: |-
       双子率+25%
+      成長効率(動物)+100%
       動物への与ダメ-ジが4倍になる
     dedicated-effects:
       - id: feature:animal-damage-4x
@@ -167,11 +178,11 @@ nodes:
       - 動物の成長速度UP
       - 繁殖時バニラEXPを獲得
     description: |-
-      成長効率(動物)+25%
+      成長効率(動物)+200%
       繁殖時1.5倍のバニラEXP
     buffs:
       breeding-vanilla-exp-bonus: 0.5
-      bred-animal-growth-bonus: 0.25
+      bred-animal-growth-bonus: 2
   A-3:
     name: 養蜂の達人
     level: 60
@@ -206,11 +217,11 @@ nodes:
       - 動物への与ダメージ4倍
       - バニラEXPを追加で獲得
     buffs:
-      bred-animal-growth-bonus: 0.5
+      bred-animal-growth-bonus: 2
       breeding-extra-child-chance: 0.5
     description: |-
       双子率+50%
-      成長効率(動物)+50%
+      成長効率(動物)+200%
       ミートコアのクラフト解放
     dedicated-effects:
       - id: recipe:core_meat
