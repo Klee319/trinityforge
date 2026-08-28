@@ -169,7 +169,8 @@ class ShippedCustomIdReferenceDriftTest {
                     material: STONE
                 """, StandardCharsets.UTF_8);
 
-        // 台帳には「かつて存在した」deleted_item の割当が残っている(番号を再利用しないため)。
+        // 台帳には「かつて存在した」deleted_item の割当が残っている。
+        // reconcile 前の ledger フォールバック経路は残骸 id を既知として通す。
         Path ledger = tempDir.resolve("cmd-registry.json");
         Files.writeString(ledger, """
                 [

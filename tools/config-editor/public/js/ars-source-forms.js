@@ -191,7 +191,6 @@
       rows.appendChild(h("div", { class: "empty-hint", text: "投入マテリアルがありません。「+ 追加」で登録します。" }));
     }
     keys.forEach((mat) => {
-      const hintEl = window.materialHintEl(mat);
       const matInput = window.materialInput(mat, "material-list", (v) => {
         const nv = String(v || "").trim();
         if (!nv || nv === mat) return;
@@ -204,7 +203,7 @@
         if (typeof onRerender === "function") onRerender();
       }, { allowCustom: true });
       rows.appendChild(h("div", { class: "stat-row" }, [
-        h("span", { class: "input-with-hint" }, [matInput, hintEl]),
+        matInput,
         window.numberInput(mats[mat], (v) => {
           mats[mat] = v == null ? 0 : v;
         }, { int: true }),
@@ -315,10 +314,8 @@
       ])
     ];
 
-    const matHint = window.materialHintEl(entry.material);
     const matInput = tileStateMaterialInput(entry.material, (v) => {
       entry.material = v;
-      matHint.update(v);
       if (typeof onRerender === "function") onRerender();
     });
 
@@ -334,7 +331,7 @@
     }
 
     const inputChildren = [
-      fieldRow("material", h("span", { class: "input-with-hint" }, [matInput, matHint]), {
+      fieldRow("material", matInput, {
         required: true,
         label: "material (TileState)",
         desc: "Paper 1.21.11 の TileState 対応ブロックのみ。かまど・飾り壺など。"

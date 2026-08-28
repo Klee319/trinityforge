@@ -94,17 +94,8 @@ function validateItemStats(data, errors) {
         && !isInteger(entry["quality-mode-offset"])) {
       errors.push(`items.${key}.quality-mode-offset: 整数である必要があります (負値可)`);
     }
-    if (entry["special-effects"] !== undefined && entry["special-effects"] !== null) {
-      if (!Array.isArray(entry["special-effects"])) {
-        errors.push(`items.${key}.special-effects: 配列である必要があります`);
-      } else {
-        for (let i = 0; i < entry["special-effects"].length; i++) {
-          if (typeof entry["special-effects"][i] !== "string") {
-            errors.push(`items.${key}.special-effects[${i}]: 文字列である必要があります`);
-          }
-        }
-      }
-    }
+    // item-stats.yml の entry["special-effects"] は 2026-08-08 に撤去(editor にしか存在しない飾り)。
+    // キー検証はしない。forms.js の prune リストが保存時に落とす。
     // item-stats.yml の entry["set-effects"] は 2026-08-09 に撤去(editor にしか存在しない飾りで、
     // TF本体・ArsPaperフォークとも読むコードが無く、出荷 item-stats.yml にも実データ0件だった)。
     // 実際にスレッドのセット効果を持つのは thread-sets.yml 側(validateArsThreadSets が検証、

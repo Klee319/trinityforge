@@ -73,7 +73,7 @@ const FIELD_SPECS = Object.freeze([
   // 2026-07-27 PvP(player→player)専用の抑制。max-damage-percent-of-max-health が肝で、
   // 倍率と違い攻撃カーブのスケールに依存しないため「調整漏れで即死ゲーに戻る」ことがない。
   { id: "pvp.enabled", file: "damage", path: ["pvp", "enabled"], kind: "boolean", def: true },
-  { id: "pvp.damage-multiplier", file: "damage", path: ["pvp", "damage-multiplier"], kind: "number", min: 0, def: 0.5 },
+  { id: "pvp.damage-multiplier", file: "damage", path: ["pvp", "damage-multiplier"], kind: "number", min: 0, def: 0 },
   { id: "pvp.max-damage-percent-of-max-health", file: "damage", path: ["pvp", "max-damage-percent-of-max-health"], kind: "number", min: 0, def: 0.15 },
   // 2026-07-28 日光炎上: バニラの1.0固定ではTFのモブHP(Lv0で400)に対して無意味だったので、
   // 日光で燃えている間の1発だけを最大HP割合へ置き換える。

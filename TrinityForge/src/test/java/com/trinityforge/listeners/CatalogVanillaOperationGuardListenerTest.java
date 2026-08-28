@@ -177,6 +177,26 @@ class CatalogVanillaOperationGuardListenerTest {
         verify(smithingEvent).setResult(null);
     }
 
+    @Test
+    void blockedPrepareSendsActionBarToThePlayer() {
+        ItemStack protectedItem = catalogStack(halo);
+        Player player = mock(Player.class);
+        org.bukkit.inventory.InventoryView view = mock(org.bukkit.inventory.InventoryView.class);
+        when(view.getPlayer()).thenReturn(player);
+
+        AnvilInventory anvil = mock(AnvilInventory.class);
+        when(anvil.getContents()).thenReturn(new ItemStack[] {protectedItem, null, null});
+        when(anvil.getFirstItem()).thenReturn(protectedItem);
+        PrepareAnvilEvent anvilEvent = mock(PrepareAnvilEvent.class);
+        when(anvilEvent.getInventory()).thenReturn(anvil);
+        when(anvilEvent.getView()).thenReturn(view);
+
+        listener.onPrepareAnvil(anvilEvent);
+
+        verify(anvilEvent).setResult(null);
+        verify(player).sendActionBar(org.mockito.ArgumentMatchers.any());
+    }
+
     /**
      * U4: 砥石で拒否するのは「カタログ品を素材として食う修理マージ」だけ。
      * 片方だけがカタログ品だと、素材側のロール/品質/バインドが黙って消える。

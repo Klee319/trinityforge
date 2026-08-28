@@ -10,6 +10,7 @@ import com.trinityforge.stats.CatalogIdentity;
 import com.trinityforge.stats.CraftQualityPolicy;
 import com.trinityforge.stats.CraftQualityService;
 import com.trinityforge.stats.DerivedItemStats;
+import com.trinityforge.stats.EmptyThreadStackNormalizer;
 import com.trinityforge.stats.ItemFactory;
 import com.trinityforge.stats.PlayerLootLuckSource;
 import com.trinityforge.stats.PreviewRollSeeds;
@@ -262,18 +263,20 @@ public final class PickupQualityListener implements Listener {
             }
             // 品質 / catalog identity / owner は独立に成立しうるので、いずれか変化したら書き戻す。
             boolean identity = CatalogIdentity.ensure(stack, itemCatalog);
+            boolean normalized = EmptyThreadStackNormalizer.normalize(stack, itemCatalog);
             boolean stamped = stampIfEligible(stack, player);
             boolean ownerStamped = stampOwnerIfEligible(stack, playerId);
-            if (identity || stamped || ownerStamped) {
+            if (identity || normalized || stamped || ownerStamped) {
                 inventory.setItem(slot, stack);
             }
         }
         ItemStack cursor = player.getItemOnCursor();
         if (cursor != null && !cursor.getType().isAir()) {
             boolean identity = CatalogIdentity.ensure(cursor, itemCatalog);
+            boolean normalized = EmptyThreadStackNormalizer.normalize(cursor, itemCatalog);
             boolean stamped = stampIfEligible(cursor, player);
             boolean ownerStamped = stampOwnerIfEligible(cursor, playerId);
-            if (identity || stamped || ownerStamped) {
+            if (identity || normalized || stamped || ownerStamped) {
                 player.setItemOnCursor(cursor);
             }
         }
@@ -287,6 +290,11 @@ public final class PickupQualityListener implements Listener {
      */
     boolean stampIfEligible(ItemStack stack, Player player) {
         if (stack == null || stack.getType().isAir()) {
+            return false;
+        }
+        // 空スレッドは個体差を持たない消耗品。TF の品質刻印を入れると roll_seed が個体ごとに違い
+        // スタックが割れる(W-68)。Ars 実体のまま揃える。
+        if (EmptyThreadStackNormalizer.isEmptyThread(stack)) {
             return false;
         }
         ItemMeta meta = stack.getItemMeta();

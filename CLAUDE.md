@@ -6,7 +6,7 @@ Minecraft **Paper 1.21.11 / Java 21** 向けの大規模プラグイン群。TF 
 
 ## 最初に読むもの（順番厳守）
 
-1. **`reports/ACTIVE_RECORD.md`** — 残タスク・既知バグ・現在の状態の**唯一の一次情報**（約 200 行）。
+1. **`reports/ACTIVE_RECORD.md`** — 残タスク・既知バグ・現在の状態の**唯一の一次情報**（**本文は約200行を上限**。超えたら閉じた項目を `reports/ACTIVE_RECORD_ARCHIVE.md` へ移す）。
    過去の作業記録は `reports/ACTIVE_RECORD_ARCHIVE.md`（**残タスクの一次情報ではない**）。
    `docs/archive/` は**失効した設計文書**なので正典として読まない。**新しいレポートを増やさない。**
 2. **`docs/agent-context/README.md`** — 触る前に知らないと黙って壊す知識の索引。
@@ -71,7 +71,7 @@ cd tools/config-editor && npm test
 | `TrinityForge/src/test/java/` | JUnit + MockBukkit |
 | `fork-handoff/elitemobs/`, `fork-handoff/arspaper/` | フォーク。**ソースは `.gitignore` で除外** → クローンにも新しい worktree にも存在しない |
 | `tools/config-editor/` | Node.js 製 GUI 設定エディタ。`lib/` と `public/js/` の**ミラー 2 本を必ず両方更新** |
-| `resourcepack/` | リソースパックと `cmd-registry.json`（**CMD の永続台帳。番号を再利用しない**） |
+| `resourcepack/` | リソースパックと `cmd-registry.json`（**現行配線の台帳。欠番は再利用してよい**。既存アイテムの番号振り直しは禁止） |
 | `skilltree/` | スキルツリーのスライド（**唯一の一次仕様**。消さない） |
 | `ops/` | 運用スクリプト・RUNBOOK |
 | `reports/ACTIVE_RECORD.md` | 残タスク・現在の状態の一次情報。過去分は `ACTIVE_RECORD_ARCHIVE.md` |

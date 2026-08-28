@@ -42,8 +42,10 @@ bleed:
 aoe:
   hit-players: false
 pvp:
+  # enabled は「抑制を掛けるか」。false にすると対人もモブと同じ計算 = 即死になる。
+  # 出荷は抑制 ON + 倍率 0 = 対人ダメージ無し(PvP無し)。
   enabled: true
-  damage-multiplier: 0.5
+  damage-multiplier: 0
   max-damage-percent-of-max-health: 0.15
 vanilla-armor:
   defense-rate-per-point: 0.015

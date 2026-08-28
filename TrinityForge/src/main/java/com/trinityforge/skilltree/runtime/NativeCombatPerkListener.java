@@ -29,7 +29,7 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * Applies combat-oriented perk totals at damage / bow events (2026-07-23 stat-gate-overhaul §2 移行B:
  * every numeric perk consumer here reads the装備+perk合算 ({@link PlayerStatAggregator#aggregate}) instead
- * of the old perk-only {@link NativePerkRewardResolver}, so the same buffs can now also be authored on
+ * of the old perk-only native reward resolver, so the same buffs can now also be authored on
  * equipment. Charged-shot availability is also a regular perk-buff stat, so this listener has no
  * separate native-reward dependency.
  */

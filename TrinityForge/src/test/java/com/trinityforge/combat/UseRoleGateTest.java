@@ -123,8 +123,8 @@ class UseRoleGateTest {
         File file = new File(dir, ItemStatsConfig.PATH);
         Files.createDirectories(file.getParentFile().toPath());
         Files.writeString(file.toPath(), YAML);
-        // enforce の【コード上の既定は false】で、true にしているのは出荷 yml のほう。
-        // ここを書かないとゲートが素通りして、このテスト自体が何も検証しなくなる。
+        // enforce のコード既定は true(出荷 yml と同じ)。明示しておくのは、このテストが
+        // 「ゲートが掛かること」を検証していて、キー欠落で素通りしたら検査が消えるため。
         File gateFile = new File(dir, UseRequirementsConfig.PATH);
         Files.createDirectories(gateFile.getParentFile().toPath());
         Files.writeString(gateFile.toPath(), "enforce: true\n");

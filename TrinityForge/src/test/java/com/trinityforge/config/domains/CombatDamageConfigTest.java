@@ -250,4 +250,19 @@ class CombatDamageConfigTest {
         assertTrue(yaml.contains("attack-power-scale: 1"),
                 "combat/damage.yml の magical: 節に attack-power-scale: 1 が必要");
     }
+
+    @Test
+    void pvpDamageMultiplierDefaultsToZero(@TempDir File tempDir) throws IOException {
+        CombatDamageConfig config = loaded(tempDir, "physical:\n  base-coefficient: 1.0\n");
+        assertTrue(config.pvpEnabled(), "抑制そのものは ON(false にすると即死PvPになる)");
+        assertEquals(0.0, config.pvpDamageMultiplier(), 0.0);
+    }
+
+    @Test
+    void meleeChargeDefaultsMatchShippedCurve(@TempDir File tempDir) throws IOException {
+        CombatDamageConfig config = loaded(tempDir, "physical:\n  base-coefficient: 1.0\n");
+        assertTrue(config.meleeChargeEnabled());
+        assertEquals(0.1, config.meleeChargeMinMultiplier(), 0.0);
+        assertEquals(1.6, config.meleeChargeExponent(), 0.0);
+    }
 }
