@@ -572,10 +572,10 @@ lore がキャッシュされたまま残っている可能性があるため、
 
 ## ネイティブ効果とステータスの線引き
 
-「ネイティブ効果（`NativePerkRewardResolver` 経由の付与）」と「ステータス（`PlayerStatAggregator.totalOf()` が読む合算値）」は別の機構であり、すべてをstat化できるわけではない。
+「ネイティブ効果（パーク解放などの永続アンロック）」と「ステータス（`PlayerStatAggregator.totalOf()` が読む合算値）」は別の機構であり、すべてをstat化できるわけではない。
 
 - **stat化不可**: 永続アンロック型（glyph-gate、recipe/ritual gate、村人取引、醸造解放、xp-bottle等の各種「習得」系）は、装備条件化するとレシピブック／取引／呪文書同期が壊れるため対象外。管理キー（`perks_locked_add` 等）や、唯一の発動型である純アクティブ（例: haste-active-mining）も対象外。
-- **stat化可能**: 弓系・スタン・パリィ・採集ギミック%・食料・伐採・ドロップ/EXP倍率など大半の効果はstat化可能で、consumer側を `NativePerkRewardResolver` から `PlayerStatAggregator.totalOf()` 参照へ切り替えるだけで対応できる。
+- **stat化可能**: 弓系・スタン・パリィ・採集ギミック%・食料・伐採・ドロップ/EXP倍率など大半の効果はstat化可能で、consumer側を `PlayerStatAggregator.totalOf()` 参照へ切り替えるだけで対応できる。
 
 新しい効果を追加するときは、まず「これは永続アンロックか、瞬間的な数値効果か」を切り分けること。前者を無理にstat化しない。
 

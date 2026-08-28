@@ -18,7 +18,7 @@ public final class UseRequirementsConfig implements LoadableConfig {
 
     public static final String PATH = "progression/use-requirements.yml";
 
-    private volatile boolean enforce = false;
+    private volatile boolean enforce = true;
 
     /** When false, use-level / use-skill requirements on items are recorded but never enforced. */
     public boolean enforce() {
@@ -44,7 +44,7 @@ public final class UseRequirementsConfig implements LoadableConfig {
                     + ex.getMessage(), ex);
             return false;
         }
-        enforce = yaml.getBoolean("enforce", false);
+        enforce = yaml.getBoolean("enforce", true);
         log.info("[" + PATH + "] loaded enforce=" + enforce);
         return true;
     }

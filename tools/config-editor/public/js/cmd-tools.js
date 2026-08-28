@@ -119,8 +119,8 @@
       fresh.entry["custom-model-data"] = cmd;
       const put = await putConfigRevision("catalog", fresh.data, fresh.revision);
       if (!put.ok) {
-        // 台帳には番号が残る (respack-view の一括採番と同じ既知の限界)。番号は捨てても
-        // 再利用しない方針なので、実害は「欠番が1つ増える」だけに留まる。
+        // 台帳には番号が残る (respack-view の一括採番と同じ既知の限界)。
+        // 次の reconcile で config に無い行は落ち、欠番は再利用される。
         notify(`CMD ${cmd} は採番しましたが、他で編集中のため catalog.yml に保存できませんでした。`
           + "画面を再読込してやり直してください", "error");
         return null;

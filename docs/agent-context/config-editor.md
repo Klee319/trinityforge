@@ -700,7 +700,7 @@ CMD 未割当の候補を選んだときだけ、確認ダイアログ 1 回 →
 - **`catalog.yml` 側にも必ず書く。** item-stats のキーだけ `#123` にすると、そのステータスは
   実物のアイテムに**一生マッチしない**半端な状態になる。
 - **確認ダイアログの後に revision を取り直してから採番する。** 先に採番して 409 を食うと
-  台帳の番号だけ捨てることになる（番号は再利用しない方針なので欠番が増える）。
+  台帳の番号だけ捨てることになる（次の reconcile までその番号が占有され、その後欠番として再利用される）。
 - **`.then()` の中で `candidate.cmd = assigned` も更新する。** 画面が持つ候補リストは同一オブジェクト
   参照なので、ここを忘れると同じ品を選び直したときに再び未割当と判定して確認が二重に出る。
 - 回帰テストは `test/item-stats-new-catalog-item-cmd-2026-08-04.test.js`（採番ヘルパの契約 6 件＋
@@ -1069,8 +1069,7 @@ hasModel(a) = a.assetName && exists(models/item/<a.assetName>.json)
 反映は**エディタ自身の generator を呼ぶ**（`require("tools/config-editor/lib/respack.js")` →
 `regenerateItemDefinitions(...)`）。手書きの JSON はエディタが出す形と必ずどこかがズレる。
 
-`cmd-registry.json` は永続台帳で **CMD 番号を再利用しない**。既存の割当に `assetName` を
-後から足すのは正しい操作だが、番号を振り直すのは禁止。
+`cmd-registry.json` は**現行配線の台帳**で、config から消えた番号は `reconcileWithUsage` が行を落として**欠番を再利用する**。既存アイテムの CMD を振り直すのは禁止（見た目と item-stats の `MATERIAL#CMD` キーが外れる）。
 
 ### 「アートはあるのに描かれない」を検出する仕組み
 

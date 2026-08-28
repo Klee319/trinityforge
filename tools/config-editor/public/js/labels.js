@@ -577,7 +577,7 @@
     "max-bind-tier": { label: "設定可能グリフ最大ティア", desc: "この触媒にバインド可能なスペルの最大グリフティア。" },
     // "set-effects"(item-stats.yml側)は2026-08-09に撤去。実際にスレッドのN個装備セット効果を
     // 読むのは thread-sets.yml (キーはスレッドID共通)。ラベルも参照が無いので一緒に削除した。
-    "special-effects": { label: "特殊効果", desc: "暗視・飛行など、スレッドの既定特殊効果。" },
+    // "special-effects" も 2026-08-08 撤去(同じ飾りキー)。
     "upgrade-from": { label: "アップグレード元", desc: "アップグレード元の魔導書id。最下位ティアは(なし)。items.ymlの儀式定義との整合性は起動時に自動検証される。" },
     "cooldown": { label: "発動CT(秒)", desc: "0または未設定で追加ゲートなし。" },
     "coordinate-coefficient": { label: "座標係数", desc: "ワールドスポーン地点からの距離1ブロックあたりのレベル加算。effectiveLevel = level + floor(距離×係数)。" },

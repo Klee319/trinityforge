@@ -659,11 +659,10 @@
         });
       }
 
-      const matHint = window.materialHintEl(model.baseMaterial);
-      const matInput = window.materialInput(model.baseMaterial, "material-list", (v) => { model.baseMaterial = v; model.hasBaseMaterial = true; matHint.update(v); });
+      const matInput = window.materialInput(model.baseMaterial, "material-list", (v) => { model.baseMaterial = v; model.hasBaseMaterial = true; });
 
       const inputs = h("div", { class: "entry-inputs" }, [
-        fieldRow("base_material", h("span", { class: "input-with-hint" }, [matInput, matHint])),
+        fieldRow("base_material", matInput),
         fieldRow("custom_model_data", (() => {
           const wrap = h("span", { class: "cmd-field-row" });
           // 入力欄を空にしたら「未設定」へ戻す(0 を書くとCMD一括採番の対象から外れる)。

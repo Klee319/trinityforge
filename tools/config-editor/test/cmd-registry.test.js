@@ -55,7 +55,7 @@ test("nextCmd: material 毎に独立して開始する (他material未使用な�
   assert.equal(cmd, 1);
 });
 
-test("nextCmd: 台帳のみに残る値(config削除済み)も衝突として再利用しない", () => {
+test("nextCmd: reconcile 前の台帳残りは衝突として飛ばす", () => {
   const registry = { allocations: [{ material: "IRON_INGOT", cmd: 3 }] };
   const cmd = CmdRegistry.nextCmd("IRON_INGOT", [], registry);
   assert.equal(cmd, 4);

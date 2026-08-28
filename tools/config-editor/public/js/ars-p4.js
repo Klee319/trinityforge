@@ -251,9 +251,7 @@
 
     // ---- 共通: Material / EntityType の単一値フィールド (未知の値はブロックせず赤枠で警告) ----
     function materialField(value, onChange) {
-      const hint = window.materialHintEl(value);
       const wrap = window.materialInput(value, "glyphs-exchange", (v) => {
-        hint.update(v);
         updateErr(v);
         onChange(v);
       }, { allowCustom: false });
@@ -264,7 +262,7 @@
         wrap.title = ok ? "" : `未知のMaterialです（1.21.11のMaterial一覧に見つかりません。保存は可能ですが誤字の可能性があります）: ${v}`;
       }
       updateErr(value);
-      return h("span", { class: "input-with-hint" }, [wrap, hint]);
+      return wrap;
     }
 
     // 2026-07-29: datalist 付きの素の text 入力(候補は英字ID、和名は横の hint だけ)を、
@@ -733,9 +731,7 @@
       function render() {
         box.innerHTML = "";
         for (const key of Object.keys(mats)) {
-          const hint = window.materialHintEl(key);
           const matInput = window.materialInput(key, "material-list", (v) => {
-            hint.update(v);
             const nv = String(v || "").trim();
             if (!nv || nv === key) return;
             if (has(mats, nv)) { alert("同じ素材が存在します"); return; }
@@ -743,7 +739,7 @@
             render();
           }, { allowCustom: true });
           box.appendChild(h("div", { class: "stat-row" }, [
-            h("span", { class: "input-with-hint" }, [matInput, hint]),
+            matInput,
             h("span", { class: "mini-label", text: "×" }),
             window.numberInput(mats[key], (v) => { mats[key] = v == null ? 0 : v; }, { int: true }),
             h("button", {

@@ -1,6 +1,6 @@
 "use strict";
 
-// P5 専用フォーム: gacha.yml (ガチャ) / thread-sets.yml (スレッドセット効果)。
+// P5 専用フォーム: gacha.yml (ガチャ)。thread-sets.yml 専用フォームは撤去済み。
 // 往復ロスレス方針は他フォームと同じ: working を直接編集し、構造変更時のみ render() で再描画。
 // 未知キー・キー順は温存する。i18n は表示のみ。
 
@@ -263,141 +263,10 @@
     return { element: root, getData: () => working };
   };
 
-  // ============================================================
-  // thread-sets.yml (ars-thread-sets)
-  //   thread-sets: { <threadType>: { thresholds: { <N>: { <stat>: value } } } }
-  //   累積しきい値式: N以上の全しきい値のステを合算。
-  // ============================================================
-  // 「+ スレッド種追加」で提案する種別名。ArsPaper フォークの ThreadType enum の id と1:1で対応する
-  // (id が1文字でもズレると、書いた thread-sets が Java 側で誰にも参照されない死に設定になる)。
-  // 順序 = 提案順。既存15種 → 2026-08-02 追加の24種(制作/ルート/ダンジョンの経路順)。
-  const KNOWN_THREADS = [
-    // --- 初期からある15種 (CMD 300002〜300016) ---
-    "mana_regen", "mana_boost", "speed", "jump_boost", "night_vision", "fire_resistance",
-    "dolphins_grace", "conduit_power", "hero_of_the_village", "health_boost",
-    "hit_mana_recovery", "damage_mana_recovery", "spell_cost_down", "flight", "backpack",
-    // --- 制作(儀式・生産)枠 8種 (CMD 300017〜300023 / 300031) ---
-    // mana_amplify / mana_circulate は threads.yml 側に効果値を持つ stackable 型なので、
-    // 出荷 yml では thread-sets を空にしてある(セット効果も書くと同じ効果を二重取りできてしまう)。
-    // 提案候補には残す = 「ここに何か足したい」ときに id を手打ちさせないため。
-    "mana_amplify", "mana_circulate", "source_thrift", "artisan", "ritualist",
-    "thrift", "salvage", "scholar",
-    // --- ルート(採取・生活)枠 8種 (CMD 300024〜300027 / 300029 / 300033 / 300034 / 300039) ---
-    // slow_falling は装備中常時 SLOW_FALLING を持つため、セット効果は3個目から
-    // (既存のポーション枠スレッドと同じく1段目はポーション効果そのものが取り分)。
-    "miner", "angler", "harvest", "timber", "diligence", "endurance", "gourmet", "slow_falling",
-    // --- ダンジョン(戦闘)枠 8種 (CMD 300028 / 300030 / 300032 / 300035〜300038 / 300040) ---
-    // luck も slow_falling と同様、常時 LUCK を持つのでセット効果は3個目から。
-    "spoils", "experience", "mending_flesh", "thorn", "concussion", "swiftcast", "marksman", "luck"
-  ];
-
-  window.buildThreadSetsForm = function buildThreadSetsForm(data) {
-    const working = data && typeof data === "object" ? data : {};
-    if (working["thread-sets"] == null || typeof working["thread-sets"] !== "object") working["thread-sets"] = {};
-    const sets = working["thread-sets"];
-    const root = h("div", { class: "dedicated-form" });
-
-    function statValue(key, value, setter) {
-      // forms.js の %入力(割合保存) を再利用。未ロード時は素の数値入力にフォールバック。
-      if (window.statValueControl) return window.statValueControl(key, value, setter);
-      return window.numberInput(value, (v) => setter(v == null ? 0 : v));
-    }
-
-    function render() {
-      root.innerHTML = "";
-      const setKeys = Object.keys(sets);
-      if (!setKeys.length) root.appendChild(emptyHint("スレッド種がありません。「+ スレッド種追加」で追加します。"));
-
-      for (const tname of setKeys) {
-        const node = sets[tname] && typeof sets[tname] === "object" ? sets[tname] : (sets[tname] = {});
-        if (node.thresholds == null || typeof node.thresholds !== "object") node.thresholds = {};
-        const thresholds = node.thresholds;
-
-        const head = h("div", { class: "entry-head-row" }, [
-          h("span", { class: "range-label", text: "スレッド種" }),
-          keyInput(sets, tname, render),
-          h("button", { class: "btn-small danger", type: "button", text: "削除", onclick: () => { delete sets[tname]; render(); } })
-        ]);
-
-        const body = h("div", { class: "stat-rows" });
-        const thKeys = Object.keys(thresholds);
-        if (!thKeys.length) body.appendChild(emptyHint("しきい値がありません(セット効果なし)。「+ しきい値追加」で追加します。"));
-        for (const n of thKeys) {
-          const statMap = thresholds[n] && typeof thresholds[n] === "object" ? thresholds[n] : (thresholds[n] = {});
-          const thBox = h("div", { class: "threshold-box" });
-          const thHead = h("div", { class: "stat-row" }, [
-            h("span", { class: "range-label", text: "装備" }),
-            (() => {
-              // change(blur/Enter)で確定=入力中に再描画しない。1以上の整数へ丸め、重複は元へ戻す。
-              const inp = h("input", { class: "field-input num", type: "number", step: "1", value: n });
-              inp.addEventListener("change", () => {
-                const nv = inp.value === "" ? "" : String(Math.max(1, Math.round(Number(inp.value))));
-                if (!nv || nv === n) { inp.value = n; return; }
-                if (Object.prototype.hasOwnProperty.call(thresholds, nv)) { alert("同じしきい値が既にあります"); inp.value = n; return; }
-                renameKey(thresholds, n, nv); render();
-              });
-              return inp;
-            })(),
-            h("span", { class: "range-label", text: "個以上で発動" }),
-            h("button", { class: "btn-small danger", type: "button", text: "しきい値削除", onclick: () => { delete thresholds[n]; render(); } })
-          ]);
-          thBox.appendChild(thHead);
-
-          const statRows = h("div", { class: "stat-rows indented" });
-          const statKeys = Object.keys(statMap);
-          if (!statKeys.length) statRows.appendChild(emptyHint("ステがありません。「+ ステ追加」で追加します。"));
-          for (const sk of statKeys) {
-            const row = h("div", { class: "stat-row" });
-            const s = window.statSelect(sk, (nv) => {
-              if (!nv || nv === sk) return false;
-              if (Object.prototype.hasOwnProperty.call(statMap, nv)) { alert("同じステータスが既にあります"); return false; }
-              renameKey(statMap, sk, nv); render(); return true;
-            });
-            row.appendChild(s);
-            row.appendChild(statValue(sk, statMap[sk], (v) => { statMap[sk] = v; }));
-            if (window.statUnitSlot) row.appendChild(window.statUnitSlot(sk));
-            row.appendChild(h("button", { class: "btn-small danger", type: "button", text: "×", onclick: () => { delete statMap[sk]; render(); } }));
-            statRows.appendChild(row);
-          }
-          statRows.appendChild(h("button", {
-            class: "btn-small", type: "button", text: "+ ステ追加",
-            onclick: () => { statMap[pickNewStat(statMap)] = 0; render(); }
-          }));
-          thBox.appendChild(statRows);
-          body.appendChild(thBox);
-        }
-        body.appendChild(h("button", {
-          class: "btn-small", type: "button", text: "+ しきい値追加",
-          onclick: () => { thresholds[String(nextThreshold(thresholds))] = {}; render(); }
-        }));
-
-        root.appendChild(card([head], [subTitle("累積しきい値式: N個以上の全しきい値のステを合算")].concat([body])));
-      }
-
-      root.appendChild(h("button", {
-        class: "btn-small", type: "button", text: "+ スレッド種追加",
-        onclick: () => { sets[uniqueKey(sets, nextThreadName())] = { thresholds: {} }; render(); }
-      }));
-    }
-
-    function nextThreshold(thresholds) {
-      let n = 2;
-      while (Object.prototype.hasOwnProperty.call(thresholds, String(n))) n++;
-      return n;
-    }
-    function nextThreadName() {
-      for (const t of KNOWN_THREADS) if (!Object.prototype.hasOwnProperty.call(sets, t)) return t;
-      return "thread";
-    }
-    function pickNewStat(target) {
-      const list = (window.STAT_LIST && window.STAT_LIST.length ? window.STAT_LIST : window.FALLBACK_STATS) || [];
-      for (const c of list) if (!Object.prototype.hasOwnProperty.call(target, c)) return c;
-      return "new-stat";
-    }
-
-    render();
-    return { element: root, getData: () => working };
-  };
+  // thread-sets.yml 専用フォーム(buildThreadSetsForm)は撤去済み。ナビからも到達不能で、
+  // セット効果の編集はアイテムステータス「スレッド」タブ(forms.js の renderThreadExtraFields)
+  // が thread-sets.yml を横から読み書きする。schema の ars-thread-sets 検証は残す。
+  // 新しい専用ナビ/専用フォームをここに足さないこと。
 
   // 2026-08-02: スレッド厳選専用の random-roll-pools エディタ(旧 buildRandomRollPoolsForm /
   // buildRandomRollPoolEditor)は撤去した。ユーザー指示は「専用GUI/専用仕様を作るな。武器と同じ

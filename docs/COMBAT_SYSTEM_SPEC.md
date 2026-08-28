@@ -87,7 +87,7 @@
 
 ## 3. ステータス一覧（3ファミリー）
 
-> **更新（LD-13, 2026-07-14 / `OPEN_DECISIONS.md`）— 防御 typing 改訂**: 本章以下の防御ステの物理/魔法の分け方を改訂した。**耐性%のみ typed（物理耐性/魔法耐性で別）。守備力(flat)・防御率%・被ダメージ軽減%・防具強度・回避 は共通（type非依存＝物理・魔法の両方に効く）**。従って **vanilla armor/toughness は物理・魔法の両成分を軽減**する。これにより下記 §3.3（「バニラ装備限定＝物理守備力/物理耐性」）・§3.4（「Ars装備限定＝魔法守備力」で魔法は装甲非依存の含意）・§4（「守備力・耐性を typed に一本化」）・§2.1 step6 の `守備力[該当type]` 表記は**本注記で上書き**される。魔法耐性は追加の特化層。物理装甲寄り/魔法耐性寄りの差はアイテム設計（typed耐性を積む）で出す。
+> **更新（LD-13, 2026-08-28 コード追従）**: **守備力(flat)は typed**（`phys-flat-defense` / `magic-flat-defense`）。耐性%も typed。防御率%・被ダメージ軽減%・防具強度・回避は共通。旧「flat は type 非依存」は失効。
 >
 > ※実装は本注記に準拠済み（`SymmetricCombatService.resolveDefender` が vanilla armor を両成分へ適用、`DefenseStatBridge` が耐性のみ typed）。※mobのPDCプロファイルは per-type の守備力/防御率/軽減を持ちうる（player由来値は共通）＝mob/player 非対称は許容（LD-13 M4）。
 

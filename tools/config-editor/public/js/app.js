@@ -719,7 +719,6 @@
         const catalogCandidates = await fetchCatalogCandidatesWithMaterials();
         return window.buildGachaForm(data, { catalogCandidates });
       }
-      case "ars-thread-sets": return window.buildThreadSetsForm(data);
       case "ars-recipes": return window.buildRecipesForm(data, { onlyEffects: true });
       case "ars-materials": return window.buildMaterialsForm(data);
       case "ars-threads": return window.buildThreadsForm(data);

@@ -4,7 +4,7 @@
 # EliteMobs ネイティブの item-tier 難易度入力の置き換え。
 #
 # 数値は暫定(PROVISIONAL)。正式なスキル集合・除数・カーブは数値調整フェーズで確定する。
-# skill キーは SkillLevelSource(ValhallaMMO bridge)が返す id に一致必須。未知キーは無視。
+# skill キーは SkillLevelSource(native スキルツリー)が返す id に一致必須。未知キーは無視。
 
 # --- モデル: max-of-top-N (LD-7) ---
 # 各スキルの寄与 = |weight| * level。これを降順に並べ、各 pillar が

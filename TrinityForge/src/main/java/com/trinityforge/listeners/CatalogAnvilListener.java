@@ -28,6 +28,9 @@ import java.util.concurrent.ThreadLocalRandom;
  * <p>Left (first) = {@code source-item} (合成元), right (second) = {@code addition-item} (合成対象),
  * result = the catalog entry that owns the recipe (合成先). Quality inherits the source when
  * {@code inherit-source-quality}, otherwise the average of both inputs.
+ *
+ * <p><b>増殖バグ — {@code setItemOnCursor} を呼んではいけない</b>:
+ * {@link CatalogSmithingListener} W-140 と同型。結果枠({@code setCurrentItem})だけ差し替える。
  */
 public final class CatalogAnvilListener implements Listener {
 
@@ -80,10 +83,11 @@ public final class CatalogAnvilListener implements Listener {
         long seed = ThreadLocalRandom.current().nextLong();
         ItemStack stamped = itemFactory.create(match.resultTemplate(), seed, quality);
         CatalogIdentity.ensure(stamped, itemCatalog);
+        // 結果枠だけを差し替える。カーソルには絶対に触らない — CraftBukkit の
+        // handleContainerClick はイベント発火のあとバニラ clicked() を走らせるので、
+        // ここで setItemOnCursor すると「カーソルが埋まっている」扱いになり
+        // ResultSlot#onTake が呼ばれず素材が消費されない(=増殖)。W-140 の鍛冶台と同型。
         event.setCurrentItem(stamped.clone());
-        if (!event.isShiftClick()) {
-            player.setItemOnCursor(stamped.clone());
-        }
         plugin.getServer().getScheduler().runTask(plugin,
                 () -> restampAnvilPreviews(player, match.resultTemplate(), quality));
 

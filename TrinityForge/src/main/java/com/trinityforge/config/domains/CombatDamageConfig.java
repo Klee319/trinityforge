@@ -160,23 +160,24 @@ public final class CombatDamageConfig {
                 // だった。倍率と「最大体力に対する1発の割合上限」の2段で抑える(詳細は
                 // combat/damage.yml のコメントと combat.PvpDamagePolicy の javadoc)。
                 .field(SchemaField.of(PVP_ENABLED, SchemaField.Type.BOOLEAN, true))
-                .field(SchemaField.number(PVP_DAMAGE_MULTIPLIER, SchemaField.Type.DOUBLE, 0.5, 0.0, 100.0))
+                // 出荷は倍率 0 = 対人ダメージ無し(PvP無し)。enabled を false にすると抑制が外れ即死になる。
+                .field(SchemaField.number(PVP_DAMAGE_MULTIPLIER, SchemaField.Type.DOUBLE, 0.0, 0.0, 100.0))
                 .field(SchemaField.number(PVP_MAX_DAMAGE_PERCENT_OF_MAX_HEALTH,
                         SchemaField.Type.DOUBLE, 0.15, 0.0, 100.0))
                 // B2: バニラのチャージ攻撃(クールダウン中の連打減衰)をTFの独自ダメージパイプラインへ
-                // 再導入する。既定はバニラ相当(下限0.2倍・指数2)。近接プレイヤー攻撃のみに適用される
-                // (CombatListener側のゲート、弓/クロスボウ/トライデント/魔法/モブ攻撃には適用しない)。
+                // 再導入する。既定は出荷 yml と同じ下限0.1倍・指数1.6(2026-08-01 調整。旧バニラ相当は 0.2/2.0)。
+                // 近接プレイヤー攻撃のみに適用される(CombatListener側のゲート、弓/クロスボウ/トライデント/魔法/モブ攻撃には適用しない)。
                 .field(SchemaField.of(MELEE_CHARGE_ENABLED, SchemaField.Type.BOOLEAN, true))
-                .field(SchemaField.number(MELEE_CHARGE_MIN_MULTIPLIER, SchemaField.Type.DOUBLE, 0.2, 0.0, 1.0))
-                .field(SchemaField.number(MELEE_CHARGE_EXPONENT, SchemaField.Type.DOUBLE, 2.0, 0.01, 100.0))
+                .field(SchemaField.number(MELEE_CHARGE_MIN_MULTIPLIER, SchemaField.Type.DOUBLE, 0.1, 0.0, 1.0))
+                .field(SchemaField.number(MELEE_CHARGE_EXPONENT, SchemaField.Type.DOUBLE, 1.6, 0.01, 100.0))
                 // 2026-07-25: attack-speed(絶対値)+attack-speed-bonus(割合)の合成後、最終実効速度がこの値を
                 // 割らないようクランプする下限(デバフ過多でも0/負にはならない)。既定0.1。
                 .field(SchemaField.number(ATTACK_SPEED_MIN_EFFECTIVE, SchemaField.Type.DOUBLE, 0.1, 0.01, 4.0))
                 // PerkAttributeApplierの装備フィンガープリント再照合の周期(tick)。既定10tick=0.5秒。
                 .field(SchemaField.number(ATTACK_SPEED_RECONCILE_INTERVAL_TICKS, SchemaField.Type.INT,
                         10, 1, 1200))
-                // C2 (魔法はcombatレベルbypass): false のとき魔法の基本ダメージにcombatレベル倍率を掛けない。
-                // 既定 false = bypass。true で物理と同じレベル倍率を適用する(旧挙動)。
+                // 魔法の基本ダメージに combat レベル倍率を掛けるか。出荷・Java 既定とも true
+                // (物理と同じレベル倍率)。false にすると C2 旧方針の bypass に戻る。
                 .field(SchemaField.of(MAGICAL_SCALE_WITH_COMBAT_LEVEL, SchemaField.Type.BOOLEAN, true))
                 // 2026-07-31 D6(魔法ダメージに杖の攻撃力が乗らない)の係数。既定1.0=100%加算。
                 // 上限10.0は「杖の attack-power を10倍まで盛れる」逃げ道として置いてある(通常は1.0)。
@@ -499,12 +500,12 @@ public final class CombatDamageConfig {
         return domain.get().getBoolean(MELEE_CHARGE_ENABLED);
     }
 
-    /** B2: the multiplier floor at {@code t=0} (just swung, no charge). Default {@code 0.2} (vanilla). */
+    /** B2: the multiplier floor at {@code t=0} (just swung, no charge). Default {@code 0.1} (shipped). */
     public double meleeChargeMinMultiplier() {
         return domain.get().getDouble(MELEE_CHARGE_MIN_MULTIPLIER);
     }
 
-    /** B2: the exponent applied to the cooled-attack-strength fraction. Default {@code 2.0} (vanilla). */
+    /** B2: the exponent applied to the cooled-attack-strength fraction. Default {@code 1.6} (shipped). */
     public double meleeChargeExponent() {
         return domain.get().getDouble(MELEE_CHARGE_EXPONENT);
     }

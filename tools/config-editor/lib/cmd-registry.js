@@ -1,8 +1,9 @@
 "use strict";
 
 // CMD (CustomModelData) 台帳の管理。
-// 台帳ファイル (resourcepack/cmd-registry.json) は「どのアイテムがどの CMD を使ったか」の
-// 履歴を蓄積する。一度払い出した番号は変更・再利用しない (プレイヤー所持品が壊れるため)。
+// 台帳ファイル (resourcepack/cmd-registry.json) は現行配線の台帳。
+// config から消えた番号は reconcileWithUsage が行を落とし、欠番は再利用してよい。
+// 既存アイテムの CMD を振り直すのは禁止 (所持品の見た目と item-stats の MATERIAL#CMD が外れる)。
 //
 // このモジュールは Node 標準の fs のみを使い、ブラウザ非依存。server.js とテストの双方から
 // 台帳パス・reader を明示的に渡して呼ぶ (グローバル状態を持たない)。

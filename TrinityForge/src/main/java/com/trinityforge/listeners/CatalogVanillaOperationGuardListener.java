@@ -10,6 +10,8 @@ import io.papermc.paper.event.entity.EntityCompostItemEvent;
 import io.papermc.paper.event.player.CartographyItemEvent;
 import io.papermc.paper.event.player.PlayerLoomPatternSelectEvent;
 import io.papermc.paper.event.player.PlayerStonecutterRecipeSelectEvent;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
@@ -56,6 +58,10 @@ import java.util.Optional;
  * ({@link #onPrepareGrindstone} / {@link #onPrepareAnvil} の各 javadoc)。
  */
 public final class CatalogVanillaOperationGuardListener implements Listener {
+
+    private static final Component BLOCKED_MESSAGE = Component.text(
+            "この操作ではカタログ品を消費できません（見た目が同じでも別のアイテムです）",
+            NamedTextColor.RED);
 
     private final ItemCatalogConfig catalog;
     private final CraftingFeaturesConfig features;
@@ -212,6 +218,7 @@ public final class CatalogVanillaOperationGuardListener implements Listener {
             return;
         }
         event.setResult(null);
+        notifyBlocked(event.getView());
     }
 
     /**
@@ -239,6 +246,7 @@ public final class CatalogVanillaOperationGuardListener implements Listener {
             return;
         }
         event.setResult(null);
+        notifyBlocked(event.getView());
     }
 
     /** 解放済みプレイヤーによる木材修繕か({@link WoodRepairListener#isUnlockedWoodRepair} へ委譲)。 */
@@ -281,6 +289,7 @@ public final class CatalogVanillaOperationGuardListener implements Listener {
         SmithingInventory inventory = event.getInventory();
         if (containsCatalogItem(inventory) && !matchesDeclaredNetherite(inventory)) {
             event.setResult(null);
+            notifyBlocked(event.getView());
         }
     }
 
@@ -348,6 +357,16 @@ public final class CatalogVanillaOperationGuardListener implements Listener {
                 : event.getPlayer().getInventory().getItemInMainHand();
         if (item.getType() == Material.AMETHYST_SHARD && isCatalog(item)) {
             event.setCancelled(true);
+        }
+    }
+
+    /**
+     * 結果枠を消したときだけアクションバーで理由を出す。チャットに書くと Prepare がマス目ごとに
+     * 飛ぶので流れて読めなくなる。view が無い経路(テスト・自動装置)では宛先が無いので黙る。
+     */
+    private static void notifyBlocked(org.bukkit.inventory.InventoryView view) {
+        if (view != null && view.getPlayer() instanceof org.bukkit.entity.Player player) {
+            player.sendActionBar(BLOCKED_MESSAGE);
         }
     }
 

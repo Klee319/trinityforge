@@ -56,6 +56,16 @@ test("functional-items.js: material 欄から matHint (二重表示) が消え�
     "material 入力そのものまで削除してしまっている");
 });
 
+test("ars-forms / ars-source-forms / loot-tables-form: materialInput の隣に materialHintEl を並べない", () => {
+  for (const f of ["ars-forms.js", "ars-source-forms.js", "loot-tables-form.js", "ars-p4.js"]) {
+    const src = JS(f);
+    assert.ok(!/materialInput\([\s\S]{0,400}?materialHintEl/.test(src)
+      && !/materialHintEl\([\s\S]{0,200}?materialInput/.test(src)
+      && !/input-with-hint[\s\S]{0,80}?matInput/.test(src),
+      `${f} が materialInput の隣に materialHintEl を並べている(日本語名が二重表示される)`);
+  }
+});
+
 test("mob-forms.js: 既存修正(2026-08-02)が退行していない(対照実験)", () => {
   const src = JS("mob-forms.js");
   assert.ok(!DUP_PATTERN.test(src),

@@ -22,7 +22,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Survival / reward perk consumers (2026-07-23 stat-gate-overhaul §2 移行B): reads the装備+perk合算
- * ({@link PlayerStatAggregator#aggregate}) instead of the old perk-only {@link NativePerkRewardResolver}.
+ * ({@link PlayerStatAggregator#aggregate}) instead of the old perk-only native reward resolver.
  */
 public final class NativeSurvivalPerkListener implements Listener {
 

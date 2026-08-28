@@ -17,7 +17,7 @@ import java.util.Optional;
 /**
  * Restores {@code items/catalog.yml} identity ({@code catalogId}, {@code bindType}) onto an item
  * that matches a template by material + CustomModelData. Shared by craft / pickup / fishing stamp
- * paths so Valhalla or creative stacks without TF identity still get SOULBOUND owner semantics.
+ * paths so creative stacks without TF identity still get catalog display name / bind semantics.
  */
 public final class CatalogIdentity {
 
@@ -48,7 +48,7 @@ public final class CatalogIdentity {
             Integer cmd = DerivedItemStats.customModelDataOf(meta);
             // Vanilla stacks (no CMD) must not match a catalog template that happens to share the
             // material (e.g. example_sword on DIAMOND_SWORD) — that wrongly SOULBOUNDs every creative
-            // /give sword. Catalog identity restore is for custom-model gear (Valhalla/TF CMD items).
+            // /give sword. Catalog identity restore is for custom-model gear (TF CMD items).
             if (cmd == null) {
                 return false;
             }
@@ -67,9 +67,8 @@ public final class CatalogIdentity {
             data.setBindType(template.bindType());
             changed = true;
         }
-        // Valhalla-created results do not pass through ItemFactory.buildIdentity(), so adopting their
-        // material+CMD identity must also apply the catalog display name. Once adopted, preserve normal
-        // anvil renames; only repair legacy items whose visible name is still an internal Valhalla/id key.
+        // カタログ表示名を載せる。一度載ったら金床リネームは残す。内部 id が
+        // 見えている旧個体だけ直す。
         if (template.displayName() != null
                 && (adopted || isMachineGeneratedName(meta.displayName(), template.id()))) {
             Component configuredName = MINI_MESSAGE.deserialize(template.displayName())

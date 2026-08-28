@@ -272,6 +272,52 @@ public final class ItemData {
     }
 
     /**
+     * 空スレッドをスタック可能にするため、個体ごとに違う TF 由来キーだけを剥がす。
+     * {@code catalog_id} / bind / Ars 側 PDC は残す(全個体で同じ値ならスタックを割らない)。
+     *
+     * @return 何か消したら true
+     */
+    public boolean stripTrinityForgeIdentityForStacking() {
+        boolean changed = false;
+        if (container.has(PdcKeys.ITEM_ROLL_SEED, PersistentDataType.LONG)) {
+            container.remove(PdcKeys.ITEM_ROLL_SEED);
+            changed = true;
+        }
+        if (container.has(PdcKeys.ITEM_QUALITY, PersistentDataType.INTEGER)) {
+            container.remove(PdcKeys.ITEM_QUALITY);
+            changed = true;
+        }
+        if (container.has(PdcKeys.ITEM_TABLE_GENERATION, PersistentDataType.INTEGER)) {
+            container.remove(PdcKeys.ITEM_TABLE_GENERATION);
+            changed = true;
+        }
+        if (container.has(PdcKeys.ITEM_DATA_VERSION, PersistentDataType.INTEGER)) {
+            container.remove(PdcKeys.ITEM_DATA_VERSION);
+            changed = true;
+        }
+        if (container.has(PdcKeys.ITEM_CRAFT_ROLL_UP, PersistentDataType.DOUBLE)) {
+            container.remove(PdcKeys.ITEM_CRAFT_ROLL_UP);
+            changed = true;
+        }
+        if (container.has(PdcKeys.ITEM_CRAFT_ROLL_DOWN_REDUCTION, PersistentDataType.DOUBLE)) {
+            container.remove(PdcKeys.ITEM_CRAFT_ROLL_DOWN_REDUCTION);
+            changed = true;
+        }
+        if (container.has(PdcKeys.ITEM_CRAFT_ROLL_INSET_DELTA, PersistentDataType.DOUBLE)) {
+            container.remove(PdcKeys.ITEM_CRAFT_ROLL_INSET_DELTA);
+            changed = true;
+        }
+        if (clearPendingCraftQuality()) {
+            changed = true;
+        }
+        if (container.has(PdcKeys.ITEM_OWNER, PersistentDataType.STRING)) {
+            container.remove(PdcKeys.ITEM_OWNER);
+            changed = true;
+        }
+        return changed;
+    }
+
+    /**
      * 品質未決定マーカーが立っているか(2026-08-04)。立っている間は品質0・未刻印のまま置かれており、
      * 最初にプレイヤーのインベントリへ入った時点でそのプレイヤーのステータスを参照して刻印される。
      * 経緯と理由は {@link PdcKeys#ITEM_PENDING_CRAFT_QUALITY} の javadoc。absent = false。

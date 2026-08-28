@@ -208,13 +208,10 @@
       }));
 
       if (type === "item") {
-        const hint = window.materialHintEl(entry.item);
         const itemInput = window.materialInput(entry.item, "material-list", (v) => {
           entry.item = v;
-          hint.update(v);
         }, { allowCustom: true });
-        rowBody.appendChild(fieldRow("アイテム (item)",
-          h("div", { class: "input-with-hint" }, [itemInput, hint]), {
+        rowBody.appendChild(fieldRow("アイテム (item)", itemInput, {
             desc: "バニラ Material か custom:<ID>。custom: は ArsPaper の中間素材/スレッドと"
               + " TrinityForge のカタログを両方引きます。custom:thread_* を指定すると"
               + "スレッドの厳選(個体差)がそのまま乗ります。"

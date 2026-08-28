@@ -9,11 +9,11 @@
 
 ## 0. 確定コンセプト（壁打ち合意済み・2026-06-29）
 
-- **構成**: 複合する3プラグイン = **EliteMobs**（mob/ダンジョン）/ **ArsPaper**（魔法）/ **ValhallaMMO**（スキル進行）。**TrinityForge** はそれらを束ねる4つ目の自作アドオン（接着剤）。
+- **構成**: 複合する3プラグイン = **EliteMobs**（mob/ダンジョン）/ **ArsPaper**（魔法）/ **TrinityForge native スキルツリー**（進行）。**TrinityForge** は接着剤＋進行の本体。ValhallaMMO への hard depend は失効（LD-10 失効）。
 - **相補トリニティ**: **物理・魔法の2主柱（同格）** ＋ **囮ヘイトの補助極（おまけ）**。RPS循環ではない。攻撃源で属性確定（武器=物理 / 触媒=魔法）。
 - **2つの難易度軸が対称パイプラインで衝突**:
   - ワールド脅威 = **スポーン座標からの距離でモブlevel上昇**（遠いほど高難易度）
-  - プレイヤー戦力 = **ValhallaMMO のスキル進行**
+  - プレイヤー戦力 = **TF native スキルツリーの進行**
 - **目的**: 協力PvE・**PvP無し**・最高難易度ダンジョン制覇。人数は効率を変えるが**突破ゲートにしない**（持ち替え＋ペットでソロ成立）。
 - **ロール = 行動駆動の条件付きバフ**（クラス縛りではない）。ロール非保持でも全スキル・全行動可能（例: 獣使いでなくてもペットを持てる）。
 
@@ -25,20 +25,20 @@
 |----|------|------|----------------|
 | LD-1 | 正典は6月版仕様群。5月以前は破棄 | ユーザー確定。`DESIGN.md`/`ARS_SPEC.md` 削除済み | （完了） |
 | LD-2 | ArsPaper連携は**bridgeアーキテクチャが正典**（旧ArsAPI facade仕様は無効） | LD-1で `ARS_SPEC` 破棄。ギャップ`U2`決着 | U5/U6 の再解釈、coupling是認 |
-| LD-3 | **ロール = 条件付きバフ**（選択制クラスではない）。ロール非保持でも全行動可 | ユーザー確定 | `ROLE_SYSTEM_SPEC` 改訂、`R1`/`R3` 再定義 |
+| LD-3 | **ロール = 明示選択の条件付きバフ**（クラスで行動を封印しない）。ロール非保持でも全行動可。選択 UI は現コードが正 | ユーザー確定（2026-08-28: 明示選択のまま） | 現 `role-buffs` / 選択コマンド。LD-3 旧文の「選択制クラスではない」は「行動ロックしない」意味 |
 | LD-4 | ワールドのモブlevel = **スポーン距離由来**。自然湧きeliteは距離levelを防御プロファイルに用いる（level0フォールバックは取りこぼし） | ユーザー確定（「座標が遠いほどレベルアップ」） | `D1` 実装方針、`mob-defaults` の area-baseline |
 | LD-5 | コンセプト＝相補トリニティ（物理/魔法2主柱＋囮補助）、協力PvE/PvP無し | ユーザー確定 | 全ギャップの判断軸 |
 | LD-6 | **初回マイルストーンの稼働範囲 = ペットとPvP以外すべて**。戦闘pipeline・ヘイト/タンク・ロールバフ・アンロック・アイテム・ダンジョン・進行を初手から動かす。**ペット(Pt1)とPvPのみ追加コンテンツ（後回し）** | ユーザー確定（R0） | Pt1=deferred。⚠ ソロのヘイト肩代わり手段（TRINITY §3）がペット前提のため、ペット無しの初回ではソロ高難易度のヘイト代替を別途決める必要（C5/R2と接続） |
 | LD-12 | **C8 ダメージ分類フォールバック = 無属性(typeless)チャネル**: 攻撃を物理/魔法に分類し、それぞれ physical/magical `DefenseStats` で軽減（魔法→プレイヤーも同経路）。**分類不能時は「物理にも魔法にも属さない無属性」として同一ダメージをそのまま付与**（両DefenseStatsで軽減されず、cancelもvanilla移譲もせずTFパイプライン内で決定的に処理）。無属性は**フォールバック専用チャネルで、プレイヤーが育てる攻撃属性ではない**（LD-5の物理/魔法2主柱を侵さない）。 | ユーザー確定 | `SymmetricCombatService` に typeless 経路を追加（両DefenseStats bypass）。属性判定不能時の分岐 |
 | LD-11 | **D5 mob-profiles 二層化**: importは `mob-profiles.generated.yml`（自動生成層・破壊的再生成OK）に書く。手調整は `mob-profiles.overrides.yml`（or `overrides/<dungeon>.yml` でper-dungeon分割）に置き、ロード時に overrides を generated へ **deep-merge**。**衝突時は overrides（手調整）優先**。**importは overrides に不可侵**。 | ユーザー確定（手調整ファイル優先） | `MobProfileConfig` ロードに二層deep-merge追加。`ImportMobsCommand` の書き出し先を generated に変更 |
-| LD-10 | **Pr2 Valhalla依存**: (a)**hard `depend`**（Valhallaは必須柱。`plugin.yml`で依存宣言し、無ければTFは起動せず明確にエラー＝fail-open禁止）。(b)Valhalla在だがプレイヤーデータが一過性未ロードの場合は**level0扱いにせず保留/last-known**（join直後の高難易度mob即死を防止）。 | ユーザー確定 | `plugin.yml` depend追加。`ValhallaSkillLevelSource`にデータ未ロード時のdefer/last-known経路 |
+| LD-10 | ~~**Pr2 Valhalla依存 hard depend**~~ **失効（2026-07 native 進行へ移行）**。`paper-plugin.yml` に Valhalla は無い。進行は TF スキルツリー | コードが正 | native skilltree |
 | LD-9 | **不変条件: TF `SymmetricCombatService` が最終ダメージ/被ダメージの唯一の権威**。他PL（EliteMobs/Valhalla/Ars）は*入力*（プロファイル・stat・レベル）を供給するのみで、**独自のダメージ/防御レイヤーを別途適用しない**。帰結: **C4**=elite被弾はTF単一所有、**EliteMobs自前ダメージ改変を無効化**（フォークは湧き/AI/loot/`MobData`提供に専念）。**C3/C11**=武器perkの威力もTFパイプライン入力に集約し、バニラ`leveling_perks`等の別レイヤー乗算と**二重化させない**（防御のLD-8と同型）。 | ユーザー確定（C4=案1＋原則批准） | EliteMobsフォークのダメージ改変listener無効化、core/fork event priority整理。武器/防具perk→TF stat出力へ付け替え |
 | LD-8 | **C1/I2/Q6 プレイヤー防御の源 = γ（skill＋item・単一オーナー）**: `DefenseStats = 防具スキルbaseline ＋ item上乗せ`（**加算合成**）。二重化対策=防具2スキルperkを「vanillaの damage-reduction を別レイヤー適用」から「**TF防御stat（armor-strength/defense-rate）を出力**」へ付け替え、防御はTFパイプライン**単一経路**。item側=防御系の**新rollキー**(armor-strength/armor-defense-rate/max-health/knockback-resistance/move-speed)→**I2解決**。攻撃側5キー(crit/crit-damage/penetration/flat・percent-bonus-damage)はPDC-only据置。残=phys/magic防御の振り分けは調整フェーズ。 | ユーザー確定（C1=γ） | 防具スキルツリー調整(G2/G4)に内包。`roll.yml`へ防御キー追加＋`attribute-map`一致。`SymmetricCombatService`のplayer-defender経路実装 |
-| LD-7 | **combat level の構成（R1-①）**: `combat level = max(物理柱, 魔法柱) × 上限`。**物理柱** = best(LightWeapons, HeavyWeapons, Archery) ＋ λ×(残り武器スキル)（λは小・物理柱のみ）。**魔法柱** = Ars由来の単一進行スカラー（威力には使わない＝C2整合、カーブは物理柱のmax到達速度に校正）。**防具2スキル(Light/HeavyArmor)は combat level に入れず C1（プレイヤー防御）へ**。Power集約・採取/生産スキルは**不使用**（二重計上/釣りで戦闘力 を排除＝Pr1解消）。一強防止 = 柱内λ ＋ 横balance不変条件（バニラの軽/重/弓サイドグレード構造を改変ベースで活かす）。 | ユーザー確定（R1壁打ち）＋`VALHALLA_DEFAULT_SKILLS.md`の転写で裏取り | `combat-level.yml` の現プレースホルダ（採取/生産skill羅列）撤去→戦闘3+魔法スカラーへ。Pr4の集約法＝この式。λ・上限・カーブの数値は調整フェーズ |
+| LD-7 | **combat level** = `max-of-top-N / divisor`（`progression/combat-level.yml` の `pillars`）。対象スキルは軽/重武器・弓術・Ars魔法・**軽/重防具**。装備は算入する（2026-08-19）。旧文の `max(物理柱, 魔法柱)×上限` と防具除外は失効 | コード＋出荷 yml が正（2026-08-28 確認） | `CombatLevelModel` / `combat-level.yml` |
 
-> **実装現状注記（2026-07-14更新）**: combat-level.yml は防具2種を除外し ARS_MAGIC を追加した**暫定修正済**（Q6=暫定修正のみ）。ただし加重平均モデルのままで、LD-7の `max(物理柱, 魔法柱)×上限`（best+λ）とは構造が別。完全移行は `CombatLevelModel` のコード変更＋ARS_MAGICのruntime実在検証後。ARS_MAGICの設計実在と実装方式（コンパニオンPL登録でfork不要）は Q1調査で確認済（`SKILL_TREE_SPEC §6.3`）。
+> **実装現状注記（2026-08-28更新）**: combat-level.yml は `pillars` の max-of-top-N / divisor。防具2種も算入。LD-7 旧式（柱間 max・防具除外）は失効。
 >
-> **LD-13（防御 phys/magic typing・2026-07-14確定, LD-8を具体化）**: プレイヤー防御ステの typing を確定。**耐性% のみ typed（物理耐性/魔法耐性で別）。防御率%・守備力(flat)・被ダメージ軽減%・防具強度・回避 はすべて type-independent（物理・魔法の両方に効く共通stat）**。帰結: **vanilla armor/toughness 由来の防御率%・防具強度が魔法ダメージも軽減する**（`COMBAT_SYSTEM_SPEC §3.3/3.4/§5` の「魔法は装甲非依存」の含意を上書き＝要反映）。魔法耐性は追加の特化層。armorが魔法脅威を下げるバランスは調整フェーズ（config可変）。反映先=`SymmetricCombatService.resolveDefense`（vanilla-armor防御を魔法成分にも適用）＋TF-only防御statのプレイヤー供給（装備item集約＋防具skill baseline, 次増分）。
+> **LD-13（防御 phys/magic typing・2026-08-28 コード追従）**: **守備力 flat は typed**（`phys-flat-defense` / `magic-flat-defense`）。耐性%も typed。防御率%・被ダメージ軽減%・防具強度・回避は type-independent。旧「flat は共通」は失効。
 
 ---
 
@@ -50,9 +50,9 @@
 ### Combat
 | ID | P | 状態 | 論点 |
 |----|---|---|------|
-| C1 | P1 | ◐→LD-8/LD-13 | **決定=γ**（防具スキルbaseline＋item上乗せの加算）。✅**item側実装済**（`PlayerDefenseResolver`＋`DefenseStatBridge`＋`DefenseStats.combine`）。✅phys/magic振り分け=**LD-13で確定**（耐性のみtyped）。⛔**残=防具スキルbaseline（Valhalla perk→TF防御stat）が未結線**（下記C1b） |
+| C1 | P1 | ◐→LD-8/LD-13 | **決定=γ**。✅item側実装済。✅振り分け=**LD-13（flat も typed）**。防具スキル baseline は native パーク合算 |
 | C1b | P1 | ◻ | **防具スキルbaseline → `DefenseStats.combine` 未結線**（γの残り半分）。Valhallaブリッジ（Q1=コンパニオンPL）依存。⚠結線時、vanilla armorと重複する`[0,1]`ステ（defenseRate等）を加算するとclamp飽和で全免疫になりうる→加算/乗算の重畳方式を要決定（`DefenseStats.combine` javadoc） |
-| C2 | P1 | ◐ | **方針確定（LD-7）**: 魔法ダメージは combat-level curve を **bypass**。威力源は触媒/グリフ（Ars）でプレイヤーlevel項を持たない。魔法柱スカラーはゲート/レベルマッチング専用。実装=魔法ダメージ経路から level 乗算を除去 |
+| C2 | P1 | ✅ | **現行コードが正**: 魔法も combat-level でスケールする（出荷 `magical.scale-with-combat-level: true`）。旧「魔法は bypass」は失効 |
 | C3 | P1 | ✅→LD-9 | **決定**: 武器perk威力もTFパイプライン入力に集約。バニラ`leveling_perks`等の別レイヤー乗算と二重化させない（単一所有）。残=具体係数は調整 |
 | C4 | P1 | ✅→LD-9 | **決定**: TF対称パイプラインが全mobの最終ダメージ単一所有。EliteMobs自前ダメージ改変を無効化。実装=フォークのダメージlistener無効化＋event priority整理 |
 | C5 | P1 | ◐ | **機構実装済み（※net-new）**: コードに`HateTable`は未存在だったため、リークセーフな`com.trinityforge.hate`サブシステムを新設（cap/LRU・TTL・sweep・全eviction経路・decay=既定off、テスト15green、`HateConfig`/`rates.yml`）。⚠**balanceは未実装でR2送り**（threat係数neutral 1.0、tank/獣使いのwall挙動なし）。⚠設計フェーズでnet-new実装した点は要確認（不要なら revert 可） |
@@ -93,7 +93,7 @@
 | ID | P | 状態 | 論点 |
 |----|---|---|------|
 | Pr1 | P1 | ◐ | **方針確定（LD-7）**: 供給skill = LightWeapons/HeavyWeapons/Archery（物理柱）＋ Ars魔法スカラー（魔法柱）。防具2→C1、採取/生産/Power は**除外**。「釣りmaxで戦闘力高」の自己矛盾は解消。実装＝`combat-level.yml`書き換え。✅**Power除外の裏取り（転写）**: Powerは他スキルの*level-up回数*に応じEXP付与するメタ集計（`PowerSkill.onPlayerLevelUp`、max256）。combat算入は二重計上になるため除外が正しい |
-| Pr2 | P1 | ✅→LD-10 | **決定**: (a)hard depend（無ければ起動せずエラー）(b)一過性未ロードはlevel0扱いせず保留/last-known |
+| Pr2 | P1 | ✅→LD-10失効 | Valhalla hard depend は捨てた。native スキルツリー |
 | Pr3 | P2 | ◻ | Valhalla reflection契約が未文書化（4署名hardcode・version pin無し） |
 | Pr4 | P2 | ◐ | 集計法は**LD-7で確定**（柱間max・物理柱はbest+λ）。残るは曲線形状とλ・上限の**数値**（調整フェーズ）。`VALHALLA_DEFAULT_SKILLS.md`の `exp_level_curve`（`level+75*2^(level/7.6)+300`, max100）が物理側の素のカーブ |
 
@@ -102,7 +102,7 @@
 |----|---|---|------|
 | R1 | P1 | ◐ | LD-3により「クラス選択」ではなく**ロール別バフ発火条件**を作る。`setRoles`保持モデルは不要の可能性。バフ注入箇所は `SymmetricCombatService` |
 | R2 | P1 | ✅ | **決定（Q1=ハイブリッド3+4）**: 「ヘイト依存を下げる設計」＋「ペット前提維持」。**初回ローンチは専任タンク/挑発を必須にしない**（現行HateService neutralが整合＝追加実装不要）。tank/獣使いwall＋ペットアグロは後続。**ローンチブロッカー解除** |
-| R3 | P1 | ◐ | LD-3により明示選択UX不要の可能性。行動から創発。要確認 |
+| R3 | P1 | ✅ | **明示選択 UX が正典**（2026-08-28）。行動から創発する案は不採用 |
 
 ### Unlock / Magic（ArsPaper）
 | ID | P | 状態 | 論点 |
@@ -121,7 +121,7 @@
 ### Pets
 | ID | P | 状態 | 論点 |
 |----|---|---|------|
-| Pt1 | P3 | ◻ | ペット連携未実装・依存PL未選定。ただしTRINITY §3のソロ成立はペットhate前提。明示deferralの確認 |
+| Pt1 | P3 | ◻ | **後回し確認（2026-08-28）**: ペットは現状維持（レベル刻印のみ）。連携・ヘイト代替は作らない |
 
 ---
 

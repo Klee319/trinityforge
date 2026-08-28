@@ -239,8 +239,8 @@ class WeaponDpsParityTest {
     void heavyStaysWithinFifteenPercentOfLight() throws IOException {
         YamlConfiguration damage = shipped(CombatDamageConfig.PATH);
         boolean chargeEnabled = damage.getBoolean("melee-charge.enabled", true);
-        double chargeMin = damage.getDouble("melee-charge.min-multiplier", 0.2);
-        double chargeExponent = damage.getDouble("melee-charge.exponent", 2.0);
+        double chargeMin = damage.getDouble("melee-charge.min-multiplier", 0.1);
+        double chargeExponent = damage.getDouble("melee-charge.exponent", 1.6);
         List<Weapon> weapons = shippedWeapons();
 
         Map<String, Double> observed = new LinkedHashMap<>();
@@ -292,8 +292,8 @@ class WeaponDpsParityTest {
     void noHeavyWeaponOutDpsesTheBestLightOption() throws IOException {
         YamlConfiguration damage = shipped(CombatDamageConfig.PATH);
         boolean chargeEnabled = damage.getBoolean("melee-charge.enabled", true);
-        double chargeMin = damage.getDouble("melee-charge.min-multiplier", 0.2);
-        double chargeExponent = damage.getDouble("melee-charge.exponent", 2.0);
+        double chargeMin = damage.getDouble("melee-charge.min-multiplier", 0.1);
+        double chargeExponent = damage.getDouble("melee-charge.exponent", 1.6);
         List<Weapon> weapons = shippedWeapons();
 
         for (int band : new TreeSet<>(weapons.stream().map(Weapon::band).toList())) {
