@@ -48,7 +48,7 @@ public final class CatalogIdentity {
             Integer cmd = DerivedItemStats.customModelDataOf(meta);
             // Vanilla stacks (no CMD) must not match a catalog template that happens to share the
             // material (e.g. example_sword on DIAMOND_SWORD) — that wrongly SOULBOUNDs every creative
-            // /give sword. Catalog identity restore is for custom-model gear (Valhalla/TF CMD items).
+            // /give sword. Catalog identity restore is for custom-model gear (TF CMD items).
             if (cmd == null) {
                 return false;
             }

@@ -107,8 +107,9 @@ class EmptyThreadStackNormalizerTest {
         ItemStack stack = uniqueEmptyThread(99L, 2, "個体");
         org.mockbukkit.mockbukkit.entity.PlayerMock player =
                 org.mockbukkit.mockbukkit.MockBukkit.getMock().addPlayer();
+        player.getInventory().setItem(0, stack);
 
-        assertFalse(listener.stampIfEligible(stack, player));
+        listener.sweepInventory(player);
         verify(itemFactory, never()).stamp(any(ItemStack.class), anyLong(), anyInt());
     }
 }

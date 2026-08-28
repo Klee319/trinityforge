@@ -181,7 +181,7 @@ class CatalogVanillaOperationGuardListenerTest {
     void blockedPrepareSendsActionBarToThePlayer() {
         ItemStack protectedItem = catalogStack(halo);
         Player player = mock(Player.class);
-        org.bukkit.inventory.InventoryView view = mock(org.bukkit.inventory.InventoryView.class);
+        org.bukkit.inventory.view.AnvilView view = mock(org.bukkit.inventory.view.AnvilView.class);
         when(view.getPlayer()).thenReturn(player);
 
         AnvilInventory anvil = mock(AnvilInventory.class);
@@ -194,7 +194,7 @@ class CatalogVanillaOperationGuardListenerTest {
         listener.onPrepareAnvil(anvilEvent);
 
         verify(anvilEvent).setResult(null);
-        verify(player).sendActionBar(org.mockito.ArgumentMatchers.any());
+        verify(player).sendActionBar(org.mockito.ArgumentMatchers.any(net.kyori.adventure.text.Component.class));
     }
 
     /**
