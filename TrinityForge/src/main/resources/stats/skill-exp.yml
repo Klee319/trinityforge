@@ -26,8 +26,8 @@ dungeon-only-exp: false
 # ⚠️ 掛かる先は「ダンジョン内でも外でも入りうる戦闘系EXP」= 武器(重/軽/弓)・魔法(討伐)・防具(被弾)。
 #   家畜討伐の農業EXPや採取EXPはダンジョン内外の別が無いのでこのゲートの対象外
 #   (家畜討伐は 2026-08-20 に farming 側で別途 80% へ調整済み)。
-dungeon-exp-rate: 0.375
-outside-dungeon-exp-rate: 0.1875
+dungeon-exp-rate: 0.5
+outside-dungeon-exp-rate: 0.12
 # 【日次逓減】直近 window-hours 時間にそのスキルで稼いだ量に応じて取得量を薄める。
 #   per-amount を稼ぐたびに1段落ち、1段ごとに decay-per-amount 倍になり floor で止まる。
 #

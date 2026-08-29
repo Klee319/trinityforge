@@ -121,6 +121,33 @@ class WoodRepairAnvilGuardTest {
     }
 
     @Test
+    @DisplayName("2枠目に複数個置くと必要数だけ消費し、損傷もその個数ぶん直る")
+    void multipleRepairMaterialsRepairMoreThanOneUnitAndShowALevelCost() {
+        ItemStack armor = damagedCatalogArmor(500);
+        ItemStack wood = compressedWood(3);
+        PrepareAnvilEvent event = anvilEvent(armor, wood);
+
+        woodRepair.onPrepareAnvil(event);
+        guard.onPrepareAnvil(event);
+
+        verify(event, never()).setResult(null);
+        assertEquals(0, ((Damageable) event.getResult().getItemMeta()).getDamage(),
+                "500 損傷に durability 200 を3個使えるなら0まで直る");
+        AnvilView view = (AnvilView) event.getView();
+        verify(view).setRepairCost(1);
+        verify(view).setRepairItemCountCost(3);
+    }
+
+    @Test
+    @DisplayName("unitsToConsume は ceil(損傷/1個あたり) をスタック数で頭打ちする")
+    void unitsToConsumeCapsAtStackAndNeeded() {
+        assertEquals(0, WoodRepairListener.unitsToConsume(0, 200, 8));
+        assertEquals(1, WoodRepairListener.unitsToConsume(200, 200, 8));
+        assertEquals(2, WoodRepairListener.unitsToConsume(201, 200, 8));
+        assertEquals(2, WoodRepairListener.unitsToConsume(1000, 200, 2));
+    }
+
+    @Test
     @DisplayName("効果を持っていないなら従来どおり潰す(圧縮木材がバニラ修理素材として食われる穴を空けない)")
     void withoutTheUnlockTheGuardStillBlocks() {
         when(dedicatedEffects.isActive(any(), eq(UNLOCK))).thenReturn(false);

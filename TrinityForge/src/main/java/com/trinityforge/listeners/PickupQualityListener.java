@@ -21,10 +21,12 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.CrafterCraftEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryCreativeEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.InventoryPickupItemEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -124,7 +126,7 @@ public final class PickupQualityListener implements Listener {
      * PDCキーの有無だけ見る)。{@link #stampIfEligible} が「品質rollを行うかどうか」の分岐に使う —
      * 通常アイテム(圧倒的多数)については、この判定だけで早期returnし、reflectionを一切呼ばない。
      */
-    static boolean hasArsThreadMarker(ItemMeta meta) {
+    public static boolean hasArsThreadMarker(ItemMeta meta) {
         return meta.getPersistentDataContainer().has(ARS_THREAD_ITEM_TYPE_KEY, PersistentDataType.STRING);
     }
 
@@ -180,6 +182,43 @@ public final class PickupQualityListener implements Listener {
     }
 
     /**
+     * 既存スレッドの lore を、品質と pt({@code rollSeed})を保ったまま現在の表で組み直す。
+     * {@link #defaultArsThreadRestamp} は新規 seed を発番するので表更新には使えない。
+     * メソッド名 {@code refreshLoreKeepingIdentity} は Ars {@code ThreadItem} との契約。
+     */
+    public static boolean defaultArsThreadLoreRefresh(ItemStack stack) {
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null || !hasArsThreadMarker(meta)) {
+            return false;
+        }
+        String typeId = meta.getPersistentDataContainer()
+                .get(ARS_THREAD_ITEM_TYPE_KEY, PersistentDataType.STRING);
+        if (typeId == null) {
+            return false;
+        }
+        try {
+            Plugin ars = Bukkit.getPluginManager().getPlugin("ArsPaper");
+            if (ars == null) {
+                return false;
+            }
+            Object registry = ars.getClass().getMethod("getItemRegistry").invoke(ars);
+            Object opt = registry.getClass().getMethod("get", String.class)
+                    .invoke(registry, "thread_" + typeId);
+            if (!(opt instanceof Optional<?> optional) || optional.isEmpty()) {
+                return false;
+            }
+            Object customItem = optional.get();
+            java.lang.reflect.Method refresh =
+                    customItem.getClass().getMethod("refreshLoreKeepingIdentity", ItemStack.class);
+            return (boolean) refresh.invoke(customItem, stack);
+        } catch (ReflectiveOperationException ex) {
+            Logger.getLogger(PickupQualityListener.class.getName())
+                    .log(Level.FINE, "[pickup] ArsPaper thread lore refresh failed for " + typeId, ex);
+            return false;
+        }
+    }
+
+    /**
      * {@link ArsThreadQualityRestamper} 本体。{@code stack} が ArsPaper のスレッド(ThreadItem)なら
      * {@code quality} で再刻印して {@code true}、そうでなければ {@code false}
      * (呼び出し側は通常の {@code itemStats} ゲートへフォールバックする)。
@@ -187,6 +226,29 @@ public final class PickupQualityListener implements Listener {
     @FunctionalInterface
     interface ArsThreadQualityRestamper {
         boolean restampIfThread(ItemStack stack, int quality);
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onHopperPickup(InventoryPickupItemEvent event) {
+        ItemStack stack = event.getItem().getItemStack();
+        if (stack == null || stack.getType().isAir()) {
+            return;
+        }
+        uniquifyThreadStack(stack);
+        boolean stamped = stampIfEligible(stack, null);
+        if (stamped || (stack.hasItemMeta() && hasArsThreadMarker(stack.getItemMeta()))) {
+            event.getItem().setItemStack(stack);
+        }
+    }
+
+    /** スレッドは個体ごとに品質が違うので、未刻印のまま重なると特異点へ粗悪が混ざる。 */
+    static void uniquifyThreadStack(ItemStack stack) {
+        if (stack == null || stack.getType().isAir() || !stack.hasItemMeta()) {
+            return;
+        }
+        if (hasArsThreadMarker(stack.getItemMeta())) {
+            stack.editMeta(meta -> meta.setMaxStackSize(1));
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -198,16 +260,35 @@ public final class PickupQualityListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onClick(InventoryClickEvent event) {
-        if (event.getWhoClicked() instanceof Player player) {
-            scheduleSweep(player);
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
         }
+        // 手元の移動（クリックで掴む／置く／入れ替え）は翌tickの setItem がクライアント予測と衝突して
+        // 見た目だけの増殖や別スロットへの飛びを起こす。刻印が必要なのは「外から入ってきた未刻印」だけ。
+        if (!clickMayIntroduceUnstampedItem(event.getAction())) {
+            return;
+        }
+        scheduleSweep(player);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDrag(InventoryDragEvent event) {
-        if (event.getWhoClicked() instanceof Player player) {
-            scheduleSweep(player);
+        // ドラッグ完了の直後に走査して書き戻すと、クライアントが予測した配置とサーバ再送が重なって
+        // ゴースト（見た目だけの増殖）になる。未刻印の刻印は閉じる／新規入手のスロット変化で足りる。
+    }
+
+    /**
+     * シフトクリックでコンテナ⇄インベントリへ移す・カーソルへ集める、など
+     * 「外から未刻印が入りうる」操作だけ翌tick走査する。
+     */
+    static boolean clickMayIntroduceUnstampedItem(InventoryAction action) {
+        if (action == null) {
+            return true;
         }
+        return switch (action) {
+            case MOVE_TO_OTHER_INVENTORY, COLLECT_TO_CURSOR, HOTBAR_MOVE_AND_READD -> true;
+            default -> false;
+        };
     }
 
     // InventoryCreativeEvent は InventoryClickEvent のサブクラスだが専用の HandlerList を持つため
@@ -225,6 +306,10 @@ public final class PickupQualityListener implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onSlotChange(PlayerInventorySlotChangeEvent event) {
+        ItemStack gained = event.getNewItemStack();
+        if (qualityAlreadySettled(gained)) {
+            return;
+        }
         scheduleSweep(event.getPlayer());
     }
 
@@ -264,20 +349,19 @@ public final class PickupQualityListener implements Listener {
             if (stack == null || stack.getType().isAir()) {
                 continue;
             }
-            // 品質 / catalog identity / owner は独立に成立しうるので、いずれか変化したら書き戻す。
-            boolean identity = CatalogIdentity.ensure(stack, itemCatalog);
+            CatalogIdentity.ensure(stack, itemCatalog);
             boolean stamped = stampIfEligible(stack, player);
             boolean ownerStamped = stampOwnerIfEligible(stack, playerId);
-            if (identity || stamped || ownerStamped) {
+            if (stamped || ownerStamped) {
                 inventory.setItem(slot, stack);
             }
         }
         ItemStack cursor = player.getItemOnCursor();
         if (cursor != null && !cursor.getType().isAir()) {
-            boolean identity = CatalogIdentity.ensure(cursor, itemCatalog);
+            CatalogIdentity.ensure(cursor, itemCatalog);
             boolean stamped = stampIfEligible(cursor, player);
             boolean ownerStamped = stampOwnerIfEligible(cursor, playerId);
-            if (identity || stamped || ownerStamped) {
+            if (stamped || ownerStamped) {
                 player.setItemOnCursor(cursor);
             }
         }
@@ -346,6 +430,18 @@ public final class PickupQualityListener implements Listener {
         return true;
     }
 
+    /** 品質が確定済みなら、インベントリ内の移動では走査しない（書き戻しがゴーストになる）。 */
+    static boolean qualityAlreadySettled(ItemStack stack) {
+        if (stack == null || stack.getType().isAir() || !stack.hasItemMeta()) {
+            return false;
+        }
+        ItemData data = ItemData.of(stack.getItemMeta());
+        if (data.pendingCraftQuality()) {
+            return false;
+        }
+        return data.rollSeed().filter(seed -> !PreviewRollSeeds.isPreview(seed)).isPresent();
+    }
+
     boolean stampIfEligible(ItemStack stack, Player player) {
         if (stack == null || stack.getType().isAir()) {
             return false;
@@ -363,6 +459,10 @@ public final class PickupQualityListener implements Listener {
         // craftQuality == null(この経路を配線していない構成/テスト)のときは印を残したまま素通りし、
         // 下の通常ドロップ品経路に任せる ── 品質が付かないより loot 分布で付く方がまし。
         if (data.pendingCraftQuality() && craftQuality != null) {
+            if (player == null) {
+                // ホッパー等のプレイヤー不在経路では儀式の未決定マーカーを開運で埋めない。
+                return false;
+            }
             int crafted = craftQuality.rollArsSmithingQuality(player, stack);
             data.setCraftRollMods(craftQuality.craftRollMods(player));
             data.clearPendingCraftQuality();
@@ -392,6 +492,9 @@ public final class PickupQualityListener implements Listener {
         // ({@link #hasArsThreadMarker})でスレッドを検出したら、成否に関わらず itemFactory.stamp
         // には絶対に流さず、必ず ThreadItem#restampWithQuality 経由(またはfail-openで無刻印)にする。
         boolean maybeArsThread = hasArsThreadMarker(meta);
+        if (maybeArsThread) {
+            uniquifyThreadStack(stack);
+        }
         boolean hasStatsProfile = itemStats.profileFor(stack.getType(), cmd).isPresent();
         if (!hasStatsProfile && !maybeArsThread) {
             return false;
@@ -460,6 +563,10 @@ public final class PickupQualityListener implements Listener {
         }
         data.setOwner(playerId);
         stack.setItemMeta(meta);
+        if (hasArsThreadMarker(meta)) {
+            // スレッド lore は ThreadItem#fullLore。ItemFactory#stamp に通すと上書きされる(W-53)。
+            return true;
+        }
         itemFactory.stamp(stack, rollSeed.get(), data.quality());
         return true;
     }

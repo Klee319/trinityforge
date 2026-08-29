@@ -63,8 +63,13 @@ public final class QualityUpgradeTicketEffect implements EquipmentTicketEffect {
         if (stack == null || stack.getType().isAir() || !stack.hasItemMeta()) {
             return false;
         }
+        if (EquipmentTicketEffect.isConsumableTicketItem(stack)) {
+            return false;
+        }
         ItemData data = ItemData.of(stack.getItemMeta());
-        return data.hasRollSeed() && data.quality() < qualityConfig.maxQuality();
+        return data.hasRollSeed()
+                && data.quality() < qualityConfig.maxQuality()
+                && itemFactory.qualityVaries(stack);
     }
 
     @Override
@@ -89,6 +94,9 @@ public final class QualityUpgradeTicketEffect implements EquipmentTicketEffect {
 
     @Override
     public Optional<ItemStack> apply(ItemStack stack) {
+        if (!eligible(stack)) {
+            return Optional.empty();
+        }
         ItemMeta meta = stack.getItemMeta();
         if (meta == null) {
             return Optional.empty();

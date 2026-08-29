@@ -55,9 +55,10 @@ public final class NativeSkillTreeMenu implements Listener {
             "LIGHT_ARMOR", "HEAVY_ARMOR", "ARS_MAGIC", "ARS_SMITHING");
 
     /**
-     * ツリーリセット確認中を表す pendingPerkId のプレフィックス。
+     * 楔／再構築の書の確認中を表す pendingPerkId のプレフィックス。
      * perk ID は {@code <skill>_perk_<node>} 形式なのでこの値と衝突せず、ノード描画にも影響しない。
      */
+    private static final String LOCK_PENDING_PREFIX = "lock:";
     private static final String RESET_PENDING_PREFIX = "reset:";
 
     /** プレステージ確認画面: 警告アイコン(トーテム)を置くスロット。 */
@@ -264,7 +265,7 @@ public final class NativeSkillTreeMenu implements Listener {
         if (action == null) {
             // プレステージ確認画面はモーダル。余白をクリックしても描き直さない
             // (描き直すと pendingPerkId が落ち、「はい」を押しても無反応な画面が残る)。
-            if (session.mode == Mode.PRESTIGE_CONFIRM) {
+            if (session.mode == Mode.PRESTIGE_CONFIRM || session.mode == Mode.FUNCTION_CONFIRM) {
                 return;
             }
             if (session.pendingPerkId != null) {
@@ -275,15 +276,7 @@ public final class NativeSkillTreeMenu implements Listener {
         switch (action) {
             case "move-nw", "move-n", "move-ne", "move-e",
                     "move-se", "move-s", "move-sw", "move-w" -> move(player, session, action);
-            case "select-skill" -> {
-                SkillTree selected = perks.tree(value);
-                if (selected != null) {
-                    // アイコンをクリックしたら一覧/選択バーどちらから来ても常に通常モードへ戻る
-                    // (2026-08-04: 一覧モードの「そのツリーの位置へ移動」要件と同じ経路)。
-                    reopenNextTick(player, selected.skill(),
-                            NativeSkillTreeCanvas.project(selected).start(), null, Mode.DETAIL, 0);
-                }
-            }
+            case "select-skill" -> handleSelectSkill(player, session, value, event.getRawSlot());
             // 2026-08-04新設: 通常モードとスキルアイコンだけの一覧モードを切り替える。
             // パーク一覧モードから押したときも一覧モードへ入る(3モードを1つのボタンで回さない)。
             case "toggle-view" -> reopenNextTick(
@@ -295,25 +288,51 @@ public final class NativeSkillTreeMenu implements Listener {
                     session.mode == Mode.PERK_LIST ? Mode.DETAIL : Mode.PERK_LIST, 0);
             case "perk-page" -> reopenNextTick(
                     player, session.skillId, session.center, null, Mode.PERK_LIST, parsePage(value));
-            case "jump-perk" -> jumpToPerk(player, session, value);
-            case "node" -> handleNode(player, session, value);
+            case "jump-perk" -> jumpToPerk(player, session, value, event.getRawSlot());
+            case "node" -> handleNode(player, session, value, event.getRawSlot());
             case "prestige" -> handlePrestige(player, session, value, event.getRawSlot());
             case "prestige-confirm" -> confirmPrestige(player, session, value);
-            case "prestige-cancel" -> reopenNextTick(
+            case "prestige-cancel", "function-cancel" -> reopenNextTick(
                     player, session.skillId, session.center, null, Mode.DETAIL, 0);
+            case "function-confirm" -> confirmFunction(player, session, value);
             default -> { }
         }
     }
 
     /**
-     * パーク一覧(W-29)でクリックされたパークのマスを中心に置いて通常モードへ戻る。
-     * 中心は {@link NativeSkillTreeCanvas#clamp} を通すので、端のパークは寄った位置に出る
-     * (ビューポート外へ出さないため)。
+     * スキルアイコン。再構築の書を持っているときはそのツリーのリセット確認へ、
+     * そうでなければ通常どおりそのツリーへ移動する。
      */
-    private void jumpToPerk(Player player, Session session, String perkId) {
+    private void handleSelectSkill(Player player, Session session, String skillId, int originSlot) {
+        SkillTree selected = perks.tree(skillId);
+        if (selected == null) {
+            return;
+        }
+        if (SkillTreeItems.TREE_RESET.equals(heldFunction(player))) {
+            beginResetConfirm(player, selected, originSlot);
+            return;
+        }
+        reopenNextTick(player, selected.skill(),
+                NativeSkillTreeCanvas.project(selected).start(), null, Mode.DETAIL, 0);
+    }
+
+    /**
+     * パーク一覧(W-29)でクリックされたパークのマスを中心に置いて通常モードへ戻る。
+     * 楔／再構築の書を持っているときは確認画面へ（一覧からでも同じ操作になるように）。
+     */
+    private void jumpToPerk(Player player, Session session, String perkId, int originSlot) {
         if (perkId == null || perkId.isEmpty()) return;
         SkillTree tree = perks.tree(session.skillId);
         if (tree == null) return;
+        String function = heldFunction(player);
+        if (SkillTreeItems.NODE_LOCK.equals(function)) {
+            beginLockConfirm(player, session, tree, perkId, originSlot);
+            return;
+        }
+        if (SkillTreeItems.TREE_RESET.equals(function)) {
+            beginResetConfirm(player, tree, originSlot);
+            return;
+        }
         NativeSkillTreeCanvas canvas;
         try {
             canvas = NativeSkillTreeCanvas.project(tree);
@@ -352,22 +371,22 @@ public final class NativeSkillTreeMenu implements Listener {
                 session.mode, session.page);
     }
 
-    private void handleNode(Player player, Session session, String nodeId) {
+    private void handleNode(Player player, Session session, String nodeId, int originSlot) {
         SkillTree tree = perks.tree(session.skillId);
         if (tree == null) return;
         SkillNode node = tree.nodes().get(nodeId);
         if (node == null) return;
         String perkId = PerkNaming.perkId(tree.skill(), nodeId);
 
-        // 機能アイテム(2026-07-27): メインハンドに持った状態でノードをクリックすると発動する。
+        // 機能アイテム: メインハンドに持った状態でノードをクリックすると確認画面を開く。
         // 通常の解放フローより先に判定する — 持っている間は解放操作にならない。
         String function = heldFunction(player);
         if (SkillTreeItems.NODE_LOCK.equals(function)) {
-            applyNodeLock(player, session, tree, perkId);
+            beginLockConfirm(player, session, tree, perkId, originSlot);
             return;
         }
         if (SkillTreeItems.TREE_RESET.equals(function)) {
-            applyTreeReset(player, session, tree);
+            beginResetConfirm(player, tree, originSlot);
             return;
         }
 
@@ -396,40 +415,106 @@ public final class NativeSkillTreeMenu implements Listener {
     }
 
     /**
-     * スキルノードロック: 解放済みノードのロックを反転する。ロックを「付ける」ときだけアイテムを1個消費し、
-     * 「外す」ときは消費しない(外すのにコストを取ると、掛け直せなくなって詰む)。
+     * スキルノードロック: 確認画面を開くだけ。実行は {@link #confirmFunction}。
      */
-    private void applyNodeLock(Player player, Session session, SkillTree tree, String perkId) {
+    private void beginLockConfirm(Player player, Session session, SkillTree tree, String perkId,
+                                  int originSlot) {
         if (!loadOwnedPerkIds(player.getUniqueId()).contains(perkId)) {
             player.sendMessage(Component.text("未解放のノードはロックできません。", NamedTextColor.RED));
             reopenNextTick(player, session, null);
             return;
         }
+        boolean unlocking = com.trinityforge.pdc.PlayerData.of(player).lockedPerks().contains(perkId);
+        player.sendMessage(Component.text(
+                unlocking
+                        ? "このノードのロックを外します。確認画面の「はい」を押してください。"
+                        : "このノードをロックします。確認画面の「はい」を押してください。",
+                NamedTextColor.YELLOW));
+        plugin.getServer().getScheduler().runTask(plugin, () ->
+                openFunctionConfirm(player, session.skillId, session.center,
+                        LOCK_PENDING_PREFIX + perkId, originSlot,
+                        unlocking ? "ノードのロックを外しますか？" : "このノードをロックしますか？",
+                        lockWarningLore(unlocking),
+                        unlocking ? "はい、ロックを外す" : "はい、ロックする",
+                        unlocking ? Material.YELLOW_DYE : Material.LIME_DYE));
+    }
+
+    /**
+     * スキルツリーリセット: 確認画面を開くだけ。実行は {@link #confirmFunction}。
+     */
+    private void beginResetConfirm(Player player, SkillTree tree, int originSlot) {
+        player.sendMessage(Component.text(
+                "「" + tree.displayName() + "」をリセットします。確認画面の「はい」を押してください。",
+                NamedTextColor.YELLOW));
+        NativeSkillTreeCanvas.Point center = NativeSkillTreeCanvas.project(tree).start();
+        plugin.getServer().getScheduler().runTask(plugin, () ->
+                openFunctionConfirm(player, tree.skill(), center,
+                        RESET_PENDING_PREFIX + tree.skill(), originSlot,
+                        "「" + tree.displayName() + "」をリセットしますか？",
+                        resetWarningLore(tree),
+                        "はい、リセットする",
+                        Material.LIME_DYE));
+    }
+
+    /**
+     * 楔／再構築の書の確認モーダルの「はい」。プレステージと同じく、この画面から以外は通さない。
+     * 押したマスに「はい」を置かない（{@link #prestigeYesSlot}）。
+     */
+    private void confirmFunction(Player player, Session session, String token) {
+        if (session.mode != Mode.FUNCTION_CONFIRM
+                || token == null || !token.equals(session.pendingPerkId)) {
+            return;
+        }
+        if (token.startsWith(LOCK_PENDING_PREFIX)) {
+            if (!SkillTreeItems.NODE_LOCK.equals(heldFunction(player))) {
+                player.sendMessage(Component.text("楔をメインハンドに持ったまま確定してください。",
+                        NamedTextColor.RED));
+                reopenNextTick(player, session.skillId, session.center, null, Mode.DETAIL, 0);
+                return;
+            }
+            executeNodeLock(player, session, token.substring(LOCK_PENDING_PREFIX.length()));
+            return;
+        }
+        if (token.startsWith(RESET_PENDING_PREFIX)) {
+            if (!SkillTreeItems.TREE_RESET.equals(heldFunction(player))) {
+                player.sendMessage(Component.text("再構築の書をメインハンドに持ったまま確定してください。",
+                        NamedTextColor.RED));
+                reopenNextTick(player, session.skillId, session.center, null, Mode.DETAIL, 0);
+                return;
+            }
+            executeTreeReset(player, session, token.substring(RESET_PENDING_PREFIX.length()));
+            return;
+        }
+    }
+
+    private void executeNodeLock(Player player, Session session, String perkId) {
+        SkillTree tree = perks.tree(session.skillId);
+        if (tree == null) {
+            reopenNextTick(player, session.skillId, session.center, null, Mode.DETAIL, 0);
+            return;
+        }
+        if (!loadOwnedPerkIds(player.getUniqueId()).contains(perkId)) {
+            player.sendMessage(Component.text("未解放のノードはロックできません。", NamedTextColor.RED));
+            reopenNextTick(player, session.skillId, session.center, null, Mode.DETAIL, 0);
+            return;
+        }
         var data = com.trinityforge.pdc.PlayerData.of(player);
         boolean nowLocked = data.lockedPerks().contains(perkId);
+        data.toggleLockedPerk(perkId);
         if (nowLocked) {
-            data.toggleLockedPerk(perkId);
             player.sendMessage(Component.text("ノードのロックを解除しました。", NamedTextColor.YELLOW));
         } else {
-            data.toggleLockedPerk(perkId);
             consumeHeldItem(player);
             player.sendMessage(Component.text(
                     "ノードをロックしました（プレステージしても解放が維持されます）。", NamedTextColor.GREEN));
         }
-        reopenNextTick(player, session, null);
+        reopenNextTick(player, session.skillId, session.center, null, Mode.DETAIL, 0);
     }
 
-    /**
-     * スキルツリーリセット: レベルとプレステージ段を維持したまま、このツリーのノードを全解除してSPを返却する。
-     * 誤爆が致命的なので2クリック確認を挟む(通常の解放/プレステージと同じ作法)。
-     */
-    private void applyTreeReset(Player player, Session session, SkillTree tree) {
-        String pendingToken = RESET_PENDING_PREFIX + tree.skill();
-        if (!pendingToken.equals(session.pendingPerkId)) {
-            player.sendMessage(Component.text(
-                    "「" + tree.displayName() + "」をリセットします。もう一度ノードをクリックして確定してください。",
-                    NamedTextColor.YELLOW));
-            reopenNextTick(player, session, pendingToken);
+    private void executeTreeReset(Player player, Session session, String skillId) {
+        SkillTree tree = perks.tree(skillId);
+        if (tree == null) {
+            reopenNextTick(player, session.skillId, session.center, null, Mode.DETAIL, 0);
             return;
         }
         var result = perks.resetTree(player.getUniqueId(), tree.skill());
@@ -445,7 +530,8 @@ public final class NativeSkillTreeMenu implements Listener {
             default -> player.sendMessage(
                     Component.text("スキルツリーをリセットできませんでした。", NamedTextColor.RED));
         }
-        reopenNextTick(player, session, null);
+        reopenNextTick(player, tree.skill(), NativeSkillTreeCanvas.project(tree).start(), null,
+                Mode.DETAIL, 0);
     }
 
     /** メインハンドのTFカタログアイテムが機能アイテムなら、その機能IDを返す(それ以外は null)。 */
@@ -586,6 +672,62 @@ public final class NativeSkillTreeMenu implements Listener {
                 List.of(Component.text("何もせずスキルツリーへ戻ります。",
                         NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false))));
         player.openInventory(inventory);
+    }
+
+    /**
+     * 楔／再構築の書専用の確認モーダル。プレステージと同じくツリーを描かず、
+     * {@link #prestigeYesSlot} で押したマスには「はい」を置かない。
+     * {@code remember} しない（開き直しただけで確定ボタンが出るのを防ぐ）。
+     */
+    private void openFunctionConfirm(Player player, String skillId,
+                                     NativeSkillTreeCanvas.Point center, String token,
+                                     int originSlot, String title, List<Component> warning,
+                                     String yesLabel, Material yesIcon) {
+        Session holder = new Session(skillId, center, token, Mode.FUNCTION_CONFIRM, 0);
+        Inventory inventory = plugin.getServer().createInventory(holder, 54, MENU_TITLE);
+        holder.inventory = inventory;
+
+        List<Component> lore = new ArrayList<>(warning);
+        lore.add(separatorLine());
+        lore.add(Component.text("メインハンドのアイテムを持ったまま「はい」を押してください。",
+                NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
+        inventory.setItem(PRESTIGE_WARNING_SLOT, display(
+                new SkillTreeGuiVisuals.Visual(yesIcon, null),
+                Component.text(title, NamedTextColor.RED),
+                lore));
+
+        int yesSlot = prestigeYesSlot(originSlot);
+        int noSlot = yesSlot == PRESTIGE_YES_SLOT ? PRESTIGE_NO_SLOT : PRESTIGE_YES_SLOT;
+        inventory.setItem(yesSlot, button(yesIcon, "function-confirm", token,
+                Component.text(yesLabel, NamedTextColor.GREEN),
+                List.of(Component.text("押した瞬間に実行されます。",
+                        NamedTextColor.RED).decoration(TextDecoration.ITALIC, false))));
+        inventory.setItem(noSlot, button(Material.BARRIER, "function-cancel", "",
+                Component.text("いいえ、やめる", NamedTextColor.WHITE),
+                List.of(Component.text("何もせずスキルツリーへ戻ります。",
+                        NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false))));
+        player.openInventory(inventory);
+    }
+
+    private static List<Component> lockWarningLore(boolean unlocking) {
+        if (unlocking) {
+            return List.of(
+                    warningLine("ロックを外すと、次のプレステージでこのノードも外れます。"),
+                    warningLine("楔は消費しません。"));
+        }
+        return List.of(
+                warningLine("ロックしたノードはプレステージしても解放が維持されます。"),
+                warningLine("楔を1個消費します。"),
+                warningLine("ツリーリセットでは保護されません。"));
+    }
+
+    private static List<Component> resetWarningLore(SkillTree tree) {
+        return List.of(
+                warningLine("「" + tree.displayName() + "」の解放済みパークを全て外します。"),
+                warningLine("消費したSPは返却されます。"),
+                warningLine("スキルレベルとプレステージ段は維持されます。"),
+                warningLine("ロック中のパークも含めて全て外れます。"),
+                warningLine("再構築の書を1個消費します。"));
     }
 
     /**
@@ -778,6 +920,16 @@ public final class NativeSkillTreeMenu implements Listener {
      * 出していた（実際には遅くとも 24 時間で等倍へ戻る）。
      */
     private List<Component> dailyRateLore(java.util.UUID playerId, String skillId) {
+        long immuneRemaining = progression.dailyExpImmuneRemainingMillis(playerId);
+        if (immuneRemaining > 0L) {
+            String remaining = com.trinityforge.progression.DailyExpRateText.duration(immuneRemaining);
+            List<Component> immune = new ArrayList<>();
+            immune.add(Component.text("EXP取得量: 100%（減衰無効化中）", NamedTextColor.GREEN));
+            if (remaining != null) {
+                immune.add(Component.text("無効化の残り: " + remaining, NamedTextColor.DARK_GRAY));
+            }
+            return immune;
+        }
         com.trinityforge.progression.DailyExpDiminishing.Status status =
                 progression.dailyExpRateStatus(playerId, skillId);
         if (status == null) {
@@ -1135,7 +1287,12 @@ public final class NativeSkillTreeMenu implements Listener {
          * 警告と「はい」「いいえ」だけを置く。{@code lastView} へは覚えさせない
          * (覚えるとメニューを開き直しただけで確定ボタンのある画面が出る)。
          */
-        PRESTIGE_CONFIRM
+        PRESTIGE_CONFIRM,
+        /**
+         * 楔／再構築の書の確認モーダル(2026-08-29, W-276)。プレステージと同じくツリーを描かない。
+         * {@code lastView} へは覚えさせない。
+         */
+        FUNCTION_CONFIRM
     }
 
     private static final class Session implements InventoryHolder {

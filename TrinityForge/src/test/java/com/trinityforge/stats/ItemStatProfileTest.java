@@ -73,5 +73,43 @@ class ItemStatProfileTest {
                 Map.of("attack-damage", 5.0), Map.of(), Map.of(), null, false, false, Map.of(),
                 Map.of("layer1", multiplierSpec));
         assertFalse(profile.qualityApplies());
+        assertFalse(profile.randomApplies());
+    }
+
+    @Test
+    void fixedOnlyDoesNotHaveRandomApplies() {
+        assertFalse(fixedOnly().randomApplies());
+    }
+
+    @Test
+    void perQualityOnlyDoesNotHaveRandomApplies() {
+        ItemStatProfile profile = new ItemStatProfile(
+                Map.of("attack-damage", 5.0), Map.of("attack-damage", 0.5), Map.of());
+        assertTrue(profile.qualityApplies());
+        assertFalse(profile.randomApplies());
+    }
+
+    @Test
+    void randomLayerMakesRandomApply() {
+        ItemStatProfile profile = new ItemStatProfile(
+                Map.of("attack-damage", 5.0), Map.of(), Map.of("attack-damage", new StatRange(1.0, 3.0)));
+        assertTrue(profile.randomApplies());
+    }
+
+    @Test
+    void randomizeGrantsMakesRandomApplyWithoutRandomLayer() {
+        ItemStatProfile profile = new ItemStatProfile(
+                Map.of("attack-damage", 5.0), Map.of(), Map.of(), null, false, true, Map.of());
+        assertTrue(profile.randomApplies());
+    }
+
+    @Test
+    void multiplierLayerRandomMakesRandomApply() {
+        ItemStatProfile.MultiplierSpec multiplierSpec = new ItemStatProfile.MultiplierSpec(
+                Map.of(), Map.of(), Map.of("attack-damage", new StatRange(1.0, 1.2)));
+        ItemStatProfile profile = new ItemStatProfile(
+                Map.of("attack-damage", 5.0), Map.of(), Map.of(), null, false, false, Map.of(),
+                Map.of("layer1", multiplierSpec));
+        assertTrue(profile.randomApplies());
     }
 }

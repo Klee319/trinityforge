@@ -102,21 +102,22 @@ public final class GrindstonePreserveListener implements Listener {
     }
 
     /**
-     * カタログの {@code enchant-glow} 由来の隠しエンチャントは砥石で剥がされ、
-     * {@link ItemFactory#stamp}(= 再組み立て)では戻らないので個別に戻す。
-     * 戻さないと「砥石に通すと光沢が永久に消える」という不可逆な見た目劣化になる。
+     * カタログ現値へ光沢を合わせる。旧実装はダミー耐久力だったので砥石が剥がし、
+     * {@link ItemFactory#stamp} だけでは戻らなかった。glint override 後は剥がれないが、
+     * カタログで glow を切ったあとに残る {@code HIDE_ENCHANTS} をここで落とさないと、
+     * 後付けエンチャントがツールチップに出ない。
      */
     private void restoreEnchantGlow(ItemStack primary, ItemStack out) {
         Optional<ItemTemplate> template = CatalogVanillaOperationPolicy.catalogIdOf(primary, catalog)
                 .flatMap(catalog::template);
-        if (template.isEmpty() || !template.get().enchantGlow()) {
+        if (template.isEmpty()) {
             return;
         }
         ItemMeta meta = out.getItemMeta();
         if (meta == null) {
             return;
         }
-        ItemFactory.applyEnchantGlow(meta);
+        ItemFactory.syncEnchantGlow(meta, template.get().enchantGlow());
         out.setItemMeta(meta);
     }
 

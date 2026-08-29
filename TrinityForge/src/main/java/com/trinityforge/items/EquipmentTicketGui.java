@@ -192,7 +192,7 @@ public final class EquipmentTicketGui implements Listener {
             return;
         }
 
-        Optional<ItemStack> applied = session.effect.apply(current.clone());
+        Optional<ItemStack> applied = session.effect.apply(current.clone(), player);
         if (applied.isEmpty()) {
             player.sendMessage(Component.text("効果を適用できませんでした。", NamedTextColor.RED));
             render(player, session.effect, null, null);

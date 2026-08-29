@@ -38,7 +38,7 @@ icon: NETHERITE_AXE
 starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 3
+  max-times: 5
   at-level: 100
   name: 覇王の境地
   effect-text: ダメージ・貫通率・固定ダメージが永続で増加
@@ -48,10 +48,12 @@ prestige:
   mainhand-buffs:
     crit-chance: 0.05
     crit-damage: 0.15
+    heavy-weapons-exp-bonus: 0.1
   description: |-
     攻撃力x1.15
     会心率+5%
     会心ダメージ+15%
+    重量武器EXP増加+10%
 nodes:
   A:
     name: 剛撃の心得
@@ -97,10 +99,10 @@ nodes:
       - スタン確率アップ
     mainhand-buffs:
       crit-damage: 0.15
-      stun-duration-bonus: 5
+      stun-duration-bonus: 20
     description: |-
       会心ダメージ+15%
-      スタン時間+5tick
+      スタン時間+20tick
   D:
     name: 連打の境地
     level: 70
@@ -131,8 +133,9 @@ nodes:
     mainhand-buffs:
       penetration: 0.1
       crit-chance: 0.05
-    description: |
-      スタン確率アップ・チャージアタックのダメージ増加
+    description: |-
+      貫通率+10%
+      会心率+5%
   C-1-1:
     name: 薙ぎ払い
     level: 60
@@ -171,10 +174,10 @@ nodes:
     effect-text: 攻撃範囲増加
     mainhand-buffs:
       stun-chance: 0.05
-      stun-duration-bonus: 3
+      stun-duration-bonus: 10
     description: |-
       スタン率+5%
-      スタン時間+3tick
+      スタン時間+10tick
   D-1-2:
     name: 大打ち崩し
     level: 100
@@ -185,10 +188,10 @@ nodes:
     effect-text: 攻撃範囲増加
     mainhand-buffs:
       stun-chance: 0.1
-      stun-duration-bonus: 5
+      stun-duration-bonus: 20
     description: |-
       スタン率+10%
-      スタン時間+5tick
+      スタン時間+20tick
   A-alpha-1:
     name: 豪・剛撃
     level: 20

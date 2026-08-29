@@ -47,6 +47,9 @@ class EnchantLuckConfigTest {
         assertEquals(2, config.levelBoostMaxSteps());
         assertEquals(0.02, config.overenchantBonusChancePerLuck());
         assertEquals(0.005, config.extraEnchantChancePerLuck());
+        assertEquals(10.0, config.vanillaParityLuck());
+        assertEquals(0.5, config.levelNerfChanceAtZero());
+        assertEquals(2, config.levelNerfMaxSteps());
     }
 
     @Test
@@ -62,13 +65,17 @@ class EnchantLuckConfigTest {
         assertTrue(config.domain().load(fakePlugin(tempDir)), "bundled enchant-luck.yml must parse without validation issues");
         // 出荷値。2026-07-30 に 0.01 -> 0.02 へ引き上げ(overenchant-bonus-chance-per-luck と同値に揃えた)。
         assertEquals(0.02, config.levelBoostChancePerLuck());
+        assertEquals(10.0, config.vanillaParityLuck());
+        assertEquals(0.5, config.levelNerfChanceAtZero());
+        assertEquals(2, config.levelNerfMaxSteps());
     }
 
     @Test
     void valuesAreConfigDriven(@TempDir File tempDir) throws IOException {
         File file = new File(tempDir, EnchantLuckConfig.PATH);
         write(file, "level-boost-chance-per-luck: 0.5\nlevel-boost-max-steps: 4\n"
-                + "overenchant-bonus-chance-per-luck: 0.3\nextra-enchant-chance-per-luck: 0.1\n");
+                + "overenchant-bonus-chance-per-luck: 0.3\nextra-enchant-chance-per-luck: 0.1\n"
+                + "vanilla-parity-luck: 8\nlevel-nerf-chance-at-zero: 0.4\nlevel-nerf-max-steps: 3\n");
 
         EnchantLuckConfig config = new EnchantLuckConfig();
         assertTrue(config.domain().load(fakePlugin(tempDir)));
@@ -76,5 +83,8 @@ class EnchantLuckConfigTest {
         assertEquals(4, config.levelBoostMaxSteps());
         assertEquals(0.3, config.overenchantBonusChancePerLuck());
         assertEquals(0.1, config.extraEnchantChancePerLuck());
+        assertEquals(8.0, config.vanillaParityLuck());
+        assertEquals(0.4, config.levelNerfChanceAtZero());
+        assertEquals(3, config.levelNerfMaxSteps());
     }
 }

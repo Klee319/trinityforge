@@ -1750,6 +1750,25 @@
     return fieldRow("display-name", input, { label: opts.label, desc: opts.desc });
   }
 
+  // ダンジョン単位の技ダメージ倍率(2026-08-29)。通常攻撃には効かない。空欄=キーごと削除=1.0。
+  // default スコープには出さない(Java 側が default をカスケードしないので、書いても無意味かつ誤解を招く)。
+  function buildAbilityDamageScaleField(host) {
+    const input = window.numberInput(host["ability-damage-scale"] == null ? "" : host["ability-damage-scale"], (v) => {
+      if (v === null || v === "") {
+        delete host["ability-damage-scale"];
+        return;
+      }
+      host["ability-damage-scale"] = v;
+    }, { int: false });
+    return fieldRow("ability-damage-scale", input, {
+      label: "技ダメージ倍率 (省略可)",
+      desc: "このダンジョンの特殊攻撃だけに掛かる倍率。通常攻撃・HPには効きません。"
+        + "技テンプレは他ダンジョンと共有なので、ここの値で「このダンジョンの技だけ」弱めます。"
+        + "空欄=キーを書かない(等倍)。1.0 を書いて打ち消す用途ではないので、不要なら空欄のままに。"
+        + "default には書けません(書いても全ダンジョンには掛かりません)。"
+    });
+  }
+
   // 再描画をまたいで開閉状態を保つ(collapsibleCard の推奨パターン)。
   // 396体をすべて開いたまま描くと実用にならないため、既定は全て折りたたみ。
   const openOverrideScopes = new Set();
@@ -1961,7 +1980,8 @@
           desc: "GUIやログでこのダンジョンを指す名前。空欄ならワールド名をそのまま使います。",
           placeholder: jaName || scopeName,
           onChange: (nv) => { titleLabel.textContent = nv || jaName || scopeName; }
-        })
+        }),
+        buildAbilityDamageScaleField(scope)
       ]));
     }
     // ダンジョン単位の難易度倍率 (2026-08-14)。scope 直下の stats: は「そのダンジョンの全モブに

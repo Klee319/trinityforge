@@ -505,6 +505,11 @@
           label: "追加破壊上限(グローバル既定値)", int: true,
           desc: "トリガー1個は含まない。下のtier表に該当tier行がある場合はそちらが優先され、この値は使われない。"
         }),
+        numField(vein, "chain-drop-rolls-max", {
+          label: "一括時の追加ドロップ抽選回数上限",
+          int: true,
+          desc: "連鎖で壊した鉱石は BlockBreakEvent を飛ばないので、この回数だけ drop-tables を追加で引く。実際は壊した自然生成ブロック数との小さいほう。0 で抽選しない。既定 32。"
+        }),
         sub("tier別設定 (tiers) — 該当tier行があればグローバル既定値より優先される"),
         tierTableEditor(vein, [{ key: "max-extra-blocks", label: "追加破壊上限", int: true }]),
         sub("対象鉱石"),
@@ -591,7 +596,12 @@
             label: "追加原木上限(グローバル既定値)", int: true,
             desc: "下のtier表に該当tier行がある場合はそちらが優先され、この値は使われない。"
           }),
-          numField(fell, "cooldown-ticks", { label: "CT(tick)", int: true })
+          numField(fell, "cooldown-ticks", { label: "CT(tick)", int: true }),
+          numField(fell, "chain-drop-rolls-max", {
+            label: "一括時の追加ドロップ抽選回数上限",
+            int: true,
+            desc: "連鎖で壊した葉は BlockBreakEvent を飛ばないので、この回数だけ drop-tables を引く。実際は壊した葉の枚数との小さいほう。0 で抽選しない。既定 32。"
+          })
         ]),
         sub("tier別設定 (tiers) — 該当tier行があればグローバル既定値より優先される"),
         tierTableEditor(fell, [{ key: "max-extra-logs", label: "追加原木上限", int: true }])

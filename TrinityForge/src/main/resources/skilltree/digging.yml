@@ -26,6 +26,9 @@ prestige:
   description: |-
     効率強化増幅+1
     ガチャ運+10%
+    切削EXP増加+10%
+  buffs:
+    digging-exp-bonus: 0.1
 nodes:
   A:
     name: はじまりの土木作業員

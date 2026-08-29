@@ -48,9 +48,11 @@ prestige:
     craft-roll-up-bonus: 2
     craft-roll-down-reduction: 2
     craft-roll-inset: 2
+    smithing-exp-bonus: 0.1
   description: |-
     作業台品質+2
     ロールステータスの品質up
+    鍛冶EXP増加+10%
   max-times: 5
 nodes:
   A:
@@ -265,7 +267,6 @@ nodes:
     level: 60
     role: greek
     parent: B-alpha-1
-    group: B-greek
     icon: QUARTZ
     cost: 1
     effect-text: ランダムステータスの品質で下振れが減少
@@ -293,7 +294,6 @@ nodes:
     level: 60
     role: greek
     parent: B-beta-1
-    group: B-greek
     icon: AMETHYST_SHARD
     cost: 1
     effect-text: クラフト品質+1

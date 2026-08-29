@@ -195,13 +195,13 @@ fishing:
           display-name: tier1
           entries:
             - item: custom:gacha_ticket_fishing
-              weight: 10
+              weight: 20
               amount: 1
         tier2:
           display-name: tier2
           entries:
             - item: custom:gacha_ticket_fishing
-              weight: 20
+              weight: 40
               amount: 1
     junk:
       categories:

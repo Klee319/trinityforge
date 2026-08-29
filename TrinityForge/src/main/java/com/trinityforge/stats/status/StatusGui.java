@@ -4,6 +4,7 @@ import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.combat.SymmetricCombatService;
 import com.trinityforge.command.StatsCategory;
 import com.trinityforge.config.domains.LoreConfig;
+import com.trinityforge.integration.ars.ArsArmorStatRefreshBridge;
 import com.trinityforge.config.domains.RoleBuffsConfig.CombatRoleSpec;
 import com.trinityforge.config.domains.RoleBuffsConfig.SupportRoleSpec;
 import com.trinityforge.pdc.PlayerData;
@@ -369,6 +370,11 @@ public final class StatusGui implements Listener {
     // ---- 共通 -----------------------------------------------------------------
 
     private List<StatusGuiModel.Section> sectionsOf(Player player) {
+        // プル型フォールバック(2026-08-25): ArsPaper の ArmorManaListener はプッシュ型(装備変更等
+        // 6経路)でスレッド/マナ系ステをPDCへ書く。武器を「選択スロット番号が変わらない差し替え」
+        // (コマンド等)で入れ替えるとどの経路も踏まず、表示直前まで古い値が残る。表示のたびに
+        // 同期的に再計算を促す(ArsPaper未導入/失敗はfail-softで無害、既存のプッシュ型経路は不変)。
+        ArsArmorStatRefreshBridge.refresh(player);
         return StatusGuiModel.sections(
                 aggregator.aggregate(player).combined(), loreConfig.displayTable());
     }

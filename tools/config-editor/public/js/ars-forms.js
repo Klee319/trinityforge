@@ -106,7 +106,7 @@
   ];
   const THREAD_KNOWN = new Set([
     "display_name", "stackable", "max", "recipe",
-    "potion-effect", "potion-level", "flight", "slots"
+    "potion-effect", "potion-level", "flight", "slots", "max-inventory-slots"
   ].concat(THREAD_EFFECT_KEYS));
 
   function parseThreadEntry(id, entry) {
@@ -125,6 +125,7 @@
       hasPotionLevel: has("potion-level"), potionLevel: e["potion-level"],
       hasFlight: has("flight"), flight: e.flight,
       hasSlots: has("slots"), slots: e.slots,
+      hasMaxInventorySlots: has("max-inventory-slots"), maxInventorySlots: e["max-inventory-slots"],
       hasRecipe: has("recipe"),
       recipe: RC.parseRitualRecipe(e.recipe)
     };
@@ -147,6 +148,7 @@
       else if (k === "potion-level") { if (model.hasPotionLevel) out["potion-level"] = model.potionLevel; }
       else if (k === "flight") { if (model.hasFlight) out.flight = model.flight; }
       else if (k === "slots") { if (model.hasSlots) out.slots = model.slots; }
+      else if (k === "max-inventory-slots") { if (model.hasMaxInventorySlots) out["max-inventory-slots"] = model.maxInventorySlots; }
       else if (k === "recipe") { if (model.hasRecipe) out.recipe = RC.serializeRitualRecipe(model.recipe); }
       else if (THREAD_EFFECT_SET.has(k)) { if (Object.prototype.hasOwnProperty.call(model.effects, k)) out[k] = model.effects[k]; }
       else if (Object.prototype.hasOwnProperty.call(model._extra, k)) out[k] = clone(model._extra[k]);
@@ -160,6 +162,7 @@
     if (model.hasPotionLevel && !emitted.has("potion-level")) out["potion-level"] = model.potionLevel;
     if (model.hasFlight && !emitted.has("flight")) out.flight = model.flight;
     if (model.hasSlots && !emitted.has("slots")) out.slots = model.slots;
+    if (model.hasMaxInventorySlots && !emitted.has("max-inventory-slots")) out["max-inventory-slots"] = model.maxInventorySlots;
     if (model.hasRecipe && !emitted.has("recipe")) out.recipe = RC.serializeRitualRecipe(model.recipe);
     return out;
   }
@@ -247,8 +250,9 @@
     const hasPotionGroup = !!(m.hasPotionEffect || m.hasPotionLevel);
     const hasFlightGroup = !!m.hasFlight;
     const hasSlotsGroup = !!m.hasSlots;
+    const hasMaxInventorySlotsGroup = !!m.hasMaxInventorySlots;
 
-    if (!presentNumeric.length && !hasPotionGroup && !hasFlightGroup && !hasSlotsGroup) {
+    if (!presentNumeric.length && !hasPotionGroup && !hasFlightGroup && !hasSlotsGroup && !hasMaxInventorySlotsGroup) {
       box.appendChild(h("div", { class: "empty-hint",
         text: "効果はまだありません。「+ 効果追加」で数値効果・ポーション効果・飛行・バックパック枠を足せます。" }));
     }
@@ -318,7 +322,7 @@
 
     if (hasSlotsGroup) {
       const slotsRow = h("div", { class: "stat-row" });
-      slotsRow.appendChild(h("span", { class: "form-label", text: "バックパック枠 (slots)", title: "slots" }));
+      slotsRow.appendChild(h("span", { class: "form-label", text: "バックパック枠/本 (slots)", title: "slots" }));
       slotsRow.appendChild(window.numberInput(m.slots, (v) => {
         m.slots = v == null || v < 0 ? 0 : Math.trunc(v);
         commitValue();
@@ -330,6 +334,20 @@
       box.appendChild(slotsRow);
     }
 
+    if (hasMaxInventorySlotsGroup) {
+      const maxRow = h("div", { class: "stat-row" });
+      maxRow.appendChild(h("span", { class: "form-label", text: "バックパック総枠上限 (max-inventory-slots)", title: "max-inventory-slots" }));
+      maxRow.appendChild(window.numberInput(m.maxInventorySlots, (v) => {
+        m.maxInventorySlots = v == null || v < 1 ? 1 : Math.trunc(v);
+        commitValue();
+      }, { int: true }));
+      maxRow.appendChild(h("button", {
+        class: "btn-small danger", type: "button", text: "×",
+        onclick: () => { m.hasMaxInventorySlots = false; m.maxInventorySlots = undefined; onChange(); }
+      }));
+      box.appendChild(maxRow);
+    }
+
     // ---- + 効果追加 ----
     const addOptions = [];
     for (const k of CORE.THREAD_EFFECT_KEYS) {
@@ -339,7 +357,8 @@
     }
     if (!hasPotionGroup) addOptions.push({ value: "potion-effect", label: "ポーション効果 (potion-effect)" });
     if (!hasFlightGroup) addOptions.push({ value: "flight", label: "飛行 (flight)" });
-    if (!hasSlotsGroup) addOptions.push({ value: "slots", label: "バックパック枠 (slots)" });
+    if (!hasSlotsGroup) addOptions.push({ value: "slots", label: "バックパック枠/本 (slots)" });
+    if (!hasMaxInventorySlotsGroup) addOptions.push({ value: "max-inventory-slots", label: "バックパック総枠上限 (max-inventory-slots)" });
     if (addOptions.length) {
       const sel = h("select", { class: "field-input" });
       sel.appendChild(h("option", { value: "", text: "+ 効果追加" }));
@@ -350,6 +369,7 @@
         if (v === "potion-effect") { m.hasPotionEffect = true; m.potionEffect = CORE.THREAD_POTION_EFFECTS[0][0]; }
         else if (v === "flight") { m.hasFlight = true; m.flight = true; }
         else if (v === "slots") { m.hasSlots = true; m.slots = 0; }
+        else if (v === "max-inventory-slots") { m.hasMaxInventorySlots = true; m.maxInventorySlots = 54; }
         else { m.effects[v] = 0; }
         onChange();
       });

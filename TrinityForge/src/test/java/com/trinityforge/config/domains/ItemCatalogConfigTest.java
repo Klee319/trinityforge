@@ -460,7 +460,7 @@ class ItemCatalogConfigTest {
         assertNull(r.templates().get("blade").recipe());
     }
 
-    // --- catalog `color:` / `enchant-glow:` (leather dye color + hidden-enchant shimmer) ---
+    // --- catalog `color:` / `enchant-glow:` (leather dye color + glint-override shimmer) ---
 
     @Test
     void parsesValidColorOnLeatherArmor() throws Exception {

@@ -382,18 +382,9 @@ test("tf-brew-gimmick: 正常な crafting-features.yml 実データはエラー�
 });
 
 // ============================================================
-// 5) T7 (2026-07-26): 「その他ギミック」から、エンチャント関連(enchant-luck)・醸造関連
-//    (alchemy-quality)をそれぞれのタブへさらに切り出した回帰テスト。
-//    T5 でこれらは一旦「その他ギミック」の専用タブへ集約されていたが、ユーザー指示により
-//    エンチャント運は「エンチャントギミック」、ポーション品質換算は「醸造ギミック」へ
-//    切り出し先を揃える形へ変更した。
+// 5) T7 (2026-07-26): 「その他ギミック」からエンチャント運・醸造関連を切り出した回帰。
+//    2026-08-29: ポーション品質換算 GUI は外した(yml 直編集)。エンチャント運は残る。
 // ============================================================
-
-function realAlchemyQuality() {
-  const root = path.resolve(__dirname, "..", "..", "..");
-  const p = path.join(root, "TrinityForge", "src", "main", "resources", "stats", "alchemy-quality.yml");
-  return YAML.parse(fs.readFileSync(p, "utf8"));
-}
 
 function realEnchantLuck() {
   const root = path.resolve(__dirname, "..", "..", "..");
@@ -412,14 +403,19 @@ test("その他ギミック(SECTIONS): potion-quality / enchant-luck-tab がも�
   assert.ok(!ids.includes("enchant-luck-tab"), `SECTIONS ids: ${JSON.stringify(ids)}`);
 });
 
-test("buildBrewGimmickForm は getExtraSaves を持ち、alchemy-quality を id として返す", () => {
+test("buildBrewGimmickForm の getExtraSaves は alchemy-quality を返さない", () => {
   setupDom();
   const working = { "potion-merge": {}, "brew-unlocks": {} };
-  const form = window.buildBrewGimmickForm(working, { alchemyQualityData: { "duration-ticks-per-quality": 20 } });
+  const form = window.buildBrewGimmickForm(working);
   assert.equal(typeof form.getExtraSaves, "function", "buildBrewGimmickForm に getExtraSaves が無い");
-  const extras = form.getExtraSaves();
-  assert.equal(extras.length, 1);
-  assert.equal(extras[0].id, "alchemy-quality");
+  assert.deepEqual(form.getExtraSaves(), []);
+  const texts = [];
+  (function walk(el) {
+    if (el && el.attrs && typeof el.attrs.text === "string") texts.push(el.attrs.text);
+    for (const c of (el && el.children) || []) walk(c);
+  })(form.element);
+  assert.ok(!texts.some((t) => String(t).includes("ポーション品質換算")),
+    `描画テキスト: ${JSON.stringify(texts)}`);
 });
 
 test("buildEnchantGimmickForm は getExtraSaves を持ち、enchant-luck を id として返す", () => {
@@ -432,19 +428,6 @@ test("buildEnchantGimmickForm は getExtraSaves を持ち、enchant-luck を id 
   assert.equal(extras[0].id, "enchant-luck");
 });
 
-test("ロスレス: 醸造ギミックタブで alchemy-quality コンパニオンを編集しても他キーは温存される", () => {
-  setupDom();
-  const cfWorking = JSON.parse(JSON.stringify(realCraftingFeatures()));
-  const original = realAlchemyQuality();
-  const alchemyWorking = JSON.parse(JSON.stringify(original));
-  const form = window.buildBrewGimmickForm(cfWorking, { alchemyQualityData: alchemyWorking });
-
-  const extras = form.getExtraSaves();
-  const aq = extras.find((e) => e.id === "alchemy-quality").data;
-  // 何も操作していないのに未知キーが失われていないか(既知の3キー以外も含めて全体一致)
-  assert.deepEqual(aq, original, "alchemy-quality.yml の内容が編集していないのに変化した");
-});
-
 test("ロスレス: エンチャントギミックタブで enchant-luck コンパニオンを編集しても他キーは温存される", () => {
   setupDom();
   const cfWorking = JSON.parse(JSON.stringify(realCraftingFeatures()));
@@ -455,20 +438,6 @@ test("ロスレス: エンチャントギミックタブで enchant-luck コン�
   const extras = form.getExtraSaves();
   const el = extras.find((e) => e.id === "enchant-luck").data;
   assert.deepEqual(el, original, "enchant-luck.yml の内容が編集していないのに変化した");
-});
-
-test("ロスレス: 醸造ギミックタブでの alchemy-quality 編集は crafting-features.yml の他サブツリーへ影響しない", () => {
-  setupDom();
-  const original = realCraftingFeatures();
-  const cfWorking = JSON.parse(JSON.stringify(original));
-  const alchemyWorking = JSON.parse(JSON.stringify(realAlchemyQuality()));
-  const form = window.buildBrewGimmickForm(cfWorking, { alchemyQualityData: alchemyWorking });
-
-  const saved = form.getData();
-  for (const key of ["disassembly", "wood-repair", "over-enchant", "coating", "thread-slots",
-    "removed-vanilla-recipes", "removed-vanilla-items", "gated-catalog-recipes"]) {
-    assert.deepEqual(saved[key], original[key], `醸造タブ(alchemy-quality編集込み)の保存で ${key} が変化した`);
-  }
 });
 
 test("ロスレス: エンチャントギミックタブでの enchant-luck 編集は crafting-features.yml の他サブツリーへ影響しない", () => {

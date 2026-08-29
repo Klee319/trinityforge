@@ -39,8 +39,16 @@ const buildItemStatsForm = global.window.buildItemStatsForm;
 const CATALOG_PATH = path.join(__dirname, "..", "..", "..", "TrinityForge", "src", "main",
   "resources", "items", "catalog.yml");
 
-/** 補助(other)タブに出てよいカタログID。サブウェポンだけ。増やすときはユーザー確認が要る。 */
-const SUPPORT_TAB_ALLOWLIST = new Set(["novus_criculus_luminis"]);
+/** 補助(other)タブに出てよいカタログID。サブウェポンだけ。増やすときはユーザー確認が要る。
+ * novus_criculus_luminis: 新生の光輪(サブウェポン、GLOWSTONE_DUST)
+ * chanter_ring: 詠唱者の指輪(指輪型補助装備、AMETHYST_SHARD#5760、draft)
+ * woodsman_whetstone: 樵の砥石(補助装備、AMETHYST_SHARD#5761、draft)
+ */
+const SUPPORT_TAB_ALLOWLIST = new Set([
+  "novus_criculus_luminis",
+  "chanter_ring",
+  "woodsman_whetstone"
+]);
 
 /** DOM 無しで buildItemStatsForm の「候補走査」部分だけを実行する(item-stats-material-skip と同じ手法)。 */
 function runBuildItemStatsForm(data, catalogCandidates) {

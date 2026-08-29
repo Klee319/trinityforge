@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.function.ToDoubleFunction;
 
 /**
  * {@link MobAbility} を実際に撃つ側（2026-07-31）。
@@ -68,6 +69,7 @@ public final class MobAbilityExecutor {
     private final Plugin plugin;
     private final SymmetricCombatService combat;
     private final java.util.function.DoubleSupplier elementBias;
+    private final ToDoubleFunction<String> abilityDamageScaleOfWorld;
 
     public MobAbilityExecutor(Plugin plugin, SymmetricCombatService combat) {
         this(plugin, combat, () -> com.trinityforge.config.domains.MobAbilitiesConfig.DEFAULT_ELEMENT_BIAS);
@@ -81,9 +83,22 @@ public final class MobAbilityExecutor {
      */
     public MobAbilityExecutor(Plugin plugin, SymmetricCombatService combat,
                               java.util.function.DoubleSupplier elementBias) {
+        this(plugin, combat, elementBias, world -> 1.0);
+    }
+
+    /**
+     * @param abilityDamageScaleOfWorld ワールド名 → 技ダメージ倍率。未設定ワールドは 1.0 を返すこと。
+     *                                  {@code combat/mob-overrides.yml} の {@code ability-damage-scale}
+     *                                  を毎回読み直す（reload 即反映のためサプライヤではなく関数で受ける）。
+     */
+    public MobAbilityExecutor(Plugin plugin, SymmetricCombatService combat,
+                              java.util.function.DoubleSupplier elementBias,
+                              ToDoubleFunction<String> abilityDamageScaleOfWorld) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.combat = Objects.requireNonNull(combat, "combat");
         this.elementBias = Objects.requireNonNull(elementBias, "elementBias");
+        this.abilityDamageScaleOfWorld = Objects.requireNonNull(abilityDamageScaleOfWorld,
+                "abilityDamageScaleOfWorld");
     }
 
     /**
@@ -101,6 +116,15 @@ public final class MobAbilityExecutor {
         double r = Math.max(0.0, Math.min(1.0, mobMagicRatio));
         double b = Math.max(0.0, Math.min(1.0, bias));
         return abilityType == DamageType.MAGICAL ? r + (1.0 - r) * b : r * (1.0 - b);
+    }
+
+    /**
+     * 技の {@code damage-percent} にワールド倍率を掛けた実効倍率。
+     * 非正・非有限のワールド倍率は「未設定」と同じ 1.0 扱い（技を 0 倍にして消さない）。
+     */
+    static double scaledAbilityPercent(double damagePercent, double worldScale) {
+        double scale = (!Double.isFinite(worldScale) || worldScale <= 0.0) ? 1.0 : worldScale;
+        return damagePercent * scale;
     }
 
     /**
@@ -430,7 +454,12 @@ public final class MobAbilityExecutor {
         // 通常攻撃の刻印値に倍率を掛けたものを「この技の基礎値」にする。
         // 刻印が無いモブ(バニラ)は Bukkit の既定近接ダメージ相当を 2.0 として扱う。
         double base = attack.defaultDamage() != 0 ? attack.defaultDamage() : 2.0;
-        double abilityBase = base * ability.damagePercent();
+        World world = mob.getWorld();
+        double worldScale = 1.0;
+        if (world != null) {
+            worldScale = abilityDamageScaleOfWorld.applyAsDouble(world.getName());
+        }
+        double abilityBase = base * scaledAbilityPercent(ability.damagePercent(), worldScale);
         // 2026-08-21(W-181): 技も【そのモブの magic-ratio を土台に】物理/魔法へ分割する。
         // physicalFinalDamageFromMob は magicRatio が 0 / 1 / 中間 のいずれでも正しく捌く
         // (0=完全物理・1=完全魔法・中間=1回の回避ロールで両成分へ通す hybrid)ので、

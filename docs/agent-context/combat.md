@@ -43,6 +43,7 @@
 - `armor-strength` は `DefenseStatBridge` が常に0固定にする。バニラ armor 属性のミラー（`SymmetricCombatService.vanillaArmorDefense` 系）経由で別途計上されるため。集約側の供給源が増えてもブリッジがdropするので二重計上にならない。
 - **防御率（`defense-rate`）は 2026-08-15 に一本化された。** それ以前はアイテム側だけ `armor-defense-rate`（バニラ防具値の点数）で書き、`Attribute.ARMOR` へ写像して同じミラーから読み戻していたが、「防具値は直感的でない」というユーザー判断で防具値ステを廃止し、**1点=1.5%軽減（`combat/damage.yml` の `vanilla-armor.defense-rate-per-point`）で換算して `defense-rate` へ統合**した。いまは `DefenseStatBridge` が他の防御ステと同様この率を直接読む。**TFスタンプ装備の `Attribute.ARMOR` は `AttributeApplier` が材質既定ごと常に抑止する（＝防具バーは常に空）** ので、ミラー寄与は0でありTFの防御率と二重計上にならない。ミラー自体は素のバニラ防具（TF未スタンプ）用に残してある。
 - 属性系ステ（max-health 等）だけは item マップがバニラ属性へ自動反映されないので、`PerkAttributeApplier.apply()` が `channelOf==ATTRIBUTE` のものだけを Attribute へ merge する。ここが Haste 等の他プラグインと衝突しないよう「ライブ属性値を一切読まない」設計になっている（読むと相殺事故を起こす）。
+- ⚠️ **装着スレッドは装備スロットの item マップに入らない**（`socketed-only-stats`）。寄与は `AddonCombatStats`（フォークが PDC へ書く）と、それを空にしたときのための `SocketedThreadStats`（装備の `arspaper:thread_slots` を直接読む）。フォークの `collectThreadsInto` が実効枠 0 で return すると addon は空のままなので、ライブ合算が無いと `/tf status` にも戦闘にも乗らない。addon にあるキーはフォーク側（セット効果込み）を優先する。
 
 ### 乗算レイヤは「レイヤ内は足し算・レイヤ同士は掛け算」── アドオンの倍率もレイヤを名乗る（2026-08-22、W-186）
 

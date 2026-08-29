@@ -3,6 +3,8 @@ package com.trinityforge.listeners;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.EnchantBookshelfConfig;
 import com.trinityforge.stats.StatKeys;
+import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.enchantments.EnchantmentOffer;
 import org.bukkit.entity.Player;
@@ -11,9 +13,17 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.enchantment.EnchantItemEvent;
 import org.bukkit.event.enchantment.PrepareItemEnchantEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.PrepareAnvilEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.AnvilInventory;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.view.AnvilView;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Map;
 import java.util.Objects;
@@ -68,6 +78,11 @@ public final class EnchantCostReductionListener implements Listener {
     static final double MAX_REDUCTION = 0.9;
     /** 軽減後も残す最低コスト(レベル)。0まで軽減すると無限エンチャント/修理になる。 */
     static final int MIN_LEVEL_COST = 1;
+    /**
+     * バニラ金床の「コストが高すぎます」(既定40)を外す上限。
+     * {@link Integer#MAX_VALUE} は一部クライアントで表示が壊れるので、実運用で届かない大きさにする。
+     */
+    static final int UNCAPPED_ANVIL_REPAIR_COST = 10_000;
 
     private static final String ENCHANT_COST_REDUCTION = StatKeys.canonical("enchant_cost_reduction");
 
@@ -78,6 +93,11 @@ public final class EnchantCostReductionListener implements Listener {
     private final Map<UUID, Double> lastBookshelfRatioByPlayer = new ConcurrentHashMap<>();
     /** 直前のprepareで提示costまたはhint levelを変更したプレイヤー。クリック時のhint整合判定に使う。 */
     private final Set<UUID> adjustedOfferPlayers = ConcurrentHashMap.newKeySet();
+    /**
+     * クライアントへ 39 を出しているあいだの、取り出しで実際に課金するレベル。
+     * {@code AnvilScreen} は 40 以上を「コストが高すぎます」に決め打ちするので、表示だけ落とす。
+     */
+    private final Map<UUID, Integer> pendingAnvilCharge = new ConcurrentHashMap<>();
 
     public EnchantCostReductionListener(PlayerStatAggregator aggregator) {
         this(aggregator, null);
@@ -205,6 +225,7 @@ public final class EnchantCostReductionListener implements Listener {
     /** 金床の修理/合成コストを軽減する。他リスナーが確定させた最終コストへ後から適用する。 */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onAnvil(PrepareAnvilEvent event) {
+        uncapAnvil(event);
         if (!(event.getView().getPlayer() instanceof Player player)) return;
         if (event.getResult() == null) return; // 有効な修理/リネーム/合成が確定していない
         double reduction = reductionOf(player);
@@ -212,6 +233,149 @@ public final class EnchantCostReductionListener implements Listener {
         int cost = event.getInventory().getRepairCost();
         if (cost <= 0) return;
         event.getInventory().setRepairCost(reducedCost(cost, reduction));
+        if (event.getView() instanceof AnvilView anvilView) {
+            anvilView.setRepairCost(reducedCost(cost, reduction));
+        }
+    }
+
+    /**
+     * 金床を開いた瞬間にバニラ上限40を外す。Prepare より前にセットしないと、
+     * バニラが既に結果を null にしたあとに上限だけ上げても「コストが高すぎます」が残る。
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onAnvilOpen(InventoryOpenEvent event) {
+        if (event.getView() instanceof AnvilView anvilView) {
+            anvilView.setMaximumRepairCost(UNCAPPED_ANVIL_REPAIR_COST);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onAnvilUncap(PrepareAnvilEvent event) {
+        uncapAnvil(event);
+    }
+
+    private static void uncapAnvil(PrepareAnvilEvent event) {
+        uncapAnvilView(event.getView() instanceof AnvilView anvilView ? anvilView : null,
+                event.getInventory());
+    }
+
+    private static void uncapAnvilView(AnvilView anvilView, Inventory inventory) {
+        if (anvilView != null) {
+            anvilView.setMaximumRepairCost(UNCAPPED_ANVIL_REPAIR_COST);
+        }
+        if (inventory instanceof AnvilInventory anvilInventory) {
+            anvilInventory.setMaximumRepairCost(UNCAPPED_ANVIL_REPAIR_COST);
+        }
+    }
+
+    /**
+     * 実コストはイベント中に触らない。Paper はハンドラのあと {@code cost >= maximumRepairCost}
+     * （既定40）なら結果を空にするので、ここで 39 に落とすと再計算後の実コストと比較されて
+     * リザルトが消える。次tickで上限を掛け直し、空なら結果を戻してから表示だけ 39 にする。
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onAnvilClientDisplay(PrepareAnvilEvent event) {
+        if (!(event.getView() instanceof AnvilView anvilView)) {
+            return;
+        }
+        if (!(anvilView.getPlayer() instanceof Player player)) {
+            return;
+        }
+        UUID id = player.getUniqueId();
+        ItemStack preview = event.getResult();
+        if (player.getGameMode() == GameMode.CREATIVE || preview == null || preview.getType().isAir()) {
+            pendingAnvilCharge.remove(id);
+            return;
+        }
+        int realCost = anvilView.getRepairCost();
+        if (!AnvilClientCost.needsDisplayCap(realCost)) {
+            pendingAnvilCharge.remove(id);
+            return;
+        }
+        pendingAnvilCharge.put(id, realCost);
+        ItemStack snapshot = preview.clone();
+        Inventory inventory = event.getInventory();
+        Runnable apply = () -> applyAnvilClientDisplay(player, anvilView, inventory, realCost, snapshot);
+        Plugin plugin = hostingPlugin();
+        if (plugin == null) {
+            apply.run();
+            return;
+        }
+        plugin.getServer().getScheduler().runTask(plugin, apply);
+    }
+
+    /**
+     * テストはプラグインクラスローダ外なので即時適用。本番は {@code TrinityForge} の次tick。
+     */
+    static Plugin hostingPlugin() {
+        try {
+            return JavaPlugin.getProvidingPlugin(EnchantCostReductionListener.class);
+        } catch (IllegalArgumentException | IllegalStateException ignored) {
+            if (Bukkit.getPluginManager() == null) {
+                return null;
+            }
+            return Bukkit.getPluginManager().getPlugin("TrinityForge");
+        }
+    }
+
+    private void applyAnvilClientDisplay(Player player, AnvilView anvilView, Inventory inventory,
+                                         int realCost, ItemStack resultSnapshot) {
+        if (player == null || anvilView == null || inventory == null) {
+            return;
+        }
+        Plugin plugin = hostingPlugin();
+        if (plugin != null && (!(player.getOpenInventory() instanceof AnvilView open) || open != anvilView)) {
+            return;
+        }
+        uncapAnvilView(anvilView, inventory);
+        if (isEmpty(inventory.getItem(2)) && resultSnapshot != null && !resultSnapshot.getType().isAir()) {
+            inventory.setItem(2, resultSnapshot.clone());
+        }
+        int displayed = AnvilClientCost.displayed(realCost);
+        if (inventory instanceof AnvilInventory anvilInventory) {
+            anvilInventory.setRepairCost(displayed);
+        }
+        anvilView.setRepairCost(displayed);
+    }
+
+    private static boolean isEmpty(ItemStack stack) {
+        return stack == null || stack.getType().isAir();
+    }
+
+    /**
+     * 取り出し直前に実コストを戻す。表示を 39 のままにするとバニラが 39 しか引かない。
+     * レベルが実コストに足りないときは、クライアントが 39 で通してしまうのでここで止める。
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onAnvilResultTake(InventoryClickEvent event) {
+        if (event.getRawSlot() != 2) {
+            return;
+        }
+        if (!(event.getView() instanceof AnvilView anvilView)) {
+            return;
+        }
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        Integer realCost = pendingAnvilCharge.get(player.getUniqueId());
+        if (realCost == null) {
+            return;
+        }
+        if (player.getGameMode() != GameMode.CREATIVE && player.getLevel() < realCost) {
+            event.setCancelled(true);
+            player.sendActionBar(net.kyori.adventure.text.Component.text(
+                    "レベルが足りません(必要 " + realCost + ")",
+                    net.kyori.adventure.text.format.NamedTextColor.RED));
+            return;
+        }
+        anvilView.setRepairCost(realCost);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onAnvilClose(InventoryCloseEvent event) {
+        if (event.getView() instanceof AnvilView) {
+            pendingAnvilCharge.remove(event.getPlayer().getUniqueId());
+        }
     }
 
     /**
@@ -226,6 +390,7 @@ public final class EnchantCostReductionListener implements Listener {
     public void onQuit(PlayerQuitEvent event) {
         lastBookshelfRatioByPlayer.remove(event.getPlayer().getUniqueId());
         adjustedOfferPlayers.remove(event.getPlayer().getUniqueId());
+        pendingAnvilCharge.remove(event.getPlayer().getUniqueId());
     }
 
     private double reductionOf(Player player) {

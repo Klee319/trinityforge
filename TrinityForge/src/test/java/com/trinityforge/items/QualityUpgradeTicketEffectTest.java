@@ -1,9 +1,11 @@
 package com.trinityforge.items;
 
+import com.trinityforge.config.domains.ItemStatsConfig;
 import com.trinityforge.config.domains.QualityConfig;
 import com.trinityforge.pdc.ItemData;
 import com.trinityforge.stats.ItemAssembler;
 import com.trinityforge.stats.ItemFactory;
+import com.trinityforge.stats.ItemStatProfile;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -12,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -20,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -98,5 +103,31 @@ class QualityUpgradeTicketEffectTest {
 
         assertFalse(effect.eligible(plain), "rollSeedを持たないアイテムは対象外");
         assertTrue(effect.apply(plain.clone()).isEmpty());
+    }
+
+    @Test
+    void eligibleIsFalseForTicketItself() {
+        ItemStack crystal = new ItemStack(Material.HEART_OF_THE_SEA);
+        ItemMeta meta = crystal.getItemMeta();
+        ItemData data = ItemData.of(meta);
+        data.setRollSeed(ORIGINAL_ROLL_SEED);
+        data.setQuality(0);
+        data.setCatalogId(QualityUpgradeTicketEffect.CATALOG_ID);
+        crystal.setItemMeta(meta);
+
+        assertFalse(effect.eligible(crystal), "品質昇華の結晶は自分自身を対象にしてはいけない");
+    }
+
+    @Test
+    void eligibleIsFalseWhenQualityDoesNotVary() {
+        ItemStatsConfig stats = mock(ItemStatsConfig.class);
+        ItemStatProfile fixedOnly = new ItemStatProfile(
+                Map.of("attack-damage", 5.0), Map.of(), Map.of());
+        when(stats.profileFor(eq(Material.DIAMOND_SWORD), nullable(Integer.class))).thenReturn(Optional.of(fixedOnly));
+        QualityUpgradeTicketEffect gated =
+                new QualityUpgradeTicketEffect(new ItemFactory(assembler, stats), qualityConfig);
+
+        assertFalse(gated.eligible(stamped(5)), "品質が動かない品は昇華の対象外");
+        assertTrue(gated.apply(stamped(5)).isEmpty());
     }
 }

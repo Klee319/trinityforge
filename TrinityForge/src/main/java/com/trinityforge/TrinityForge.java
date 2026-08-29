@@ -846,7 +846,7 @@ public final class TrinityForge extends JavaPlugin {
                 progressionService);
         getServer().getPluginManager().registerEvents(statusGui, this);
 
-        // 特殊アイテム3種(2026-08-04新設): 職業付け替えの証 / 厳選やり直しの護符 / 品質昇華の結晶。
+        // 特殊アイテム: 職業付け替えの証 / 厳選の護符 / 品質昇華の結晶 / 魂縛解きの符。
         // 券は「効果が成立したときにだけ」消費する(GUIを閉じただけ・対象なし・最高品質到達では減らない)。
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.items.RoleTicketItemListener(roleSelectGui), this);
@@ -854,8 +854,9 @@ public final class TrinityForge extends JavaPlugin {
                 new com.trinityforge.items.EquipmentTicketGui(this);
         getServer().getPluginManager().registerEvents(equipmentTicketGui, this);
         java.util.List<com.trinityforge.items.EquipmentTicketEffect> equipmentTicketEffects = java.util.List.of(
-                new com.trinityforge.items.StatRerollTicketEffect(itemFactory),
-                new com.trinityforge.items.QualityUpgradeTicketEffect(itemFactory, configManager.quality()));
+                new com.trinityforge.items.StatRerollTicketEffect(itemFactory, () -> this.craftQualityService),
+                new com.trinityforge.items.QualityUpgradeTicketEffect(itemFactory, configManager.quality()),
+                new com.trinityforge.items.OwnerUnbindTicketEffect(itemFactory));
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.items.EquipmentTicketItemListener(equipmentTicketGui, equipmentTicketEffects),
                 this);
@@ -918,7 +919,9 @@ public final class TrinityForge extends JavaPlugin {
         // タブへ項目を足せないので、同じ用途をサーバ側の画面で満たす。
         com.trinityforge.items.CatalogBrowseGui catalogGui =
                 new com.trinityforge.items.CatalogBrowseGui(
-                        this, configManager.itemCatalog(), itemFactory);
+                        this, configManager.itemCatalog(), itemFactory,
+                        com.trinityforge.stats.ArsItemGiveBridge::listPlayerItemIds,
+                        crossPluginItemResolver::create);
         getServer().getPluginManager().registerEvents(catalogGui, this);
         this.catalogCommand = new com.trinityforge.command.CatalogCommand(catalogGui);
         // パーティクルシード報酬の実体配布(2026-08-21)。着手前は special: [seed_*] を付与しても
@@ -1409,7 +1412,8 @@ public final class TrinityForge extends JavaPlugin {
         this.mobAbilityTask = new com.trinityforge.combat.MobAbilityTask(this,
                 configManager.mobAbilities(), configManager.mobOverrides(),
                 new com.trinityforge.combat.MobAbilityExecutor(this, combatService,
-                        () -> configManager.mobAbilities().elementBias()),
+                        () -> configManager.mobAbilities().elementBias(),
+                        world -> configManager.mobOverrides().abilityDamageScale(world)),
                 new com.trinityforge.combat.MobAbilityCooldowns(),
                 new java.util.Random());
         mobAbilityTask.start();
@@ -1598,10 +1602,10 @@ public final class TrinityForge extends JavaPlugin {
                                     || src.getSender().hasPermission("trinityforge.use"))
                             .executes(ctx -> {
                                 ctx.getSource().getSender().sendMessage(Component.text(
-                                        "用法: /tf <mail|reload|skills|achievement|start|stop|progression|give|bind|stamp|import|dungeon|stats|status|role|collection|recipes|glyphs|settings|reward|inspect>",
+                                        "用法: /tf <mail|reload|skills|achievement|start|stop|progression|decay|give|bind|stamp|import|dungeon|stats|status|role|collection|recipes|glyphs|settings|reward|inspect>",
                                         NamedTextColor.YELLOW));
                                 ctx.getSource().getSender().sendMessage(Component.text(
-                                        "※ reload/progression/give/bind/stamp/import/dungeon/reward は OP または trinityforge.admin が必要です。",
+                                        "※ reload/progression/decay/give/bind/stamp/import/dungeon/reward は OP または trinityforge.admin が必要です。",
                                         NamedTextColor.GRAY));
                                 return Command.SINGLE_SUCCESS;
                             })
@@ -1886,6 +1890,10 @@ public final class TrinityForge extends JavaPlugin {
                                                                 snapshot.toString(), NamedTextColor.GRAY));
                                                         return Command.SINGLE_SUCCESS;
                                                     }))))
+                            .then(new com.trinityforge.command.ExpDecayAdminCommand(
+                                            this, dailyExpDiminishing, dailyExpPersistence)
+                                    .node()
+                                    .requires(TrinityForge::isTfAdmin))
                             .then(giveItemCommand.node()
                                     .requires(TrinityForge::isTfAdmin))
                             .then(bindCommand.node()

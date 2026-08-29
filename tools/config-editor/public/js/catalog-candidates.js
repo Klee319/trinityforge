@@ -101,6 +101,9 @@
       } else if (isBrowser && typeof root.inferItemCategory === "function") {
         tab = root.inferItemCategory(material);
       }
+      // Node テスト経路には getItemDisplayTab が無い。STRING は推論が other になるので、
+      // カタログ ID の thread_* はここでスレッドへ固定する。
+      if ((!tab || tab === "other") && String(id).startsWith("thread_")) tab = "thread";
       out.push({
         id,
         displayName: entry["display-name"] == null ? "" : String(entry["display-name"]),

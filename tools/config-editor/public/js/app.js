@@ -105,11 +105,9 @@
   const SPLIT_HIDDEN_IDS = ["catalog", "materials", "spellbooks", "threads", "item-stats", "thread-sets", "material-lists"];
   // グリフ(glyphs)画面のコンパニオン。サイドバー非表示で「グリフ」画面内から一緒に編集・保存する。
   const GLYPH_COMPANION_IDS = ["glyph-damage-boost"];
-  // T7 (2026-07-26): ポーション品質換算(alchemy-quality)は「醸造ギミック」(brew-gimmick)画面、
-  // エンチャント運(enchant-luck)は「エンチャントギミック」(enchant-gimmick)画面の専用タブへそれぞれ
-  // 表示移設(T5 では一旦「その他ギミック」へ集約していたが、エンチャント/醸造関連の切り出し先を
-  // 各専用タブへ揃えるためユーザー指示で分離)。サイドバー個別一覧からは引き続き隠し、それぞれの画面内
-  // から一緒に編集・保存する(保存先の config id・YAMLキーパスは不変)。
+  // T7 (2026-07-26): エンチャント運(enchant-luck)は「エンチャントギミック」画面へコンパニオン表示。
+  // ポーション品質換算(alchemy-quality.yml)は 2026-08-29 に GUI を外した(係数は本体が yml を直接読む。
+  // gathering-efficiency と同じ「registry には残してサイドバーだけ隠す」)。
   const BREW_GIMMICK_COMPANION_IDS = ["alchemy-quality"];
   const ENCHANT_GIMMICK_COMPANION_IDS = ["enchant-luck"];
   // T6 (2026-07-26): 「食事ギミック」単独タブを廃止し、農業ギミック(farming-gimmick)画面内へ統合表示する。
@@ -129,23 +127,23 @@
    *
    * 2026-07-26 修正: `applyMergedToEditor` はコンパニオン側がマージされたとき、tf-quality と
    * tf-skill-exp の2スキーマにしか再構築の分岐が無かった。それ以外のコンパニオン
-   * (enchant-luck / alchemy-quality / stat-caps / crafting-features / food-gimmick /
+   * (enchant-luck / stat-caps / crafting-features / food-gimmick /
    * ars-config / glyph-damage-boost) では関数が何もせず戻り、**マージ結果が画面に反映されないまま
    * リビジョンだけ進む**ため、次の保存でマージ前の内容がそのまま書き戻る(=マージが無かったことになる)。
    * ここを一覧にして汎用分岐から引けるようにした。新しいコンパニオンを足したらここにも足すこと。
    *
-   * gathering-efficiency は「隠してあるだけで画面から編集する経路が無い」ため、意図的に載せていない。
-   * (2026-07-26 に max-enchant-level を stat-caps.yml 側の
+   * gathering-efficiency と alchemy-quality は「隠してあるだけで画面から編集する経路が無い」ため、
+   * 意図的に載せていない。alchemy-quality の GUI は 2026-08-29 に外した(係数は本体が yml を直接読む)。
+   * gathering-efficiency は 2026-07-26 に max-enchant-level を stat-caps.yml 側の
    * gathering-efficiency-max-enchant-level へ移設したが、二重管理になるとの指摘で 2026-08-05 に
    * その行と Java 側の読み取りを撤去した。上限は stats/gathering-efficiency.yml が唯一の設定箇所で、
-   * 現状 editor には UI が無い = yml 直編集。)
+   * 現状 editor には UI が無い = yml 直編集。
    */
   const COMPANION_OPTION_KEYS = {
     "glyph-damage-boost": "glyphDamageBoostData",
     "crafting-features": "craftingFeaturesData",
     "food-gimmick": "foodGimmickData",
     "enchant-luck": "enchantLuckData",
-    "alchemy-quality": "alchemyQualityData",
     "stat-caps": "statCapsData",
     "ars-config": "arsConfigData",
     "afk": "afkData",
@@ -400,7 +398,7 @@
    * T6 (2026-07-26): 他画面のコンパニオンとして id の config を1つ読み込む共通ヘルパー。
    * options[optKey] が既に渡されていればそれを使い、無ければ state.baseSnapshots のキャッシュ、
    * それも無ければ GET してキャッシュする(元は tf-crafting-features の source-auto-consume /
-   * alchemy-quality / enchant-luck 読み込みに個別実装されていたものを共通化)。
+   * enchant-luck 読み込みに個別実装されていたものを共通化)。
    * 鍛冶ギミック/伐採ギミックの disassembly / wood-repair コンパニオン(crafting-features)、
    * エンチャント/醸造ギミック自身の読み込み、農業ギミックの food-gimmick コンパニオンで使う。
    */
@@ -840,11 +838,10 @@
         const enchantLuckData = await loadConfigCompanion("enchant-luck", "enchantLuckData", options);
         return window.buildEnchantGimmickForm(data, { enchantLuckData });
       }
-      case "tf-brew-gimmick": {
-        // T7 (2026-07-26): ポーション品質換算(alchemy-quality.yml)をこのタブへコンパニオン表示する。
-        const alchemyQualityData = await loadConfigCompanion("alchemy-quality", "alchemyQualityData", options);
-        return window.buildBrewGimmickForm(data, { alchemyQualityData });
-      }
+      case "tf-brew-gimmick":
+        // ポーション品質換算(alchemy-quality.yml)の GUI は 2026-08-29 に外した。
+        // 係数は本体が yml を直接読む。gathering-efficiency と同じく editor からは触らない。
+        return window.buildBrewGimmickForm(data);
       case "tf-villager-trades": return window.buildVillagerTradesForm(data);
       case "tf-role-buffs": return window.buildRoleBuffsForm(data);
       case "tf-base-stats": {
@@ -878,8 +875,7 @@
             arsConfigData = ar.data && typeof ar.data === "object" ? ar.data : {};
           } catch (_) { arsConfigData = undefined; }
         }
-        // T7 (2026-07-26): ポーション品質換算(alchemy-quality)/エンチャント運(enchant-luck)は
-        // 醸造ギミック/エンチャントギミックタブへ表示移設したため、このタブではもう読み込まない。
+        // エンチャント運(enchant-luck)はエンチャントギミックタブへ表示移設したため、このタブではもう読み込まない。
         return window.buildCraftingFeaturesForm(data, { catalogCandidates, arsConfigData });
       }
       case "tf-use-requirements": {
@@ -1563,9 +1559,10 @@
       return !window.deepEqual(state.editor.getData(), state.constantsBase);
     }
     if (state.kind !== "config" && state.kind !== "split") return false;
-    const configId = state.kind === "split" && state.editor.configId
-      ? state.editor.configId
-      : state.current;
+    // editor.configId を優先する。selectConfig は GET 待ちのあいだ state.current を先に
+    // 書き換えるため、ここを state.current だけ見ると「前の画面の getData」と「次タブの
+    // ベースライン」を突き合わせて、触っていないのに未保存警告が出る。
+    const configId = state.editor.configId || state.current;
     if (!configId || !state.baseSnapshots[configId]) return false;
     if (isConfigDataChanged(configId, state.editor.getData())) return true;
     if (typeof state.editor.getExtraSaves === "function") {
@@ -1714,6 +1711,10 @@
           threadSetsData = (sr.data && typeof sr.data === "object") ? sr.data : {};
           rememberBase("thread-sets", threadSetsData);
         }
+        // GET 待ちのあいだに別タブへ移っていたら、この世代の editor を state に載せない。
+        // 載せると画面は新しいタブなのに getData は古いフォーム、という食い違いになり、
+        // 次の切替で「未保存の変更があります」と出る。
+        if (navToken !== navSeq) return;
         state.editor = window.buildSplitConfigView({
           type: sp.type,
           configId: sp.configId,
@@ -1774,6 +1775,9 @@
     const navToken = beginNav();
     state.current = id;
     state.kind = "config";
+    // GET / フォーム組み立て待ちのあいだ、前画面の editor が残っていると
+    // isEditorDirty が「新しい current × 古い getData」を比較する。
+    state.editor = null;
     renderSidebar();
     const main = document.getElementById("editor-area");
     main.innerHTML = "";
@@ -1800,6 +1804,8 @@
     const data = r.data && typeof r.data === "object" ? r.data : {};
     rememberBase(id, data);
     const editor = await buildEditorForLoadedConfig(r.schema, data);
+    if (navToken !== navSeq) return;
+    if (editor && editor.configId == null) editor.configId = id;
     state.editor = editor;
     syncBaseFromEditor(id);
     if (!mountMain(navToken, editor.element)) return;
@@ -1963,6 +1969,9 @@
       const warnNote = cmdWarningsNote(saved) + editorMetaWarningsNote(saved);
       toast(`保存しました。${backupMsg}${deployToastNote(saved)}${warnNote}`, warnNote ? "warn" : "ok");
       await loadConfigs();
+      // PUT した payload と、保存直後の getData() がずれる画面がある
+      // (正規化が getData のたびに少し進む)。保存済みを未保存扱いにしない。
+      syncBaseFromEditor(state.current);
       // lore の表示名変更をステータスセレクトへ即時反映
       if (state.current === "lore" || meta.schema === "tf-lore") {
         await loadStatList();
@@ -2013,6 +2022,7 @@
       const warnNote = cmdWarningsNote(saved) + editorMetaWarningsNote(saved);
       toast(`保存しました。${deployToastNote(saved)}${warnNote}`, warnNote ? "warn" : "ok");
       await loadConfigs();
+      syncBaseFromEditor(configId);
     } catch (err) {
       toast(formatSaveError(err), "error");
     }

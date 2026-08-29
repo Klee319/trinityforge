@@ -30,9 +30,11 @@ prestige:
     craft-roll-up-bonus: 2
     craft-roll-down-reduction: 2
     craft-roll-inset: 2
+    ars-smithing-exp-bonus: 0.1
   description: |-
     儀式品質+2
     ロールステータスの品質up
+    Ars鍛冶EXP増加+10%
 nodes:
   A:
     name: ソース細工の見習い
@@ -44,12 +46,7 @@ nodes:
     effect-text: ソースジェム一括クラフト開放
     effects:
       - ソースジェム一括クラフトを解放
-    dedicated-effects:
-      - id: recipe:source_gem_block
-    description: |-
-      ソースジェムブロッククラフト解放
-      &8儀式で直接ブロックを作成することもできます
-      儀式品質+1
+    description: 儀式品質+1
     buffs:
       ritual-quality-bonus: 1
   B:
@@ -81,8 +78,10 @@ nodes:
     description: |-
       儀式品質+1
       スレッド枠追加の儀式 Lv1解放
+      ソース結晶のクラフト解放
     dedicated-effects:
       - id: ritual:thread_slot_expand_ritual
+      - id: ritual:source_crystal
   D:
     name: スレッド織りの匠
     level: 70
@@ -98,8 +97,10 @@ nodes:
     description: |-
       儀式品質+1
       スレッド枠追加の儀式 Lv2解放
+      ソース凝縮物のクラフト解放
     dedicated-effects:
       - id: ritual:thread_slot_expand_ritual_2
+      - id: ritual:source_condenser
   E:
     name: 儀式鍛冶の大匠
     level: 90
@@ -113,8 +114,10 @@ nodes:
     description: |-
       儀式品質+2
       スレッド枠追加の儀式 Lv3解放
+      ソース機関のクラフト解放
     dedicated-effects:
       - id: ritual:thread_slot_expand_ritual_3
+      - id: ritual:source_engine
   A-1:
     name: ソース節約
     level: 20
@@ -143,24 +146,6 @@ nodes:
       ソースベリー変換
       &8インベントリのソースベリーを消費して自動でマナを補充します
       &8100マナ/10CT
-  A-3:
-    name: 上位ソースジャー・ソースリンク
-    level: 60
-    role: branch
-    parent: A-2
-    icon: DECORATED_POT
-    cost: 1
-    effect-text: 上位ソースジャー・ソースリンク(ヴォルカニック)解放
-    effects:
-      - 上位ソースジャー・ソースリンクを解放
-    dedicated-effects:
-      # 2026-08-16再修正: source_crystal/condenser/engine は materials.yml で、volcanic_sourcelink は
-      # sourcelinks.yml で method: ritual。ArsPaper の UnlockGate は儀式を hasRitualPermission でしか
-      # 照合しないので、recipe: 側に置くと永久に無効(=常時解放)になる。ritual: が正しい。
-      - id: ritual:source_crystal
-      - id: ritual:source_condenser
-      - id: ritual:source_engine
-    description: 上位ソースジャー・ソースリンクの素材クラフト解放
   D-1:
     name: Waystoneクラフト
     level: 80
@@ -181,7 +166,7 @@ nodes:
       テレポートコンパスのクラフト開放
   B-1-1:
     name: エンチャントI
-    level: 20
+    level: 40
     role: branch
     parent: B
     icon: ENCHANTED_BOOK
@@ -198,7 +183,7 @@ nodes:
       マナ上昇Iのエンチャント本クラフト開放
   B-1-2:
     name: エンチャントII・回生
-    level: 40
+    level: 60
     role: branch
     parent: B-1-1
     icon: ENCHANTED_BOOK
@@ -215,7 +200,7 @@ nodes:
       マナ再生Ⅱのエンチャント本クラフト開放
       マナ上昇Ⅱのエンチャント本クラフト開放
       回生のエンチャント本クラフト開放
-  B-1-4:
+  B-1-3:
     name: エンチャントIII・共有
     level: 80
     role: branch
@@ -316,7 +301,7 @@ nodes:
     buffs:
       ritual-downswing-reduction: 0.4
     description: 品質効率up Lv1
-  D-beta-2:
+  D-beta-1:
     name: 儀式精度II
     level: 80
     role: greek

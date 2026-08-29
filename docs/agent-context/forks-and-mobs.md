@@ -164,6 +164,24 @@ EliteMobs はエンティティを普通にスポーンさせた**後**にエリ
   同名メソッドの**オーバーロード違い**は片方だけ直されがちなので、`grep -n "void setName("` で
   全オーバーロードを洗って一つずつ確認すること。
 
+- **モデル生成コンストラクタは `CustomBossEntity#setName` より後に走る** (2026-08-29):
+  `CustomModelMEG` は生成直後に `setName(nametagName, true)` をハードコードしていた。呼び出し元が
+  既に `NativeDisplayPolicy` で隠した後でも、ModelEngine 取り付けが最後に名札を戻す。
+  `CustomModelFMM#setName` は `visible` 引数を捨てて `setDisplayName` だけ書いていたので、
+  抑止済みの `false` が届いても FreeMinecraftModels 側は消えない。
+  TF の FocusHp（`Lv.180 帯電したウサギ`）の下に EM 由来の `【100】エナジャイズドバニー` が
+  重なるのはこの経路。コンストラクタも `resolveCustomModelNametagVisible` を通し、
+  FMM は `setDisplayNameVisible(visible)` まで書く。`grep "setName(.*true)"` に加えて
+  **生成コンストラクタ**と **FMM の引数使用**を毎回確認すること。
+
+- **`customNameVisible=false` でも視線を合わせるとバニラ名札は出る** (2026-08-29):
+  Minecraft は `CustomNameVisible` が false でも、プレイヤーがエンティティを見ている間は
+  `CustomName` を出す（プレイヤー名と同じ「視線合わせ名札」）。TF の FocusHp も視線合わせで
+  出るので、可視フラグだけ消すと **日本語 FocusHp の下に `【100】エナジャイズドバニー` が残る**。
+  実機（Main/Dev）には FreeMinecraftModels / ModelEngine が無く、上のモデル生成修正だけでは
+  この経路は消えない。抑止中は `NativeDisplayPolicy#applyLivingNametag` が `CustomName` 自体を
+  消す（文字列は `EliteEntity#name` に残す）。スタンドアロン EM（抑止オフ）は従来どおり名前を残す。
+
 ### ⚠️ モブの通常攻撃を魔法として解決するには `attack.magic-ratio` を使う(Lua power 経由ではない)
 
 ※かつて「EliteMobs の premade Lua power には魔法ダメージとして判定されるものが無いので、モブに
@@ -1221,6 +1239,8 @@ player を生成経路まで手動で運ぶしかない」「個体差は Ars �
 （`new NamespacedKey("arspaper", "thread_item_type")`、reflection 不要で読める）で行うこと
 （`PickupQualityListener#hasArsThreadMarker`）。
 
+既存個体の表更新も同じ穴を踏む。`ItemRefreshListener` は世代が古い装備を `ItemAssembler#assemble` へ流すので、スレッドを通すと専用 lore が消える。`restampWithQuality` は **rollSeed を新規発番**するので品質と pt が変わる。表だけ追従させる契約は Ars `ThreadItem#refreshLoreKeepingIdentity`（seed/quality は触らず `fullLore` だけ組み直す）。TF 側は `PickupQualityListener#defaultArsThreadLoreRefresh` が reflection で呼ぶ。装着済みスレッドの数値は装備 PDC の identity + 現行表で毎tick導出されるので、対象は手持ち／インベントリのスタック lore。
+
 ### ⚠️ スレッドは「作られた瞬間」に rollSeed+quality=0 を自己刻印していた — 生成者不明経路は未刻印のまま返し、品質決定は後から `restampWithQuality` で行う（W-53、2026-08-18 修正済み）
 
 `ThreadItem#createItemStack()`（引数なし、`crafter==null` 経路 = ルートチェスト/ダンジョンドロップ/
@@ -1234,6 +1254,27 @@ rollSeed を新規発番しつつ quality=0固定で刻んでいた。TF の `It
 （メソッド名/シグネチャ変更時は両方直す）**: `GiveItemCommand#defaultThreadRestamp`
 （管理者が明示指定した quality）と `PickupQualityListener#defaultArsThreadRestamp`
 （開運ベースでロールした quality、PDCマーカーで検出）。
+
+### ⚠️ 未刻印スレッドはバニラで重なる — ホッパー→チェストで特異点に粗悪が混ざる（W-269）
+
+ドロップ／ルートチェスト産は W-53 どおり未刻印のまま出る。未刻印どうしは Material+CMD+専用lore が同じなので
+`ItemStack.isSimilar` が true。ホッパーが地面から吸うと、チェストに置いてある**同じ種類の特異点**へ
+個数だけ足され、行き先の NBT（特異点の rollSeed/quality）が残る ── 粗悪が特異点に化ける。
+儀式の結果枠に置きっぱなしでも同じ。
+
+- `ThreadItem#createItemStack` / `restampWithQuality` と TF `PickupQualityListener#uniquifyThreadStack` で
+  **`ItemMeta#setMaxStackSize(1)`**。
+- `PickupQualityListener#onHopperPickup`（`InventoryPickupItemEvent` HIGH）が吸う前に品質を刻み、
+  マーカー付きは最大スタック1にする。プレイヤー拾得を待つだけではホッパー経路が空く。
+
+### ⚠️ 装着スレッドは装備 PDC にしか無い — 壊れた品から組み直さないと消える
+
+スレッドを挿すと実物は消費され、種類・厳選・魂縛・バックパック中身は装備の
+`thread_slots` / `thread_slot_rolls` / `thread_slot_owners` / `backpack_data` にだけ残る。
+バニラの破壊も、TF の手書き耐久破壊（`setItemInMainHand(null)` 等）もスタックごと消す。
+返す組み立ては GUI 取り外しと同じ `SocketedThreadReturn`（`ThreadBreakDropListener` が
+`PlayerItemBreakEvent` で呼ぶ）。枠上限（`SocketedThreads#read` の `effectiveSlots`）で
+打ち切ると、効いていなかった超過枠が装備と一緒に消えるので破壊時は `readAll`。
 
 ### ⚠️ 無期限ポーション効果は「無期限かどうか」だけでは所有者を判定できない — 所有権台帳が必要（W-54、2026-08-18 修正済み）
 
@@ -1673,6 +1714,43 @@ W-179 の1回目の適用で「虚無の鐘」28 体が全部漏れた（= そ�
 | 10 | エンチャント試練 10 | ほぼ物理(魔法10%) | 物理 | x1.95 | x1 | 190秒 | 4.6発 | 3.6発 |
 | 10 | 世界を繋ぐ者の聖所 | 魔法寄り(魔法45%) | 物理 | x1.87 | x1 | 309秒 | 3.7発 | 3.1発 |
 
+### ⚠️ 難易度台帳の「耐発数」は Lv100・世界を繋ぐ装備基準 — 推奨Lv帯の実数値は桁が違う
+
+ダンジョン難易度コンセプト表の「ボス通常」「最悪の技」列は
+**Lv100・品質5・世界を繋ぐ装備一式（最大HP 94）スキルツリー未投資**で計算している。
+**推奨戦闘Lv帯の実数値は表から読めず、桁が違う。**
+
+実例: エンチャント試練 2（推奨Lv 20）の shadow_step（teleport_strike, damage-percent 1.55）
+
+| 装備 | HP | 影渡り平均ダメ | 影渡り最大ダメ | 耐発数 | 通常打平均 | 通常打耐発 |
+|---|---|---|---|---|---|---|
+| 守護 Lv20（重装・魔法） | 26.5 | 46.0 | 53.5 | **1発死** | 27.7 | **1発死** |
+| 魔導 Lv20（軽装・魔法） | 29.9 | 50.4 | 58.6 | **1発死** | 30.5 | **1発死** |
+| 魔織 Lv20（軽装・魔法） | 34.9 | 53.4 | 62.1 | **1発死** | 32.3 | 2発（最大1発死） |
+| 鉄甲冑 Lv15（物理最強） | 26.6 | 35.2 | 41.1 | **1発死** | 21.3 | 2発 |
+
+同ダンジョンの台帳値: shadow_step **4.7 発**（Lv100 HP94）。**桁が違う。**
+
+2026-08-29 W-304: 試練の攻撃力は **Lv100 尺度のまま**残し、技だけ `ability-damage-scale: 0.70` で弱めた
+（`shadow_step` 1.55 × 0.70 ≒ 1.085 ＝ほぼ通常打）。試練 2/5/6/10 の振れ型（`damage-modifier: 1.4`）も外し、
+中央値の通常打期待値が同じになるよう `attack-power` を戻してある。**推奨Lv帯で通常打が重いのは意図**
+（ユーザー決定「Lv100固定のまま技だけ弱める」）。上の表は W-304 前の計算。
+
+根本原因: エンチャント試練群の `stats.attack.attack-power` は `mob-overrides.yml` に
+**絶対値**で書かれており、ダイナミックダンジョンのように入場レベルでランプが動かない。
+W-175 の圧縮対象（`attack-power-multiplier` 倍率行）に含まれなかった件は W-179 で
+Lv100 尺度へ揃えてある。推奨帯とのギャップは「このダンジョンは常に Lv100 の敵」という設計。
+
+さらに、UXトラップが重なる: 「通る武器=魔法」表示を見たプレイヤーは守護/魔導/魔織（魔法防御型）を選ぶ。
+しかし boss の `magic-ratio: 0.10` により影渡りの 93.5%・通常攻撃の 90% が物理。
+魔法防御型の phys-flat-defense（守護 3.5/魔導 3.0/魔織 3.1 中央値）は
+鉄甲冑（4.7）の 65〜75% にとどまり、「推奨装備の選択」のほうがかえって被ダメが大きい。
+（正しい対策は物理タンクだが、それでも 1 発死は変わらない — 真因はラベルではなく絶対値固定）
+
+- 根拠コード: `ComponentDamageCalculator.java`（8-step pipeline）, `mob-overrides.yml`,
+  `mob-abilities.yml`, `stats/item-stats.yml`（LEATHER_HELMET#200001〜200064, IRON_HELMET〜IRON_BOOTS）
+- 計算日: 2026-08-29
+
 ### 耐えられる発数は「攻撃力」で調整する（HP・耐性ではない）
 
 2026-08-21(W-182) で **全 28 ダンジョンの「耐えられる通常攻撃の回数」を一律 +1.5 発**にした。
@@ -1804,8 +1882,15 @@ W-182 までは「重装が全面的に強い」で固定されていて（Lv100
 | 固定型 | `fixed-damage` | 全ての防御段を貫通する純加算 | **最大HP**のみ（守備では減らせない） |
 | 振れ型 | `damage-modifier: 1.4` | 1.0〜1.4 で振れる | 期待値は同じ。上振れの事故だけが増えるので**HPの厚み**が効く |
 
-28 ダンジョンに 7 本ずつ均等配分。
+28 ダンジョンに 7 本ずつ均等配分だったが、**2026-08-29 W-304 でエンチャント試練 2/5/6/10 から振れ型を外した**
+（技の上振れと重なると Lv100 装備でも事故るため。型と `attack-power` は2つで1組なので、中央値の期待被ダメージが
+同じになるよう攻撃力を戻してある）。振れ型は他ダンジョンに残る。
 
+- ⚠️ **振れ型の `damage-modifier` は技ダメージにも乗る。**
+  `MobAbilityExecutor#applyHit` が `attack.withDefaultDamage(abilityBase)` で AttackStats を複製するとき、
+  `damageModifier` を含む**全フィールドが引き継がれる**（`AttackStats#withDefaultDamage` 参照）。
+  `attack-power` 側の補正は「平均を揃える」だけで、振れの幅（max 1.4/1.2 = **+16.7%**）は技にも無補正で乗る。
+  振れ型ダンジョンで技の `damage-percent` を設定するとき、最大値（×1.4）でも耐えられるかを確認すること。
 - ⚠️ **増幅型（`percent-bonus-damage`）は使えない。** 攻撃力を上げるのと**数学的に完全に同値**
   （`base = 攻撃力 ×(1 + %)`）なので、相殺で攻撃力を解き直した時点で **no-op** になる。
 - ⚠️ **型と `attack-power` は2つで1組。** 型を消すなら攻撃力も戻すこと（片方だけ触ると難易度が動く）。
@@ -1821,7 +1906,8 @@ W-182 までは全種類 `damage-percent` 1.2 の一律上限で、**避けよ�
 | 技の型 | 倍率 | 対策 |
 |---|---|---|
 | `delayed_zone`（足元に印 → 予告後に着弾） | 2.0〜2.1 | **見て動けば当たらない** |
-| `beam` / `charge` / `teleport_strike` | 1.55〜1.70 | 向きと軌道が読める |
+| `beam` / `charge` | 1.55〜1.70 | 向きと軌道が読める |
+| `teleport_strike` | **1.10〜1.20**（盾貫通を加味。`shadow_step` の出荷値はまだ 1.55 でこの上限を超えている） | 向きは読めるが**盾が機能しない** — `MobAbilityExecutor#teleportStrike` がプレイヤーの背後1.5mへ転移してから殴るため、バニラの盾判定（正面180度のみ有効）が届かない。コードで BLOCKING を無効化しなくても事実上の全方向貫通になる |
 | `ground_slam` / `repulse` | 1.25〜1.45 | 自分の周囲。距離で外せる |
 | `aura` | 0.40〜0.42 ×秒数（総量 2.1〜2.4） | 踏み続けた秒数だけ蓄積 |
 | 効果が本体の技（拘束・引き寄せ） | 1.10 前後 | — |
@@ -1850,6 +1936,45 @@ W-182 までは全種類 `damage-percent` 1.2 の一律上限で、**避けよ�
   そこへ書くと**一番長く戦う最終段が無技**になる。`ShippedBossStrengthDriftTest` が固定している。
 - ⚠️ `global-cooldown-seconds: 12` があるので、**技を増やしても撃つ頻度は上がらない**
   （1回の抽選で候補から1つ選ぶだけ）。増えるのは**種類のばらつき**。
+
+### ⚠️ `PlaceBlockEffect`: `block.setType()` だけではカスタムコンテナ（ドロワー等）の TileEntity が消える
+
+`PlaceBlockEffect.java` の `block.setType(material)` はバニラブロックの場合は無害だが、
+他プラグイン（FunctionalStorage / DrawersMod 等）の **基材が BARREL のカスタムブロック**に適用すると
+**TileEntity が空の樽に初期化し直されて中身が全損する**。
+
+- **判定クラス**: `PlaceBlockPolicy#refuseVanillaPlaceholder(Material, Iterable<String>)`
+  - `isContainerMaterial(material) && hasForeignPluginIdentity(namespaces)` なら設置を拒否する。
+  - `OWNED_NAMESPACES = {minecraft, bukkit, paper, spigot, arspaper, trinityforge}`。
+    これ以外の namespace を持つコンテナは設置を拒否する。
+- **防御方法**: 拒否がエレガントな解。`block.setType` 後に `BlockStateMeta` 経由で中身を転写しても、
+  他プラグインが TileEntity に書く独自データ（NBT 等）は Paper API から見えないため完全には復元できない。
+- **テスト**: `PlaceBlockPolicyTest` が純関数部分を固定している。
+
+### ⚠️ `JUMP_BOOST` amplifier 128 は 1.21 では空へ飛ばす（拘束）
+
+`SnareEffect` が Jump Boost 128 を付けていたのは 1.8 の signed-byte ハック（128 → -128 で跳躍不能）。
+1.21 では amplifier が int なので Jump Boost 129 になり `jump_strength` 加算で空へ飛ぶ。
+`SLOWNESS` 255 も溢れる。跳躍・移動は属性乗算 -1、解除は `ScaleEffect` と同じ PDC＋参加時読み直し
+（W-191）。詳細は `docs/agent-context/common-traps.md`。
+
+### ⚠️ `ItemCostRef.countIn(Player)` はカーソル・クラフト結果枠も見る
+
+ストレージ36枠だけだと、カーソルや作業台結果枠に出した個体をユニークネス判定が見逃す。
+`countIn(Player)` はカーソル・CRAFTING/WORKBENCH slot 0・ANVIL slot 2 も足す。
+スレッドの「チェストの特異点へ粗悪が重なる」本体はこれではなく、未刻印の `isSimilar` マージ
+（`ThreadItem` の max stack 1 と `PickupQualityListener#onHopperPickup`）。
+
+### ⚠️ スレッドの魂縛は catalog の `bind-type` が正（2026-08-29、ルール更新）
+
+作業台 / インベントリクラフト / 儀式で作れるスレッドは `TRADEABLE`。レシピの無いスレッド（宝箱・敵ドロップ・ガチャ等）は `SOULBOUND`。
+`SOULBOUND` の個体は入手時（拾う／チェストから取る）に所有者が付く。
+判定は Ars の `TreasureThreadSoulbindPolicy#isSoulbound` が `TrinityForgeBridge#catalogAutoStampsOwner` 経由で catalog を読む。
+`ThreadItem` 生成時に `applyCatalogBindType` で PDC へ写し、`ThreadSoulbindListener` が pickup とインベントリ close で所有者を焼く。
+
+- 正は catalog のレシピ有無。敵ドロップでも儀式レシピがある ID は TRADEABLE（作れるなら譲渡可）。
+- CMD 帯 `300070-300079` は **TF 未ロード時のフォールバックだけ**。本番で帯に頼るとエディタ設定が効かない。
+- 移行コードは無い。魂縛前取得個体は `mayUse(null, actor) = true` のため誰でも装着できる。
 
 ## 関連
 

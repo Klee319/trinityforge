@@ -13,6 +13,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -85,6 +86,12 @@ public final class XpBottleListener implements Listener {
      * 目的と真因は {@link #alreadyActedThisTick} を参照。
      */
     private final Map<UUID, Integer> lastHandledTick = new HashMap<>();
+    /**
+     * ポーション等を飲んで手がガラス瓶に変わった tick。同じ tick の 2 発目 Interact が
+     * EXPフリーザーの格納に化けるのを止める（2026-08-29）。格納ガードとは別マップ ——
+     * 格納済みとして扱うとイベントをキャンセルして水汲みまで奪う。
+     */
+    private final Map<UUID, Integer> lastBottleLeaveTick = new HashMap<>();
 
     /**
      * 視線上の「バニラの瓶が汲める流体ブロック」を返す。既定は実レイトレース。
@@ -140,6 +147,10 @@ public final class XpBottleListener implements Listener {
             event.setCancelled(true);
             return;
         }
+        if (justLeftAGlassBottleThisTick(player) && heldType == Material.GLASS_BOTTLE) {
+            // ポーション飲用の直後。キャンセルしない（水汲み等のバニラ用途は残す）。
+            return;
+        }
         // 2026-08-19 W-134: 取り出しは【解放判定より前】に処理する。
         // 以前はここで解放ゲートを通していたため、未解放のプレイヤーが充填済みの瓶を右クリックすると
         // そのままバニラの投擲に流れ、格納した経験値が投擲時の固定量に化けて消えていた
@@ -177,6 +188,25 @@ public final class XpBottleListener implements Listener {
     }
 
     /**
+     * 飲用でガラス瓶が残るアイテム（ポーション／ハチミツ瓶）。同じ tick の Interact が
+     * 空瓶への EXP 格納に化ける。
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onConsume(PlayerItemConsumeEvent event) {
+        ItemStack consumed = event.getItem();
+        if (consumed == null) {
+            return;
+        }
+        Material type = consumed.getType();
+        if (type != Material.POTION && type != Material.HONEY_BOTTLE) {
+            return;
+        }
+        int tick = org.bukkit.Bukkit.getCurrentTick();
+        lastBottleLeaveTick.entrySet().removeIf(entry -> tick - entry.getValue() > HANDLED_TICK_PRUNE_AFTER);
+        lastBottleLeaveTick.put(event.getPlayer().getUniqueId(), tick);
+    }
+
+    /**
      * <b>同じ1クリックで2回処理してしまうのを止めるガード(2026-08-24 実サーバ報告
      * 「スタックが1の時、空瓶だと格納→取出、充填済みだと取出→格納になる」)。</b>
      *
@@ -209,6 +239,11 @@ public final class XpBottleListener implements Listener {
         int tick = org.bukkit.Bukkit.getCurrentTick();
         lastHandledTick.entrySet().removeIf(entry -> tick - entry.getValue() > HANDLED_TICK_PRUNE_AFTER);
         lastHandledTick.put(player.getUniqueId(), tick);
+    }
+
+    private boolean justLeftAGlassBottleThisTick(Player player) {
+        Integer last = lastBottleLeaveTick.get(player.getUniqueId());
+        return last != null && last == org.bukkit.Bukkit.getCurrentTick();
     }
 
     /**

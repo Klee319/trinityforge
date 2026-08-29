@@ -15,14 +15,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 /**
- * 「頭上の称号」と「装備パーティクル」の<b>追従の遅れを詰めた分</b>が実際に効いていることを固定する
- * (2026-08-25 / W-247・W-248)。
+ * 「頭上の称号」と「装備パーティクル」の位置決めを固定する (2026-08-25 / W-247・W-248、
+ * 2026-08-29 に称号の先読みを外した W-299)。
  *
  * <h2>なぜ tick() を直接呼ばないのか</h2>
  * MockBukkit は {@code TextDisplay} の生成と {@code Player#spawnParticle} の観測を実装していない
  * ので、追従の本体を丸ごと動かすテストは書けない(踏むと FAILED ではなく <b>SKIPPED に化ける</b>)。
- * そこで<b>位置と向きの決定</b>だけを切り出した口({@code nextAnchorFor} / {@code emitYaw})を叩く。
- * どちらも実装が実際に使っている唯一の経路なので、先読みを外すとここが落ちる。
+ * 称号の位置決め({@code nextAnchorFor})とパーティクルの向き({@code emitYaw})を叩く。
+ * パーティクルの先読みを外すと軌跡のテストが落ちる。称号の先読みは W-299 で外してある。
  */
 class FollowLagCompensationTest {
 
@@ -41,29 +41,45 @@ class FollowLagCompensationTest {
     }
 
     /**
-     * ★ 称号の遅れ(W-248)の回帰。先読みを外すと「サーバ位置＝1tick前の位置」に置かれるので、
-     * 2回目の呼び出しでも移動ぶんが乗らずここが落ちる。
+     * ★ 2026-08-29: 称号の先読みは外す。本人には称号を出さない(W-263)ので、
+     * 先読みは「他人から見た補間中のネームタグ」より前へ出すだけになる。
+     * 先読みを戻すと走り・方向転換で中心がずれる。
      */
     @Test
-    @DisplayName("称号は1tickぶん先読みした位置へ運ばれる（ネームタグは本体と同じ動きをするので）")
-    void titleFollowLeadsByOneTickOfMovement() {
+    @DisplayName("称号はサーバ位置に置く（先読みしない。見るのは他人だけ）")
+    void titleFollowStaysOnTheServerPosition() {
         PlayerMock player = server.addPlayer();
         TitleDisplayService service = new TitleDisplayService(plugin, p -> "<white>x", () -> 0.0);
 
         Location start = player.getLocation();
         Location first = service.nextAnchorFor(player);
-        // 前回位置が無い1回目は先読みしない(移動量が不明)。
         assertEquals(start.getX(), first.getX(), 1e-9);
 
         player.teleport(start.clone().add(0.3, 0.0, -0.2));
         Location second = service.nextAnchorFor(player);
-        assertEquals(start.getX() + 0.3 + 0.3, second.getX(), 1e-6,
-                "移動後の位置に、さらに1tickぶんの移動量が乗っていない(＝遅れが残る)");
-        assertEquals(start.getZ() - 0.2 - 0.2, second.getZ(), 1e-6);
+        assertEquals(start.getX() + 0.3, second.getX(), 1e-6,
+                "先読みが残っているとネームタグより前へ出て中心がずれる");
+        assertEquals(start.getZ() - 0.2, second.getZ(), 1e-6);
     }
 
     @Test
-    @DisplayName("称号の高さは先読みに関係なく頭上のまま（横方向だけ先読みする話ではない確認）")
+    @DisplayName("ジャンプしても称号の足元からの高さは先読みで伸ばさない")
+    void titleDoesNotLeadVerticallyDuringJump() {
+        PlayerMock player = server.addPlayer();
+        TitleDisplayService service = new TitleDisplayService(plugin, p -> "<white>x", () -> 0.0);
+        Location start = player.getLocation();
+        service.nextAnchorFor(player);
+
+        player.teleport(start.clone().add(0.0, 0.4, 0.0));
+        Location jumped = service.nextAnchorFor(player);
+        double expectedY = player.getLocation().getY()
+                + TitleDisplayService.titleAnchorY(player.getHeight(), player.getEyeHeight(), 0.0);
+        assertEquals(expectedY, jumped.getY(), 1e-6,
+                "縦の先読みが残るとジャンプ中にネームタグとの隙間が伸びる");
+    }
+
+    @Test
+    @DisplayName("称号の高さは頭上のまま")
     void titleHeightIsStillAboveTheHead() {
         PlayerMock player = server.addPlayer();
         TitleDisplayService service = new TitleDisplayService(plugin, p -> "<white>x", () -> 0.0);

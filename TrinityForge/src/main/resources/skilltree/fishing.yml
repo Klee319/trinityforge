@@ -28,9 +28,12 @@ prestige:
   description: |-
     二本釣り+15%
     宝釣り+15%
+    釣りEXP増加+10%
   mainhand-buffs:
     fishing-bonus: 0.15
     fishing-luck: 0.15
+  buffs:
+    fishing-exp-bonus: 0.1
 nodes:
   A:
     name: 駆け出しの釣り人

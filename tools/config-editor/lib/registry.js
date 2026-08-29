@@ -51,8 +51,8 @@ const REGISTRY = Object.freeze([
   { id: "progression-ars_magic", label: "曲線: ars_magic", group: "TrinityForge", section: "skilltree", base: "trinityforge", rel: "skills/base/ars_magic_progression.yml", schema: "generic" },
   { id: "progression-ars_smithing", label: "曲線: ars_smithing", group: "TrinityForge", section: "skilltree", base: "trinityforge", rel: "skills/base/ars_smithing_progression.yml", schema: "generic" },
   { id: "quality-tiers", label: "品質ティア (quality-tiers)", group: "TrinityForge", section: "quality", base: "trinityforge", rel: "stats/quality-tiers.yml", schema: "tf-quality-tiers" },
-  // ポーション品質(potion_quality_bonus stat)の時間/強度換算 + エンチャント運(enchant_luck stat)の
-  // 重み付け(2026-07-25、かまど/エンチャント/ポーション実行者限定ステ反映)。
+  // ポーション品質(potion_quality_bonus)の持続時間換算。GUI は 2026-08-29 に外した
+  // (gathering-efficiency と同じく registry に残してサイドバーだけ隠す。yml 直編集)。
   { id: "alchemy-quality", label: "ポーション品質換算 (alchemy-quality)", group: "TrinityForge", section: "quality", base: "trinityforge", rel: "stats/alchemy-quality.yml", schema: "generic" },
   { id: "enchant-luck", label: "エンチャント運 (enchant-luck)", group: "TrinityForge", section: "quality", base: "trinityforge", rel: "stats/enchant-luck.yml", schema: "generic" },
   // 採集効率(gathering_efficiency stat。旧称:最終効率)を効率強化エンチャントのレベルへ換算する設定。

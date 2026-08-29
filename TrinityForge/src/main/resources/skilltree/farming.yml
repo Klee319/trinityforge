@@ -31,11 +31,13 @@ prestige:
     harvest-extra-drop-chance: 0.2
     planted-crop-growth-bonus: 1
     bred-animal-growth-bonus: 2
+    farming-exp-bonus: 0.1
   description: |-
     満腹度回復+10%
     幸運(収穫)+20%
     成長効率(作物)+100%
     成長効率(動物)+200%
+    農業EXP増加+10%
 nodes:
   A:
     name: はじまりの百姓

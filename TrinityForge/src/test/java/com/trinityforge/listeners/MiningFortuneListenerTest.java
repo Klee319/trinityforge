@@ -1,9 +1,12 @@
 package com.trinityforge.listeners;
 
 import com.trinityforge.stats.PercentStatNormalize;
+import org.bukkit.Material;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MiningFortuneListenerTest {
 
@@ -32,5 +35,20 @@ class MiningFortuneListenerTest {
     @Test
     void levelTermKeepsPreviousBalance() {
         assertEquals(0.30, MiningFortuneListener.expectedExtraRate(0.0, 100, 0.003), 1e-9);
+    }
+
+    @Test
+    void oneWayCrushOresAreSilkPlaceCrushTargets() {
+        assertTrue(MiningFortuneListener.isOneWayCrushOre(Material.IRON_ORE));
+        assertTrue(MiningFortuneListener.isOneWayCrushOre(Material.DEEPSLATE_GOLD_ORE));
+        assertTrue(MiningFortuneListener.isOneWayCrushOre(Material.COPPER_ORE));
+        assertTrue(MiningFortuneListener.isOneWayCrushOre(Material.DIAMOND_ORE));
+        assertTrue(MiningFortuneListener.isOneWayCrushOre(Material.NETHER_QUARTZ_ORE));
+        assertFalse(MiningFortuneListener.isOneWayCrushOre(Material.GLOWSTONE));
+        assertFalse(MiningFortuneListener.isOneWayCrushOre(Material.SEA_LANTERN));
+        assertFalse(MiningFortuneListener.isOneWayCrushOre(Material.MELON));
+        assertFalse(MiningFortuneListener.isOneWayCrushOre(Material.WHEAT));
+        assertFalse(MiningFortuneListener.isOneWayCrushOre(Material.ANCIENT_DEBRIS),
+                "残骸はドロップがブロック自身なので循環");
     }
 }

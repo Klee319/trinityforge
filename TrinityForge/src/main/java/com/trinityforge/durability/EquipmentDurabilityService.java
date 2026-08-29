@@ -114,15 +114,15 @@ public final class EquipmentDurabilityService {
         }
         int damaged = 0;
         for (EquipmentSlot slot : slots) {
-            if (damageSlot(inventory, slot, percentOfMax, minDamage, current)) {
+            if (damageSlot(player, inventory, slot, percentOfMax, minDamage, current)) {
                 damaged++;
             }
         }
         return damaged;
     }
 
-    private boolean damageSlot(PlayerInventory inventory, EquipmentSlot slot, double percentOfMax,
-                               int minDamage, DurabilityPenaltySettings current) {
+    private boolean damageSlot(Player player, PlayerInventory inventory, EquipmentSlot slot,
+                               double percentOfMax, int minDamage, DurabilityPenaltySettings current) {
         ItemStack item = itemAt(inventory, slot);
         if (item == null || item.getType().isAir()) {
             return false;
@@ -146,6 +146,7 @@ public final class EquipmentDurabilityService {
                 damageable.getDamage(), amount, maxDurability, current.preventBreak());
         if (result.broken()) {
             setItemAt(inventory, slot, null);
+            ItemBreakSignal.fire(player, item);
             return true;
         }
         if (result.damage() == damageable.getDamage()) {

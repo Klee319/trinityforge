@@ -148,8 +148,23 @@ public final class GridConnectorRouting {
     /**
      * 同じセルに2本の線が乗ったときの合成。両方の「腕」の和で形状を選び直す
      * （合成できない組み合わせは第1引数をそのまま使う＝従来挙動）。
+     *
+     * <p>同じ親の扇が横に分岐するセルでは十字・T字になってよい。一方、
+     * {@link #merge(String, String, boolean) joinPerpendicular=false} は
+     * 「縦の続き」と「別親の横の扇」が同じ通路セルを共有するときに使う。
+     * 十字に描くと GUI に境目が無いせいで独立した列が格子に見える。
      */
     public static String merge(String first, String second) {
+        return merge(first, second, true);
+    }
+
+    /**
+     * @param joinPerpendicular {@code false} のとき、純粋な縦と純粋な横は腕を足さず縦を残す
+     */
+    public static String merge(String first, String second, boolean joinPerpendicular) {
+        if (!joinPerpendicular && perpendicularStraights(first, second)) {
+            return verticalStraight(first, second);
+        }
         int arms = arms(first) | arms(second);
         return switch (arms) {
             case 0b0011 -> "12";
@@ -165,6 +180,25 @@ public final class GridConnectorRouting {
             case 0b1010 -> "07";
             default -> first;
         };
+    }
+
+    private static boolean perpendicularStraights(String first, String second) {
+        return (isVerticalStraight(first) && isHorizontalStraight(second))
+                || (isHorizontalStraight(first) && isVerticalStraight(second));
+    }
+
+    private static boolean isVerticalStraight(String suffix) {
+        int mask = arms(suffix);
+        return (mask & 0b0101) != 0 && (mask & 0b1010) == 0;
+    }
+
+    private static boolean isHorizontalStraight(String suffix) {
+        int mask = arms(suffix);
+        return (mask & 0b1010) != 0 && (mask & 0b0101) == 0;
+    }
+
+    private static String verticalStraight(String first, String second) {
+        return isVerticalStraight(first) ? first : second;
     }
 
     /** 向きコードが持つ「腕」のビットマスク (N=1 / E=2 / S=4 / W=8)。 */

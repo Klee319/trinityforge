@@ -152,7 +152,7 @@
 prune-orphaned-grants: true
 display:
   # 2026-08-24: 0(ネームタグ上端に接する)でも実機では高いという報告により -0.3。
-  nametag-clearance: -0.3
+  nametag-clearance: -0.2
   # 2026-08-24: 本体の補間(約3tick)と同じ長さにして追従のズレを最小化する。
   title-teleport-duration: 3
 titles:
@@ -201,51 +201,52 @@ particles:
     particle: END_ROD
     # 2026-08-25: 足元から後ろへ流れる軌跡の実例(shape: trail)。
     # radius = 後ろへ伸ばす長さ、speed = 流れる速さ。高さは足元寄りの既定(0.1)に任せる。
-    count: 6
+    count: 3
     radius: 1.4
-    interval-ticks: 6
+    interval-ticks: 5
     shape: trail
     speed: 0.02
   particle_ember_aura:
     particle: FLAME
-    count: 8
+    count: 3
     radius: 0.9
-    interval-ticks: 12
+    interval-ticks: 5
     shape: aura
   particle_void_aura:
     particle: PORTAL
-    count: 10
-    interval-ticks: 10
+    count: 3
+    interval-ticks: 5
     # 半径ゼロの爆発。radius は使わず speed で広がりが決まる
     shape: burst
     speed: 0.15
   particle_soul_ring:
     particle: SOUL_FIRE_FLAME
-    count: 10
+    count: 3
     radius: 1.2
-    interval-ticks: 14
+    interval-ticks: 5
     shape: circle
     # circle に speed を入れると、輪の各点が外向きへ流れる(入れないと静止した輪)
     speed: 0.04
   particle_snow_ring:
     particle: SNOWFLAKE
-    count: 10
+    count: 3
     radius: 1.1
-    interval-ticks: 16
+    interval-ticks: 5
     shape: circle
   particle_petal_ring:
     particle: CHERRY_LEAVES
-    count: 12
     radius: 0.7
-    interval-ticks: 20
+    interval-ticks: 5
     shape: helix
-    height: 2.2
     turns: 3
+    height: 1.7
+    # 3点だと巻きが左右2本のギザギザにしか見えず、止まっていると螺旋にならない。
+    count: 2
   particle_spark_ring:
     particle: ELECTRIC_SPARK
-    count: 12
-    radius: 0.9
-    interval-ticks: 16
+    count: 3
+    radius: 0.7
+    interval-ticks: 5
     shape: sphere
   particle_dragon_aura:
     # 2026-08-16: DRAGON_BREATH は Paper 1.21.11 で「追加データ(Float)が必須の粒子」になっており、
@@ -255,54 +256,58 @@ particles:
     # 追加データが要る粒子は他にも DUST / FLASH / ENTITY_EFFECT / VIBRATION などがある。
     # ShippedSpecialRewardParticleDataTest がここを機械的に固定している。
     particle: REVERSE_PORTAL
-    count: 10
+    count: 3
     radius: 1
-    interval-ticks: 12
+    interval-ticks: 5
     shape: aura
 particle-seeds:
   seed_flame:
     seed-item: BLAZE_POWDER
     display: 焔
     particle: FLAME
-    count: 6
+    count: 10
+    shape: burst
+    speed: 0.1
   seed_frost:
     seed-item: BLUE_ICE
     display: 氷華
     particle: SNOWFLAKE
-    count: 12
+    count: 10
     # 当たった場所に輪が広がる
-    shape: circle
-    radius: 0.7
-    speed: 0.05
+    shape: burst
+    speed: 0.1
   seed_soul:
     seed-item: SOUL_SAND
     display: 魂火
     particle: SOUL
-    count: 6
+    count: 10
+    shape: burst
+    speed: 0.1
   seed_spark:
     seed-item: COPPER_INGOT
     display: 雷花
     particle: ELECTRIC_SPARK
-    count: 16
     # 弾けるように全方向へ
-    shape: burst
+    shape: sphere
     speed: 0.3
+    radius: 1
+    count: 20
   seed_void:
     seed-item: ENDER_EYE
     display: 虚空
     particle: PORTAL
+    shape: burst
+    speed: 0.8
     count: 20
-    shape: sphere
-    radius: 0.6
   seed_bloom:
     seed-item: PINK_PETALS
     display: 花吹雪
     particle: CHERRY_LEAVES
-    count: 12
     # 向いている方向へ薙ぐ弧(武器で振ったときに映える)
-    shape: arc
-    radius: 1
-    arc-degrees: 140
+    shape: sphere
+    speed: 0.5
+    count: 15
+    radius: 0.8
   # 刻印を消すシード。誰でも最初から使える(解放は要らない)。
   # 素材をイカスミにしているのは「塗り潰して消す」の見立てと、
   # 取り消しに希少素材を要求すると付け間違いが取り返せなくなるため。

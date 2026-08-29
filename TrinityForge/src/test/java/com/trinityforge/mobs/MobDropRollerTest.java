@@ -110,12 +110,14 @@ class MobDropRollerTest {
     }
 
     @Test
-    void clampBonusRejectsNegativeAndCapsAtTwoHundredPercent() {
+    void clampBonusRejectsNegativeAndNonFiniteButDoesNotHardCap() {
         assertEquals(0.0, MobDropRoller.clampBonus(-0.5));
         assertEquals(0.5, MobDropRoller.clampBonus(0.5));
         assertEquals(2.0, MobDropRoller.clampBonus(2.0));
-        assertEquals(2.0, MobDropRoller.clampBonus(9.0), "上限は+200%");
+        assertEquals(9.0, MobDropRoller.clampBonus(9.0),
+                "設計上限は combat/stat-caps.yml。ここは切らない");
         assertEquals(0.0, MobDropRoller.clampBonus(Double.NaN), "壊れた値は無効化する");
+        assertEquals(0.0, MobDropRoller.clampBonus(Double.POSITIVE_INFINITY));
     }
 
     /** ユーザー指示の例: 1%で1つ落ちるアイテムに+100%を盛ると2%になる。 */
@@ -149,7 +151,10 @@ class MobDropRollerTest {
         assertEquals(1, MobDropRoller.extraCount(1.0, 0.99), "+100%は乱数に関係なく確定+1");
         assertEquals(2, MobDropRoller.extraCount(1.5, 0.49), "+150%は確定+1、超過50%を当てて+1");
         assertEquals(1, MobDropRoller.extraCount(1.5, 0.51), "超過分を外したら+1止まり");
-        assertEquals(2, MobDropRoller.extraCount(5.0, 0.99), "クランプ後の+200%が上限なので+2まで");
+        assertEquals(5, MobDropRoller.extraCount(5.0, 0.99),
+                "ハードコード+200%はしない。stat-caps 済みの値がそのまま足される");
+        assertEquals(MobDropRoller.MAX_EXTRA_COUNT, MobDropRoller.extraCount(10_000.0, 0.99),
+                "スポーンループ防止の 256 は設計上限ではない");
     }
 
     @Test

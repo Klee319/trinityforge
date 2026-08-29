@@ -35,13 +35,14 @@ icon: DIAMOND_SWORD
 starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 3
+  max-times: 5
   at-level: 100
   name: 剣聖の境地
   effect-text: ダメージ・会心率・会心ダメージが永続で増加
   mainhand-buffs:
     crit-chance: 0.05
     crit-damage: 0.15
+    light-weapons-exp-bonus: 0.1
   mainhand-multipliers:
     layer_1:
       attack-power: 1.15
@@ -49,6 +50,7 @@ prestige:
     攻撃力x1.15
     会心率+5%
     会心ダメージ+15%
+    軽量武器EXP増加+10%
 nodes:
   A:
     name: 鋭刃の心得

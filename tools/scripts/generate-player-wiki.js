@@ -136,7 +136,12 @@ const STAT_EXPLANATIONS = {
   "mana-regen": "マナが回復する速さを上げます。",
   "thread-slots": "防具に付けられるスレッドの数を増やします。",
   "source-cost-reduction": "儀式で使う魔力を減らします。",
-  "mob-drop-bonus": "モンスターから手に入る品の量を増やします。"
+  "mob-drop-bonus": "敵を倒したとき、1個だけのレアドロップは出る確率が上がり、複数個のドロップは追加の個数が増えます。上限は運営のステータス上限設定です（今は上限なし）。",
+  "mining-fortune": "鉱石などを壊したとき、主ドロップが追加で増えます。バニラの幸運エンチャントと別枠です。シルクタッチ中は増えません。シルクで取った鉱石を置いて砕くと増えます。グロウストーンのようにドロップから同じブロックへ戻せるものだけ、置き直しても増えません。",
+  "woodcutting-extra-drop-chance": "木を倒したとき、葉や実などその破壊で落ちる品が追加で増えます。",
+  "harvest-extra-drop-chance": "作物を収穫したとき、その破壊で落ちる品が追加で増えます。",
+  "loot-luck": "地面で拾った装備や釣り上げた装備の品質が上振れしやすくなります。ドロップの個数は変わりません。",
+  "mob-drop-quality": "敵を倒して出た装備の品質が上振れしやすくなります。"
 };
 
 const PROFESSION_NAMES = {
@@ -192,6 +197,29 @@ function normalizeLineEndings(value) {
 
 function markdown(value) {
   return plainText(value).replace(/\|/g, "\\|").replace(/\r?\n/g, "<br>");
+}
+
+/** threads.yml の max 未記載はコード既定 1。backpack だけ max: 4。 */
+function threadOverlapText(thread) {
+  const max = Number(thread && thread.max);
+  const limit = Number.isFinite(max) && max > 0 ? max : 1;
+  if (limit <= 1) return "同じ装備には1本まで";
+  const slots = Number(thread.slots);
+  const cap = Number(thread["max-inventory-slots"]);
+  if (Number.isFinite(slots) && slots > 0 && Number.isFinite(cap) && cap > 0) {
+    return `同じ装備に最大${limit}本（1本${slots}枠、合計最大${cap}枠。54超はページ送り）`;
+  }
+  return `同じ装備に最大${limit}本`;
+}
+
+function backpackCapacityText(thread) {
+  const slots = Number(thread && thread.slots);
+  const cap = Number(thread && thread["max-inventory-slots"]);
+  if (!Number.isFinite(slots) || slots <= 0) return null;
+  if (Number.isFinite(cap) && cap > 0) {
+    return `持ち物枠 ${slots}（1装備の合計最大 ${cap}。54超はページ送り）`;
+  }
+  return `持ち物枠 ${slots}`;
 }
 
 /**
@@ -833,10 +861,9 @@ function buildMagicPage(data, names) {
       thread["mana-bonus"] != null && `最大マナ +${thread["mana-bonus"]}`,
       thread.recovery != null && `マナ回復 +${thread.recovery}`,
       thread["cost-reduction"] != null && `魔法の消費軽減 ${thread["cost-reduction"]}%`,
-      thread.slots != null && `追加の持ち物枠 +${thread.slots}`
+      thread.slots != null && backpackCapacityText(thread)
     ].filter(Boolean).join("、") || "特殊な効果";
-    const count = thread.stackable ? `重ねて付けられる（最大 ${thread.max || "制限なし"}個）` : "同じ種類は1個まで";
-    return `| ${markdown(thread.display_name)} | ${markdown(effects)} | ${markdown(count)} |`;
+    return `| ${markdown(thread.display_name)} | ${markdown(effects)} | ${markdown(threadOverlapText(thread))} |`;
   }).join("\n");
   const body = `## 魔法の基本
 
@@ -856,7 +883,7 @@ ${glyphSections || "現在、解放できる魔法は設定されていません
 
 ## 防具に付けるスレッド
 
-スレッドは防具に付けて、マナや移動などを補助するものです。必要な数だけ重ねられるものもあります。
+スレッドは防具や武器に挿して補助する部品です。同じ装備には原則1本までです。バックパックだけ、同じ防具に複数本挿せます。
 
 | スレッド | 効果 | 重ね方 |
 | --- | --- | --- |

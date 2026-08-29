@@ -4,12 +4,14 @@ import com.trinityforge.combat.PlayerCombatAggregate;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.AlchemyQualityConfig;
 import com.trinityforge.config.domains.QualityConfig;
+import com.trinityforge.pdc.PdcKeys;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
 import com.trinityforge.progression.catalog.SkillCatalogEntry;
 import com.trinityforge.progression.core.SkillId;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
 import org.bukkit.block.BrewingStand;
 import org.bukkit.entity.Player;
@@ -36,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -46,8 +49,8 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 /**
- * {@link PotionQualityListener}: potion_quality_bonus stat による効果時間/強度の換算
- * (品質1あたりの時間・強度をconfig駆動で加算し、強度は切り捨てで整数化)と、
+ * {@link PotionQualityListener}: potion_quality_bonus による効果時間の換算
+ * (品質 0.1pt あたり持続 +1%。強度は品質では動かさない)と、
  * 所有者PDCの読み取り順序({@link BrewOwnership} javadoc参照)を検証する。
  *
  * <p><b>MockBukkit回避策</b>: {@link PotionQualityListener#applyQuality} は
@@ -87,6 +90,7 @@ class PotionQualityListenerTest {
         stand = (BrewingStand) block.getState();
         aggregator = mock(PlayerStatAggregator.class);
         alchemyQuality = mock(AlchemyQualityConfig.class);
+        when(alchemyQuality.durationPercentPerTenthPoint()).thenReturn(1.0);
         progressionCatalog = mock(NativeSkillCatalog.class);
         when(progressionCatalog.get(SkillId.ALCHEMY)).thenReturn(ALCHEMY_ENTRY);
         ownership = new BrewOwnership(plugin);
@@ -175,9 +179,6 @@ class PotionQualityListenerTest {
         writeManualOwner(player);
         stubQuality(0.0); // ステ由来は 0 —— 幸運だけで品質が付くことを見る
         player.addPotionEffect(new PotionEffect(PotionEffectType.LUCK, 1200, 1)); // 幸運II
-        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
-        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.0);
-        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(0.0);
         PotionQualityListener listener = new PotionQualityListener(
                 plugin, aggregator, alchemyQuality, progressionCatalog, new QualityConfig());
 
@@ -186,8 +187,8 @@ class PotionQualityListenerTest {
         listener.onBrew(brewEvent(results));
 
         PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
-        assertEquals(3640, meta.getCustomEffects().get(0).getDuration(),
-                "3600 + 20 * (幸運II = 品質2pt)");
+        assertEquals(4320, meta.getCustomEffects().get(0).getDuration(),
+                "3600 * (1 + 2pt * 10%) = 4320（幸運II = 品質2pt）");
     }
 
     @Test
@@ -196,9 +197,6 @@ class PotionQualityListenerTest {
         writeManualOwner(player);
         stubQuality(2.0);
         player.addPotionEffect(new PotionEffect(PotionEffectType.LUCK, 1200, 0)); // 幸運I
-        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
-        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.0);
-        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(0.0);
         PotionQualityListener listener = new PotionQualityListener(
                 plugin, aggregator, alchemyQuality, progressionCatalog, new QualityConfig());
 
@@ -207,8 +205,8 @@ class PotionQualityListenerTest {
         listener.onBrew(brewEvent(results));
 
         PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
-        assertEquals(3660, meta.getCustomEffects().get(0).getDuration(),
-                "3600 + 20 * (ステ2pt + 幸運I 1pt)");
+        assertEquals(4680, meta.getCustomEffects().get(0).getDuration(),
+                "3600 * (1 + 3pt * 10%) = 4680（ステ2pt + 幸運I 1pt）");
     }
 
     /**
@@ -221,9 +219,6 @@ class PotionQualityListenerTest {
         writeAutomatedOwner(player);
         stubQuality(0.0);
         player.addPotionEffect(new PotionEffect(PotionEffectType.LUCK, 1200, 3)); // 幸運IV = 4pt
-        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
-        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.0);
-        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(0.0);
         PotionQualityListener listener = new PotionQualityListener(
                 plugin, aggregator, alchemyQuality, progressionCatalog, new QualityConfig());
 
@@ -232,8 +227,8 @@ class PotionQualityListenerTest {
         listener.onBrew(brewEvent(results));
 
         PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
-        assertEquals(1020, meta.getCustomEffects().get(0).getDuration(),
-                "幸運IV(4pt) * 0.25 auto_mult = 実効1pt");
+        assertEquals(1100, meta.getCustomEffects().get(0).getDuration(),
+                "幸運IV(4pt) * 0.25 auto_mult = 実効1pt → 1000 * 1.10");
     }
 
     @Test
@@ -242,7 +237,6 @@ class PotionQualityListenerTest {
         writeManualOwner(player);
         stubQuality(0.0);
         player.addPotionEffect(new PotionEffect(PotionEffectType.LUCK, 1200, 1));
-        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
         QualityConfig disabled = mock(QualityConfig.class);
         when(disabled.luckPotionQualityPerLevel()).thenReturn(0.0);
         PotionQualityListener listener = new PotionQualityListener(
@@ -260,9 +254,6 @@ class PotionQualityListenerTest {
     void zeroQualityLeavesPotionUntouched() {
         writeManualOwner(player);
         stubQuality(0.0);
-        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
-        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.5);
-        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(10.0);
         PotionQualityListener listener = new PotionQualityListener(plugin, aggregator, alchemyQuality, progressionCatalog);
 
         List<ItemStack> results = new ArrayList<>();
@@ -276,13 +267,9 @@ class PotionQualityListenerTest {
     }
 
     @Test
-    void qualityAddsDurationAndFlooredAmplifier() {
+    void qualityScalesDurationPercentAndLeavesAmplifierAlone() {
         writeManualOwner(player);
-        // 2品質ポイント: amplifier-per-quality=0.5 -> floor(0.5*2)=1 (2品質ごとに+1という設計を固定)。
         stubQuality(2.0);
-        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
-        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.5);
-        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(10.0);
         PotionQualityListener listener = new PotionQualityListener(plugin, aggregator, alchemyQuality, progressionCatalog);
 
         List<ItemStack> results = new ArrayList<>();
@@ -291,8 +278,8 @@ class PotionQualityListenerTest {
 
         PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
         PotionEffect effect = meta.getCustomEffects().get(0);
-        assertEquals(3640, effect.getDuration(), "3600 + 20*2 quality points");
-        assertEquals(1, effect.getAmplifier(), "floor(0.5 * 2 quality points) == 1 (2品質ごとに+1)");
+        assertEquals(4320, effect.getDuration(), "3600 * (1 + 2pt * 10%) = 4320");
+        assertEquals(0, effect.getAmplifier(), "品質は強度を動かさない");
     }
 
     /**
@@ -310,9 +297,6 @@ class PotionQualityListenerTest {
     void 品質適用後のポーションは水入り瓶のままにならず効果名が付く() {
         writeManualOwner(player);
         stubQuality(2.0);
-        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
-        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.5);
-        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(10.0);
         PotionQualityListener listener = new PotionQualityListener(plugin, aggregator, alchemyQuality, progressionCatalog);
 
         List<ItemStack> results = new ArrayList<>();
@@ -326,13 +310,9 @@ class PotionQualityListenerTest {
     }
 
     @Test
-    void oddQualityPointFloorsAmplifierDown() {
+    void qualityDoesNotChangeAmplifier() {
         writeManualOwner(player);
-        // 1品質ポイント: floor(0.5*1)=0 -> まだ強度は上がらない(2品質ごとに+1の"1品質目"を確認)。
         stubQuality(1.0);
-        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
-        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.5);
-        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(10.0);
         PotionQualityListener listener = new PotionQualityListener(plugin, aggregator, alchemyQuality, progressionCatalog);
 
         List<ItemStack> results = new ArrayList<>();
@@ -341,16 +321,44 @@ class PotionQualityListenerTest {
 
         PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
         PotionEffect effect = meta.getCustomEffects().get(0);
-        assertEquals(0, effect.getAmplifier() - 2, "floor(0.5 * 1) == 0, amplifier unchanged at odd quality");
+        assertEquals(2, effect.getAmplifier(), "品質は強度を動かさない");
+        assertEquals(1100, effect.getDuration(), "1000 * (1 + 1pt * 10%) = 1100");
+    }
+
+    @Test
+    void negativeQualityShortensDuration() {
+        writeManualOwner(player);
+        stubQuality(-1.0);
+        PotionQualityListener listener = new PotionQualityListener(plugin, aggregator, alchemyQuality, progressionCatalog);
+
+        List<ItemStack> results = new ArrayList<>();
+        results.add(strengthPotion(1000, 0));
+        listener.onBrew(brewEvent(results));
+
+        PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
+        assertEquals(900, meta.getCustomEffects().get(0).getDuration(),
+                "1000 * (1 - 1pt * 10%) = 900");
+        assertEquals(0, meta.getCustomEffects().get(0).getAmplifier());
+    }
+
+    @Test
+    void tenthPointAddsOnePercentDuration() {
+        writeManualOwner(player);
+        stubQuality(0.1);
+        PotionQualityListener listener = new PotionQualityListener(plugin, aggregator, alchemyQuality, progressionCatalog);
+
+        List<ItemStack> results = new ArrayList<>();
+        results.add(strengthPotion(1000, 0));
+        listener.onBrew(brewEvent(results));
+
+        assertEquals(1010, ((PotionMeta) results.get(0).getItemMeta()).getCustomEffects().get(0).getDuration(),
+                "0.1pt で +1%");
     }
 
     @Test
     void instantEffectsAreNotGivenABonusDuration() {
         writeManualOwner(player);
         stubQuality(5.0);
-        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
-        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.0);
-        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(0.0);
         PotionQualityListener listener = new PotionQualityListener(plugin, aggregator, alchemyQuality, progressionCatalog);
 
         List<ItemStack> results = new ArrayList<>();
@@ -384,8 +392,6 @@ class PotionQualityListenerTest {
         PlayerCombatAggregate bystanderTotals = mock(PlayerCombatAggregate.class);
         when(bystanderTotals.totalOf("potion_quality_bonus")).thenReturn(10.0); // bystander WOULD get a huge bonus
         when(aggregator.aggregate(bystander)).thenReturn(bystanderTotals);
-        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
-        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.5);
         PotionQualityListener listener = new PotionQualityListener(plugin, aggregator, alchemyQuality, progressionCatalog);
 
         List<ItemStack> results = new ArrayList<>();
@@ -401,9 +407,6 @@ class PotionQualityListenerTest {
     void automatedBrewIsDampedByAutoMult() {
         writeAutomatedOwner(player);
         stubQuality(4.0); // damped by 0.25 -> effective 1.0 quality point
-        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
-        when(alchemyQuality.amplifierPerQuality()).thenReturn(1.0);
-        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(0.0);
         PotionQualityListener listener = new PotionQualityListener(plugin, aggregator, alchemyQuality, progressionCatalog);
 
         List<ItemStack> results = new ArrayList<>();
@@ -412,8 +415,8 @@ class PotionQualityListenerTest {
 
         PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
         PotionEffect effect = meta.getCustomEffects().get(0);
-        assertEquals(1020, effect.getDuration(), "4 quality points * 0.25 auto_mult damping == 1 effective point");
-        assertEquals(1, effect.getAmplifier());
+        assertEquals(1100, effect.getDuration(), "4 quality points * 0.25 auto_mult damping == 1 effective point → *1.10");
+        assertEquals(0, effect.getAmplifier(), "品質は強度を動かさない");
     }
 
     /**
@@ -427,9 +430,6 @@ class PotionQualityListenerTest {
     void potionQualityAppliesBeforeOwnerPdcIsClearedRegardlessOfRegistrationOrder() {
         writeManualOwner(player);
         stubQuality(2.0);
-        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
-        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.0);
-        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(0.0);
 
         PotionQualityListener qualityListener =
                 new PotionQualityListener(plugin, aggregator, alchemyQuality, progressionCatalog);
@@ -457,7 +457,7 @@ class PotionQualityListenerTest {
         server.getPluginManager().callEvent(event);
 
         PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
-        assertEquals(1040, meta.getCustomEffects().get(0).getDuration(),
+        assertEquals(1200, meta.getCustomEffects().get(0).getDuration(),
                 "HIGH-priority quality listener must read the owner before the MONITOR-priority clear runs");
         assertTrue(ownership.ownerOf(stand).isEmpty(), "the clearer still ran afterward and removed the owner PDC");
     }
@@ -474,9 +474,6 @@ class PotionQualityListenerTest {
     // 通らないため。
 
     private PotionQualityListener upgradeListener() {
-        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
-        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.5);
-        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(10.0);
         return new PotionQualityListener(plugin, aggregator, alchemyQuality, progressionCatalog);
     }
 
@@ -709,5 +706,98 @@ class PotionQualityListenerTest {
                 upgradeBrew(rawStrengthPotion(3600, 0), Material.DRAGON_BREATH, results));
 
         assertSame(vanilla, results.get(0), "実在しない組で勝手に器を替えている");
+    }
+
+    // ---- 反転(発酵したクモの目): 品質で WATER へ倒したバニラ由来だけ救済する --------------
+    //
+    // 醸造の見習い(potion_quality_bonus>0)を取るとベースが倒れる。倒した後のクモの目は
+    // バニラが WATER→弱化 しか見ず、W-116 が醸造ごと止めていた。倒す前の種類が反転表に
+    // あるときだけ結果を書き戻す。解放式カスタム(印なし)は既存ガードのまま止める。
+
+    private ItemStack qualityConverted(PotionType source, PotionEffectType effect,
+                                       int durationTicks, int amplifier) {
+        ItemStack potion = new ItemStack(Material.POTION);
+        PotionMeta meta = (PotionMeta) potion.getItemMeta();
+        meta.setBasePotionType(PotionType.WATER);
+        meta.clearCustomEffects();
+        meta.addCustomEffect(new PotionEffect(effect, durationTicks, amplifier), true);
+        meta.getPersistentDataContainer()
+                .set(PdcKeys.ITEM_BREW_SOURCE_POTION, PersistentDataType.STRING, source.name());
+        potion.setItemMeta(meta);
+        return potion;
+    }
+
+    private ItemStack vanillaWeaknessResult() {
+        ItemStack potion = new ItemStack(Material.POTION);
+        PotionMeta meta = (PotionMeta) potion.getItemMeta();
+        meta.setBasePotionType(PotionType.WEAKNESS);
+        meta.clearCustomEffects();
+        potion.setItemMeta(meta);
+        return potionSpyItem(potion);
+    }
+
+    @Test
+    @DisplayName("品質で倒した俊敏は発酵したクモの目で鈍化へ反転する(見習い後の反転不能の回帰)")
+    void qualityConvertedSwiftnessInvertsToSlowness() {
+        writeManualOwner(player);
+        stubQuality(1.0);
+        List<ItemStack> results = new ArrayList<>();
+        results.add(vanillaWeaknessResult());
+
+        BrewEvent event = upgradeBrew(
+                qualityConverted(PotionType.SWIFTNESS, PotionEffectType.SPEED, 3600, 0),
+                Material.FERMENTED_SPIDER_EYE, results);
+        upgradeListener().onBrew(event);
+
+        assertFalse(event.isCancelled(), "バニラ由来の反転まで W-116 で止めてはいけない");
+        PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
+        assertEquals(1, meta.getCustomEffects().size(), "反転でカスタム効果が消えている");
+        PotionEffect effect = meta.getCustomEffects().get(0);
+        assertEquals(PotionEffectType.SLOWNESS, effect.getType(), "俊敏→鈍化になっていない");
+        assertEquals(1800, effect.getDuration(), "バニラの俊敏3:00→鈍化1:30");
+        assertEquals(0, effect.getAmplifier());
+        assertEquals("SLOWNESS", meta.getPersistentDataContainer()
+                .get(PdcKeys.ITEM_BREW_SOURCE_POTION, PersistentDataType.STRING),
+                "EXP 用の倒す前の種類を反転先へ更新していない");
+    }
+
+    @Test
+    @DisplayName("品質で伸びた持続は反転先にも差分として残る")
+    void qualityDurationBonusCarriesAcrossInvert() {
+        writeManualOwner(player);
+        stubQuality(1.0);
+        List<ItemStack> results = new ArrayList<>();
+        results.add(vanillaWeaknessResult());
+
+        upgradeListener().onBrew(upgradeBrew(
+                qualityConverted(PotionType.SWIFTNESS, PotionEffectType.SPEED, 3620, 0),
+                Material.FERMENTED_SPIDER_EYE, results));
+
+        PotionEffect effect = ((PotionMeta) results.get(0).getItemMeta()).getCustomEffects().get(0);
+        assertEquals(PotionEffectType.SLOWNESS, effect.getType());
+        assertEquals(1820, effect.getDuration(), "バニラ鈍化1800 + 品質差分20");
+    }
+
+    @Test
+    @DisplayName("延長済みの俊敏は長い鈍化へ反転する")
+    void extendedSwiftnessInvertsToLongSlowness() {
+        writeManualOwner(player);
+        stubQuality(1.0);
+        ItemStack bottle = qualityConverted(PotionType.SWIFTNESS, PotionEffectType.SPEED, 9600, 0);
+        PotionMeta stamped = (PotionMeta) bottle.getItemMeta();
+        stamped.getPersistentDataContainer()
+                .set(new NamespacedKey(plugin, "brew_upgrade"), PersistentDataType.STRING, "EXTENDED");
+        bottle.setItemMeta(stamped);
+
+        List<ItemStack> results = new ArrayList<>();
+        results.add(vanillaWeaknessResult());
+        upgradeListener().onBrew(upgradeBrew(bottle, Material.FERMENTED_SPIDER_EYE, results));
+
+        PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
+        PotionEffect effect = meta.getCustomEffects().get(0);
+        assertEquals(PotionEffectType.SLOWNESS, effect.getType());
+        assertEquals(4800, effect.getDuration(), "バニラの長い鈍化 4:00");
+        assertEquals("LONG_SLOWNESS", meta.getPersistentDataContainer()
+                .get(PdcKeys.ITEM_BREW_SOURCE_POTION, PersistentDataType.STRING));
     }
 }

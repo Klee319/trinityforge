@@ -222,4 +222,27 @@ class PickupQualityListenerArsThreadQualityTest {
         listener.sweepInventory(player); // 例外を投げずに完走すること。
         verify(itemFactory, never()).stamp(any(ItemStack.class), anyLong(), anyInt());
     }
+
+    @Test
+    @DisplayName("スレッドは最大スタック1にする（ホッパーで特異点へ粗悪が重ならない）")
+    void threadStacksAreCappedToOne() {
+        ItemStack stack = markedUnstampedThreadStack();
+        stack.setAmount(8);
+        PickupQualityListener.uniquifyThreadStack(stack);
+        assertEquals(1, stack.getMaxStackSize());
+    }
+
+    @Test
+    @DisplayName("プレイヤー不在のホッパー経路でもスレッド専用restamperが呼ばれる")
+    void hopperPathStampsThreadsWithoutAPlayer() {
+        when(itemStats.profileFor(any(), any())).thenReturn(Optional.empty());
+        AtomicInteger restamped = new AtomicInteger(0);
+        PickupQualityListener listener = listenerWithRestamper((stack, q) -> {
+            restamped.incrementAndGet();
+            return true;
+        });
+        assertTrue(listener.stampIfEligible(markedUnstampedThreadStack(), null));
+        assertEquals(1, restamped.get());
+        verify(itemFactory, never()).stamp(any(ItemStack.class), anyLong(), anyInt());
+    }
 }

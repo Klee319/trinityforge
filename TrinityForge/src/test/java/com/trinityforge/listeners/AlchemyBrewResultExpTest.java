@@ -170,9 +170,7 @@ class AlchemyBrewResultExpTest {
         when(aggregate.totalOf(POTION_QUALITY_BONUS)).thenReturn(2.0);
         when(aggregator.aggregate(player)).thenReturn(aggregate);
         AlchemyQualityConfig quality = mock(AlchemyQualityConfig.class);
-        when(quality.durationTicksPerQuality()).thenReturn(200.0);
-        when(quality.amplifierPerQuality()).thenReturn(0.0);
-        when(quality.lingeringSplashDurationTicksPerQuality()).thenReturn(0.0);
+        when(quality.durationPercentPerTenthPoint()).thenReturn(1.0);
         NativeSkillCatalog catalog = mock(NativeSkillCatalog.class);
         when(catalog.get(SkillId.ALCHEMY)).thenReturn(ALCHEMY_ENTRY);
         return new PotionQualityListener(plugin, aggregator, quality, catalog);

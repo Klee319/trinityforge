@@ -5,11 +5,13 @@ import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.CraftingFeaturesConfig;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.config.domains.EnchantLuckConfig;
+import com.trinityforge.pdc.ItemData;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.enchantment.EnchantItemEvent;
+import org.bukkit.event.enchantment.PrepareItemEnchantEvent;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
@@ -89,6 +91,84 @@ class EnchantLuckListenerTest {
         listener.onEnchant(event);
 
         assertEquals(1, event.getEnchantsToAdd().get(Enchantment.SHARPNESS));
+    }
+
+    @Test
+    void zeroLuckBelowParityNerfsLevelWhenChanceIsCertain() {
+        stubAggregateLuck(0.0);
+        when(config.vanillaParityLuck()).thenReturn(10.0);
+        when(config.levelNerfChanceAtZero()).thenReturn(1.0);
+        when(config.levelNerfMaxSteps()).thenReturn(2);
+        Map<Enchantment, Integer> toAdd = new HashMap<>();
+        toAdd.put(Enchantment.SHARPNESS, 3);
+        EnchantLuckListener listener = new EnchantLuckListener(
+                aggregator, config, dedicatedEffects, craftingFeatures, new Random(1));
+
+        EnchantItemEvent event = newEvent(toAdd);
+        listener.onEnchant(event);
+
+        assertEquals(1, event.getEnchantsToAdd().get(Enchantment.SHARPNESS),
+                "運0かつナーフ確定なら最大2段階まで下がる(下限1)");
+    }
+
+    @Test
+    void nerfDoesNotDropBelowLevelOne() {
+        stubAggregateLuck(0.0);
+        when(config.vanillaParityLuck()).thenReturn(10.0);
+        when(config.levelNerfChanceAtZero()).thenReturn(1.0);
+        when(config.levelNerfMaxSteps()).thenReturn(5);
+        Map<Enchantment, Integer> toAdd = new HashMap<>();
+        toAdd.put(Enchantment.SHARPNESS, 1);
+        EnchantLuckListener listener = new EnchantLuckListener(
+                aggregator, config, dedicatedEffects, craftingFeatures, new Random(1));
+
+        EnchantItemEvent event = newEvent(toAdd);
+        listener.onEnchant(event);
+
+        assertEquals(1, event.getEnchantsToAdd().get(Enchantment.SHARPNESS),
+                "ナーフはエンチャントを消さずレベル1で止める");
+    }
+
+    @Test
+    void luckBelowParityDoesNotBoostEvenWhenBoostChanceIsCertain() {
+        stubAggregateLuck(9.0);
+        when(config.vanillaParityLuck()).thenReturn(10.0);
+        when(config.levelNerfChanceAtZero()).thenReturn(0.0);
+        when(config.levelBoostChancePerLuck()).thenReturn(1.0);
+        when(config.levelBoostMaxSteps()).thenReturn(3);
+        when(config.overenchantBonusChancePerLuck()).thenReturn(1.0);
+        when(config.extraEnchantChancePerLuck()).thenReturn(1.0);
+        Map<Enchantment, Integer> toAdd = new HashMap<>();
+        toAdd.put(Enchantment.SHARPNESS, 3);
+        EnchantLuckListener listener = new EnchantLuckListener(
+                aggregator, config, dedicatedEffects, craftingFeatures, new Random(1));
+
+        EnchantItemEvent event = newEvent(toAdd);
+        listener.onEnchant(event);
+
+        assertEquals(3, event.getEnchantsToAdd().get(Enchantment.SHARPNESS),
+                "パリティ未満は格上げも追加エンチャも走らない");
+        assertEquals(1, event.getEnchantsToAdd().size());
+    }
+
+    @Test
+    void luckAtParityStillBoosts() {
+        stubAggregateLuck(10.0);
+        when(config.vanillaParityLuck()).thenReturn(10.0);
+        when(config.levelBoostChancePerLuck()).thenReturn(1.0);
+        when(config.levelBoostMaxSteps()).thenReturn(2);
+        when(config.overenchantBonusChancePerLuck()).thenReturn(0.0);
+        when(config.extraEnchantChancePerLuck()).thenReturn(0.0);
+        Map<Enchantment, Integer> toAdd = new HashMap<>();
+        toAdd.put(Enchantment.SHARPNESS, 3);
+        EnchantLuckListener listener = new EnchantLuckListener(
+                aggregator, config, dedicatedEffects, craftingFeatures, new Random(1));
+
+        EnchantItemEvent event = newEvent(toAdd);
+        listener.onEnchant(event);
+
+        assertEquals(5, event.getEnchantsToAdd().get(Enchantment.SHARPNESS),
+                "パリティ到達後は従来どおり格上げする");
     }
 
     @Test
@@ -338,5 +418,33 @@ class EnchantLuckListenerTest {
                 List.of(Enchantment.LOOTING), null, new HashMap<>(), new Random(1));
 
         assertNull(picked);
+    }
+
+    @Test
+    void restoreIdentityAfterEnchantPutsQualityAndSeedBack() {
+        EnchantLuckListener listener = new EnchantLuckListener(
+                aggregator, config, dedicatedEffects, craftingFeatures, new Random(1));
+        ItemStack original = new ItemStack(Material.DIAMOND_SWORD);
+        original.editMeta(meta -> {
+            ItemData data = ItemData.of(meta);
+            data.setRollSeed(77L);
+            data.setQuality(9);
+            data.setCatalogId("diamond_blade");
+        });
+        PrepareItemEnchantEvent prepare = mock(PrepareItemEnchantEvent.class);
+        when(prepare.getEnchanter()).thenReturn(player);
+        when(prepare.getItem()).thenReturn(original);
+        listener.onPrepareEnchant(prepare);
+
+        EnchantItemEvent event = newEvent(new HashMap<>());
+        ItemStack enchanted = event.getItem();
+        assertTrue(enchanted.getType() == Material.DIAMOND_SWORD);
+
+        listener.restoreIdentityAfterEnchant(event);
+
+        ItemData restored = ItemData.of(event.getItem().getItemMeta());
+        assertEquals(77L, restored.rollSeed().orElseThrow());
+        assertEquals(9, restored.quality());
+        assertEquals("diamond_blade", restored.catalogId().orElseThrow());
     }
 }

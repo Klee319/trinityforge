@@ -97,8 +97,7 @@ base-stats:
   arrow-velocity: 0
   arrow-knockback: 0
   melee-knockback: 0
-  stun-chance: 0
-  stun-duration-bonus: 0
+  stun-chance: 0.05
   power-attack-damage: 0
   power-attack-radius: 0
   cooldown-reduction: 0
@@ -169,3 +168,4 @@ base-stats:
   glyph-damage-multiplier-bonus: 0
   armor-set-bonus: 0
   bow-accuracy: -0.3
+  stun-duration-bonus: 30

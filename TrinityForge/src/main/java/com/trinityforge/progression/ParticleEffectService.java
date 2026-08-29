@@ -34,10 +34,18 @@ public final class ParticleEffectService implements Listener {
     /** ベースtick周期。各パーティクル定義の interval-ticks はこの倍数として扱う(端数切捨て)。 */
     private static final long BASE_PERIOD_TICKS = 1L;
     private static final double VIEW_RADIUS = 32.0;
+    /**
+     * 参加直後に空キャッシュを焼かない猶予。HuskSync の snapshot は {@code PlayerJoinEvent} より後で、
+     * 先に空を読むとサーバ移動後ずっとパーティクルが出ない（2026-08-29）。
+     */
+    static final long JOIN_REFRESH_DELAY_TICKS = 40L;
+    /** 空キャッシュの自己修復間隔。HuskSync が猶予を超えて遅れたとき用。 */
+    private static final long EMPTY_CACHE_REFRESH_TICKS = 100L;
 
     private final Plugin plugin;
     private final SpecialRewardsConfig config;
     private final ConcurrentHashMap<UUID, Optional<String>> equippedCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, Integer> joinTick = new ConcurrentHashMap<>();
     /**
      * 追従の遅れを詰めるための先読み(2026-08-25 / W-247)。
      * <b>毎tick sample し、発生させるtickだけ結果を使う</b> ── 差分は「前回 sample からの移動量」なので、
@@ -74,15 +82,19 @@ public final class ParticleEffectService implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
-        equippedCache.remove(event.getPlayer().getUniqueId());
+        UUID id = event.getPlayer().getUniqueId();
+        equippedCache.remove(id);
+        joinTick.put(id, Bukkit.getCurrentTick());
         // 参加直前の位置との差分は「移動」ではない(別ワールド/別座標からの復帰)。
-        motion.forget(event.getPlayer().getUniqueId());
+        motion.forget(id);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
-        equippedCache.remove(event.getPlayer().getUniqueId());
-        motion.forget(event.getPlayer().getUniqueId());
+        UUID id = event.getPlayer().getUniqueId();
+        equippedCache.remove(id);
+        joinTick.remove(id);
+        motion.forget(id);
     }
 
     private void tick() {
@@ -94,8 +106,7 @@ public final class ParticleEffectService implements Listener {
             if (owner.isDead()) {
                 continue;
             }
-            Optional<String> equippedId = equippedCache.computeIfAbsent(
-                    owner.getUniqueId(), id -> PlayerData.of(owner).equippedParticle());
+            Optional<String> equippedId = resolveEquipped(owner);
             if (equippedId.isEmpty()) {
                 continue;
             }
@@ -107,6 +118,41 @@ public final class ParticleEffectService implements Listener {
             }
             render(owner, effect, lead);
         }
+    }
+
+    /**
+     * 装備中パーティクルを読む。参加直後の空読みをキャッシュしない。
+     */
+    Optional<String> resolveEquipped(Player owner) {
+        UUID id = owner.getUniqueId();
+        Optional<String> cached = equippedCache.get(id);
+        boolean refreshEmpty = cached != null && cached.isEmpty()
+                && tickCounter % EMPTY_CACHE_REFRESH_TICKS == 0L;
+        if (cached != null && cached.isPresent()) {
+            return cached;
+        }
+        if (cached != null && cached.isEmpty() && !refreshEmpty) {
+            return cached;
+        }
+        Optional<String> read = PlayerData.of(owner).equippedParticle();
+        if (read.isPresent()) {
+            equippedCache.put(id, read);
+            joinTick.remove(id);
+            return read;
+        }
+        Integer joined = joinTick.get(id);
+        if (shouldCacheEmpty(Bukkit.getCurrentTick(), joined, JOIN_REFRESH_DELAY_TICKS)) {
+            equippedCache.put(id, Optional.empty());
+            joinTick.remove(id);
+        }
+        return read;
+    }
+
+    static boolean shouldCacheEmpty(int nowTick, Integer joinedTick, long graceTicks) {
+        if (joinedTick == null) {
+            return true;
+        }
+        return nowTick - joinedTick >= graceTicks;
     }
 
     /**
@@ -131,7 +177,7 @@ public final class ParticleEffectService implements Listener {
             return;
         }
         // ワンショット(シード)は「当たった場所」＝静止した座標なので先読みは要らない。
-        emitFor(origin, anchor, anchor, particle, emission, yaw);
+        emitFor(origin, anchor, anchor, particle, emission, yaw, 0.0);
     }
 
     /**
@@ -152,7 +198,7 @@ public final class ParticleEffectService implements Listener {
         Location anchor = owner.getLocation();
         Location ownerAnchor = anchor.clone().add(lead[0], lead[1], lead[2]);
         emitFor(owner, anchor, ownerAnchor, effect.particle(), effect.emission(),
-                emitYaw(effect.emission(), anchor.getYaw(), lead));
+                emitYaw(effect.emission(), anchor.getYaw(), lead), helixPhaseTurns());
     }
 
     /**
@@ -169,6 +215,15 @@ public final class ParticleEffectService implements Listener {
         return MotionLead.travelYaw(lead[0], lead[2], lookYaw);
     }
 
+    /** 螺旋を 1 秒で 1 周させる。発生間隔が 5tick でも、位相は実時間で進む。 */
+    static double helixPhaseTurns(long tick) {
+        return tick / 20.0;
+    }
+
+    private double helixPhaseTurns() {
+        return helixPhaseTurns(tickCounter);
+    }
+
     /**
      * {@link ParticleGeometry} が出した呼び出し列を、閲覧者ごとに撃つ。
      *
@@ -178,8 +233,8 @@ public final class ParticleEffectService implements Listener {
      * <b>どの形状でも 0 固定</b>で、円形拡散のような「向きのある演出」が原理的に書けなかった。
      */
     private static void emitFor(Player owner, Location anchor, Location ownerAnchor, Particle particle,
-                                SpecialRewardsConfig.Emission emission, double yaw) {
-        java.util.List<ParticleGeometry.Emit> emits = ParticleGeometry.emits(emission, yaw);
+                                SpecialRewardsConfig.Emission emission, double yaw, double phaseTurns) {
+        java.util.List<ParticleGeometry.Emit> emits = ParticleGeometry.emits(emission, yaw, phaseTurns);
         if (emits.isEmpty()) {
             return;
         }

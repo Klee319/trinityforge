@@ -8,6 +8,8 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Hanging;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -163,6 +165,7 @@ public final class ChainBreakSupport {
         }
         Location dropAt = target.getLocation();
         World world = target.getWorld();
+        popAttachedHangings(target, dropAt);
         target.setType(Material.AIR);
         if (!dropItems) {
             return;
@@ -170,6 +173,47 @@ public final class ChainBreakSupport {
         for (ItemStack drop : drops) {
             if (drop != null && drop.getType() != Material.AIR && drop.getAmount() > 0) {
                 world.dropItemNaturally(dropAt, drop);
+            }
+        }
+    }
+
+    /**
+     * {@code setType(AIR)} は {@code BlockBreakEvent} を飛ばないので、壁に付いた額縁・絵画・
+     * リード結びが1tick残って Paper が
+     * {@code Block-attached entity at invalid position} を ERROR で出す。
+     * 付いている個体だけ先に消す。モック World では近傍検索が空／例外になり得るので握りつぶす。
+     */
+    static void popAttachedHangings(Block target, Location dropAt) {
+        World world = target == null ? null : target.getWorld();
+        if (world == null || dropAt == null) {
+            return;
+        }
+        Collection<Entity> nearby;
+        try {
+            nearby = world.getNearbyEntities(dropAt.clone().add(0.5, 0.5, 0.5), 1.6, 1.6, 1.6);
+        } catch (RuntimeException ignored) {
+            return;
+        }
+        if (nearby == null || nearby.isEmpty()) {
+            return;
+        }
+        int x = target.getX();
+        int y = target.getY();
+        int z = target.getZ();
+        for (Entity entity : nearby) {
+            if (!(entity instanceof Hanging hanging)) {
+                continue;
+            }
+            Location hangingAt = hanging.getLocation();
+            if (hangingAt == null || hangingAt.getWorld() == null) {
+                continue;
+            }
+            Block hangingBlock = hangingAt.getBlock();
+            Block attached = hangingBlock.getRelative(hanging.getAttachedFace());
+            boolean onThis = hangingBlock.getX() == x && hangingBlock.getY() == y && hangingBlock.getZ() == z;
+            boolean attachedToThis = attached.getX() == x && attached.getY() == y && attached.getZ() == z;
+            if (onThis || attachedToThis) {
+                hanging.remove();
             }
         }
     }
@@ -286,6 +330,7 @@ public final class ChainBreakSupport {
         int next = damageable.getDamage() + 1;
         if (next >= maxDurability) {
             inventory.setItemInMainHand(null);
+            com.trinityforge.durability.ItemBreakSignal.fire(player, held);
             return false;
         }
         damageable.setDamage(next);

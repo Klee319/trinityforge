@@ -17,6 +17,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import org.bukkit.event.inventory.CraftItemEvent;
+import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.Recipe;
 import org.bukkit.inventory.RecipeChoice;
@@ -81,7 +82,9 @@ public final class CatalogWorkbenchListener implements Listener {
                 return;
             }
             // 装備(スタック不可)のカタログ品はバニラ/他プラグインのレシピに使わせる (2026-08-17)。
+            // 革防具の染色は「同じ個体の続き」なので、色だけバニラ結果を採用して identity を残す。
             if (gridCatalogItemsAreAllGear(matrix)) {
+                preserveLeatherDyeResult(event.getInventory(), matrix);
                 return;
             }
             // A catalog stack may only be consumed by a recipe that explicitly opted into its
@@ -233,6 +236,11 @@ public final class CatalogWorkbenchListener implements Listener {
                 return;
             }
             if (gridCatalogItemsAreAllGear(matrix)) {
+                ItemStack result = event.getResult();
+                if (CatalogCosmeticPreserve.isLeatherDyeCraft(matrix, result)) {
+                    ItemStack armor = CatalogCosmeticPreserve.leatherArmorIngredient(matrix, result.getType());
+                    event.setResult(CatalogCosmeticPreserve.applyColorOnto(armor, result));
+                }
                 return; // 作業台側と同じ線引き (2026-08-17)
             }
             for (CatalogRecipeRegistrar.RegisteredRecipe candidate : registrar.allRegistered()) {
@@ -286,6 +294,7 @@ public final class CatalogWorkbenchListener implements Listener {
         // ここで setCancelled(true) され「見えるのに取れない」状態のままだった
         // ── 直上のコメントがまさに警告している失敗の仕方を、そのまま踏んでいた。
         if (gridCatalogItemsAreAllGear(matrix)) {
+            preserveLeatherDyeResult(event.getInventory(), matrix);
             return;
         }
         int gridWidth = matrix.length == 4 ? 2 : 3;
@@ -631,6 +640,16 @@ public final class CatalogWorkbenchListener implements Listener {
         Optional<String> catalogId = CatalogIdentity.find(catalog, item.getType(), cmd).map(ItemTemplate::id);
         if (catalogId.isPresent()) return catalogId;
         return ExternalItemRegistry.find(item.getType(), cmd).map(ExternalItemRegistry.Definition::id);
+    }
+
+    /** 革防具＋染料の染色は同じ個体の続き。色だけバニラ結果を写し、rollSeed / 品質 / bind は残す。 */
+    private static void preserveLeatherDyeResult(CraftingInventory inventory, ItemStack[] matrix) {
+        ItemStack result = inventory.getResult();
+        if (!CatalogCosmeticPreserve.isLeatherDyeCraft(matrix, result)) {
+            return;
+        }
+        ItemStack armor = CatalogCosmeticPreserve.leatherArmorIngredient(matrix, result.getType());
+        inventory.setResult(CatalogCosmeticPreserve.applyColorOnto(armor, result));
     }
 
     /**

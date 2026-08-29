@@ -6,7 +6,15 @@ config-editor で保存すると本文コメントは復元されないため([t
 
 ## 本文コメント一覧(元のyml内での出現順)
 
-### 直後: `level-boost-max-steps: 2`
+### 直後: `level-boost-chance-per-luck: 0.02`
+
+```
+1回のエンチャント抽選で、確定した各エンチャントのレベルを+1格上げできるかどうかの判定確率。
+実際の適用確率 = min(1.0, level-boost-chance-per-luck * enchant_luck)。
+バニラ上限(Enchantment#getMaxLevel)に達するまでの格上げにのみ使う。パリティ未満では使わない。
+```
+
+### 直後: `level-boost-max-steps: 3`
 
 ```
 1回の抽選で格上げを試行できる最大回数。
@@ -20,10 +28,29 @@ config-editor で保存すると本文コメントは復元されないため([t
 未解放のプレイヤーはバニラ上限で格上げが止まる(既存 OverEnchantListener が最終クランプする)。
 ```
 
-### 直後: `extra-enchant-chance-per-luck: 0.005`
+### 直後: `extra-enchant-chance-per-luck: 0.02`
 
 ```
 抽選結果に元々含まれていない、対象アイテムへ付与可能な別のエンチャントを追加で1つ
 (レベル1で)付与する確率(luck 1.0あたり)。競合するエンチャント同士は付与しない。
+パリティ未満では使わない。
 ```
 
+### 直後: `vanilla-parity-luck: 10`
+
+```
+この値未満の運では格上げせず弱体化する。0 でナーフ無効(旧挙動)。
+```
+
+### 直後: `level-nerf-chance-at-zero: 0.5`
+
+```
+運0のときのレベル-1 試行確率。パリティ直前では 0 に近づく。
+実際の適用確率 = min(1.0, (1 - luck/parity) * level-nerf-chance-at-zero)。
+```
+
+### 直後: `level-nerf-max-steps: 2`
+
+```
+1回の抽選でレベルを-1できる最大回数。下限はレベル1(エンチャントは消さない)。
+```

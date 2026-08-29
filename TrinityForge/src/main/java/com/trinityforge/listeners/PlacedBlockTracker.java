@@ -3,15 +3,19 @@ package com.trinityforge.listeners;
 import org.bukkit.Chunk;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockPistonExtendEvent;
+import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -75,6 +79,41 @@ public final class PlacedBlockTracker implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent event) {
         markPlaced(event.getBlock());
+    }
+
+    /**
+     * ピストンで押した／引いたブロックは、元が自然生成でも「置いたもの」として扱う。
+     * マークが移動元に残ると置いてけぼりになり、移動先を壊すと採取EXPが入る（2026-08-29）。
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPistonExtend(BlockPistonExtendEvent event) {
+        relocateMarks(event.getBlocks(), event.getDirection());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPistonRetract(BlockPistonRetractEvent event) {
+        relocateMarks(event.getBlocks(), event.getDirection().getOppositeFace());
+    }
+
+    /**
+     * 動くブロックを遠い側から順に処理する（手前からだと行き先のマークを踏み潰す）。
+     * 行き先は常に設置扱い —— ピストンで運んだ丸石ジェネレータも EXP 対象にしない。
+     */
+    void relocateMarks(List<Block> moving, BlockFace direction) {
+        if (moving == null || moving.isEmpty() || direction == null || direction == BlockFace.SELF) {
+            return;
+        }
+        for (int i = moving.size() - 1; i >= 0; i--) {
+            Block from = moving.get(i);
+            if (from == null) {
+                continue;
+            }
+            Block to = from.getRelative(direction);
+            if (isPlaced(from)) {
+                clearIfPlaced(from);
+            }
+            markPlaced(to);
+        }
     }
 
     public void markPlaced(Block block) {

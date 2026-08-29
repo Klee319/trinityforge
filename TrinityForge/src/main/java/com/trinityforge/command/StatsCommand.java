@@ -7,6 +7,7 @@ import com.trinityforge.combat.PlayerCombatAggregate;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.combat.SymmetricCombatService;
 import com.trinityforge.config.domains.LoreConfig;
+import com.trinityforge.integration.ars.ArsArmorStatRefreshBridge;
 import com.trinityforge.progression.SkillLevelSource;
 import com.trinityforge.stats.StatAppliesTo;
 import com.trinityforge.stats.StatBound;
@@ -149,6 +150,8 @@ public final class StatsCommand {
      */
     private Map<String, Double> combinedStats(Player player) {
         // 2026-07-29: 実体は PlayerCombatAggregate#combined() へ移した(/tf status のGUIと同じ経路)。
+        // 2026-08-29: 表示直前にスレッド PDC を同期し、StatusGui と同じ保険を通す。
+        ArsArmorStatRefreshBridge.refresh(player);
         return aggregator.aggregate(player).combined();
     }
 
@@ -313,3 +316,5 @@ public final class StatsCommand {
     }
 
 }
+
+

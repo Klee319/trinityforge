@@ -214,11 +214,11 @@ class NativeSurvivalPerkDropDuplicationTest {
                 "旧実装は32個×2=64個だった。新仕様は+1個(ユーザー指示による意図的な弱体化)");
     }
 
-    /** ボーナスの上限(+200%)と、個数の上限・下限は旧実装から変えない(maxStackSize×8 / 最低1個)。 */
+    /** 個数の上限・下限は旧実装から変えない(maxStackSize×8 / 最低1個)。設計上限は stat-caps。 */
     @Test
     void scaleAmountKeepsStackCapAndMinimum() {
-        assertEquals(3, NativeSurvivalPerkListener.scaleAmount(1, 5.0, 64, 0.0),
-                "ボーナスは+200%で頭打ちなので、いくら盛っても+2個まで");
+        assertEquals(6, NativeSurvivalPerkListener.scaleAmount(1, 5.0, 64, 0.0),
+                "+500% は+5個。+200%ハードコードはしない");
         assertEquals(512, NativeSurvivalPerkListener.scaleAmount(1000, 2.0, 64, 0.0));
         assertEquals(8, NativeSurvivalPerkListener.scaleAmount(10, 2.0, 1, 0.0),
                 "最大スタック1のツールでも上限は maxStackSize×8");

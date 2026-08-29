@@ -114,13 +114,15 @@
   // 出荷している(CMD割当は reports/ACTIVE_RECORD.md 追跡の後追いタスク)。UI上は他の2件と同じ
   // カードで material/CMD/表示名/enchant-glow/lore/recipe を編集できる(CMDが空欄なだけ)。
   // 2026-08-24追加の3件(exp_cleanse_tonic_*)は「EXP解呪の良薬」。日次逓減(stats/skill-exp.yml の
-  // daily-diminishing)を飲んだ瞬間だけ全スキル一括で引き戻す使い切りで、引き戻す先の倍率は
-  // com.trinityforge.items.ExpCleanseTonic が持つ固定値(50/75/90%)。ここから編集できるのは
-  // 見た目とレシピだけで、倍率は editor 側に無い。custom-model-data も未割り当て。
+  // daily-diminishing)を全スキル一括で動かす使い切り。並=減衰量10%削減(70%天井) /
+  // 上=15%削減 / 極=2時間無効化。数値の真源は com.trinityforge.items.ExpCleanseTonic。
+  // ここから編集できるのは見た目とレシピだけ。
+  // 2026-08-29追加の owner_unbind_ticket は魂縛解きの符。所有者を永続的に外し TRADEABLE にする。
   const TF_SPECIAL_ITEM_IDS = Object.freeze([
     "skill_node_lock", "skill_tree_reset",
     "role_reselect_ticket", "stat_reroll_ticket", "quality_upgrade_ticket",
-    "exp_cleanse_tonic_lesser", "exp_cleanse_tonic_greater", "exp_cleanse_tonic_supreme"
+    "exp_cleanse_tonic_lesser", "exp_cleanse_tonic_greater", "exp_cleanse_tonic_supreme",
+    "owner_unbind_ticket"
   ]);
   const TF_SPECIAL_ITEM_LABELS = Object.freeze({
     skill_node_lock: "スキルノードの楔",
@@ -128,9 +130,10 @@
     role_reselect_ticket: "職業付け替えの証",
     stat_reroll_ticket: "厳選やり直しの護符",
     quality_upgrade_ticket: "品質昇華の結晶",
-    exp_cleanse_tonic_lesser: "EXP解呪の良薬・並 (50%まで)",
-    exp_cleanse_tonic_greater: "EXP解呪の良薬・上 (75%まで)",
-    exp_cleanse_tonic_supreme: "EXP解呪の良薬・極 (90%まで)"
+    exp_cleanse_tonic_lesser: "EXP解呪の良薬・並 (減衰10% / 70%まで)",
+    exp_cleanse_tonic_greater: "EXP解呪の良薬・上 (減衰15%)",
+    exp_cleanse_tonic_supreme: "EXP解呪の良薬・極 (2時間無効化)",
+    owner_unbind_ticket: "魂縛解きの符"
   });
 
   // catalog.yml の items.<id> のうち TF 特殊アイテム2件だけを、無ければ空オブジェクトで補完する。
@@ -516,14 +519,13 @@
     return { element: root };
   }
 
-  // TrinityForge 特殊アイテム2件 (catalog.yml) 専用のカード群。Ars の7件のカード表示とほぼ同じ
-  // 見た目にするが、material 編集欄は出さない(このユーザー方針では言及されていないため固定のまま)。
+  // TrinityForge 特殊アイテム (catalog.yml)。Ars 機能アイテムと同じく material / 表示名 / aura / lore を編集できる。
   function buildTfSpecialItemsSection(catalogWorking) {
     const root = h("div", { class: "func-tf-special-section" });
     root.appendChild(h("div", { class: "sub-title", text: "TrinityForge 特殊アイテム (catalog.yml)" }));
     root.appendChild(h("div", { class: "form-hint", text:
       "内部ID は com.trinityforge.skilltree.runtime.SkillTreeItems が直接参照する固定値のため変更できません。"
-      + " 表示名・CMD・エンチャント光・lore・レシピは編集できます。定義はこれまでどおり catalog.yml に残ります。"
+      + " 素材・表示名・CMD・エンチャント光(aura)・lore・レシピは編集できます。定義はこれまでどおり catalog.yml に残ります。"
     }));
     const listBox = h("div", { class: "card-list" });
     root.appendChild(listBox);
@@ -575,6 +577,12 @@
       }
 
       const inputChildren = [
+        fieldRow("material", (() => {
+          const matInput = window.materialInput(entry.material, "material-list", (v) => {
+            setOrDelete(entry, "material", v);
+          });
+          return h("span", { class: "input-with-hint" }, [matInput]);
+        })()),
         fieldRow("display-name", window.richTextInput(entry["display-name"], "minimessage", (v) => {
           setOrDelete(entry, "display-name", v);
           refreshPreview();

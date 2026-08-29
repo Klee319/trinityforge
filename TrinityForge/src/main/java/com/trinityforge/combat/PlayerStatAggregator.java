@@ -344,7 +344,7 @@ public final class PlayerStatAggregator {
 
         PerkBuffs perkBuffs = perkBuffResolver.buffsFor(player.getUniqueId(), mainhandContributor);
         mergeMultipliers(multipliers, perkBuffs.multipliers());
-        Map<String, Double> addon = AddonCombatStats.read(player);
+        Map<String, Double> addon = addonContribution(player);
         // アドオン(スレッドのセット効果「乗算モード」)の倍率を合流させる。
         // 加算チャネル(addon)とは別物 —— こちらは加算合算が終わった総合値に掛かる。
         // 2026-08-22(W-186): レイヤIDは PDC が持つ。thread-sets.yml で layer: を指定した倍率は
@@ -650,7 +650,7 @@ public final class PlayerStatAggregator {
             baseStats.stats()
                     .forEach((key, value) -> combined.merge(StatKeys.canonical(key), value, Double::sum));
         }
-        AddonCombatStats.read(player)
+        addonContribution(player)
                 .forEach((key, value) -> combined.merge(StatKeys.canonical(key), value, Double::sum));
         Map<String, Map<String, Double>> multipliers =
                 armorAndOffhandMultipliers(player, usableArmor, false);
@@ -799,6 +799,19 @@ public final class PlayerStatAggregator {
             Map<String, Double> target = into.computeIfAbsent(layer, k -> new LinkedHashMap<>());
             stats.forEach((key, value) -> target.merge(StatKeys.canonical(key), value, Double::sum));
         });
+    }
+
+    /**
+     * フォークがプレイヤー PDC へ書いた addon に、装備へ挿さっているスレッドのライブ合算を穴埋めする。
+     *
+     * <p>既に addon にあるキーはフォーク側(セット効果込み)を優先する。無いキーだけライブ値を足すので、
+     * フォークが動いているときの二重計上は起きない。実効 thread-slots が 0 でフォークが空書きした
+     * ときや、詠唱効率のようにフォークがマナ経路へ迂回しているキーがここで拾える。
+     */
+    private Map<String, Double> addonContribution(Player player) {
+        Map<String, Double> addon = new LinkedHashMap<>(AddonCombatStats.read(player));
+        SocketedThreadStats.collect(player, itemStats).forEach(addon::putIfAbsent);
+        return addon;
     }
 
     /**

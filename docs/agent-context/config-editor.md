@@ -259,11 +259,21 @@ weapon/armor/tool/other/catalyst/spellbook/thread の7値）は `idsInCategory` 
 409で拒否されディスクが1バイトも変わらないことを固定）。
 
 ### companion（連動オプション）マージの一般化に注意する
-複数 yml にまたがる「companion」設定（例: `stat-caps` / `alchemy-quality` / `enchant-luck` /
+複数 yml にまたがる「companion」設定（例: `stat-caps` / `enchant-luck` /
 `crafting-features` / `food-gimmick` / `ars-config` / `glyph-damage-boost`）は、保存時にマージされず
 次の保存で消えるバグを踏んだことがある。原因は特定の画面だけに個別分岐が書かれていて、他の画面には
 分岐が無かったこと。新しい companion オプションを追加するときは、個別分岐を増やすのではなく
 `COMPANION_OPTION_KEYS` のような汎用キーリストに追加する形にする。
+`alchemy-quality` と `gathering-efficiency` は GUI を外して yml 直編集にしたので、このマップには載せない
+（載せると存在しない opts キーを渡す）。
+
+### タブ切替の未保存判定は editor の id を見る
+`selectConfig` / `selectTool` は GET 待ちのあいだ `state.current` を先に書き換え、前画面の
+`state.editor` が残ることがある。`isEditorDirty` が `state.current` だけを見ると「次タブの
+ベースライン × 前画面の getData」を比較して、触っていないのに未保存ダイアログが出る。
+比較対象は `state.editor.configId || state.current`。GET 開始前に `state.editor = null`、
+組み立て後に `navToken !== navSeq` なら捨てる。保存成功後は `syncBaseFromEditor` で
+ベースラインを合わせる（getData のたびに正規化が進む画面対策）。
 
 ## カテゴリ選択・状態管理
 
@@ -1433,6 +1443,24 @@ Material にも無い名前で、**同じ CMD の実体は別素材**（68 = `IR
 (rate-floor は「-1で完全遮断」という別軸のsentinelと衝突しないよう `[-1,1]`)とした
 (Java側の実際のSchemaFieldはこのレーンの完了時に確定するので、範囲がJava側と食い違っていないかは
 Java側の変更が着地した時点で `test/constants.test.js` を突き合わせて確認すること)。
+
+## 儀式の結果個数は `result-amount`、作業台は `amount`（2026-08-29）
+
+Ars `UnifiedRecipeLoader#ritualResultAmount` は儀式だけ `result-amount` を読む（既定1）。
+共通レシピUI `forms.js#renderCatalogRecipeCard` が workbench/ritual/inventory 全部を
+`recipe.amount` に繋ぐと、`materials.yml` の `source_engine` のように yml に
+`result-amount: 4` があっても欄が空（=1個）に見える。保存すると `amount` が混ざるか
+`result-amount` が UI から触れないまま残る。儀式ブランチは `result-amount` を読み書きし、
+作業台/インベントリだけ `amount` を使う。
+
+## スレッドの表示タブは Material 推論では決まらない（2026-08-29）
+
+`inferItemCategory("STRING")` は「補助」。スレッドのカタログIDは `thread_*`、ステータスキーは
+`STRING#300000-300099`（旧 CMD `100023-100028` も）。`_editor.itemTabs` ピンが無い、または
+補助へ退化していると item-stats の補助タブにスレッドが並ぶ。
+`getItemDisplayTab` はピンが `other` でもスレッド身元なら `thread` を返す
+（明示ピンが weapon 等なら上書きしない）。`catalog-candidates.js` も Node 経路で
+`thread_*` を `tab: "thread"` にする。
 
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)

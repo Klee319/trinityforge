@@ -3,7 +3,10 @@ package com.trinityforge.stats;
 import com.trinityforge.pdc.BindType;
 import com.trinityforge.pdc.ItemData;
 import org.bukkit.Material;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -130,16 +133,17 @@ class ItemFactoryTest {
     }
 
     @Test
-    void createAppliesEnchantGlowAsHiddenEnchant() {
+    void createAppliesEnchantGlowWithoutHidingTooltip() {
         ItemTemplate template = new ItemTemplate("glowing_stick", Material.STICK, null, null,
                 BindType.TRADEABLE, 0, null, List.of(), (RecipeSpec) null, null, true);
 
         ItemStack stack = factoryWithMockAssembler().create(template, 1L, 0);
 
-        var meta = stack.getItemMeta();
-        assertTrue(meta.hasEnchants(), "enchant-glow must stamp a hidden enchant to show the shimmer");
-        assertTrue(meta.getItemFlags().contains(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS),
-                "the hidden enchant must not show up in the tooltip");
+        ItemMeta meta = stack.getItemMeta();
+        assertTrue(hasGlowPresentation(meta),
+                "enchant-glow must show the vanilla shimmer");
+        assertFalse(glintHidesEnchants(meta),
+                "glint-override glow must not set HIDE_ENCHANTS (that hides real enchants later)");
     }
 
     @Test
@@ -150,6 +154,59 @@ class ItemFactoryTest {
         ItemStack stack = factoryWithMockAssembler().create(template, 1L, 0);
 
         assertFalse(stack.getItemMeta().hasEnchants());
+        assertFalse(stack.getItemMeta().hasItemFlag(ItemFlag.HIDE_ENCHANTS));
+    }
+
+    @Test
+    void clearEnchantGlowRemovesHideEnchantsLeftoverFromLegacyDummy() {
+        ItemStack stack = new ItemStack(Material.DIAMOND_SWORD);
+        ItemMeta meta = stack.getItemMeta();
+        meta.addEnchant(Enchantment.SHARPNESS, 2, true);
+        meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+
+        ItemFactory.clearEnchantGlow(meta);
+
+        assertFalse(meta.hasItemFlag(ItemFlag.HIDE_ENCHANTS),
+                "catalog glow off must drop leftover HIDE_ENCHANTS so new enchants can show");
+        assertEquals(2, meta.getEnchantLevel(Enchantment.SHARPNESS));
+    }
+
+    @Test
+    void applyEnchantGlowOnLegacyDummyDoesNotHideExistingEnchants() {
+        ItemStack stack = new ItemStack(Material.DIAMOND_SWORD);
+        ItemMeta meta = stack.getItemMeta();
+        meta.addEnchant(Enchantment.SHARPNESS, 2, true);
+        meta.addEnchant(Enchantment.UNBREAKING, 1, true);
+        meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+
+        ItemFactory.applyEnchantGlow(meta);
+
+        assertFalse(meta.hasItemFlag(ItemFlag.HIDE_ENCHANTS));
+        assertEquals(2, meta.getEnchantLevel(Enchantment.SHARPNESS));
+        assertEquals(0, meta.getEnchantLevel(Enchantment.UNBREAKING),
+                "dummy Unbreaking I stamped with HIDE_ENCHANTS is the old glow, not a player enchant");
+        assertTrue(hasGlowPresentation(meta));
+    }
+
+    /** Paper glint override, or MockBukkit fallback of dummy Unbreaking + HIDE_ENCHANTS. */
+    private static boolean hasGlowPresentation(ItemMeta meta) {
+        try {
+            if (Boolean.TRUE.equals(meta.getEnchantmentGlintOverride())) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+            // MockBukkit unimplemented: fall through to dummy-enchant signature.
+        }
+        return meta.hasEnchants() && meta.getItemFlags().contains(ItemFlag.HIDE_ENCHANTS);
+    }
+
+    private static boolean glintHidesEnchants(ItemMeta meta) {
+        try {
+            return Boolean.TRUE.equals(meta.getEnchantmentGlintOverride())
+                    && meta.hasItemFlag(ItemFlag.HIDE_ENCHANTS);
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     // --- 「スレッド枠拡張」儀式 (F2 2026-07-31) ---

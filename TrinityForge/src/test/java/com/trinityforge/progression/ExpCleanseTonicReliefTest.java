@@ -14,20 +14,22 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 「EXP解呪の良薬」（{@link ExpCleanseTonic}）が日次逓減を実際に引き戻すことを固定する
- * （2026-08-24 ユーザー要望）。
+ * 「EXP解呪の良薬」（{@link ExpCleanseTonic}）が日次逓減を動かすことを固定する
+ * （2026-08-29 仕様差し替え: 並10%+70%上限 / 上15% / 極2時間無効化）。
  *
  * <p>設定は<b>出荷値と同じ</b>（{@code stats/skill-exp.yml}: 窓24時間 / 10万EXPごとに1段 /
- * 1段 0.9倍 / 下限 0.5）。ここを作り物の値にすると、下で固定している2つの罠
- * （下限クランプ・DBの「大きい方」）がどちらも再現しない。
+ * 1段 0.9倍 / 下限 0.5）。離散段では 70% は段の間に落ちるので、並の上限は
+ * 70% を超えない最良段（0.9^4 = 65.61%）になる。
  */
 class ExpCleanseTonicReliefTest {
 
     private static final double HOUR = 3_600_000.0;
     private static final double PER = 100_000.0;
+    private static final long TWO_HOURS = 2L * 60L * 60L * 1000L;
 
     private final AtomicLong now = new AtomicLong(1_700_000_000_000L);
     private DailyExpWindowStore store;
@@ -54,40 +56,23 @@ class ExpCleanseTonicReliefTest {
     }
 
     @Test
-    @DisplayName("良薬3種の目標倍率は 50% / 75% / 90%（数字の向きを取り違えると罰になる）")
-    void tonicsTargetTheKeptRateNotTheLostRate() {
-        // ユーザー指定は「10%(-40%) / 25%(-25%) / 50%(初期値) まで減らせるもの」＝【減る側】の上限。
-        // 出荷の下限 0.5 が「ペナルティ50%が初期値」なので、10%まで削れる良薬＝倍率90%。
-        assertEquals(0.50, ExpCleanseTonic.LESSER.targetMultiplier(), 1e-9);
-        assertEquals(0.75, ExpCleanseTonic.GREATER.targetMultiplier(), 1e-9);
-        assertEquals(0.90, ExpCleanseTonic.SUPREME.targetMultiplier(), 1e-9);
-        for (ExpCleanseTonic tonic : ExpCleanseTonic.values()) {
-            assertTrue(tonic.targetMultiplier() >= 0.5,
-                    tonic + " が下限(0.5)より低い＝飲むと損をする向きになっている");
-        }
+    @DisplayName("良薬3種は減衰量10%/15%と2時間無効化（数字の向きを取り違えない）")
+    void tonicsCutThePenaltyNotAFixedFloor() {
+        assertEquals(0.10, ExpCleanseTonic.LESSER.decayReduceFraction(), 1e-9);
+        assertEquals(0.70, ExpCleanseTonic.LESSER.multiplierCeiling(), 1e-9);
+        assertFalse(ExpCleanseTonic.LESSER.grantsImmunity());
+
+        assertEquals(0.15, ExpCleanseTonic.GREATER.decayReduceFraction(), 1e-9);
+        assertEquals(1.0, ExpCleanseTonic.GREATER.multiplierCeiling(), 1e-9);
+        assertFalse(ExpCleanseTonic.GREATER.grantsImmunity());
+
+        assertTrue(ExpCleanseTonic.SUPREME.grantsImmunity());
+        assertEquals(TWO_HOURS, ExpCleanseTonic.SUPREME.immunityMillis());
     }
 
     @Test
-    @DisplayName("切り下げ先はその倍率を保てる最大量。1段でも超えると目標を割る")
-    void maxAmountForIsTheLargestAmountThatStillKeepsTheTarget() {
-        for (ExpCleanseTonic tonic : ExpCleanseTonic.values()) {
-            double cap = DailyExpDiminishing.maxAmountFor(settings(), tonic.targetMultiplier());
-            assertTrue(DailyExpDiminishing.multiplierFor(settings(), cap) >= tonic.targetMultiplier(),
-                    tonic + ": 切り下げ先で目標倍率に届いていない");
-            assertTrue(DailyExpDiminishing.multiplierFor(settings(), cap + PER) < tonic.targetMultiplier()
-                            || tonic.targetMultiplier() <= settings().floor(),
-                    tonic + ": 1段ぶん多く残しても目標に届く＝削りすぎ");
-        }
-    }
-
-    /**
-     * <b>この1件が一番落としやすい。</b> 倍率は下限 {@code floor} でクランプされるので、
-     * 「倍率が 0.5 以上になる蓄積量」を素直に解くと<b>上限なし＝何もしない</b>になり、
-     * 並（50%）の良薬が無言で効果ゼロになる。生の曲線で段数を解いているかを固定する。
-     */
-    @Test
-    @DisplayName("並(50%)の良薬は下限クランプに飲まれず、張り付きの手前まで蓄積を削る")
-    void lesserTonicIsNotSwallowedByTheFloor() {
+    @DisplayName("並は下限張り付きから減衰量を10%削るが、70%は超えない")
+    void lesserCutsTenPercentAndStopsAtSeventy() {
         DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
         UUID player = UUID.randomUUID();
         daily.consume(settings(), player, "MINING", 5_000_000.0);
@@ -95,37 +80,55 @@ class ExpCleanseTonicReliefTest {
         DailyExpDiminishing.Status before = daily.status(settings(), player, "MINING");
         assertEquals(0.5, before.multiplier(), 1e-9, "前提: 下限へ張り付いていること");
 
-        int changed = daily.relieve(settings(), player, ExpCleanseTonic.LESSER.targetMultiplier());
+        int changed = daily.relieveDecay(settings(), player,
+                ExpCleanseTonic.LESSER.decayReduceFraction(),
+                ExpCleanseTonic.LESSER.multiplierCeiling());
 
-        assertEquals(1, changed, "並の良薬が何もしていない（下限クランプに飲まれた）");
+        assertEquals(1, changed, "並の良薬が何もしていない");
         DailyExpDiminishing.Status after = daily.status(settings(), player, "MINING");
-        assertTrue(after.accumulated() < 700_000.0,
-                "蓄積が削れていない: " + after.accumulated());
         assertTrue(after.multiplier() > before.multiplier(),
-                "下限へ張り付いた状態から1段でも上がっていない: " + after.multiplier());
-        // 「等倍まで」の見積りは強制解除(24時間)との早い方なので、そこを見ても差が出ない。
-        // 並の良薬の価値は【指数減衰そのものが短くなること】なので、期限を含まない生の見積りで測る。
-        assertTrue(DailyExpDiminishing.millisUntilFullRecovery(settings(), after.accumulated())
-                        < DailyExpDiminishing.millisUntilFullRecovery(settings(), before.accumulated()),
-                "自然回復までの時間が縮んでいない（並の良薬の唯一の価値）");
+                "下限から1段も上がっていない: " + after.multiplier());
+        assertTrue(after.multiplier() <= 0.70 + 1e-9,
+                "並なのに70%を超えた: " + after.multiplier());
+        assertTrue(after.accumulated() < before.accumulated(),
+                "蓄積が削れていない: " + after.accumulated());
     }
 
     @Test
-    @DisplayName("極(90%)の良薬は取得量を90%以上へ戻す")
-    void supremeTonicPullsTheRateBackToNinety() {
+    @DisplayName("並は既に70%超のスキルには効かない（悪化させない）")
+    void lesserDoesNotPullARateAlreadyAboveTheCeiling() {
         DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
         UUID player = UUID.randomUUID();
-        daily.consume(settings(), player, "WOODCUTTING", 1_000_000.0);
-        assertEquals(0.5, daily.status(settings(), player, "WOODCUTTING").multiplier(), 1e-9);
+        // 3段 = 0.9^3 = 72.9%。70% を超えているので並は触らない。
+        daily.consume(settings(), player, "MINING", 300_000.0);
+        double before = daily.status(settings(), player, "MINING").multiplier();
+        assertTrue(before > 0.70, "前提: 72.9% 付近であること: " + before);
 
-        daily.relieve(settings(), player, ExpCleanseTonic.SUPREME.targetMultiplier());
-
-        assertTrue(daily.status(settings(), player, "WOODCUTTING").multiplier() >= 0.9,
-                "極の良薬なのに90%へ戻っていない");
+        assertEquals(0, daily.relieveDecay(settings(), player, 0.10, 0.70));
+        assertEquals(before, daily.status(settings(), player, "MINING").multiplier(), 1e-9);
     }
 
     @Test
-    @DisplayName("効果は全スキル一括（ユーザー選択 2026-08-24）")
+    @DisplayName("上は減衰量を15%削り、70%上限は持たない")
+    void greaterCutsFifteenPercentWithoutACeiling() {
+        DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
+        UUID player = UUID.randomUUID();
+        daily.consume(settings(), player, "WOODCUTTING", 300_000.0);
+        double before = daily.status(settings(), player, "WOODCUTTING").multiplier();
+        assertTrue(before > 0.70, "前提: 70% 超であること: " + before);
+
+        int changed = daily.relieveDecay(settings(), player,
+                ExpCleanseTonic.GREATER.decayReduceFraction(),
+                ExpCleanseTonic.GREATER.multiplierCeiling());
+
+        assertEquals(1, changed);
+        double after = daily.status(settings(), player, "WOODCUTTING").multiplier();
+        assertTrue(after > before, "上の良薬なのに倍率が上がっていない: " + after);
+        assertTrue(after > 0.70, "上が70%で止まっている: " + after);
+    }
+
+    @Test
+    @DisplayName("効果は全スキル一括")
     void everySkillIsRelieved() {
         DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
         UUID player = UUID.randomUUID();
@@ -133,20 +136,21 @@ class ExpCleanseTonicReliefTest {
         daily.consume(settings(), player, "FARMING", 1_000_000.0);
         daily.consume(settings(), player, "FISHING", 1_000_000.0);
 
-        assertEquals(3, daily.relieve(settings(), player, ExpCleanseTonic.GREATER.targetMultiplier()));
+        assertEquals(3, daily.relieveDecay(settings(), player, 0.15, 1.0));
         for (String skill : new String[] {"MINING", "FARMING", "FISHING"}) {
-            assertTrue(daily.status(settings(), player, skill).multiplier() >= 0.75, skill);
+            assertTrue(daily.status(settings(), player, skill).multiplier() > 0.5, skill);
         }
     }
 
     @Test
     @DisplayName("目減りしていない人が飲んでも0件（呼び出し側はこれを見て消費を止める）")
-    void nothingHappensWhenAlreadyAboveTheTarget() {
+    void nothingHappensWhenAlreadyAtFullRate() {
         DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
         UUID player = UUID.randomUUID();
         daily.consume(settings(), player, "MINING", 1_000.0);
 
-        assertEquals(0, daily.relieve(settings(), player, ExpCleanseTonic.SUPREME.targetMultiplier()));
+        assertEquals(0, daily.relieveDecay(settings(), player, 0.10, 0.70));
+        assertEquals(0, daily.relieveDecay(settings(), player, 0.15, 1.0));
     }
 
     @Test
@@ -154,45 +158,86 @@ class ExpCleanseTonicReliefTest {
     void disabledSettingsChangeNothing() {
         DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
         UUID player = UUID.randomUUID();
-        assertEquals(0, daily.relieve(DailyExpDiminishing.Settings.DISABLED, player, 0.9));
+        assertEquals(0, daily.relieveDecay(DailyExpDiminishing.Settings.DISABLED, player, 0.15, 1.0));
     }
 
-    /**
-     * <b>DBまで削らないと良薬は再ログインで無かったことになる。</b>
-     * {@code DailyExpWindowStore#save} は「メモリと保存済みの<b>大きい方</b>」を残す
-     *（サーバ移動で蓄積を後退させないための仕様）ので、メモリだけ削って保存すると
-     * 保存済みの大きな値がそのまま勝つ。
-     */
     @Test
-    @DisplayName("良薬の効果は再ログインをまたいで残る（DB側も切り下げる）")
+    @DisplayName("極は2時間、取得を等倍にし蓄積を増やさない")
+    void supremeDisablesDecayForTwoHoursWithoutAddingToTheWindow() {
+        DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
+        UUID player = UUID.randomUUID();
+        daily.consume(settings(), player, "MINING", 1_000_000.0);
+        double stored = daily.status(settings(), player, "MINING").accumulated();
+        assertEquals(0.5, daily.status(settings(), player, "MINING").multiplier(), 1e-9);
+
+        daily.grantImmunity(player, ExpCleanseTonic.SUPREME.immunityMillis());
+        assertTrue(daily.isImmune(player));
+        assertEquals(1.0, daily.status(settings(), player, "MINING").multiplier(), 1e-9,
+                "無効化中なのに表示が等倍になっていない");
+
+        DailyExpDiminishing.Applied applied =
+                daily.consumeDetailed(settings(), player, "MINING", 500_000.0);
+        assertEquals(1.0, applied.multiplier(), 1e-9);
+        assertEquals(stored, applied.accumulated(), 1.0,
+                "無効化中なのに新しい稼ぎが蓄積へ乗った");
+
+        now.addAndGet(TWO_HOURS + 1L);
+        assertFalse(daily.isImmune(player));
+        assertTrue(daily.status(settings(), player, "MINING").multiplier() < 1.0,
+                "期限が切れたら逓減が再開すること");
+    }
+
+    @Test
+    @DisplayName("並の切り下げは再ログインをまたいで残る（DB側もスキルごとに削る）")
     void reliefSurvivesRelogin() {
         DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
         DailyExpWindowPersistence persistence = persistence(daily);
         UUID player = UUID.randomUUID();
         daily.consume(settings(), player, "MINING", 1_000_000.0);
         persistence.save(player);
+        double before = daily.status(settings(), player, "MINING").accumulated();
 
-        daily.relieve(settings(), player, ExpCleanseTonic.SUPREME.targetMultiplier());
-        persistence.capStored(player, ExpCleanseTonic.SUPREME.targetMultiplier());
+        daily.relieveDecay(settings(), player, 0.15, 1.0);
+        persistence.persistRelievedAmounts(player);
 
         persistence.saveAndForget(player);
         persistence.load(player);
 
-        assertTrue(daily.status(settings(), player, "MINING").multiplier() >= 0.9,
+        assertTrue(daily.status(settings(), player, "MINING").accumulated() < before - 1.0,
                 "入り直しただけで良薬の効果が消えた（DB側の切り下げが効いていない）");
     }
 
     @Test
-    @DisplayName("DB側の切り下げは目標より少ない行には触らない")
-    void capStoredLeavesSmallRowsAlone() throws SQLException {
+    @DisplayName("極の無効化は再ログインをまたいで残る")
+    void immunitySurvivesRelogin() {
         DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
         DailyExpWindowPersistence persistence = persistence(daily);
         UUID player = UUID.randomUUID();
-        daily.consume(settings(), player, "MINING", 50_000.0);
+        daily.consume(settings(), player, "MINING", 1_000_000.0);
+        daily.grantImmunity(player, TWO_HOURS);
+        persistence.saveAndForget(player);
+        assertFalse(daily.isImmune(player));
+
+        persistence.load(player);
+        assertTrue(daily.isImmune(player), "入り直しただけで無効化が消えた");
+        assertEquals(1.0, daily.status(settings(), player, "MINING").multiplier(), 1e-9);
+    }
+
+    @Test
+    @DisplayName("運営リセットは蓄積も無効化も消す")
+    void resetClearsWindowsAndImmunity() throws SQLException {
+        DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
+        DailyExpWindowPersistence persistence = persistence(daily);
+        UUID player = UUID.randomUUID();
+        daily.consume(settings(), player, "MINING", 1_000_000.0);
+        daily.grantImmunity(player, TWO_HOURS);
         persistence.save(player);
 
-        assertEquals(0, store.capAmounts(player,
-                DailyExpDiminishing.maxAmountFor(settings(), 0.9), settings().windowMillis()));
-        assertEquals(50_000.0, store.load(player).get(0).amount(), 1.0);
+        persistence.resetPlayer(player);
+
+        assertFalse(daily.isImmune(player));
+        assertEquals(1.0, daily.status(settings(), player, "MINING").multiplier(), 1e-9);
+        assertTrue(store.load(player).isEmpty());
+        assertTrue(store.loadImmunity(player).isEmpty());
     }
 }

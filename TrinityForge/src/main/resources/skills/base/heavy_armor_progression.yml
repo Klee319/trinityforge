@@ -5,10 +5,10 @@
 experience:
   max_level: 100
   exp_level_curve: (%level% + 75 * 2^(%level%/8)) + 300
-  exp_damage_piece: 10
+  exp_damage_piece: 50
   exp_damage_piece_min_damage: 1
-  exp_damage_piece_cooldown_seconds: 10
-  exp_multiplier_point: 0.05
+  exp_damage_piece_cooldown_seconds: 2
+  exp_multiplier_point: 4
   pvp_multiplier: 0.1
   pvp_multiplier_exponent: 2
   # 非敵対モブ（Paper の Enemy を持たないモブ）は載せない。方針は stats/skill-exp.yml の

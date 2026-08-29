@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -86,6 +87,8 @@ public final class DailyExpDiminishing {
     }
 
     private final Map<UUID, Map<String, Window>> windows = new ConcurrentHashMap<>();
+    /** 逓減無効の期限（epoch millis）。切れたエントリは読んだ側で落とす。 */
+    private final Map<UUID, Long> immuneUntilMillis = new ConcurrentHashMap<>();
     private final LongSupplier clock;
 
     /** 実運用用（{@link System#currentTimeMillis()}）。 */
@@ -132,6 +135,17 @@ public final class DailyExpDiminishing {
         }
         if (settings.exemptSkills().contains(skillId)) {
             return Applied.UNCHANGED;
+        }
+        if (isImmune(playerId)) {
+            // 無効化中は倍率 1.0。蓄積は増やさない（解けた瞬間に下限へ落ちないように）。
+            Window existing = windowOf(playerId, skillId);
+            double accumulated = 0.0;
+            if (existing != null) {
+                synchronized (existing) {
+                    accumulated = decayedAmount(settings, existing, clock.getAsLong());
+                }
+            }
+            return new Applied(1.0, 1.0, accumulated);
         }
         long now = clock.getAsLong();
         Map<String, Window> perSkill = windows.computeIfAbsent(playerId, id -> new ConcurrentHashMap<>());
@@ -344,6 +358,146 @@ public final class DailyExpDiminishing {
     }
 
     /**
+     * 減衰量（{@code 1 - 現在倍率}）を {@code decayReduceFraction} だけ削る。
+     * {@code multiplierCeiling} を超えては戻さない（並の良薬の 70% 上限）。
+     *
+     * <p>離散段では目標倍率が段の間に落ちるので、
+     * 「目標以上かつ上限以下」の最も良い段へ切り下げる。上限を超える段しか無いときは何もしない。
+     *
+     * @param decayReduceFraction 減衰量のうち消す割合（0.10 = 10%減らす）
+     * @param multiplierCeiling   戻せる取得倍率の上限（1.0 = 上限なし）
+     * @return 実際に切り下げたスキル数
+     */
+    public int relieveDecay(Settings settings, UUID playerId,
+                            double decayReduceFraction, double multiplierCeiling) {
+        if (settings == null || !settings.enabled() || playerId == null) {
+            return 0;
+        }
+        if (!Double.isFinite(decayReduceFraction) || decayReduceFraction <= 0.0) {
+            return 0;
+        }
+        double ceiling = Double.isFinite(multiplierCeiling) ? Math.min(1.0, Math.max(0.0, multiplierCeiling)) : 1.0;
+        Map<String, Window> perSkill = windows.get(playerId);
+        if (perSkill == null || perSkill.isEmpty()) {
+            return 0;
+        }
+        long now = clock.getAsLong();
+        int changed = 0;
+        for (Window window : perSkill.values()) {
+            synchronized (window) {
+                double currentAmount = decayedAmount(settings, window, now);
+                window.updatedAtMillis = now;
+                window.amount = currentAmount;
+                double currentMult = multiplierFor(settings, currentAmount);
+                if (currentMult >= 1.0 || currentMult >= ceiling - 1e-9) {
+                    continue;
+                }
+                double penalty = 1.0 - currentMult;
+                double desired = Math.min(1.0 - penalty * (1.0 - decayReduceFraction), ceiling);
+                if (desired <= currentMult + 1e-9) {
+                    continue;
+                }
+                double cap = amountCapAtOrBelow(settings, desired, ceiling);
+                if (cap == Double.MAX_VALUE) {
+                    continue;
+                }
+                double after = multiplierFor(settings, cap);
+                if (after <= currentMult + 1e-9) {
+                    continue;
+                }
+                window.amount = cap;
+                window.lastMultiplier = after;
+                stampLock(window, window.lastMultiplier, now);
+                changed++;
+            }
+        }
+        return changed;
+    }
+
+    /**
+     * {@code desired} 以上、かつ {@code ceiling} 以下の倍率になる最大蓄積。
+     * 離散段で天井を超えてしまう場合は、天井以下の最良段。どちらも無理なら {@link Double#MAX_VALUE}。
+     */
+    static double amountCapAtOrBelow(Settings settings, double desired, double ceiling) {
+        double target = Math.min(desired, ceiling);
+        if (target >= 1.0) {
+            return maxAmountFor(settings, 1.0);
+        }
+        double cap = maxAmountFor(settings, target);
+        if (cap == Double.MAX_VALUE) {
+            return cap;
+        }
+        if (multiplierFor(settings, cap) <= ceiling + 1e-9) {
+            return cap;
+        }
+        double decay = settings.decayPerAmount();
+        if (!(decay > 0.0) || decay >= 1.0) {
+            return Double.MAX_VALUE;
+        }
+        double steps = Math.ceil(Math.log(ceiling) / Math.log(decay) - 1e-12);
+        if (!Double.isFinite(steps) || steps < 0.0) {
+            return Double.MAX_VALUE;
+        }
+        return Math.nextDown((steps + 1.0) * settings.perAmount());
+    }
+
+    /** 逓減を {@code durationMillis} のあいだ無効化する。既存の期限より短くはしない。 */
+    public void grantImmunity(UUID playerId, long durationMillis) {
+        if (playerId == null || durationMillis <= 0L) {
+            return;
+        }
+        long until = clock.getAsLong() + durationMillis;
+        immuneUntilMillis.merge(playerId, until, Math::max);
+    }
+
+    /** 運営リセット用。蓄積も無効化も落とす。 */
+    public void clearPlayer(UUID playerId) {
+        if (playerId == null) {
+            return;
+        }
+        windows.remove(playerId);
+        immuneUntilMillis.remove(playerId);
+    }
+
+    /** 無効化の残りミリ秒。無ければ 0。 */
+    public long immuneRemainingMillis(UUID playerId) {
+        if (playerId == null) {
+            return 0L;
+        }
+        Long until = immuneUntilMillis.get(playerId);
+        if (until == null) {
+            return 0L;
+        }
+        long remaining = until - clock.getAsLong();
+        if (remaining <= 0L) {
+            immuneUntilMillis.remove(playerId);
+            return 0L;
+        }
+        return remaining;
+    }
+
+    public boolean isImmune(UUID playerId) {
+        return immuneRemainingMillis(playerId) > 0L;
+    }
+
+    /** 永続化用。切れていれば空。 */
+    public Optional<Long> immuneUntil(UUID playerId) {
+        long remaining = immuneRemainingMillis(playerId);
+        if (remaining <= 0L) {
+            return Optional.empty();
+        }
+        return Optional.of(clock.getAsLong() + remaining);
+    }
+
+    /** 保存しておいた無効化期限を戻す。既に切れていれば無視。 */
+    public void restoreImmunity(UUID playerId, long untilMillis) {
+        if (playerId == null || untilMillis <= clock.getAsLong()) {
+            return;
+        }
+        immuneUntilMillis.merge(playerId, untilMillis, Math::max);
+    }
+
+    /**
      * 次の刻みまであと何EXPか（表示用）。既に下限へ張り付いているときは {@code -1}。
      * 「あとどれだけ稼ぐと減るのか」をプレイヤーへ出せるようにするための補助。
      */
@@ -486,17 +640,26 @@ public final class DailyExpDiminishing {
      */
     public Status status(Settings settings, UUID playerId, String skillId) {
         Window window = windowOf(playerId, skillId);
+        Status inner;
         if (settings == null || window == null) {
-            return statusOf(settings, 0.0);
-        }
-        long now = clock.getAsLong();
-        synchronized (window) {
-            if (isExpired(settings, window, now)) {
-                return statusOf(settings, 0.0);
+            inner = statusOf(settings, 0.0);
+        } else {
+            long now = clock.getAsLong();
+            synchronized (window) {
+                if (isExpired(settings, window, now)) {
+                    inner = statusOf(settings, 0.0);
+                } else {
+                    inner = statusOf(settings, decayedAmount(settings, window, now),
+                            millisUntilForcedRelease(settings, window, now));
+                }
             }
-            return statusOf(settings, decayedAmount(settings, window, now),
-                    millisUntilForcedRelease(settings, window, now));
         }
+        if (isImmune(playerId)) {
+            // 無効化中の取得は等倍。蓄積はそのまま残るので、切れた瞬間に下限へ落ちない。
+            // 次の段までの警告は出さない（無効化が切れるまでは下がらない）。
+            return new Status(1.0, inner.accumulated(), -1.0, -1.0, -1.0);
+        }
+        return inner;
     }
 
     /** 現在の蓄積量（減衰を適用した値。状態は進めない）。表示・デバッグ用。 */
@@ -548,10 +711,11 @@ public final class DailyExpDiminishing {
         return window.amount * Math.exp(-((double) elapsed) / settings.windowMillis());
     }
 
-    /** 退出時などにプレイヤーの状態を捨てる（メモリを有界に保つ）。 */
+    /** 退出時などにプレイヤーの状態を捨てる（メモリを有界に保つ）。無効化期限も落とす（保存済みなら load で戻る）。 */
     public void forget(UUID playerId) {
         if (playerId != null) {
             windows.remove(playerId);
+            immuneUntilMillis.remove(playerId);
         }
     }
 
@@ -560,9 +724,11 @@ public final class DailyExpDiminishing {
         return windows.size();
     }
 
-    /** 追跡中のプレイヤー（停止時の一括保存で回すため）。 */
+    /** 追跡中のプレイヤー（停止時の一括保存で回すため）。無効化だけの人も含める。 */
     public Set<UUID> trackedPlayerIds() {
-        return Set.copyOf(windows.keySet());
+        java.util.HashSet<UUID> ids = new java.util.HashSet<>(windows.keySet());
+        ids.addAll(immuneUntilMillis.keySet());
+        return Set.copyOf(ids);
     }
 
     /**

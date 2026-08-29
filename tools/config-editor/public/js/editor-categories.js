@@ -688,10 +688,32 @@
     return ed.itemTabs;
   }
 
-  /** 表示タブ。ピンがあればそれ、無ければ Material 推論。 */
+  /**
+   * スレッドの表示タブは Material 推論では決まらない。
+   * STRING は inferItemCategory が「補助」へ落とすため、ピンが無い／ピンが other に
+   * 退化していると item-stats の補助タブにスレッドが並ぶ。
+   * カタログ ID の thread_* と、スレッド帯の STRING#CMD だけを thread とみなす。
+   */
+  window.isThreadDisplayIdentity = function isThreadDisplayIdentity(itemId) {
+    const id = itemId == null ? "" : String(itemId);
+    if (id.startsWith("thread_")) return true;
+    const hash = id.indexOf("#");
+    if (hash < 0) return false;
+    if (id.slice(0, hash) !== "STRING") return false;
+    const cmd = Number(id.slice(hash + 1));
+    if (!Number.isInteger(cmd) || cmd < 0) return false;
+    if (cmd >= 300000 && cmd <= 300099) return true;
+    return cmd >= 100023 && cmd <= 100028;
+  };
+
+  /** 表示タブ。ピンがあればそれ、無ければスレッド識別、最後に Material 推論。 */
   window.getItemDisplayTab = function getItemDisplayTab(host, itemId, material) {
     const map = itemTabsMap(host);
-    if (map[itemId]) return map[itemId];
+    const pinned = map[itemId];
+    // ピンが other なのは STRING 推論への退化であることが多く、スレッド身元の方が正しい。
+    if (pinned && pinned !== "other") return pinned;
+    if (window.isThreadDisplayIdentity(itemId)) return "thread";
+    if (pinned) return pinned;
     if (typeof window.inferItemCategory === "function") return window.inferItemCategory(material);
     return "other";
   };

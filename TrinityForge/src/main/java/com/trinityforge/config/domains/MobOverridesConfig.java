@@ -73,6 +73,13 @@ import java.util.logging.Logger;
  * {@code default} に書いた倍率は全ダンジョンに乗るので、ダンジョン間の差だけを付けたいなら
  * {@code default} には書かない。
  *
+ * <p><b>技倍率 {@code ability-damage-scale}</b>(2026-08-29): scope 直下({@code display-name} と同じ階層)
+ * に書く「そのダンジョンの特殊攻撃だけ」の倍率。通常攻撃・HP には効かない。技テンプレ
+ * ({@code combat/mob-abilities.yml})はダンジョン間で共有されているので、テンプレの
+ * {@code damage-percent} を触ると他ダンジョンまで動く。エンチャント試練のように
+ * 「このダンジョンの技だけ弱い」を表現するのがこのキー。未設定は 1.0。
+ * <b>{@code default} へ書いた値はカスケードしない</b>(HP/攻撃力の倍率とは違う)。
+ *
  * <p><b>EXP resolution</b> ({@link #vanillaExpFor}): same replace-not-merge precedence as drops — the
  * world scope's {@code vanilla-exp:} ramp wins, else {@code default}'s, else "not configured" (the kill
  * keeps whatever EXP it already had). The value is a RAMP
@@ -109,6 +116,13 @@ public final class MobOverridesConfig implements LoadableConfig {
     private static final String DISPLAY_NAME_KEY = "display-name";
     /** 特殊攻撃テンプレートIDの列(2026-07-31)。値は combat/mob-abilities.yml のキー。 */
     private static final String ABILITIES_KEY = "abilities";
+    /**
+     * scope 直下の技ダメージ倍率(2026-08-29)。通常攻撃には効かない。
+     * {@code default} へ書いてもカスケードしない — 書いたワールドだけが対象。
+     */
+    private static final String ABILITY_DAMAGE_SCALE_KEY = "ability-damage-scale";
+    /** 誤って 10 倍などを書いたときに技が即死になるのを止める上限。 */
+    private static final double MAX_ABILITY_DAMAGE_SCALE = 2.0;
 
     /**
      * 2026-07-26 M1 レビュー指摘の実装で判明した副次バグへの対策: このファイル限定で{@code
@@ -126,6 +140,11 @@ public final class MobOverridesConfig implements LoadableConfig {
     private volatile Map<String, String> scopeDisplayNames = Map.of();
     /** scope 直下の {@code stats:}(そのダンジョン全体の既定ステータス、2026-08-03)。class javadoc 参照。 */
     private volatile Map<String, MobStatOverride> scopeStats = Map.of();
+    /**
+     * scope 直下の {@code ability-damage-scale:}(そのダンジョンの技だけ弱める/強める、2026-08-29)。
+     * 未設定のワールドは 1.0。{@code default} の値は見ない。
+     */
+    private volatile Map<String, Double> scopeAbilityDamageScales = Map.of();
 
     public String resourcePath() {
         return PATH;
@@ -157,6 +176,7 @@ public final class MobOverridesConfig implements LoadableConfig {
         this.scopes = result.scopes();
         this.scopeDisplayNames = result.scopeDisplayNames();
         this.scopeStats = result.scopeStats();
+        this.scopeAbilityDamageScales = result.scopeAbilityDamageScales();
         if (result.skipped() > 0) {
             log.warning("[" + PATH + "] loaded " + result.mobCount() + " mob override(s), "
                     + result.skipped() + " skipped");
@@ -223,10 +243,11 @@ public final class MobOverridesConfig implements LoadableConfig {
         return best;
     }
 
-    /** 何らかの設定を持つ scope 名すべて(mob単位 / scope直下 stats の和集合)。 */
+    /** 何らかの設定を持つ scope 名すべて(mob単位 / scope直下 stats / 技倍率 の和集合)。 */
     private Set<String> knownScopeKeys() {
         Set<String> keys = new LinkedHashSet<>(scopes.keySet());
         keys.addAll(scopeStats.keySet());
+        keys.addAll(scopeAbilityDamageScales.keySet());
         return keys;
     }
 
@@ -378,6 +399,26 @@ public final class MobOverridesConfig implements LoadableConfig {
         return abilitiesInScope(DEFAULT_SCOPE, id);
     }
 
+    /**
+     * このワールドの特殊攻撃にだけ掛かる倍率(2026-08-29)。未設定・不正・{@code default} 擬似スコープは
+     * {@code 1.0}。<b>{@code default} へ書いた値は見ない</b> — HP/攻撃力の倍率とは違い、技テンプレは
+     * 全ダンジョンで共有されているので、default に 0.7 と書くと「全ダンジョンの技が弱くなる」と
+     * 読まれてしまう。実装でもカスケードしないことで、その誤読が実害にならないようにしてある。
+     *
+     * <p>照合は {@link #worldScopeKey} と同じ(実ワールド名の完全一致 → 設計図名)。
+     */
+    public double abilityDamageScale(String worldName) {
+        String worldScope = worldScopeKey(worldName);
+        if (worldScope == null) {
+            return 1.0;
+        }
+        Double scale = scopeAbilityDamageScales.get(worldScope);
+        if (scale == null || !Double.isFinite(scale) || scale <= 0.0) {
+            return 1.0;
+        }
+        return scale;
+    }
+
     private List<String> abilitiesInScope(String scopeName, String mobId) {
         Map<String, MobOverrideEntry> mobs = scopes.get(scopeName);
         if (mobs == null) {
@@ -407,6 +448,7 @@ public final class MobOverridesConfig implements LoadableConfig {
         }
         Map<String, String> scopeDisplayNames = new LinkedHashMap<>();
         Map<String, MobStatOverride> scopeStats = new LinkedHashMap<>();
+        Map<String, Double> scopeAbilityDamageScales = new LinkedHashMap<>();
         for (String scopeName : overridesSection.getKeys(false)) {
             ConfigurationSection scopeSection = overridesSection.getConfigurationSection(scopeName);
             if (scopeSection == null) {
@@ -422,6 +464,12 @@ public final class MobOverridesConfig implements LoadableConfig {
             if (scopeDisplayName != null) {
                 scopeDisplayNames.put(scopeName, scopeDisplayName);
             }
+            int[] scaleSkipped = {0};
+            Double abilityScale = parseScopeAbilityDamageScale(scopeSection, scopeName, log, scaleSkipped);
+            skipped += scaleSkipped[0];
+            if (abilityScale != null) {
+                scopeAbilityDamageScales.put(scopeName, abilityScale);
+            }
             // scope 直下の stats:(ダンジョン全体の既定値、2026-08-03)。mob 単位とまったく同じパーサを
             // 通すのでキー体系も検証もズレようがない。
             StatsResult scopeStatsResult = parseStats(scopeSection.getConfigurationSection("stats"), scopeName,
@@ -432,9 +480,9 @@ public final class MobOverridesConfig implements LoadableConfig {
             }
             ConfigurationSection mobsSection = scopeSection.getConfigurationSection("mobs");
             if (mobsSection == null) {
-                // 2026-08-03: scope直下だけで完結する設定(stats:)を書いた場合は 'mobs:' が無くても
-                // 正しい記述なので警告しない。それも無いときだけ書き間違いとして扱う。
-                if (scopeStatsResult.stats().isEmpty()) {
+                // 2026-08-03: scope直下だけで完結する設定(stats: / ability-damage-scale:)を書いた場合は
+                // 'mobs:' が無くても正しい記述なので警告しない。それも無いときだけ書き間違いとして扱う。
+                if (scopeStatsResult.stats().isEmpty() && abilityScale == null) {
                     log.warning("[" + PATH + "] overrides." + scopeName + " has no 'mobs:' section"
                             + " (forgot to nest under 'mobs:'?); this scope was skipped");
                     skipped++;
@@ -492,7 +540,30 @@ public final class MobOverridesConfig implements LoadableConfig {
             }
         }
         return new ParseResult(Map.copyOf(scopes), Map.copyOf(scopeDisplayNames),
-                Map.copyOf(scopeStats), skipped, mobCount);
+                Map.copyOf(scopeStats), Map.copyOf(scopeAbilityDamageScales), skipped, mobCount);
+    }
+
+    /**
+     * scope 直下 {@code ability-damage-scale:}。未指定は {@code null}(呼び出し側は 1.0 扱い)。
+     * 倍率キーと同じくクォート文字列は弾く。範囲は {@code (0, 2]}。
+     */
+    private static Double parseScopeAbilityDamageScale(ConfigurationSection scopeSection, String scopeName,
+            Logger log, int[] skipped) {
+        if (scopeSection == null || !scopeSection.contains(ABILITY_DAMAGE_SCALE_KEY)) {
+            return null;
+        }
+        Double value = nullablePositiveMultiplier(scopeSection, ABILITY_DAMAGE_SCALE_KEY, scopeName,
+                "<scope>", ABILITY_DAMAGE_SCALE_KEY, log, skipped);
+        if (value == null) {
+            return null;
+        }
+        if (value > MAX_ABILITY_DAMAGE_SCALE) {
+            log.warning("[" + PATH + "] overrides." + scopeName + " ability-damage-scale must be in (0, "
+                    + MAX_ABILITY_DAMAGE_SCALE + "] (was " + value + "); ignored");
+            skipped[0]++;
+            return null;
+        }
+        return value;
     }
 
     /** {@code null} for a null/blank string, the trimmed value otherwise. */
@@ -907,17 +978,24 @@ public final class MobOverridesConfig implements LoadableConfig {
     record ParseResult(Map<String, Map<String, MobOverrideEntry>> scopes,
                        Map<String, String> scopeDisplayNames,
                        Map<String, MobStatOverride> scopeStats,
+                       Map<String, Double> scopeAbilityDamageScales,
                        int skipped, int mobCount) {
 
         /** Back-compat for tests written before ダンジョン表示名 (2026-07-26) existed. */
         ParseResult(Map<String, Map<String, MobOverrideEntry>> scopes, int skipped, int mobCount) {
-            this(scopes, Map.of(), Map.of(), skipped, mobCount);
+            this(scopes, Map.of(), Map.of(), Map.of(), skipped, mobCount);
         }
 
         /** Back-compat for callers written before scope直下の {@code stats:} (2026-08-03) existed. */
         ParseResult(Map<String, Map<String, MobOverrideEntry>> scopes, Map<String, String> scopeDisplayNames,
                     int skipped, int mobCount) {
-            this(scopes, scopeDisplayNames, Map.of(), skipped, mobCount);
+            this(scopes, scopeDisplayNames, Map.of(), Map.of(), skipped, mobCount);
+        }
+
+        /** Back-compat for callers written before {@code ability-damage-scale:} (2026-08-29) existed. */
+        ParseResult(Map<String, Map<String, MobOverrideEntry>> scopes, Map<String, String> scopeDisplayNames,
+                    Map<String, MobStatOverride> scopeStats, int skipped, int mobCount) {
+            this(scopes, scopeDisplayNames, scopeStats, Map.of(), skipped, mobCount);
         }
     }
 

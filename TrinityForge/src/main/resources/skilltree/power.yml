@@ -209,7 +209,7 @@ nodes:
     description: ドロップ増加+30%
   A-alpha-1:
     name: 猛・芽生え
-    level: 10
+    level: 20
     role: greek
     parent: A
     group: A-greek
@@ -220,7 +220,7 @@ nodes:
     description: 体力増強+2
   A-beta-1:
     name: 癒・芽生え
-    level: 10
+    level: 20
     role: greek
     parent: A
     group: A-greek
@@ -232,7 +232,7 @@ nodes:
     description: 体力自然回復増加+5%
   A-gamma-1:
     name: 盾・芽生え
-    level: 10
+    level: 20
     role: greek
     parent: A
     group: A-greek

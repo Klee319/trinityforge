@@ -28,10 +28,12 @@ prestige:
     potion-quality-bonus: 2
     brew-speed-bonus: 0.1
     ingredient-save-chance: 0.1
+    alchemy-exp-bonus: 0.1
   description: |-
     醸造品質+2
     醸造効率+10%
     素材効率+10%
+    錬金EXP増加+10%
 nodes:
   A:
     name: 醸造の見習い
@@ -170,7 +172,7 @@ nodes:
     name: 頑強の調合
     level: 80
     role: branch
-    parent: E
+    parent: B-2
     icon: GLISTERING_MELON_SLICE
     cost: 1
     effects:

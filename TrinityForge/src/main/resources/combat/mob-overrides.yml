@@ -186,6 +186,7 @@
 #   会心型 crit-chance/crit-damage … 30% で会心(x2)。防具強度(会心軽減)を持つ重装が有利、薄い軽装は事故る。
 #   固定型 fixed-damage           … 全ての防御段を貫通する純加算。守備では減らせず最大HPだけが効く。
 #   振れ型 damage-modifier: 1.4   … ダメージが 1.0〜1.4 で振れる。期待値は同じで、上振れの事故だけが増える。
+#                                  エンチャント試練はこの型を使わない(2026-08-29 W-304)。他ダンジョンは残す。
 #
 # 【型と attack-power は2つで1組】。型を消すなら攻撃力も戻すこと(片方だけ触ると難易度が動く)。
 # 型があるので【attack-power の生値でダンジョン同士を比べてはいけない】——
@@ -197,6 +198,11 @@
 # 片方の属性だけ盛っても受け切れないようにして、防具の住み分け(軽装=HP/重装=守備)を攻略へ効かせるため。
 # 雑魚には配らない(同時湧きの頭数ぶん AoE が重なって被ダメージが設計不能になる)。
 # 多段フェーズのボスは【最終段だけ】が技を持つ(途中段は残HP割合ですぐ通過するため)。
+#
+# 【エンチャント試練の技倍率(2026-08-29 W-304)】この10本は contentLevel 固定で攻撃力が Lv100 尺度の
+# 絶対値。技テンプレ(shadow_step 等)は他ダンジョンと共有なので、scope 直下
+# ability-damage-scale: 0.70 で技だけを弱める(通常打は触らない)。default へ書いてはいけない
+# (カスケードしないが、誤って全ダンジョンに効くと読まれる)。振れ型もこの10本からは外した。
 # ============================================================================
 
 # ============================================================================
@@ -391,7 +397,8 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 闘技場の節目ボスは1種。犬＝噛みついて足を止める
         abilities: [crippling_stomp]
-        drops: []
+        drops:
+          - { item: "custom:thread_swordsman", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       wood_league_wave_10_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "悪い子犬 (増援)"
         stats:
@@ -540,7 +547,8 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 闘技場の節目ボスは1種。まとめて弾き飛ばす(囲んで殴るのを崩す)
         abilities: [gale_smash]
-        drops: []
+        drops:
+          - { item: "custom:thread_lancer", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       wood_league_wave_21_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場のゾンビ (第21波)"
         stats:
@@ -682,7 +690,8 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 闘技場の節目ボスは1種。毒蛇＝留まらせない
         abilities: [withering_aura]
-        drops: []
+        drops:
+          - { item: "custom:thread_berserker", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       wood_league_wave_31_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場のゾンビ (第31波)"
         stats:
@@ -824,7 +833,8 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 闘技場の節目ボスは1種。呪い＝予告してから落とす
         abilities: [meteor_mark]
-        drops: []
+        drops:
+          - { item: "custom:thread_reaper", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       wood_league_wave_41_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場のゾンビ (第41波)"
         stats:
@@ -1036,7 +1046,8 @@ overrides:
         # 2026-08-16 特殊攻撃: 闘技場の最終段だけ2種。技は【最深段(p3)】に置く —— p1/p2 は
         # HP で通過するだけの段なので、そこに置くと一番長く戦う段が無技になる
         abilities: [shockwave, call_the_horde]
-        drops: []
+        drops:
+          - { item: "custom:thread_onslaught", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       wood_league_wave_50_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "ウーサー・スタン (増援)"
         stats:
@@ -1617,6 +1628,7 @@ overrides:
   # ▼コンセプト: 【通る武器=物理】(魔法防御が厚い) — エンチャント課題1。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_1:
     display-name: "エンチャント試練 1"
+    ability-damage-scale: 0.70
     # 【コンセプト】通る武器=物理 / 敵の攻撃=魔法寄り(magic-ratio 0.45)。
     # つまり物理武器で攻め、物理防御より魔法防御を積む。
     # 2026-08-21(W-182): 攻めと受けは【独立に】割り当てている(以前の「必ず逆」ルールは廃止)。
@@ -1667,6 +1679,7 @@ overrides:
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
+          - { item: "custom:thread_crusher", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
           - { item: "custom:dungeon_seal_enchant_trial_1", chance: 1.0, min: 1, max: 1 }
           - { item: "custom:gacha_ticket_2", chance: 0.05, min: 1, max: 1 }
           - { item: "custom:key_enchant_trial_2", chance: 1.0, min: 1, max: 1 }
@@ -1675,6 +1688,7 @@ overrides:
   # ▼コンセプト: 【通る武器=物理】(魔法防御が厚い) — エンチャント課題10。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_10:
     display-name: "エンチャント試練 10"
+    ability-damage-scale: 0.70
     # 【コンセプト】通る武器=物理 / 敵の攻撃=ほぼ物理(magic-ratio 0.1)。
     # つまり物理武器で攻め、魔法防御より物理防御を積む。
     # 2026-08-21(W-182): 攻めと受けは【独立に】割り当てている(以前の「必ず逆」ルールは廃止)。
@@ -1691,10 +1705,10 @@ overrides:
       #   旧 214.3 は同レベルのフィールドモブ(Lv100 で 34.8)の 6.16 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
       #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 10 段目) = 62.05。
       #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
-      # 【攻撃ステの型】2026-08-21 W-183 —— 振れ型: ダメージが 1.0〜1.4 倍で振れる。期待値は同じだが上振れで事故る(HPの厚みが効く)
-      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
-      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
-      attack: { magic-ratio: 0.10, attack-power: 39.661, damage-modifier: 1.4 }
+      # 【攻撃ステの型】2026-08-29 W-304 —— 振れ型(damage-modifier: 1.4)を外した。
+      #   技の上振れが通常打と重なると Lv100 装備でも事故るため。型と attack-power は2つで1組なので、
+      #   中央値(unitRandom=0.5)の期待被ダメージが同じになるよう攻撃力を戻してある(旧 39.661 → 45.477)。
+      attack: { magic-ratio: 0.10, attack-power: 45.477 }
     mobs:
       enchantment_boss_tricky_bones:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "厄介な骨"
@@ -1728,6 +1742,7 @@ overrides:
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
+          - { item: "custom:thread_assassin", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
           - { item: "custom:dungeon_seal_enchant_trial_10", chance: 1.0, min: 1, max: 1 }
           - { item: "custom:gacha_ticket_5", chance: 0.5, min: 1, max: 1 }
           - { item: "custom:abyssal_ingot", chance: 1.0, min: 1, max: 1 }
@@ -1750,6 +1765,7 @@ overrides:
   # ▼コンセプト: 【通る武器=魔法】(物理装甲が厚い) — エンチャント課題2。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_2:
     display-name: "エンチャント試練 2"
+    ability-damage-scale: 0.70
     # 【コンセプト】通る武器=魔法 / 敵の攻撃=ほぼ物理(magic-ratio 0.1)。
     # つまり魔法武器で攻め、魔法防御より物理防御を積む。
     # 2026-08-21(W-182): 攻めと受けは【独立に】割り当てている(以前の「必ず逆」ルールは廃止)。
@@ -1766,10 +1782,10 @@ overrides:
       #   旧 110.7 は同レベルのフィールドモブ(Lv100 で 34.8)の 3.18 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
       #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 2 段目) = 46.29。
       #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
-      # 【攻撃ステの型】2026-08-21 W-183 —— 振れ型: ダメージが 1.0〜1.4 倍で振れる。期待値は同じだが上振れで事故る(HPの厚みが効く)
-      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
-      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
-      attack: { magic-ratio: 0.10, attack-power: 32.673, damage-modifier: 1.4 }
+      # 【攻撃ステの型】2026-08-29 W-304 —— 振れ型(damage-modifier: 1.4)を外した。
+      #   技の上振れが通常打と重なると Lv100 装備でも事故るため。型と attack-power は2つで1組なので、
+      #   中央値(unitRandom=0.5)の期待被ダメージが同じになるよう攻撃力を戻してある(旧 32.673 → 37.091)。
+      attack: { magic-ratio: 0.10, attack-power: 37.091 }
     mobs:
       enchantment_boss_energized_bunny:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "帯電したウサギ"
@@ -1800,6 +1816,7 @@ overrides:
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
+          - { item: "custom:thread_duelist", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
           - { item: "custom:dungeon_seal_enchant_trial_2", chance: 1.0, min: 1, max: 1 }
           - { item: "custom:gacha_ticket_2", chance: 0.1, min: 1, max: 1 }
           - { item: "custom:key_enchant_trial_3", chance: 1.0, min: 1, max: 1 }
@@ -1808,6 +1825,7 @@ overrides:
   # ▼コンセプト: 【通る武器=魔法】(物理装甲が厚い) — エンチャント課題3。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_3:
     display-name: "エンチャント試練 3"
+    ability-damage-scale: 0.70
     # 【コンセプト】通る武器=魔法 / 敵の攻撃=魔法寄り(magic-ratio 0.45)。
     # つまり魔法武器で攻め、物理防御より魔法防御を積む。
     # 2026-08-21(W-182): 攻めと受けは【独立に】割り当てている(以前の「必ず逆」ルールは廃止)。
@@ -1858,6 +1876,7 @@ overrides:
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
+          - { item: "custom:thread_greatsword", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
           - { item: "custom:dungeon_seal_enchant_trial_3", chance: 1.0, min: 1, max: 1 }
           - { item: "custom:gacha_ticket_2", chance: 0.15, min: 1, max: 1 }
           - { item: "custom:key_enchant_trial_4", chance: 1.0, min: 1, max: 1 }
@@ -1866,6 +1885,7 @@ overrides:
   # ▼コンセプト: 【通る武器=物理】(魔法防御が厚い) — エンチャント課題4。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_4:
     display-name: "エンチャント試練 4"
+    ability-damage-scale: 0.70
     # 【コンセプト】通る武器=物理 / 敵の攻撃=ほぼ物理(magic-ratio 0.1)。
     # つまり物理武器で攻め、魔法防御より物理防御を積む。
     # 2026-08-21(W-182): 攻めと受けは【独立に】割り当てている(以前の「必ず逆」ルールは廃止)。
@@ -1938,6 +1958,7 @@ overrides:
   # ▼コンセプト: 【通る武器=物理】(魔法防御が厚い) — エンチャント課題5。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_5:
     display-name: "エンチャント試練 5"
+    ability-damage-scale: 0.70
     # 【コンセプト】通る武器=物理 / 敵の攻撃=魔法寄り(magic-ratio 0.45)。
     # つまり物理武器で攻め、物理防御より魔法防御を積む。
     # 2026-08-21(W-182): 攻めと受けは【独立に】割り当てている(以前の「必ず逆」ルールは廃止)。
@@ -1954,10 +1975,10 @@ overrides:
       #   旧 142.2 は同レベルのフィールドモブ(Lv100 で 34.8)の 4.09 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
       #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 5 段目) = 52.2。
       #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
-      # 【攻撃ステの型】2026-08-21 W-183 —— 振れ型: ダメージが 1.0〜1.4 倍で振れる。期待値は同じだが上振れで事故る(HPの厚みが効く)
-      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
-      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
-      attack: { magic-ratio: 0.45, attack-power: 36.715, damage-modifier: 1.4 }
+      # 【攻撃ステの型】2026-08-29 W-304 —— 振れ型(damage-modifier: 1.4)を外した。
+      #   技の上振れが通常打と重なると Lv100 装備でも事故るため。型と attack-power は2つで1組なので、
+      #   中央値(unitRandom=0.5)の期待被ダメージが同じになるよう攻撃力を戻してある(旧 36.715 → 41.312)。
+      attack: { magic-ratio: 0.45, attack-power: 41.312 }
     mobs:
       enchantment_boss_loveable_impaler:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "愛らしき串刺し公"
@@ -1988,6 +2009,7 @@ overrides:
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
+          - { item: "custom:thread_longshot", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
           - { item: "custom:dungeon_seal_enchant_trial_5", chance: 1.0, min: 1, max: 1 }
           - { item: "custom:gacha_ticket_3", chance: 0.25, min: 1, max: 1 }
           - { item: "custom:key_enchant_trial_6", chance: 1.0, min: 1, max: 1 }
@@ -2003,6 +2025,7 @@ overrides:
   # ▼コンセプト: 【通る武器=魔法】(物理装甲が厚い) — エンチャント課題6。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_6:
     display-name: "エンチャント試練 6"
+    ability-damage-scale: 0.70
     # 【コンセプト】通る武器=魔法 / 敵の攻撃=ほぼ物理(magic-ratio 0.1)。
     # つまり魔法武器で攻め、魔法防御より物理防御を積む。
     # 2026-08-21(W-182): 攻めと受けは【独立に】割り当てている(以前の「必ず逆」ルールは廃止)。
@@ -2019,10 +2042,10 @@ overrides:
       #   旧 151.4 は同レベルのフィールドモブ(Lv100 で 34.8)の 4.36 倍。Lv100 の厳選装備でも実質1発で沈む水準だった。
       #   他 18 ダンジョンと同じ尺度へ揃える: 共通ランプ Lv100(44.32) × 難易度係数(1.0〜1.4 を 10 段で割った 6 段目) = 54.17。
       #   絶対値のままなのは元の理由どおり —— この試練群は contentLevel 固定でランプが動かず、倍率が効かない。
-      # 【攻撃ステの型】2026-08-21 W-183 —— 振れ型: ダメージが 1.0〜1.4 倍で振れる。期待値は同じだが上振れで事故る(HPの厚みが効く)
-      #   型を足したぶんは攻撃力側で相殺してあるので、3ビルド平均の耐えられる発数は W-182 と同じ。
-      #   変えるのは【どのビルドが有利か】だけ。型を消すときは攻撃力も戻すこと(2つで1組)。
-      attack: { magic-ratio: 0.10, attack-power: 36.535, damage-modifier: 1.4 }
+      # 【攻撃ステの型】2026-08-29 W-304 —— 振れ型(damage-modifier: 1.4)を外した。
+      #   技の上振れが通常打と重なると Lv100 装備でも事故るため。型と attack-power は2つで1組なので、
+      #   中央値(unitRandom=0.5)の期待被ダメージが同じになるよう攻撃力を戻してある(旧 36.535 → 41.725)。
+      attack: { magic-ratio: 0.10, attack-power: 41.725 }
     mobs:
       enchantment_boss_ravegarer:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "レイヴ荒らし"
@@ -2053,6 +2076,7 @@ overrides:
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
+          - { item: "custom:thread_tidecaller", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
           - { item: "custom:dungeon_seal_enchant_trial_6", chance: 1.0, min: 1, max: 1 }
           - { item: "custom:gacha_ticket_3", chance: 0.3, min: 1, max: 1 }
           - { item: "custom:key_enchant_trial_7", chance: 1.0, min: 1, max: 1 }
@@ -2061,6 +2085,7 @@ overrides:
   # ▼コンセプト: 【通る武器=魔法】(物理装甲が厚い) — エンチャント課題7。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_7:
     display-name: "エンチャント試練 7"
+    ability-damage-scale: 0.70
     # 【コンセプト】通る武器=魔法 / 敵の攻撃=魔法寄り(magic-ratio 0.45)。
     # つまり魔法武器で攻め、物理防御より魔法防御を積む。
     # 2026-08-21(W-182): 攻めと受けは【独立に】割り当てている(以前の「必ず逆」ルールは廃止)。
@@ -2111,6 +2136,7 @@ overrides:
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
+          - { item: "custom:thread_bolter", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
           - { item: "custom:dungeon_seal_enchant_trial_7", chance: 1.0, min: 1, max: 1 }
           - { item: "custom:gacha_ticket_4", chance: 0.35, min: 1, max: 1 }
           - { item: "custom:key_enchant_trial_8", chance: 1.0, min: 1, max: 1 }
@@ -2119,6 +2145,7 @@ overrides:
   # ▼コンセプト: 【通る武器=物理】(魔法防御が厚い) — エンチャント課題8。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_8:
     display-name: "エンチャント試練 8"
+    ability-damage-scale: 0.70
     # 【コンセプト】通る武器=物理 / 敵の攻撃=ほぼ物理(magic-ratio 0.1)。
     # つまり物理武器で攻め、魔法防御より物理防御を積む。
     # 2026-08-21(W-182): 攻めと受けは【独立に】割り当てている(以前の「必ず逆」ルールは廃止)。
@@ -2169,6 +2196,7 @@ overrides:
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
+          - { item: "custom:thread_precision", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
           - { item: "custom:dungeon_seal_enchant_trial_8", chance: 1.0, min: 1, max: 1 }
           - { item: "custom:gacha_ticket_4", chance: 0.4, min: 1, max: 1 }
           - { item: "custom:key_enchant_trial_9", chance: 1.0, min: 1, max: 1 }
@@ -2177,6 +2205,7 @@ overrides:
   # ▼コンセプト: 【通る武器=物理】(魔法防御が厚い) — エンチャント課題9。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_9:
     display-name: "エンチャント試練 9"
+    ability-damage-scale: 0.70
     # 【コンセプト】通る武器=物理 / 敵の攻撃=魔法寄り(magic-ratio 0.45)。
     # つまり物理武器で攻め、物理防御より魔法防御を積む。
     # 2026-08-21(W-182): 攻めと受けは【独立に】割り当てている(以前の「必ず逆」ルールは廃止)。
@@ -2227,6 +2256,7 @@ overrides:
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
         # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
         drops:
+          - { item: "custom:thread_execution", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
           - { item: "custom:dungeon_seal_enchant_trial_9", chance: 1.0, min: 1, max: 1 }
           - { item: "custom:gacha_ticket_4", chance: 0.45, min: 1, max: 1 }
           - { item: "custom:key_enchant_trial_10", chance: 1.0, min: 1, max: 1 }
@@ -2718,7 +2748,8 @@ overrides:
         # 2026-08-16 特殊攻撃: 技は【最深段(p2)】に置く。p1 に置くと一番長く戦う段が無技になる
         # (the_climb_undead_beastmaster と同じ規則)。勇者＝踏み込んで薙ぎ払う
         abilities: [bull_rush, gale_smash, abyssal_grip]
-        drops: []
+        drops:
+          - { item: "custom:thread_piercer", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       the_climb_bone_champion_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "アンデッドのネズミ (召喚体)"
         stats:
@@ -2811,7 +2842,8 @@ overrides:
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 技は最深段(p2)へ。影＝背後を取り、留まった相手を枯らす
         abilities: [shadow_step, withering_aura]
-        drops: []
+        drops:
+          - { item: "custom:thread_hemorrhage", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       the_climb_skeletal_shadow_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "白化した骨 (召喚体)"
         stats:
@@ -2887,7 +2919,8 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops: []
+        drops:
+          - { item: "custom:thread_titan", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       the_climb_undead_beastmaster_p4:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "アンデッドの調獣師 (第4段階)"
         stats:
@@ -3444,7 +3477,8 @@ overrides:
           physical: { defense-rate: 0.374, resistance: 0.482 }
           magical:  { defense-rate: 0.068, resistance: 0.05 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        drops:
+          - { item: "custom:thread_earthshaker", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       the_mines_living_slime:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "生きたスライム"
         stats:
@@ -3583,7 +3617,8 @@ overrides:
           physical: { defense-rate: 0.418, resistance: 0.529 }
           magical:  { defense-rate: 0.076, resistance: 0.05 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        drops:
+          - { item: "custom:thread_spellblade", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       the_mines_soul_mass:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "魂の塊"
         stats:
@@ -5061,7 +5096,8 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops: []
+        drops:
+          - { item: "custom:thread_bulwark", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       the_castle_charlemagne_p4:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "シャルルマーニュ (第4段階)"
         stats:
@@ -5133,8 +5169,8 @@ overrides:
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 技は最深段(p2)へ。騎乗突撃の騎士なので突進(物理側で揃える)
         abilities: [bull_rush, shockwave, withering_aura]
-        drops: []
-
+        drops:
+          - { item: "custom:thread_aegis", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
   # north_pole_minidungeon (DYNAMIC_DUNGEON) — custombosses/the_north_pole / 8体
   # ▼コンセプト: 【通る武器=魔法】(物理装甲が厚い) — 氷雪の魔物。分厚い氷殻が刃を弾くので、熱と術で融かす
   em_north_pole:
@@ -5340,7 +5376,8 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 下水道の各層ボスは1種ずつ。重力ギミックの層＝吹き飛ばし
         abilities: [gale_smash, crippling_stomp, flare_slam]
-        drops: []
+        drops:
+          - { item: "custom:thread_ironhide", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       sewer_tier_20_water:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "密輸業者"
         stats:
@@ -5364,7 +5401,8 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。英雄＝踏み込んで斬る
         abilities: [bull_rush, quake_spikes, abyssal_grip]
-        drops: []
+        drops:
+          - { item: "custom:thread_evasion", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       sewer_tier_20_wither_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "萎びた死骸"
         stats:
@@ -5381,7 +5419,8 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。ウィザー層＝枯死の霧
         abilities: [withering_aura, quake_spikes]
-        drops: []
+        drops:
+          - { item: "custom:thread_resilience", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       sewer_tier_30_ice_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "氷の亡霊"
         stats:
@@ -5398,7 +5437,8 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。氷の層＝凍気
         abilities: [frost_field, quake_spikes]
-        drops: []
+        drops:
+          - { item: "custom:thread_swordsman", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       sewer_tier_30_invisibility_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "影の射手"
         stats:
@@ -5415,7 +5455,8 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。透明化の層＝背後を取る
         abilities: [shadow_step, shockwave, withering_aura]
-        drops: []
+        drops:
+          - { item: "custom:thread_berserker", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       sewer_tier_30_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "下水道の獣"
         stats:
@@ -5453,7 +5494,8 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。暗闇の層＝闇に引きずり込む
         abilities: [abyssal_grip, gale_smash]
-        drops: []
+        drops:
+          - { item: "custom:thread_lancer", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       sewer_tier_40_darkness_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "影 (増援)"
         stats:
@@ -5477,7 +5519,8 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。炎の層＝火の粉
         abilities: [ember_spray, bleeding_aura, flare_slam]
-        drops: []
+        drops:
+          - { item: "custom:thread_reaper", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       sewer_tier_40_fire_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "焔 (増援)"
         stats:
@@ -5501,7 +5544,8 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。毒の層＝留まらせない霧
         abilities: [withering_aura, bleeding_aura]
-        drops: []
+        drops:
+          - { item: "custom:thread_crusher", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       sewer_tier_40_poison_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "堕ちた庭師 (増援)"
         stats:
@@ -5539,7 +5583,8 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。雷の層＝落ちる位置を予告してから撃つ
         abilities: [meteor_mark, bleeding_aura]
-        drops: []
+        drops:
+          - { item: "custom:thread_assassin", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       sewer_tier_50_ravager_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "下水道の異形"
         stats:
@@ -5556,7 +5601,8 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。ラヴェジャー種＝突進
         abilities: [bull_rush, crippling_stomp, flare_slam]
-        drops: []
+        drops:
+          - { item: "custom:thread_duelist", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       sewer_tier_50_spider_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "古代の這うもの"
         stats:
@@ -5573,7 +5619,8 @@ overrides:
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。蜘蛛＝群れを呼ぶ
         abilities: [call_the_swarm, quake_spikes, piercing_beam]
-        drops: []
+        drops:
+          - { item: "custom:thread_titan", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       sewer_tier_50_spider_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "小蜘蛛 (増援)"
         stats:
@@ -5734,7 +5781,8 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops: []
+        drops:
+          - { item: "custom:thread_onslaught", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       the_steamworks_clk_wrx702_p4:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "CLK-WRx702 (第4段階)"
         stats:
@@ -5991,7 +6039,8 @@ overrides:
           physical: { defense-rate: 0.076, resistance: 0.05 }
           magical:  { defense-rate: 0.418, resistance: 0.529 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        drops:
+          - { item: "custom:thread_hemorrhage", chance: 0.01, chance-by-level: { from-level: 10, from-chance: 0.01, to-level: 100, to-chance: 0.3 }, min: 1, max: 1 }
       dark_cathedral_tier_75_miniboss_black_philip:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "黒山羊フィリップ"
         stats:

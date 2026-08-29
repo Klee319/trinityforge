@@ -18,12 +18,14 @@ EliteMobs ダンジョンインスタンス内の「カスタムモブ」ごと�
 overrides:
   <ワールド名 または default>:
     display-name: "<ダンジョンの表示名>"
+    ability-damage-scale: 0.70          # 省略可。このダンジョンの技だけに掛かる倍率
     mobs:
       <モブid>:
         display-name: "<モブの表示名>"
         stats: { ... }
         drops: [ ... ]
         vanilla-exp: { ... }
+        abilities: [ ... ]
 ```
 
 - **ワールド名** — **「設計図ワールド名」**(EliteMobs のダンジョン設定 `worldName:` の値)を書く。
@@ -39,6 +41,11 @@ overrides:
   分かりやすい名前を付けたい場合はこの `display-name` を使う。
   出荷 yml では 29 ダンジョン・396 モブすべてに日本語名が入っている
   (訳表は `tools/scripts/em_ja_names.py`、生成は `tools/scripts/gen-mob-overrides.py`)。
+- **`ability-damage-scale`**(省略可、2026-08-29 追加) — このダンジョンの**特殊攻撃だけ**に掛かる倍率。
+  通常攻撃・HP には効かない。技テンプレ(`combat/mob-abilities.yml`)はダンジョン間で共有されているので、
+  「このダンジョンの技だけ弱い」はテンプレの `damage-percent` ではなくここで書く。
+  未設定は 1.0。範囲は `(0, 2]`。クォート文字列は弾く。
+  **`default` へ書いた値はカスケードしない**(HP/攻撃力の倍率とは違う)。書いたワールドだけが対象。
 - **モブid** — EliteMobs のカスタムボス設定ファイル名(拡張子なし)。`/trinityforge importmobs` が
   `combat/mob-profiles.yml` のキーに使うものと同じ。スポーン時にフォークが PDC
   (`mob_profile_id`) へ刻印した値と照合される。
@@ -211,6 +218,21 @@ overrides:
 なお倍率キーを `attack:` の**中**に書いた場合は、`attack-power-multiplier` / `max-health-multiplier` の
 **どちらも**「階層が違う」と警告します(Bukkit は未知キーを黙って捨てるため、警告が無いと無言で不発に
 なる。難易度は対で書かれるので、片方しか警告しないと直したつもりでもう片方が不発のまま残る)。
+
+## `ability-damage-scale` — このダンジョンの技だけ弱める/強める
+
+2026-08-29 追加。`display-name` と同じ階層(scope 直下)に書く。`stats:` の中ではない。
+
+```yaml
+overrides:
+  em_id_enchantment_challenge_2:
+    display-name: "エンチャント試練 2"
+    ability-damage-scale: 0.70    # shadow_step 1.55 × 0.70 ≒ 通常打相当
+```
+
+- エンチャント試練 10 本は出荷値 `0.70`。攻撃力(Lv100 尺度の絶対値)は触らず、技だけ弱めるため。
+- 他ダンジョンに書く必要は無い(未設定 = 等倍)。
+- editor で空欄にするとキーごと消える。1.0 を書き込んで「打ち消す」用途ではない。
 
 ## `drops` の項目一覧
 

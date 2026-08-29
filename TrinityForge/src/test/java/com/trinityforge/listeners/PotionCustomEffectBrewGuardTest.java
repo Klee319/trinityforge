@@ -42,9 +42,9 @@ import static org.mockito.Mockito.when;
  * <h2>なぜ必要か</h2>
  * TF はカスタム効果ポーションを base {@code WATER} + custom effects で表現するが、
  * バニラの醸造表は「(ベースの種類, 素材) → 結果」でしか引かない。既に救済されている
- * 延長(レッドストーン)/強化(グロウストーンダスト)/スプラッシュ化(火薬)/残留化(ドラゴンブレス)
- * の4つ以外の素材を入れると、バニラが base を別のベースへ書き換えて<b>カスタム効果が丸ごと消える</b>。
- * 「発酵したクモの目で反転」のような意味定義は実装せず、そもそもこの醸造を止めることで塞ぐ。
+ * 延長/強化/スプラッシュ化/残留化と、品質で倒したバニラ由来の反転以外の素材を入れると、
+ * バニラが base を別のベースへ書き換えて<b>カスタム効果が丸ごと消える</b>。
+ * 解放式カスタムの反転は意味定義せず、このガードで止める。
  */
 class PotionCustomEffectBrewGuardTest {
 
@@ -154,6 +154,20 @@ class PotionCustomEffectBrewGuardTest {
         listener().onBrew(event);
 
         assertFalse(event.isCancelled(), "延長(レッドストーン)は救済対象であり、キャンセルしてはいけない");
+    }
+
+    @Test
+    @DisplayName("解放式カスタムに発酵したクモの目を使うと醸造がキャンセルされる(反転しない)")
+    void fermentedSpiderEyeOnTrueCustomPotionStaysBlocked() {
+        writeManualOwner(player);
+        stand.getInventory().setItem(0, customEffectBottle(Material.POTION, PotionEffectType.STRENGTH));
+        stand.getInventory().setItem(3, new ItemStack(Material.FERMENTED_SPIDER_EYE));
+
+        BrewEvent event = brewEvent(new ArrayList<>(List.of(new ItemStack(Material.AIR))));
+        listener().onBrew(event);
+
+        assertTrue(event.isCancelled(),
+                "brew_source の無いカスタム効果ポーションまで反転救済してはいけない");
     }
 
     @Test

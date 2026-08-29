@@ -1,6 +1,8 @@
 package com.trinityforge.items;
 
 import com.trinityforge.config.domains.ItemCatalogConfig;
+import com.trinityforge.listeners.PickupQualityListener;
+import com.trinityforge.pdc.ItemData;
 import com.trinityforge.stats.CatalogIdentity;
 import com.trinityforge.stats.ItemFactory;
 import com.trinityforge.stats.ItemTemplate;
@@ -28,10 +30,14 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * {@code /tf catalog} — カタログのアイテムをタブ + ページで並べて配る画面（2026-08-05）。
@@ -77,6 +83,7 @@ public final class CatalogBrowseGui implements Listener {
             "spellbook", "魔導書",
             "thread", "スレッド",
             "key", "鍵",
+            "material", "素材",
             "other", "その他");
 
     /** タブIDのアイコン。 */
@@ -88,6 +95,7 @@ public final class CatalogBrowseGui implements Listener {
             "spellbook", Material.ENCHANTED_BOOK,
             "thread", Material.STRING,
             "key", Material.TRIPWIRE_HOOK,
+            "material", Material.GOLD_NUGGET,
             "other", Material.BUNDLE);
 
     /** 分類から漏れたアイテムの受け皿。{@code _editor} 側には存在しない合成タブ。 */
@@ -96,14 +104,25 @@ public final class CatalogBrowseGui implements Listener {
 
     private final ItemCatalogConfig itemCatalog;
     private final ItemFactory itemFactory;
+    /** カタログに無いカスタム品（Ars の素材・装置以外など）。未分類タブへ足す。 */
+    private final Supplier<List<String>> extraIds;
+    private final Function<String, Optional<ItemStack>> extraCreate;
     private final NamespacedKey tabKey;
     private final NamespacedKey pageKey;
     private final NamespacedKey itemIdKey;
 
     public CatalogBrowseGui(Plugin plugin, ItemCatalogConfig itemCatalog, ItemFactory itemFactory) {
+        this(plugin, itemCatalog, itemFactory, List::of, id -> Optional.empty());
+    }
+
+    public CatalogBrowseGui(Plugin plugin, ItemCatalogConfig itemCatalog, ItemFactory itemFactory,
+                            Supplier<List<String>> extraIds,
+                            Function<String, Optional<ItemStack>> extraCreate) {
         Objects.requireNonNull(plugin, "plugin");
         this.itemCatalog = Objects.requireNonNull(itemCatalog, "itemCatalog");
         this.itemFactory = Objects.requireNonNull(itemFactory, "itemFactory");
+        this.extraIds = extraIds == null ? List::of : extraIds;
+        this.extraCreate = extraCreate == null ? id -> Optional.empty() : extraCreate;
         this.tabKey = new NamespacedKey(plugin, "catalog_gui_tab");
         this.pageKey = new NamespacedKey(plugin, "catalog_gui_page");
         this.itemIdKey = new NamespacedKey(plugin, "catalog_gui_item");
@@ -163,7 +182,7 @@ public final class CatalogBrowseGui implements Listener {
 
     /** タブの並び順。エディタの見出し順に合わせてある。 */
     private static final List<String> TAB_ORDER =
-            List.of("weapon", "armor", "tool", "catalyst", "spellbook", "thread", "key", "other");
+            List.of("weapon", "armor", "tool", "catalyst", "spellbook", "thread", "key", "material", "other");
 
     /**
      * どのアイテムをどのタブのどこに出すかを<b>一度に全部決める</b>。
@@ -214,7 +233,64 @@ public final class CatalogBrowseGui implements Listener {
                         .add(new Entry(e.getKey(), e.getValue(), UNSORTED_LABEL));
             }
         }
+        for (String extraId : extraIds()) {
+            if (extraId == null || extraId.isBlank() || itemCatalog.isDraft(extraId)) {
+                continue;
+            }
+            if (!placed.add(extraId)) {
+                continue;
+            }
+            String tab = tabForExtraId(extraId);
+            byTab.computeIfAbsent(tab, k -> new ArrayList<>())
+                    .add(new Entry(extraId, null, extraCategoryLabel(tab)));
+        }
+        foldUnsortedIfTabRowIsFull(byTab);
         return byTab;
+    }
+
+    /**
+     * カタログに無いカスタム品のタブ。{@code thread_*} はスレッド、それ以外(Ars の素材など)は素材。
+     * 未分類の末尾タブへ落とすと、タブ行が9枠しか無い画面では見つからない。
+     */
+    static String tabForExtraId(String id) {
+        if (id != null && id.toLowerCase(Locale.ROOT).startsWith("thread_")) {
+            return "thread";
+        }
+        return "material";
+    }
+
+    private static String extraCategoryLabel(String tab) {
+        return "thread".equals(tab) ? "スレッド" : "素材";
+    }
+
+    /**
+     * 名前付きタブが既に {@link #MAX_TABS} 枠埋まっているとき、未分類を 10 番目に出すと
+     * タブ行から切れて画面に出ない。その場合だけ「その他」へ吸収する。
+     */
+    private static void foldUnsortedIfTabRowIsFull(Map<String, List<Entry>> byTab) {
+        List<Entry> unsorted = byTab.get(UNSORTED_TAB);
+        if (unsorted == null || unsorted.isEmpty()) {
+            return;
+        }
+        int named = 0;
+        for (String tab : TAB_ORDER) {
+            if (!byTab.getOrDefault(tab, List.of()).isEmpty()) {
+                named++;
+            }
+        }
+        if (named >= MAX_TABS) {
+            byTab.remove(UNSORTED_TAB);
+            byTab.computeIfAbsent("other", k -> new ArrayList<>()).addAll(unsorted);
+        }
+    }
+
+    private List<String> extraIds() {
+        try {
+            List<String> ids = extraIds.get();
+            return ids == null ? List.of() : ids;
+        } catch (RuntimeException ex) {
+            return List.of();
+        }
     }
 
     /** 表示するタブ。中身が1件も無いタブは出さない。「未分類」は中身があるときだけ末尾に付く。 */
@@ -269,9 +345,11 @@ public final class CatalogBrowseGui implements Listener {
      * 名前もモデルも配られる物と一致する。
      */
     private ItemStack itemButton(Entry entry) {
-        ItemStack stack = itemFactory.create(entry.template(), 0L, 0);
-        CatalogIdentity.ensure(stack, itemCatalog);
+        ItemStack stack = createPreview(entry);
         ItemMeta meta = stack.getItemMeta();
+        if (meta == null) {
+            return stack;
+        }
         List<Component> lore = new ArrayList<>();
         if (meta.lore() != null) {
             lore.addAll(meta.lore());
@@ -357,16 +435,70 @@ public final class CatalogBrowseGui implements Listener {
         }
     }
 
+    private ItemStack createPreview(Entry entry) {
+        if (prefersExternal(entry)) {
+            Optional<ItemStack> extra = extraCreate.apply(entry.id());
+            if (extra.isPresent()) {
+                return extra.get();
+            }
+        }
+        if (entry.template() != null) {
+            ItemStack stack = itemFactory.create(entry.template(), 0L, 0);
+            CatalogIdentity.ensure(stack, itemCatalog);
+            return stack;
+        }
+        return extraCreate.apply(entry.id()).orElseGet(() -> unnamedPreview(entry.id()));
+    }
+
+    /**
+     * カタログ外、または {@code external-source:} 宣言あり。スレッドは TF の STRING では
+     * 防具に挿せないので、Ars の実体を先に取る。
+     */
+    private static boolean prefersExternal(Entry entry) {
+        return entry.template() == null || entry.template().hasExternalSource();
+    }
+
+    /** テストからプレビュー経路を叩く。 */
+    ItemStack previewOf(String itemId) {
+        for (List<Entry> entries : index().values()) {
+            for (Entry entry : entries) {
+                if (entry.id().equals(itemId)) {
+                    return createPreview(entry);
+                }
+            }
+        }
+        return unnamedPreview(itemId);
+    }
+
+    private static ItemStack unnamedPreview(String id) {
+        ItemStack stack = new ItemStack(Material.PAPER);
+        ItemMeta meta = stack.getItemMeta();
+        meta.displayName(Component.text(id, NamedTextColor.WHITE)
+                .decoration(TextDecoration.ITALIC, false));
+        stack.setItemMeta(meta);
+        return stack;
+    }
+
     private void give(Player player, String itemId, int amount) {
         ItemTemplate template = itemCatalog.all().get(itemId);
-        if (template == null) {
-            player.sendMessage(Component.text("そのアイテムはカタログにありません: " + itemId,
-                    NamedTextColor.RED));
-            return;
+        ItemStack stack;
+        boolean externalFirst = template == null || template.hasExternalSource();
+        if (externalFirst) {
+            Optional<ItemStack> extra = extraCreate.apply(itemId);
+            if (extra.isPresent()) {
+                stack = extra.get().clone();
+            } else if (template != null) {
+                stack = itemFactory.create(template, ThreadLocalRandom.current().nextLong(), 0);
+            } else {
+                player.sendMessage(Component.text("そのアイテムは作れません: " + itemId,
+                        NamedTextColor.RED));
+                return;
+            }
+        } else {
+            // 個体差(rollSeed)は配るたびに引き直す。同じ物を並べたいときのために品質は0固定。
+            stack = itemFactory.create(template, ThreadLocalRandom.current().nextLong(), 0);
         }
-        // 個体差(rollSeed)は配るたびに引き直す。同じ物を並べたいときのために品質は0固定。
-        ItemStack stack = itemFactory.create(template, ThreadLocalRandom.current().nextLong(), 0);
-        CatalogIdentity.ensure(stack, itemCatalog);
+        stampGiveIdentity(stack, template, player);
         stack.setAmount(Math.max(1, Math.min(amount, stack.getMaxStackSize())));
 
         Map<Integer, ItemStack> leftover = player.getInventory().addItem(stack);
@@ -375,7 +507,29 @@ public final class CatalogBrowseGui implements Listener {
         }
     }
 
-    /** GUI 内の並び1件分。 */
+    /**
+     * Ars 実体を先に取る経路は {@link ItemFactory#create} を通らないので、catalog の
+     * {@code bind-type} と SOULBOUND の所有者をここで焼く。プレビューには付けない。
+     */
+    void stampGiveIdentity(ItemStack stack, ItemTemplate template, Player player) {
+        CatalogIdentity.ensure(stack, itemCatalog);
+        if (template != null) {
+            stack.editMeta(meta -> {
+                ItemData data = ItemData.of(meta);
+                data.setCatalogId(template.id());
+                data.setBindType(template.bindType());
+                if (template.bindType().autoStampsOwner() && player != null) {
+                    data.setOwner(player.getUniqueId());
+                }
+            });
+        }
+        if (stack.hasItemMeta() && PickupQualityListener.hasArsThreadMarker(stack.getItemMeta())) {
+            PickupQualityListener.defaultArsThreadLoreRefresh(stack);
+        }
+        itemFactory.appendOwnerLoreIfMissing(stack);
+    }
+
+    /** GUI 内の並び1件分。{@code template} が null ならカタログ外のカスタム品。 */
     record Entry(String id, ItemTemplate template, String categoryLabel) {
     }
 

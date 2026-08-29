@@ -324,7 +324,6 @@ mob-types:
       damage-reduction: 0
       flat-defense: 0
     attack:
-      attack-power: 9
       flat-bonus-damage: 0
       percent-bonus-damage: 0
       crit-chance: 0
@@ -333,6 +332,7 @@ mob-types:
       damage-modifier: 1
       fixed-damage: 0
       magic-ratio: 0.8
+      attack-power: 8
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
@@ -696,7 +696,7 @@ mob-types:
     # 明示的な例外。「どこで戦っても同じ強さ」にしたいので coordinate-coefficient も 0 にして
     # 拠点からの距離補正を切る(0.02 のままだと 4,000 ブロック先で Lv80、拠点付近で Lv0 と桁違いにブレる)。
     # ELDER_GUARDIAN / WARDEN はオーバーワールド専用なので base-level 加算が無く、これで Lv80 に固定される。
-    level: 80
+    level: 100
     coordinate-coefficient: 0
     max-health: 1760
     armor-strength: 0
@@ -859,7 +859,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   ENDER_DRAGON:
-    level: 0
+    level: 100
     coordinate-coefficient: 0.02
     max-health: 4400
     armor-strength: 0
@@ -1689,7 +1689,6 @@ mob-types:
       damage-reduction: 0
       flat-defense: 0
     attack:
-      attack-power: 8.4
       flat-bonus-damage: 0
       percent-bonus-damage: 0
       crit-chance: 0
@@ -1698,6 +1697,7 @@ mob-types:
       damage-modifier: 1
       fixed-damage: 0
       magic-ratio: 0.8
+      attack-power: 8
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
@@ -2110,7 +2110,7 @@ mob-types:
         fixed-damage: 0
   WARDEN:
     # 【Lv80固定ボス 2026-08-18】ELDER_GUARDIAN と同じ扱い。理由はそちらのコメント参照。
-    level: 80
+    level: 100
     coordinate-coefficient: 0
     max-health: 4800
     armor-strength: 0
@@ -2226,7 +2226,7 @@ mob-types:
     #   どちらも max-level: 100 で頭打ちになるので実効 Lv100 になる。
     #   「どこで召喚しても Lv80」にするにはディメンション下駄を無視するフラグの新設が必要で、
     #   2026-08-18 の判断で見送った(config だけで済ませる)。仕様変更する場合はここを読むこと。
-    level: 80
+    level: 100
     coordinate-coefficient: 0
     max-health: 4000
     armor-strength: 0

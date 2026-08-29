@@ -10,6 +10,7 @@ import com.trinityforge.progression.core.SkillId;
 import com.trinityforge.stats.BrewRecipeSupport;
 import com.trinityforge.stats.StatKeys;
 import com.trinityforge.stats.VanillaLuckEffect;
+import com.trinityforge.stats.VanillaPotionInvert;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -40,6 +41,9 @@ import java.util.UUID;
 /**
  * ポーション品質(stat: {@code potion_quality_bonus})と醸造速度(stat: {@code brew_speed_bonus})を
  * 醸造したブルワー本人にだけ反映する(横断制約: かまど/エンチャント/ポーションは実行者限定)。
+ *
+ * <p>品質ポイントは持続時間だけを変える（0.1pt あたり +1%。0 未満は同じ割合で短くなる）。
+ * 強度(amplifier)は品質では動かさない。
  *
  * <p>所有者解決は {@link BrewOwnership}(= {@link NativeSkillExperienceListener} が最初に実装した
  * 「手で入れたときだけ刻む」PDCの共有読み取り)に一本化し、二重実装しない。
@@ -102,16 +106,20 @@ public final class PotionQualityListener implements Listener {
         if (rewriteCustomEffectContainerMix(event)) {
             return;
         }
+        // 品質で WATER へ倒したバニラ由来ポーションの反転。倒した後はバニラが
+        // WATER+クモの目→弱化 しか見ないので、倒す前の種類から引き直す。
+        if (rewriteCustomEffectInvert(event)) {
+            return;
+        }
         if (!(event.getBlock().getState() instanceof BrewingStand stand)) {
             return;
         }
         // カスタム効果ポーションの醸造そのものを禁止する(2026-08-25 ユーザー決定 / W-116)。
-        // 反転(発酵したクモの目)の意味定義は実装しない。代わりに、ここまでに救済されなかった
-        // (=延長/強化/スプラッシュ化/残留化のどれでもなかった)組み合わせで、ビン枠に
-        // baseがWATERへ倒れたカスタム効果ポーションが残っているなら、その醸造を丸ごと止める。
+        // 解放式カスタムポーションの反転は意味定義しない。ここまでに救済されなかった
+        // (=延長/強化/スプラッシュ化/残留化/バニラ由来の反転のどれでもなかった)組み合わせで、
+        // ビン枠に baseがWATERへ倒れたカスタム効果ポーションが残っているなら、その醸造を丸ごと止める。
         // バニラの醸造表は「(ベースの種類, 素材)→ 結果」でしか引かないため、他のどんな素材でも
-        // WATERベースのビンへ何かを入れると効果が消えたバニラ結果(ARKWARD等)に化けてしまう
-        // (延長/強化/スプラッシュ化/残留化の4つだけが例外的に救済済み)。
+        // WATERベースのビンへ何かを入れると効果が消えたバニラ結果(ARKWARD等)に化けてしまう。
         if (hasProtectedCustomPotion(event.getContents())) {
             notifyBrewBlocked(stand);
             event.setCancelled(true);
@@ -128,18 +136,19 @@ public final class PotionQualityListener implements Listener {
         double damping = brewOwnership.isAutomated(stand) ? autoMult() : 1.0;
         // 幸運のポーションぶんはステと同じ「品質ポイント」なので、自動醸造の減衰も同じく掛ける
         // (片方だけ無減衰にするとホッパー放置が成立してしまう — このリスナの既存ポリシー)。
-        double statPoints = Math.max(0.0, aggregator.aggregate(owner).totalOf(POTION_QUALITY_BONUS));
+        // 0 未満は持続を短くするため、ここで max(0) しない。
+        double statPoints = aggregator.aggregate(owner).totalOf(POTION_QUALITY_BONUS);
         double qualityPoints = (statPoints + luckPotionQualityBonus(owner)) * damping;
-        if (qualityPoints <= 0.0) {
+        if (qualityPoints == 0.0) {
             return;
         }
 
-        double durationAdd = alchemyQuality.durationTicksPerQuality() * qualityPoints;
-        int amplifierAdd = (int) Math.floor(alchemyQuality.amplifierPerQuality() * qualityPoints);
+        double multiplier = AlchemyQualityConfig.durationMultiplier(
+                qualityPoints, alchemyQuality.durationPercentPerTenthPoint());
 
         List<ItemStack> results = event.getResults();
         for (int slot = 0; slot < results.size(); slot++) {
-            applyQuality(results.get(slot), durationAdd, amplifierAdd, qualityPoints);
+            applyQuality(results.get(slot), multiplier);
         }
     }
 
@@ -157,7 +166,7 @@ public final class PotionQualityListener implements Listener {
         return perLevel <= 0.0 ? 0.0 : VanillaLuckEffect.levelOf(brewer) * perLevel;
     }
 
-    private void applyQuality(ItemStack result, double durationAdd, int amplifierAdd, double qualityPoints) {
+    private void applyQuality(ItemStack result, double durationMultiplier) {
         if (result == null || !(result.getItemMeta() instanceof PotionMeta meta)) {
             return;
         }
@@ -165,19 +174,13 @@ public final class PotionQualityListener implements Listener {
         if (effects.isEmpty()) {
             return;
         }
-        double lingerSplashAdd = isSplashOrLingering(result.getType())
-                ? alchemyQuality.lingeringSplashDurationTicksPerQuality() * qualityPoints
-                : 0.0;
-        int durationDelta = (int) Math.round(durationAdd + lingerSplashAdd);
 
         List<PotionEffect> boosted = new ArrayList<>(effects.size());
         for (PotionEffect effect : effects) {
             PotionEffect updated = effect;
-            if (!effect.getType().isInstant() && durationDelta != 0) {
-                updated = updated.withDuration(Math.max(1, updated.getDuration() + durationDelta));
-            }
-            if (amplifierAdd > 0) {
-                updated = updated.withAmplifier(updated.getAmplifier() + amplifierAdd);
+            if (!effect.getType().isInstant() && durationMultiplier != 1.0) {
+                updated = updated.withDuration(Math.max(1,
+                        (int) Math.round(updated.getDuration() * durationMultiplier)));
             }
             boosted.add(updated);
         }
@@ -232,10 +235,6 @@ public final class PotionQualityListener implements Listener {
                 .set(PdcKeys.ITEM_BREW_SOURCE_POTION, PersistentDataType.STRING, original.name());
     }
 
-    private static boolean isSplashOrLingering(Material type) {
-        return type == Material.SPLASH_POTION || type == Material.LINGERING_POTION;
-    }
-
     /** アクションバーの通知文言(2026-08-25 / W-116: 無言で弾くと不具合に見えるため)。 */
     private static final net.kyori.adventure.text.Component BREW_BLOCKED_MESSAGE =
             net.kyori.adventure.text.Component.text(
@@ -244,8 +243,9 @@ public final class PotionQualityListener implements Listener {
 
     /**
      * ビン枠(0..2)のどれかに、baseが {@code WATER} へ倒れた<b>カスタム効果ポーション</b>が
-     * 載っているか。#rewriteCustomEffectUpgrade / #rewriteCustomEffectContainerMix のどちらでも
-     * 救済されなかった時点でここへ来るので、trueなら「このまま進めると効果が消える」ことが確定する。
+     * 載っているか。#rewriteCustomEffectUpgrade / #rewriteCustomEffectContainerMix /
+     * #rewriteCustomEffectInvert のどれでも救済されなかった時点でここへ来るので、
+     * trueなら「このまま進めると効果が消える」ことが確定する。
      */
     private static boolean hasProtectedCustomPotion(BrewerInventory inv) {
         for (int slot = 0; slot < 3; slot++) {
@@ -384,6 +384,100 @@ public final class PotionQualityListener implements Listener {
 
     private NamespacedKey upgradeKey() {
         return new NamespacedKey(plugin, "brew_upgrade");
+    }
+
+    /**
+     * WATER ベース＋カスタム効果の、バニラ由来ポーションに対する反転を書き戻す。
+     *
+     * <p>品質0のプレイヤーはベースが倒れないのでバニラの mix がそのまま効く。品質を取った人だけ
+     * ベースが WATER になり、クモの目が「水→弱化」に化ける／W-116 に止まって反転できなくなる。
+     * {@link PdcKeys#ITEM_BREW_SOURCE_POTION} がバニラの反転表に載っているときだけ救済する。
+     * 解放式カスタム(印が無い／表に無い)は {@code false} を返し、既存ガードが止める。
+     *
+     * @return ビン枠のカスタム効果ポーションを全て反転できたなら {@code true}
+     */
+    private boolean rewriteCustomEffectInvert(BrewEvent event) {
+        BrewerInventory inv = event.getContents();
+        ItemStack ingredient = inv.getItem(3);
+        if (ingredient == null || ingredient.getType() != Material.FERMENTED_SPIDER_EYE) {
+            return false;
+        }
+
+        PotionType[] invertedAt = new PotionType[3];
+        boolean anyCustom = false;
+        for (int slot = 0; slot < 3; slot++) {
+            ItemStack bottle = inv.getItem(slot);
+            if (bottle == null || !BrewRecipeSupport.isPotionContainer(bottle.getType())
+                    || !(bottle.getItemMeta() instanceof PotionMeta meta)
+                    || meta.getBasePotionType() != PotionType.WATER
+                    || !meta.hasCustomEffects()) {
+                continue;
+            }
+            anyCustom = true;
+            PotionType inverted = VanillaPotionInvert.invert(
+                    brewSourceOf(meta), brewUpgradeOf(meta));
+            if (inverted == null) {
+                return false;
+            }
+            invertedAt[slot] = inverted;
+        }
+        if (!anyCustom) {
+            return false;
+        }
+
+        List<ItemStack> results = event.getResults();
+        for (int slot = 0; slot < 3; slot++) {
+            if (invertedAt[slot] == null) {
+                continue;
+            }
+            ItemStack bottle = inv.getItem(slot);
+            ItemStack rebuilt = bottle.clone();
+            rebuilt.setAmount(1);
+            applyBrewInvert(rebuilt, invertedAt[slot]);
+            while (results.size() <= slot) {
+                results.add(null);
+            }
+            results.set(slot, rebuilt);
+        }
+        return true;
+    }
+
+    private static PotionType brewSourceOf(PotionMeta meta) {
+        String name = meta.getPersistentDataContainer()
+                .get(PdcKeys.ITEM_BREW_SOURCE_POTION, PersistentDataType.STRING);
+        if (name == null || name.isBlank()) {
+            return null;
+        }
+        try {
+            return PotionType.valueOf(name.trim());
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    private String brewUpgradeOf(PotionMeta meta) {
+        return meta.getPersistentDataContainer().get(upgradeKey(), PersistentDataType.STRING);
+    }
+
+    private void applyBrewInvert(ItemStack stack, PotionType inverted) {
+        if (!(stack.getItemMeta() instanceof PotionMeta meta)) {
+            return;
+        }
+        PotionType keyed = VanillaPotionInvert.keyedSource(brewSourceOf(meta), brewUpgradeOf(meta));
+        List<PotionEffect> invertedEffects = VanillaPotionInvert.invertedEffects(
+                keyed, inverted, meta.getCustomEffects());
+        if (invertedEffects.isEmpty()) {
+            return;
+        }
+        meta.clearCustomEffects();
+        for (PotionEffect effect : invertedEffects) {
+            meta.addCustomEffect(effect, true);
+        }
+        meta.getPersistentDataContainer()
+                .set(PdcKeys.ITEM_BREW_SOURCE_POTION, PersistentDataType.STRING, inverted.name());
+        meta.displayName(BrewRecipeSupport.potionDisplayName(stack.getType(), invertedEffects));
+        BrewRecipeSupport.applyMixedColor(meta, invertedEffects);
+        stack.setItemMeta(meta);
     }
 
     /**

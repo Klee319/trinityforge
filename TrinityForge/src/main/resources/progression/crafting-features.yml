@@ -16,13 +16,13 @@ xp-bottle-store:
   tiers:
     "1":
       store-amount: 200
-      return-rate: 0.6
+      return-rate: 0.5
     "2":
       store-amount: 300
       return-rate: 0.7
     "3":
       store-amount: 400
-      return-rate: 0.8
+      return-rate: 0.9
 
 coating:
   base-max-stacks: 3
@@ -152,11 +152,11 @@ disassembly:
         multiplier: 2
   tiers:
     "1":
-      percent: 10
+      percent: 20
     "2":
-      percent: 30
+      percent: 40
     "3":
-      percent: 50
+      percent: 60
 scrap-conversion:
   tf_scrap:
     base-amount: 4
@@ -170,7 +170,7 @@ scrap-conversion:
       - item: custom:gold_ingot_scrap
         weight: 12
       - item: custom:turtle_scute_scrap
-        weight: 5
+        weight: 1
       - item: custom:diamond_scrap
         weight: 5
       - item: custom:netherite_ingot_scrap
@@ -242,13 +242,13 @@ brew-unlocks:
         ingredient: SUGAR
         result:
           type: SPEED
-          duration: 3600
+          duration: 1800
           amplifier: 2
       - base: THICK
         ingredient: RABBIT_FOOT
         result:
           type: JUMP_BOOST
-          duration: 3600
+          duration: 1800
           amplifier: 2
   healthboost-haste:
     potions:
@@ -256,13 +256,13 @@ brew-unlocks:
         ingredient: GLISTERING_MELON_SLICE
         result:
           type: HEALTH_BOOST
-          duration: 3600
+          duration: 1800
           amplifier: 0
       - base: THICK
         ingredient: GOLDEN_CARROT
         result:
           type: HASTE
-          duration: 3600
+          duration: 1800
           amplifier: 0
   healthboost-haste-2:
     potions:
@@ -270,19 +270,19 @@ brew-unlocks:
         ingredient: GLISTERING_MELON_SLICE
         result:
           type: HEALTH_BOOST
-          duration: 3600
+          duration: 1800
           amplifier: 1
       - base: MUNDANE
         ingredient: GOLDEN_CARROT
         result:
           type: HASTE
-          duration: 3600
+          duration: 1800
           amplifier: 1
       - base: MUNDANE
         ingredient: custom:ravager_hide
         result:
           type: RESISTANCE
-          duration: 3600
+          duration: 1800
           amplifier: 1
   hunter-hex:
     potions:
@@ -290,25 +290,25 @@ brew-unlocks:
         ingredient: custom:witch_elixir
         result:
           type: WEAKNESS
-          duration: 3600
+          duration: 1800
           amplifier: 2
       - base: THICK
         ingredient: custom:endermite_soot
         result:
           type: BLINDNESS
-          duration: 1200
+          duration: 600
           amplifier: 0
       - base: THICK
         ingredient: custom:stray_cloth
         result:
           type: SLOWNESS
-          duration: 1800
+          duration: 900
           amplifier: 2
       - base: THICK
         ingredient: custom:piglin_ear
         result:
           type: NAUSEA
-          duration: 1200
+          duration: 600
           amplifier: 0
   luck:
     effect: ""
@@ -317,13 +317,13 @@ brew-unlocks:
         ingredient: GOLDEN_APPLE
         result:
           type: LUCK
-          duration: 1200
+          duration: 600
           amplifier: 0
       - base: MUNDANE
         ingredient: custom:tf_crystal_apple
         result:
           type: LUCK
-          duration: 3600
+          duration: 1800
           amplifier: 1
   healing:
     effect: ""
@@ -332,13 +332,13 @@ brew-unlocks:
         ingredient: custom:sweet_berries_2x
         result:
           type: INSTANT_HEALTH
-          duration: 3600
+          duration: 1800
           amplifier: 2
       - base: THICK
         ingredient: custom:bogged_mossy_bone
         result:
           type: REGENERATION
-          duration: 3600
+          duration: 1800
           amplifier: 2
 over-enchant:
   alpha-1:
@@ -391,7 +391,7 @@ over-enchant:
       RIPTIDE: 6
 enchant-bookshelf-power:
   max-bookshelves: 15
-  power-per-bookshelf: 0.7
+  power-per-bookshelf: 1
 thread-slots:
   max-by-category:
     armor: 5
@@ -469,3 +469,39 @@ added-recipes:
       - ii
     ingredients:
       i: custom:turtle_scute_scrap
+  # 以下2件は 2026-08-25、ArsPaper フォークの items.yml に最後まで残っていたバニラ結果レシピを
+  # ここへ移設したもの(editor が items.yml の items: セクションを描画できず編集不能だったため)。
+  # 素材は移設元と完全に同一。added-recipes は resolveGateId が(namespace=trinityforge かつ
+  # path が catalog_ で始まらない)キーをゲート対象外として扱うため、常時解放のまま出荷する
+  # (元がゲートされていなかった=解放条件を持たなかったのと同じ挙動)。
+  - result: TRIDENT
+    amount: 1
+    method: workbench
+    type: shaped
+    shape:
+      - " CP"
+      - " AC"
+      - "D  "
+    ingredients:
+      P: PRISMARINE_SHARD
+      C: PRISMARINE_CRYSTALS
+      D: DIAMOND_BLOCK
+      A: COPPER_BLOCK
+  # 移設元は儀式(ritual)クラフトだった(コア: APPLE、ペデスタル: GOLD_BLOCK x4 / TOTEM_OF_UNDYING x2 /
+  # NETHERITE_INGOT x2、マナ3000)。作業台レシピには「マナ消費」を表現する手段が無いため、
+  # コア+ペデスタルの実素材(計9個)をそのまま shapeless の材料としてのみ引き継ぐ(マナ3000分の
+  # 価値は素材の希少さ側にそのまま残る=totem x2 + netherite x2 が実質の代替コスト)。
+  - result: ENCHANTED_GOLDEN_APPLE
+    amount: 1
+    method: workbench
+    type: shapeless
+    ingredients:
+      - APPLE
+      - GOLD_BLOCK
+      - GOLD_BLOCK
+      - GOLD_BLOCK
+      - GOLD_BLOCK
+      - TOTEM_OF_UNDYING
+      - TOTEM_OF_UNDYING
+      - NETHERITE_INGOT
+      - NETHERITE_INGOT

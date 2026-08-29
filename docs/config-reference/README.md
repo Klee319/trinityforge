@@ -45,7 +45,7 @@
 | `stats/food-gimmick.yml` | 5 | [stats/food-gimmick.md](stats/food-gimmick.md) |
 | `stats/woodcutting-gimmick.yml` | 4 | [stats/woodcutting-gimmick.md](stats/woodcutting-gimmick.md) |
 | `stats/mining-gimmick.yml` | 3 | [stats/mining-gimmick.md](stats/mining-gimmick.md) |
-| `stats/enchant-luck.yml` | 3 | [stats/enchant-luck.md](stats/enchant-luck.md) |
+| `stats/enchant-luck.yml` | 7 | [stats/enchant-luck.md](stats/enchant-luck.md) |
 | `stats/farming-gimmick.yml` | 3 | [stats/farming-gimmick.md](stats/farming-gimmick.md) |
 | `dungeon/themes.yml` | 3 | [dungeon/themes.md](dungeon/themes.md) |
 | `combat/mob-level-table.yml` | 1 (コメントアウト設定例13行) | [combat/mob-level-table.md](combat/mob-level-table.md) |

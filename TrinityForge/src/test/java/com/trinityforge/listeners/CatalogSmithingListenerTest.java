@@ -7,11 +7,13 @@ import com.trinityforge.stats.ItemFactory;
 import com.trinityforge.stats.ItemTemplate;
 import com.trinityforge.stats.PreviewRollSeeds;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.inventory.PrepareSmithingEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,7 +35,6 @@ import java.nio.file.Files;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -223,9 +224,8 @@ class CatalogSmithingListenerTest {
      *
      * <p>{@link ItemAssembler} は mock なので数値導出そのもの({@code useLevelRequirement} の実値等)
      * はここでは検証しない(それは {@code ItemAssemblerTest} 等の責務)。ここで固定するのは
-     * 「{@link ItemFactory#stamp} が新Material(NETHERITE_SWORD)・引き継いだ品質(5)・base とは
-     * 異なる rollSeed(プレビューは {@link PreviewRollSeeds#SMITHING} 固定)で呼ばれること」という
-     * このリスナーの配線責務。
+     * 「{@link ItemFactory#stamp} が新Material(NETHERITE_SWORD)・引き継いだ品質(5)・base と同じ
+     * rollSeed で呼ばれること」というこのリスナーの配線責務。
      */
     @Test
     void plainQualityVanillaUpgradeIsRestampedWithInheritedQuality(@TempDir File tempDir) throws IOException {
@@ -255,10 +255,8 @@ class CatalogSmithingListenerTest {
         assertEquals(Material.NETHERITE_SWORD, materialCaptor.getValue(),
                 "新Material(ネザライト)基準で再組み立てされていない");
         assertEquals(5, qualityCaptor.getValue(), "品質がbaseから引き継がれていない");
-        assertEquals(PreviewRollSeeds.SMITHING, (long) seedCaptor.getValue(),
-                "プレビューはカタログ品と同じ固定プレビューseedで見せるべき");
-        assertNotEquals(999L, (long) seedCaptor.getValue(),
-                "rollSeedがbaseのまま(=再抽選されていない)");
+        assertEquals(999L, (long) seedCaptor.getValue(),
+                "rollSeedがbaseから引き継がれていない");
     }
 
     /** 素材側のカタログIDが結果に引き継がれても、そのIDが netherite レシピを持たないなら消さない。 */
@@ -353,5 +351,36 @@ class CatalogSmithingListenerTest {
         assertEquals(overCap,
                 event.getResult().getEnchantmentLevel(org.bukkit.enchantments.Enchantment.POWER),
                 "上限突破分がネザライト強化で削られている");
+    }
+
+    @Test
+    void netheriteUpgradeKeepsSocketedThreadsAndBackpack(@TempDir File tempDir) throws IOException {
+        ItemCatalogConfig catalog = loadCatalog(tempDir);
+        ItemFactory itemFactory = factory();
+        CatalogSmithingListener listener = new CatalogSmithingListener(catalog, itemFactory);
+        ItemTemplate source = catalog.template("diamond_bow").orElseThrow();
+
+        ItemStack base = itemFactory.createIdentityOnly(source);
+        ItemMeta meta = base.getItemMeta();
+        meta.getPersistentDataContainer().set(
+                new NamespacedKey("arspaper", "thread_slots"), PersistentDataType.STRING, "[\"backpack\"]");
+        meta.getPersistentDataContainer().set(
+                new NamespacedKey("arspaper", "backpack_data"), PersistentDataType.STRING, "{\"0\":\"dirt\"}");
+        base.setItemMeta(meta);
+
+        PrepareSmithingEvent event = event(netheriteTemplate(), base, netheriteIngot(),
+                new ItemStack(Material.BOW));
+        listener.onPrepare(event);
+
+        ItemStack result = event.getResult();
+        assertNotNull(result);
+        assertEquals("[\"backpack\"]",
+                result.getItemMeta().getPersistentDataContainer()
+                        .get(new NamespacedKey("arspaper", "thread_slots"), PersistentDataType.STRING),
+                "装着スレッドがネザライト強化で消えている");
+        assertEquals("{\"0\":\"dirt\"}",
+                result.getItemMeta().getPersistentDataContainer()
+                        .get(new NamespacedKey("arspaper", "backpack_data"), PersistentDataType.STRING),
+                "バックパックの中身がネザライト強化で消えている");
     }
 }

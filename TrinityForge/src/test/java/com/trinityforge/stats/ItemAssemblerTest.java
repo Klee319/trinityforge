@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -598,5 +599,19 @@ class ItemAssemblerTest {
                 "no item-stats profile at all must NOT render a quality-tier header line, got: " + lore);
         assertEquals(0, ItemData.of(meta).quality(),
                 "no item-stats profile at all must have quality pinned to 0 in PDC");
+    }
+
+    @Test
+    void appendOwnerLoreIfMissingAddsOwnerLineOnceAndSkipsWhenPresent() {
+        ItemAssembler assembler = assembler(new ItemCatalogConfig(), new QualityTiersConfig());
+        ItemStack stack = new ItemStack(Material.STRING);
+        java.util.UUID owner = java.util.UUID.fromString("11111111-1111-1111-1111-111111111111");
+        stack.editMeta(meta -> ItemData.of(meta).setOwner(owner));
+
+        assertTrue(assembler.appendOwnerLoreIfMissing(stack), "所有者 PDC だけで lore が空なら行を足す");
+        String first = plain(stack.getItemMeta().lore().getFirst());
+        assertTrue(first.contains("所有者"), first);
+        assertFalse(assembler.appendOwnerLoreIfMissing(stack), "既にある所有者行を二重にしない");
+        assertEquals(1, stack.getItemMeta().lore().size());
     }
 }

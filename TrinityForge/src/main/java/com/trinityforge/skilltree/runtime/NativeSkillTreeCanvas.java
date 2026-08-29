@@ -74,9 +74,11 @@ final class NativeSkillTreeCanvas {
             if (raw.cell instanceof ConnectorCell connector) {
                 Cell existing = cells.get(normalized);
                 if (existing instanceof ConnectorCell current) {
+                    boolean sameFamily = sameConnectorFamily(
+                            current.ownerPerkIds, connector.ownerPerkIds, generated.perks());
                     cells.put(normalized, new ConnectorCell(
                             normalized, union(current.ownerPerkIds, connector.ownerPerkIds),
-                            mergeConnectorSuffix(current.suffix, connector.suffix)));
+                            mergeConnectorSuffix(current.suffix, connector.suffix, sameFamily)));
                 } else {
                     cells.put(normalized,
                             new ConnectorCell(normalized, connector.ownerPerkIds, connector.suffix));
@@ -192,8 +194,48 @@ final class NativeSkillTreeCanvas {
     }
 
     static String mergeConnectorSuffix(String first, String second) {
-        // 2026-07-29: 実体は GridConnectorRouting へ集約(アチーブメントGUIと共有)。
-        return com.trinityforge.skilltree.generator.GridConnectorRouting.merge(first, second);
+        return mergeConnectorSuffix(first, second, true);
+    }
+
+    static String mergeConnectorSuffix(String first, String second, boolean sameFamily) {
+        // 同じ親の扇は T/十字でよい。別親の縦と横は腕を足さない（総合の足元/天恵の列が格子に見えるのを防ぐ）。
+        return com.trinityforge.skilltree.generator.GridConnectorRouting.merge(first, second, sameFamily);
+    }
+
+    /**
+     * 接続線の持ち主が同じ親（扇）か、一方が他方の親か。
+     * {@code requirePerkAll} が空の root 線は、相手の前提に自分が入っていれば家族とみなす。
+     */
+    private static boolean sameConnectorFamily(Set<String> existingIds, Set<String> incomingIds,
+                                               Map<String, GeneratedPerk> perks) {
+        java.util.HashSet<String> existingParents = new java.util.HashSet<>();
+        for (String id : existingIds) {
+            GeneratedPerk perk = perks.get(id);
+            if (perk != null) {
+                existingParents.addAll(perk.requirePerkAll());
+            }
+        }
+        for (String incomingId : incomingIds) {
+            GeneratedPerk incoming = perks.get(incomingId);
+            if (incoming == null) {
+                return true;
+            }
+            if (existingIds.contains(incomingId)) {
+                return true;
+            }
+            for (String parent : incoming.requirePerkAll()) {
+                if (existingParents.contains(parent) || existingIds.contains(parent)) {
+                    return true;
+                }
+            }
+            for (String existingId : existingIds) {
+                GeneratedPerk existing = perks.get(existingId);
+                if (existing != null && existing.requirePerkAll().contains(incomingId)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static Set<String> union(Set<String> first, Set<String> second) {

@@ -14,6 +14,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -78,6 +79,7 @@ public final class ItemAssembler {
     private final LoreConfig loreConfig;
     private final LoreComposer loreComposer;
     private final QualityTiersConfig qualityTiers;
+    private static final PlainTextComponentSerializer PLAIN = PlainTextComponentSerializer.plainText();
     private final TableGeneration tableGeneration;
     private final ItemCatalogConfig itemCatalog;
     private final SkillTreeConfig skillTrees;
@@ -126,6 +128,9 @@ public final class ItemAssembler {
         Objects.requireNonNull(meta, "meta");
         Objects.requireNonNull(material, "material");
         ItemData data = ItemData.of(meta);
+        // Glow は耐久力ボーナス計算より前に合わせる。旧ダミー耐久力 I が残っていると
+        // EnchantmentStatBridge が「本物の耐久力」として最大耐久を水増しする。
+        syncEnchantGlow(meta, data);
         Integer cmd = DerivedItemStats.customModelDataOf(meta);
         // タスクB (2026-07-26 クラフト品質): perQuality/random(乗算レイヤ内含む)を一切持たない
         // プロファイル(fixedのみ、例: 素材/触媒)は品質で値が変動しないので「品質なし」として扱う。
@@ -390,6 +395,16 @@ public final class ItemAssembler {
     }
 
     /**
+     * カタログ現値に合わせて光沢を付け外しする。catalog id が無い（クラフト／漁獲の stamp 経路）は触らない。
+     * {@link ItemFactory#syncEnchantGlow} が旧ダミー耐久力 + {@code HIDE_ENCHANTS} の移行もやる。
+     */
+    private void syncEnchantGlow(ItemMeta meta, ItemData data) {
+        data.catalogId()
+                .flatMap(itemCatalog::template)
+                .ifPresent(template -> ItemFactory.syncEnchantGlow(meta, template.enchantGlow()));
+    }
+
+    /**
      * Applies every {@code tool-enchant-<vanillaEnchantKey>} stat in {@code stats} as a vanilla enchant
      * level: the resolved value is floored to an int, and the enchant is set only when that floor is
      * {@code >= 1} AND the enchant is naturally valid for {@code material} ({@link
@@ -412,7 +427,9 @@ public final class ItemAssembler {
             }
             int level = (int) Math.floor(entry.getValue());
             if (level >= 1 && enchant.canEnchantItem(probe)) {
-                meta.addEnchant(enchant, level, true);
+                // 品質由来の tool-enchant で、プレイヤーがテーブル/本で付けた高いレベルを下げない。
+                int applied = Math.max(level, meta.getEnchantLevel(enchant));
+                meta.addEnchant(enchant, applied, true);
                 granted.add(enchantKey);
             } else {
                 meta.removeEnchant(enchant);
@@ -506,6 +523,41 @@ public final class ItemAssembler {
         }
         // 使用可能レベルは LoreComposer が bind.use-requirement-line テンプレート
         // (LoreConfig.BindLore) を使ってスキル表示名付きで出力する。
+    }
+
+    /**
+     * 所有者 PDC があるのに lore に所有者行が無い個体へ、{@code lore.yml} の owner-line を足す。
+     * Ars スレッドは {@link #assemble} 禁止なので、カタログ配布や参加時リフレッシュから呼ぶ。
+     *
+     * @return 行を足したら true
+     */
+    public boolean appendOwnerLoreIfMissing(ItemStack stack) {
+        if (stack == null || stack.getType().isAir() || !stack.hasItemMeta()) {
+            return false;
+        }
+        ItemMeta meta = stack.getItemMeta();
+        ItemData data = ItemData.of(meta);
+        var owner = data.owner();
+        if (owner.isEmpty()) {
+            return false;
+        }
+        LoreConfig.BindLore bind = loreConfig.snapshot().bind();
+        if (!bind.showOwner() || bind.ownerLine() == null || bind.ownerLine().isBlank()) {
+            return false;
+        }
+        String ownerDisplay = ownerName(owner.get());
+        List<Component> lore = meta.lore() == null ? new ArrayList<>() : new ArrayList<>(meta.lore());
+        for (Component line : lore) {
+            String plain = PLAIN.serialize(line);
+            if (plain.contains(ownerDisplay) || plain.contains("所有者")) {
+                return false;
+            }
+        }
+        lore.add(noItalic(miniMessage.deserialize(
+                bind.ownerLine(), Placeholder.unparsed("owner", ownerDisplay))));
+        meta.lore(lore);
+        stack.setItemMeta(meta);
+        return true;
     }
 
     /** 所有者UUID→表示名。オフラインでも解決を試み、未解決ならUUIDの先頭8桁にフォールバックする。 */

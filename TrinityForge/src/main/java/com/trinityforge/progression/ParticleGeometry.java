@@ -50,6 +50,14 @@ public final class ParticleGeometry {
      * パーティクルは毎tick回る経路なので、設定ミス1件で例外ログが埋まると同居処理まで道連れになる。
      */
     public static List<Emit> emits(Emission emission, double yawDegrees) {
+        return emits(emission, yawDegrees, 0.0);
+    }
+
+    /**
+     * {@code phaseTurns} は螺旋の「今どこまで回したか」（周）。止まっているプレイヤーでも
+     * 螺旋に見えるように、駆動側が時刻で進める。他の形状は無視する。
+     */
+    public static List<Emit> emits(Emission emission, double yawDegrees, double phaseTurns) {
         List<Emit> out = new ArrayList<>();
         if (emission == null || emission.count() <= 0) {
             return out;
@@ -58,6 +66,7 @@ public final class ParticleGeometry {
         double r = emission.radius();
         double speed = emission.speed();
         double y = emission.yOffset();
+        double phase = Double.isFinite(phaseTurns) ? phaseTurns : 0.0;
         switch (emission.shape()) {
             case POINT -> out.add(new Emit(0, y, 0, count, 0, 0, 0, speed));
             case AURA -> out.add(new Emit(0, y, 0, count, r, r, r, speed));
@@ -90,7 +99,9 @@ public final class ParticleGeometry {
                 double turns = emission.turns();
                 for (int i = 0; i < count; i++) {
                     double t = count == 1 ? 0.0 : (double) i / (count - 1);
-                    double angle = 2 * Math.PI * turns * t;
+                    // 位相を足さないと、点の少ない螺旋は左右2本のギザギザにしか見えない
+                    // （出荷の花びら螺旋はかつて 3点×3巻きで、静止画がまさにそれだった）。
+                    double angle = 2 * Math.PI * (turns * t + phase);
                     out.add(new Emit(r * Math.cos(angle), y + emission.height() * t,
                             r * Math.sin(angle), 1, 0, 0, 0, speed));
                 }

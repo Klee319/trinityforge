@@ -33,8 +33,8 @@ config-editor で保存すると本文コメントは復元されないため([t
 
 ```
   # ---- 主軸 A〜E（主軸に固有名の記載が画像に無いため世界観で命名） ----
-    # 品質+1=potion_quality_bonus(醸造ポーションの効果時間/強度への換算ポイント、
-    # PotionQualityListener/stats/alchemy-quality.yml消費)。醸造速度UP=brew_speed_bonus
+    # 品質+1=potion_quality_bonus(醸造ポーションの効果時間への換算ポイント、
+    # PotionQualityListener/stats/alchemy-quality.yml消費。0.1ptあたり持続+1%。強度は品質では動かさない)。醸造速度UP=brew_speed_bonus
     # (醸造時間の短縮率、同リスナー消費)。
     # 武器コーティング解放（Valhalla の light/heavy weapons コーティング機構をここで開放）。
     # コーティング解放は dedicated-effects、回数は buffs に統合する。
@@ -52,8 +52,7 @@ config-editor で保存すると本文コメントは復元されないため([t
     # 最も内容が近いと判断し配置(multi-debuff-glyph-unlockのカタログ側game配線はtarget: hexで確定済み)。
   # ---- ギリシャ文字路線（alpha=上段 / beta=下段・排他） ----
     # B案(ユーザー確定): 「残留時間UP・スプラッシュ強度UP」も品質(potion_quality_bonus)と同じ
-    # 仕組みで表現する。SPLASH/LINGERINGボトル限定の追加時間加算(lingering-splash-duration-ticks-
-    # per-quality)は PotionQualityListener が全ての potion_quality_bonus 保持者へ均等に適用するため、
-    # この経路専用の値ではなくポイントの蓄積として表現する。
+    # 仕組みで表現する。持続時間は品質ポイントに対する%で全ボトル共通
+    # (duration-percent-per-tenth-point)。強度はグロウストーンのバニラ強化だけ。
     # 武器コーティングのスタック増強（beta 分岐。主軸 E より控えめの +5）。
 ```

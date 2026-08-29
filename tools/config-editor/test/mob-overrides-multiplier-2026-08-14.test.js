@@ -461,3 +461,61 @@ test("tf-mob-overrides: 倍率キーが0以下はエラー(HP/攻撃力が消え
   assert.ok(validate("tf-mob-overrides", scopeStatsEntry({ "max-health-multiplier": -0.1 }))
     .some((e) => e.includes("overrides.em_id_the_mines.stats.max-health-multiplier")));
 });
+
+function scopeWithAbilityScale(scale) {
+  return { overrides: { em_id_enchantment_challenge_2: { "ability-damage-scale": scale, mobs: {} } } };
+}
+
+test("tf-mob-overrides: ability-damage-scale 0.70 は妥当、省略も妥当", () => {
+  assert.deepEqual(validate("tf-mob-overrides", scopeWithAbilityScale(0.70)), []);
+  assert.deepEqual(validate("tf-mob-overrides", { overrides: { em_x: { mobs: {} } } }), []);
+});
+
+test("tf-mob-overrides: ability-damage-scale が非数値・0以下・2超・クォート文字列はエラー", () => {
+  assert.ok(validate("tf-mob-overrides", scopeWithAbilityScale("0.70"))
+    .some((e) => e.includes("ability-damage-scale")));
+  assert.ok(validate("tf-mob-overrides", scopeWithAbilityScale(0))
+    .some((e) => e.includes("ability-damage-scale")));
+  assert.ok(validate("tf-mob-overrides", scopeWithAbilityScale(2.1))
+    .some((e) => e.includes("ability-damage-scale")));
+});
+
+test("ability-damage-scale は RATE_FIELDS に入っていない(入ると 0.70 が 70% と表示される)", () => {
+  const src = fs.readFileSync(path.join(__dirname, "..", "public", "js", "mob-forms.js"), "utf8");
+  const m = /const RATE_FIELDS = new Set\(\[([\s\S]*?)\]\)/.exec(src);
+  assert.ok(m, "mob-forms.js の RATE_FIELDS が見つからない");
+  const keys = new Set([...m[1].matchAll(/"([a-z0-9-]+)"/g)].map((x) => x[1]));
+  assert.equal(keys.has("ability-damage-scale"), false);
+});
+
+test("ability-damage-scale を持つ yml を開いて保存しても値が保たれ、無い yml に 1.0 は生えない", () => {
+  const withScale = {
+    overrides: {
+      default: { mobs: {} },
+      em_id_enchantment_challenge_2: {
+        "display-name": "エンチャント試練 2",
+        "ability-damage-scale": 0.7,
+        mobs: {}
+      }
+    }
+  };
+  assert.deepEqual(buildForm(deepClone(withScale)).getData(), withScale);
+
+  const withoutScale = fixtureWithoutMultipliers();
+  const saved = buildForm(deepClone(withoutScale)).getData();
+  assert.equal(Object.prototype.hasOwnProperty.call(saved.overrides.em_fireworks, "ability-damage-scale"), false);
+  assert.deepEqual(saved, withoutScale);
+});
+
+test("ability-damage-scale を空欄に戻すとキーごと消える", () => {
+  const data = {
+    overrides: {
+      em_x: { "display-name": "x", "ability-damage-scale": 0.7, mobs: {} }
+    }
+  };
+  const form = buildForm(data);
+  const inputs = controlsForKey(form.element, "ability-damage-scale");
+  assert.equal(inputs.length, 1, "非 default スコープに技倍率欄が1つ出る");
+  inputs[0].trigger(null);
+  assert.equal("ability-damage-scale" in form.getData().overrides.em_x, false);
+});

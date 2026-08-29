@@ -279,7 +279,8 @@ D:\game\minecraft\PaperServer\Velocity_for_TF\launch\deploy.cmd
 ```
 
 TF 本体・ArsPaper・EliteMobs の 3 つを、**前回ビルド以降にソースが変わったものだけ**ビルドして
-3 バックエンドへ配る。**サーバが 1 台でも動いていたら何もせず中断する**
+バックエンドへ配る。EliteMobs はビルドをスキップしても、成果物 uberjar が実機と違えば
+main / dev へコピーする。**サーバが 1 台でも動いていたら何もせず中断する**
 （稼働中の jar 差し替えは `NoClassDefFoundError` になり、JVM 再起動以外に復旧手段が無い）。
 オプションと更新判定の限界は [../RUNBOOK.md](../RUNBOOK.md) 手順 13-5。
 

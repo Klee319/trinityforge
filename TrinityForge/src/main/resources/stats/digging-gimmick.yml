@@ -5,46 +5,14 @@
 # の挙動移植: 同リスナーがドロップするのと同じ空スレッド item id (thread_empty、Ars item registry) を使う。
 # 設定リファレンス(本文コメント移設先): docs/config-reference/stats/digging-gimmick.md
 
-drop-tables:
-  categories:
-    tier1:
-      display-name: tier1
-      entries:
-        - item: custom:gacha_ticket_digging
-          weight: 1
-          amount: 1
-      trigger-chance-percent: 2
-    tier2:
-      display-name: tier2
-      entries:
-        - item: custom:gacha_ticket_digging
-          weight: 1
-          amount: 1
-      trigger-chance-percent: 3
-    tier3:
-      display-name: tier3
-      entries:
-        - item: ANCIENT_DEBRIS
-          weight: 1
-          amount: 1
-      trigger-chance-percent: 0.1
-durability-exp:
-  durability-per-percent: 500
-  vanilla-exp:
-    tiers:
-      "1":
-        cap-percent: 100
-        durability-per-percent: 250
-  job-exp:
-    tiers:
-      "1":
-        cap-percent: 50
-        durability-per-percent: 500
-# haste-active-digging (2026-08-18 W-59): シャベル専用の独立アクティブスキル。
-# mining-gimmick.yml の haste-active-mining とは別の数値(意図的にミラーしない)。
-# CooldownManager 側の CooldownGroup は haste-active-mining と共有するため、ツールを持ち替えて
-# 連発しても合計アップタイムは増えない(片方のCTが残っていればもう片方も撃てない)。
-haste-active-digging:
-  amplifier: 1
-  duration-ticks: 120
-  cooldown-ticks: 800
+area-harvest:
+  radius: 1
+  tiers:
+    "1":
+      radius: 1
+    "2":
+      radius: 2
+animal-damage-4x:
+  multiplier: 4
+bee-no-aggro:
+  calm-radius: 16

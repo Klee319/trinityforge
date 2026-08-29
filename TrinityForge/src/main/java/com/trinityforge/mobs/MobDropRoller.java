@@ -10,6 +10,12 @@ public final class MobDropRoller {
     /** No drop table needs a stack size beyond this; also the overflow-safety bound for {@code max}. */
     private static final int MAX_STACK_COUNT = 1_000_000;
 
+    /**
+     * 追加個数のスポーンループ防止。採取の {@code GatheringPolicy.MAX_EXTRA} と同じ 256。
+     * プレイヤーステの設計上限ではない。
+     */
+    static final int MAX_EXTRA_COUNT = 256;
+
     private MobDropRoller() {
     }
 
@@ -42,18 +48,19 @@ public final class MobDropRoller {
         return (int) (min + offset);
     }
 
-    /** ドロップ増加ステ({@code mob_drop_bonus})の上限。+200% を超える増幅は認めない。 */
-    private static final double MAX_BONUS = 2.0;
-
     /**
-     * ドロップ増加ステ({@code mob_drop_bonus}の装備+perk合算)を有効な範囲へ収める。
-     * 負のボーナスは無視(0扱い)、上限は +{@code 200%}。
+     * ドロップ増加ステ({@code mob_drop_bonus})の設計上限は {@code combat/stat-caps.yml}。
+     * ここは負と非有限だけ潰す。+200% のハードコードはしない。
+     *
+     * <p>呼び出し側は {@code PlayerCombatAggregate#totalOf} 済みの値を渡すこと。
+     * {@code totalOf} が stat-caps を適用したあと、ここでさらに切ると caps が空のときでも
+     * +200% で頭打ちになる。
      */
     public static double clampBonus(double mobDropBonus) {
         if (!Double.isFinite(mobDropBonus)) {
             return 0.0;
         }
-        return Math.min(MAX_BONUS, Math.max(0.0, mobDropBonus));
+        return Math.max(0.0, mobDropBonus);
     }
 
     /**
@@ -86,13 +93,17 @@ public final class MobDropRoller {
      * <p>旧実装は個数への<b>乗算</b>だったので、32個スタックに +100% を盛ると +32 個だった。
      * 新仕様は加算なので +1 個。この差は意図したもの(ユーザー指示)。
      *
+     * <p>スポーンループ防止の天井は {@link #MAX_EXTRA_COUNT}（採取と同じ 256）。
+     * プレイヤーステの設計上限は stat-caps 側。
+     *
      * @param roll 0.0以上1.0未満の乱数。テストのために引数化している。
      */
     public static int extraCount(double mobDropBonus, double roll) {
         double bonus = clampBonus(mobDropBonus);
         int whole = (int) Math.floor(bonus);
         double fraction = bonus - whole;
-        return whole + (fraction > 0.0 && roll < fraction ? 1 : 0);
+        int extras = whole + (fraction > 0.0 && roll < fraction ? 1 : 0);
+        return Math.min(MAX_EXTRA_COUNT, extras);
     }
 
     /**

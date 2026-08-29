@@ -9,8 +9,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 「サーバが知っているプレイヤー位置」から<b>1tickぶん先読みした位置</b>を出す小道具
- * (2026-08-25 / W-247・W-248)。頭上の称号({@link TitleDisplayService})と装備パーティクル
- * ({@link ParticleEffectService})の<b>追従の遅れ</b>を同じ理屈で詰めるために共有する。
+ * (2026-08-25 / W-247・W-248)。装備パーティクル({@link ParticleEffectService})の
+ * 追従の遅れを詰めるために使う。
+ *
+ * <p>称号({@link TitleDisplayService})は 2026-08-29 以降は使わない。本人には称号を出さない
+ * (W-263)ので、先読みすると他人から見たネームタグより前へ出る。
  *
  * <h2>なぜ先読みが要るのか(遅れの正体)</h2>
  * プラグインが毎tick読む {@code player.getLocation()} は<b>クライアントが送ってきた位置</b>で、

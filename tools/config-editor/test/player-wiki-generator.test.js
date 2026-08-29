@@ -213,3 +213,20 @@ test("player wiki generator ignores line-ending differences in check mode", () =
     fs.rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("player wiki documents silk-place-crush mining fortune, drop bonus, backpack, and reroll charm", () => {
+  const pages = generator.generatePages(ROOT);
+  const stats = pages.get("事典-ステータス.md");
+  assert.match(stats, /幸運\(採掘\)/);
+  assert.match(stats, /シルクタッチ中は増えません/);
+  assert.match(stats, /置いて砕くと増えます/);
+  assert.match(stats, /今は上限なし/);
+  assert.match(pages.get("装備とステータスの見方.md"), /厳選の護符/);
+  assert.match(pages.get("装備とステータスの見方.md"), /\/ars backpack/);
+  assert.match(pages.get("バニラとの違い.md"), /置いて砕くと増えます/);
+  const glyphs = pages.get("事典-呪文グリフ.md");
+  assert.match(glyphs, /同じ装備には原則1本まで/);
+  assert.match(glyphs, /ページ送り/);
+  assert.match(pages.get("管理者ガイド-導入とコマンド.md"), /複数部位なら選択画面/);
+  assert.match(pages.get("管理者ガイド-設定リファレンス.md"), /max: 4/);
+});

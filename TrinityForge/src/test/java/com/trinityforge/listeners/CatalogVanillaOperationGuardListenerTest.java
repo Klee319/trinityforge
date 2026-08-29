@@ -48,10 +48,12 @@ import java.util.HashMap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.ArgumentMatchers.anyString;
 
 class CatalogVanillaOperationGuardListenerTest {
 
@@ -300,6 +302,55 @@ class CatalogVanillaOperationGuardListenerTest {
 
         verify(anvilEvent, org.mockito.Mockito.never()).setResult(null);
         verify(smithingEvent, org.mockito.Mockito.never()).setResult(null);
+    }
+
+    @Test
+    void allowsVanillaArmorTrimOnCatalogLeatherAndKeepsIdentity() {
+        ItemTemplate leather = template("light_chest", Material.LEATHER_CHESTPLATE, 9001);
+        templates.put(leather.id(), leather);
+        ItemStack equipment = catalogStack(leather);
+        ItemMeta seeded = equipment.getItemMeta();
+        ItemData.of(seeded).setRollSeed(99L);
+        ItemData.of(seeded).setQuality(8);
+        equipment.setItemMeta(seeded);
+
+        ItemStack trim = new ItemStack(Material.SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE);
+        ItemStack mineral = new ItemStack(Material.IRON_INGOT);
+        SmithingInventory smithing = mock(SmithingInventory.class);
+        when(smithing.getContents()).thenReturn(new ItemStack[] {trim, equipment, mineral, null});
+        when(smithing.getInputTemplate()).thenReturn(trim);
+        when(smithing.getInputEquipment()).thenReturn(equipment);
+        when(smithing.getInputMineral()).thenReturn(mineral);
+        PrepareSmithingEvent event = mock(PrepareSmithingEvent.class);
+        when(event.getInventory()).thenReturn(smithing);
+        when(event.getResult()).thenReturn(new ItemStack(Material.LEATHER_CHESTPLATE));
+
+        listener.onPrepareSmithing(event);
+
+        verify(event, never()).setResult(null);
+        verify(event).setResult(argThat(stack -> {
+            ItemData data = ItemData.of(stack.getItemMeta());
+            return data.rollSeed().orElse(0L) == 99L
+                    && data.quality() == 8
+                    && "light_chest".equals(data.catalogId().orElse(null));
+        }));
+    }
+
+    @Test
+    void doesNotBlockCatalogLeatherUndyeInWaterCauldron() {
+        ItemTemplate leather = template("light_chest", Material.LEATHER_CHESTPLATE, 9001);
+        templates.put(leather.id(), leather);
+        PlayerInteractEvent event = mock(PlayerInteractEvent.class);
+        when(event.getAction()).thenReturn(Action.RIGHT_CLICK_BLOCK);
+        when(event.useItemInHand()).thenReturn(org.bukkit.event.Event.Result.ALLOW);
+        Block cauldron = mock(Block.class);
+        when(cauldron.getType()).thenReturn(Material.WATER_CAULDRON);
+        when(event.getClickedBlock()).thenReturn(cauldron);
+        when(event.getItem()).thenReturn(catalogStack(leather));
+
+        listener.onConsumptiveBlockUse(event);
+
+        verify(event, never()).setCancelled(true);
     }
 
     @Test

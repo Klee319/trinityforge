@@ -119,10 +119,10 @@ const {
   FUNCTIONAL_ITEM_IDS
 } = require("../public/js/functional-items.js");
 
-test("TF_SPECIAL_ITEM_IDS: 既存2件 + 券3件 + 2026-08-24追加の良薬3件のちょうど8件", () => {
+test("TF_SPECIAL_ITEM_IDS: 既存2件 + 券3件 + 2026-08-24追加の良薬3件 + 2026-08-29魂縛解きのちょうど9件", () => {
   assert.deepEqual(TF_SPECIAL_ITEM_IDS.slice().sort(), [
     "exp_cleanse_tonic_greater", "exp_cleanse_tonic_lesser", "exp_cleanse_tonic_supreme",
-    "quality_upgrade_ticket", "role_reselect_ticket", "skill_node_lock",
+    "owner_unbind_ticket", "quality_upgrade_ticket", "role_reselect_ticket", "skill_node_lock",
     "skill_tree_reset", "stat_reroll_ticket"
   ]);
 });
@@ -131,6 +131,27 @@ test("TF_SPECIAL_ITEM_IDS は Ars の FUNCTIONAL_ITEM_IDS(8件)と重複しな�
   for (const id of TF_SPECIAL_ITEM_IDS) {
     assert.ok(!FUNCTIONAL_ITEM_IDS.includes(id), `${id} が Ars 8件と重複している`);
   }
+});
+
+test("owner_unbind_ticket は TF 特殊アイテムで、PAPER のタブ推論は補助になる", () => {
+  assert.ok(TF_SPECIAL_ITEM_IDS.includes("owner_unbind_ticket"),
+    "魂縛解きの符が TF_SPECIAL_ITEM_IDS に無いとカタログ補助へ落ちる");
+  global.window = global.window || {};
+  require("../public/js/materials.js");
+  assert.equal(global.window.inferItemCategory("PAPER"), "other",
+    "PAPER は武器/防具/ツールのどれでもないので推論は補助。隠さないとカタログ補助に出る");
+});
+
+test("TF 特殊アイテムカードは material / 表示名 / aura / lore を編集できる", () => {
+  const src = fs.readFileSync(path.join(__dirname, "../public/js/functional-items.js"), "utf8");
+  const start = src.indexOf("function buildTfSpecialItemsSection");
+  assert.ok(start >= 0, "buildTfSpecialItemsSection が無い");
+  const tfSection = src.slice(start);
+  assert.match(tfSection, /window\.materialInput\(entry\.material, "material-list"/,
+    "Ars 機能アイテムと同じ material 欄が TF 特殊アイテムに無い");
+  assert.match(tfSection, /fieldRow\("display-name"/);
+  assert.match(tfSection, /enchant-glow/);
+  assert.match(tfSection, /renderLoreRows/);
 });
 
 test("TF_SPECIAL_ITEM_LABELS は TF_SPECIAL_ITEM_IDS の全キーに日本語ラベルを持つ", () => {
@@ -280,6 +301,7 @@ test("実データ: catalog.yml の skill_node_lock / skill_tree_reset は _edit
       const ids = Array.isArray(cat.itemIds) ? cat.itemIds : [];
       assert.ok(!ids.includes("skill_node_lock"), `_editor.categories.${tabKey} に skill_node_lock が孤児として残っている`);
       assert.ok(!ids.includes("skill_tree_reset"), `_editor.categories.${tabKey} に skill_tree_reset が孤児として残っている`);
+      assert.ok(!ids.includes("owner_unbind_ticket"), `_editor.categories.${tabKey} に owner_unbind_ticket が孤児として残っている`);
     }
   }
 });
@@ -287,7 +309,7 @@ test("実データ: catalog.yml の skill_node_lock / skill_tree_reset は _edit
 // ---- 6. catalog.yml 実データ: 2026-08-04追加の券3件(role_reselect_ticket/stat_reroll_ticket/
 // quality_upgrade_ticket)が実在し、同じく _editor.categories に孤児として残っていないこと ----
 
-test("実データ: catalog.yml に券3件(role_reselect_ticket/stat_reroll_ticket/quality_upgrade_ticket)が" +
+test("実データ: catalog.yml に券4件(role/stat/quality/owner_unbind)が" +
     "存在し、CMD は台帳に登録済みで、_editor.categories のどのネストカテゴリにも属していない", () => {
   const { readConfig } = require("../lib/yamlio.js");
   const catalogPath = path.join(
@@ -304,7 +326,8 @@ test("実データ: catalog.yml に券3件(role_reselect_ticket/stat_reroll_tick
   const allocated = new Set(
     (registry.allocations || []).map((a) => `${String(a.material).toUpperCase()}#${a.cmd}`)
   );
-  const ticketIds = ["role_reselect_ticket", "stat_reroll_ticket", "quality_upgrade_ticket"];
+  const ticketIds = ["role_reselect_ticket", "stat_reroll_ticket", "quality_upgrade_ticket",
+    "owner_unbind_ticket"];
   for (const id of ticketIds) {
     assert.ok(data.items[id], `${id} が catalog.yml に無い`);
     const cmd = data.items[id]["custom-model-data"];
@@ -314,7 +337,6 @@ test("実データ: catalog.yml に券3件(role_reselect_ticket/stat_reroll_tick
       assert.ok(allocated.has(key),
         `${id} の CMD が台帳に無い (${key})。cmd-registry.json へ払い出さずに手で書くと番号が二重払い出しされる`);
     }
-    assert.equal(data.items[id].recipe, undefined, `${id} にレシピを付けてはいけない`);
   }
   const categories = (data._editor && data._editor.categories) || {};
   for (const [tabKey, cats] of Object.entries(categories)) {

@@ -37,7 +37,7 @@ icon: BOW
 starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 3
+  max-times: 5
   at-level: 100
   name: 弓聖の境地
   effect-text: ダメージ・命中精度・節約率が永続で増加
@@ -45,10 +45,12 @@ prestige:
     percent-bonus-damage: 0.05
     bow-accuracy: 0.05
     ammo-save-chance: 0.1
+    archery-exp-bonus: 0.1
   description: |-
     追加ダメージ率+5%
     弓精度+5%
     矢節約率+10%
+    弓術EXP増加+10%
 nodes:
   A:
     name: 弓引きの心得

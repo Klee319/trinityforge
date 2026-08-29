@@ -38,12 +38,13 @@ class ShippedCompressedFoodRegistrationTest {
             "carrot_1x", "potato_1x", "beetroot_1x", "apple_1x",
             "sweet_berries_1x", "glow_berries_1x",
             "beef_1x", "porkchop_1x", "rabbit_1x", "chicken_1x", "mutton_1x",
-            "cod_1x", "salmon_1x");
+            "cod_1x", "salmon_1x", "pufferfish_1x", "tropical_fish_1x");
 
     /** 81倍/729倍は「素材」であって食料ではない(解凍して食べる)。ここに載ると事故。 */
     private static final List<String> MUST_STAY_UNREGISTERED = List.of(
             "carrot_2x", "carrot_3x", "potato_2x", "potato_3x", "beef_2x", "beef_3x",
-            "apple_2x", "apple_3x");
+            "apple_2x", "apple_3x", "pufferfish_2x", "pufferfish_3x",
+            "tropical_fish_2x", "tropical_fish_3x");
 
     private static YamlConfiguration shipped() throws Exception {
         try (InputStream in = ShippedCompressedFoodRegistrationTest.class.getClassLoader()

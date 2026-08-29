@@ -51,6 +51,14 @@ public final class ItemData {
         return container.has(PdcKeys.ITEM_ROLL_SEED, PersistentDataType.LONG);
     }
 
+    /**
+     * 品質キーが実際に刻印されているか。{@link #quality()} は欠落時に 0 を返すので、
+     * 「劣悪(0)」と「未刻印」を区別するときはこちらを使う。
+     */
+    public boolean hasQuality() {
+        return container.has(PdcKeys.ITEM_QUALITY, PersistentDataType.INTEGER);
+    }
+
     public Optional<Long> rollSeed() {
         return Optional.ofNullable(container.get(PdcKeys.ITEM_ROLL_SEED, PersistentDataType.LONG));
     }
@@ -188,12 +196,15 @@ public final class ItemData {
     }
 
     /**
-     * Writes {@code mods} to PDC ONLY when non-zero, so a zero-mods craft writes nothing and reads back
-     * as {@link CraftRollMods#NONE} (avoids polluting every item's PDC with inert zero values).
+     * Writes the current mods. Zero clears any previous keys so a later stamp (厳選の護符など)
+     * can drop old ロール運 without leaving stale PDC.
      */
     public void setCraftRollMods(CraftRollMods mods) {
         Objects.requireNonNull(mods, "mods");
         if (mods.isZero()) {
+            container.remove(PdcKeys.ITEM_CRAFT_ROLL_UP);
+            container.remove(PdcKeys.ITEM_CRAFT_ROLL_DOWN_REDUCTION);
+            container.remove(PdcKeys.ITEM_CRAFT_ROLL_INSET_DELTA);
             return;
         }
         container.set(PdcKeys.ITEM_CRAFT_ROLL_UP, PersistentDataType.DOUBLE, mods.rollUpBonus());

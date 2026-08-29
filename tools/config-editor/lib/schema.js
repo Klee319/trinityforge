@@ -568,6 +568,10 @@ function validateArsThreads(data, errors) {
     if (entry.max !== undefined && entry.max !== null && !isNonNegInteger(entry.max)) {
       errors.push(`${prefix}.max: 0以上の整数である必要があります`);
     }
+    if (entry["max-inventory-slots"] !== undefined && entry["max-inventory-slots"] !== null
+        && !isPositiveInt(entry["max-inventory-slots"])) {
+      errors.push(`${prefix}.max-inventory-slots: 1以上の整数である必要があります`);
+    }
     if (entry["potion-effect"] !== undefined && entry["potion-effect"] !== null) {
       const pe = entry["potion-effect"];
       if (typeof pe !== "string" || (pe !== "none" && !THREAD_POTION_EFFECTS.includes(pe))) {
@@ -2186,6 +2190,19 @@ function validateDisplayName(host, prefix, errors) {
     errors.push(`${prefix}.display-name: 空でない文字列である必要があります(未設定なら行ごと削除)`);
   }
 }
+
+/**
+ * scope 直下 ability-damage-scale:(2026-08-29)。省略可。指定時は (0, 2] の素の数値。
+ * 1.0 を既定として書き込んではいけない(未設定 = 1.0 であって、キーが生えると差分が読めなくなる)。
+ * Java 側 (MobOverridesConfig#parseScopeAbilityDamageScale) と同じ受理範囲。
+ */
+function validateAbilityDamageScale(host, prefix, errors) {
+  const v = host["ability-damage-scale"];
+  if (v === undefined || v === null) return;
+  if (!isNumber(v) || v <= 0 || v > 2) {
+    errors.push(`${prefix}.ability-damage-scale: 0より大きく2以下の数値である必要があります`);
+  }
+}
 // level-cutoff(レベル差による足きり)の検証は 2026-08-09 に撤去した。設定が
 // combat/mob-overrides.yml から combat/damage.yml へ移り、共通変数タブのスカラー
 // (lib/constants.js の level-cutoff.*)として min/max で検証されるようになったため。
@@ -2201,6 +2218,7 @@ function validateTfMobOverrides(data, errors) {
     const scopePrefix = `overrides.${scopeName}`;
     if (!isPlainObject(scope)) { errors.push(`${scopePrefix}: マップである必要があります`); continue; }
     validateDisplayName(scope, scopePrefix, errors);
+    validateAbilityDamageScale(scope, scopePrefix, errors);
     // scope 直下の stats:(そのダンジョン全体の既定ステータス、2026-08-03「ダンジョンごとに物魔の
     // コンセプトを割り当てる」)。mobs.<mobId>.stats とキー体系も検証も完全に同一。
     validateMobOverrideStats(scope.stats, scopePrefix, errors);

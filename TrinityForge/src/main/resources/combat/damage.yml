@@ -43,8 +43,8 @@ aoe:
   hit-players: false
 pvp:
   enabled: true
-  damage-multiplier: 0.5
-  max-damage-percent-of-max-health: 0.15
+  damage-multiplier: 0.001
+  max-damage-percent-of-max-health: 0.25
 vanilla-armor:
   defense-rate-per-point: 0.015
   defense-rate-max: 0.8

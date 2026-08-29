@@ -54,7 +54,7 @@ public final class MiningGimmickConfig {
      * (一括伐採で追加ドロップが1回も出なかったのと同型の取りこぼし。伐採と違い起点そのものが
      * 抽選対象なので「1回も出ない」ではなく「連鎖しても回数が増えない」)。
      */
-    public static final int DEFAULT_CHAIN_DROP_ROLLS_MAX = 8;
+    public static final int DEFAULT_CHAIN_DROP_ROLLS_MAX = 32;
 
     private volatile Set<Material> oreBlocks = Set.of();
     private volatile int veinMiningMaxExtraBlocks = DEFAULT_MAX_EXTRA_BLOCKS;

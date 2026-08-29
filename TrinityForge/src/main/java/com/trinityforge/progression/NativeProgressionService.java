@@ -213,6 +213,14 @@ public final class NativeProgressionService {
         return dailyDiminishing.status(settings, playerId, normalizeSkillId(rawSkillId));
     }
 
+    /** 日次逓減の無効化が残っていればそのミリ秒。無ければ 0。 */
+    public long dailyExpImmuneRemainingMillis(UUID playerId) {
+        if (dailyDiminishing == null || playerId == null) {
+            return 0L;
+        }
+        return dailyDiminishing.immuneRemainingMillis(playerId);
+    }
+
     /** Exposes the shared per-player lock so sibling services can serialize against it. */
     public PlayerLockRegistry playerLocks() {
         return locks;

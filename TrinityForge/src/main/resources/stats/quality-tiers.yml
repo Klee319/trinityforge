@@ -39,4 +39,4 @@ tiers:
   - name: 未踏
     color: "#ff00ff"
   - name: 特異点
-    color: black
+    color: "#251035"

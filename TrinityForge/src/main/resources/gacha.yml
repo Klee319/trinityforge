@@ -69,6 +69,12 @@ pools:
       - item: gacha_ticket_2
         weight: 3
         amount: 1
+      - item: REDSTONE
+        weight: 20
+        amount: 4
+      - item: LAPIS_LAZULI
+        weight: 10
+        amount: 4
     pity:
       threshold: 50
   tier2:
@@ -81,7 +87,7 @@ pools:
         amount: 8
       - item: source_gem
         weight: 8
-        amount: 1
+        amount: 3
       - item: thread_empty
         weight: 4
         amount: 3
@@ -94,6 +100,18 @@ pools:
       - item: gacha_ticket_3
         weight: 3
         amount: 1
+      - item: EMERALD_BLOCK
+        weight: 1
+        amount: 1
+      - item: LAPIS_LAZULI
+        weight: 10
+        amount: 4
+      - item: REDSTONE
+        weight: 10
+        amount: 4
+      - item: DIAMOND
+        weight: 1
+        amount: 3
     pity:
       threshold: 50
   tier3:
@@ -103,13 +121,13 @@ pools:
         amount: 3
       - item: source_gem
         weight: 10
-        amount: 2
+        amount: 5
       - item: magebloom_fiber
         weight: 8
-        amount: 4
+        amount: 3
       - item: thread_empty
-        weight: 4
-        amount: 4
+        weight: 10
+        amount: 1
       - item: key_nether_wastes
         weight: 6
         amount: 1
@@ -119,57 +137,69 @@ pools:
       - item: gacha_ticket_3
         weight: 3
         amount: 2
+      - item: DIAMOND_BLOCK
+        weight: 1
+        amount: 1
     pity:
       threshold: 50
   tier4:
     entries:
-      - item: source_gem
-        weight: 10
+      - item: source_gem_block
+        weight: 20
         amount: 4
       - item: NETHERITE_SCRAP
-        weight: 10
+        weight: 20
         amount: 4
       - item: thread_empty
-        weight: 6
-        amount: 5
+        weight: 20
+        amount: 1
       - item: tf_crystal_apple
-        weight: 3
+        weight: 5
         amount: 1
       - item: gacha_ticket_5
-        weight: 3
+        weight: 1
         amount: 1
       - item: gacha_ticket_4
         weight: 3
         amount: 2
+      - item: NETHERITE_INGOT
+        weight: 1
+        amount: 1
+      - item: key_quarry
+        weight: 1
+        amount: 1
     pity:
       threshold: 50
   tier5:
     entries:
-      - item: source_gem
+      - item: source_gem_block_1x
         weight: 10
-        amount: 8
+        amount: 10
       - item: NETHERITE_SCRAP
         weight: 10
-        amount: 8
+        amount: 10
       - item: thread_empty
         weight: 6
-        amount: 6
+        amount: 30
       - item: tf_crystal_apple
         weight: 4
-        amount: 2
+        amount: 10
       - item: elder_guardian_spike
         weight: 1
-        amount: 1
+        amount: 2
       - item: wither_skull_fragment
         weight: 1
-        amount: 1
+        amount: 2
       - item: gacha_ticket_5
         weight: 3
         amount: 2
       - item: warden_tendril
         weight: 1
-        amount: 1
+        amount: 2
       - item: dragon_scale
+        weight: 1
+        amount: 2
+      - item: NETHERITE_BLOCK
         weight: 1
         amount: 1
     pity:
@@ -202,19 +232,19 @@ pools:
   fishing:
     entries:
       - item: COD_BUCKET
-        weight: 20
+        weight: 3
         amount: 1
       - item: SALMON_BUCKET
-        weight: 20
+        weight: 3
         amount: 1
       - item: TROPICAL_FISH_BUCKET
-        weight: 20
+        weight: 3
         amount: 1
       - item: SALMON_BUCKET
-        weight: 10
+        weight: 3
         amount: 1
       - item: AXOLOTL_BUCKET
-        weight: 5
+        weight: 3
         amount: 1
       - item: TADPOLE_BUCKET
         weight: 1
@@ -226,31 +256,79 @@ pools:
         weight: 3
         amount: 2
       - item: thread_translate
-        weight: 2
+        weight: 1
+        amount: 1
+      - item: baked_salon_1x
+        weight: 20
+        amount: 1
+      - item: baked_cod_1x
+        weight: 20
+        amount: 1
+      - item: gacha_ticket_4
+        weight: 5
+        amount: 1
+      - item: key_palace
+        weight: 3
+        amount: 1
+      - item: gacha_ticket_3
+        weight: 10
         amount: 1
     pity:
       threshold: 50
   digging:
     entries:
       - item: STICK
-        weight: 20
+        weight: 5
         amount: 1
       - item: TALL_GRASS
-        weight: 10
+        weight: 5
         amount: 1
       - item: BIG_DRIPLEAF
-        weight: 10
+        weight: 5
         amount: 1
       - item: FIREFLY_BUSH
-        weight: 15
+        weight: 5
         amount: 1
       - item: koujien
-        weight: 2
+        weight: 1
         amount: 1
       - item: gacha_ticket_digging
         weight: 5
-        amount: 1
+        amount: 2
       - item: thread_blindness
+        weight: 1
+        amount: 1
+      - item: gacha_ticket_3
+        weight: 10
+        amount: 1
+      - item: BONE
+        weight: 20
+        amount: 1
+      - item: STRING
+        weight: 20
+        amount: 1
+      - item: LEATHER
+        weight: 20
+        amount: 1
+      - item: ROTTEN_FLESH
+        weight: 20
+        amount: 1
+      - item: BREEZE_ROD
+        weight: 1
+        amount: 1
+      - item: ravager_hide
+        weight: 1
+        amount: 1
+      - item: bogged_mossy_bone
+        weight: 1
+        amount: 1
+      - item: parched_sandy_bone
+        weight: 1
+        amount: 1
+      - item: GUNPOWDER
+        weight: 20
+        amount: 1
+      - item: key_climb
         weight: 1
         amount: 1
     pity:
