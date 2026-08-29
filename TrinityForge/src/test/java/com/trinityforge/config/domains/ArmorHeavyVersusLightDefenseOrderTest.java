@@ -34,15 +34,26 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * この手の「数値表の向きが逆」という不具合はコンパイルもテストも通ってしまうので、
  * <b>値そのものを縛るテストが無いと戻したことに誰も気付けない</b>。
  *
- * <h2>直せる軸が2本しか無い理由(重要)</h2>
- * {@code phys-flat-defense} と {@code max-health} の<b>絶対値</b>は
- * {@code tools/config-editor/test/armor-ladder.test.js} が出荷 yml を実読して固定している
- * (S理論値20発 / 厳選なし6発 ±15%、および新規軽装7セットの守備力合計 = TABLE の fMax ±1%)。
- * つまり「重装の守備力を上げる」「重装の体力を上げる」のどちらも、やった瞬間にラダーが落ちる。
- * そこで序列づけは<b>軽装側の {@code phys-resistance} を下げる</b>のと
- * <b>軽装側の {@code fixed.max-health} を 0 にする</b>(体力ボーナスを重装の取り柄にする)の2本だけで行う。
- * 守備力はラダーの持ち物なので<b>重装と軽装で同値のまま</b>にしてある —
- * それ自体も {@link #armorLadderKeepsIdenticalFlatDefenseBetweenHeavyAndLight()} で固定している。
+ * <h2>2026-08-21 (W-183) で契約を差し替えた —— 「重装が硬い」から「役割で住み分ける」へ</h2>
+ * 上の 2026-08-03 の契約は<b>「重装が全面的に強い」</b>を固定していた。これは
+ * 「重装のほうが軽装より弱い」という当時のバグを潰すには正しかったが、副作用として
+ * <b>軽装を選ぶ理由が1つも無くなり、ビルドの選択肢が消えた</b>(Lv100 の実測で、耐えられる
+ * 通常攻撃の回数が重装 5.2 発に対して軽装 1.0 発)。
+ *
+ * <p>ユーザー指示(2026-08-21)は<b>「基準値を揃えて、軽装はHP高め・重装は防御系ステータス高めに
+ * しつつ、被ダメージの期待値が揃うようにする」</b>。そこで契約を次の3本へ差し替えた:
+ * <ol>
+ *   <li><b>被ダメージ期待値は揃える</b> —— 同帯の重装/軽装の実効被ダメージ係数の比を
+ *       {@code [0.80, 1.25]} に収める({@link #pairedHeavyAndLightTakeComparableDamage()})。
+ *       「どちらを着ても大枠の硬さは同じ」がビルド選択の前提になる。</li>
+ *   <li><b>守備系3軸(守備力 / 物理耐性 / 防御率)は重装が必ず勝つ</b>
+ *       ({@link #heavyLeadsOnEveryMitigationAxis()})。貫通ダメージや固定ダメージを撃ってくる敵に
+ *       対しては、この軸が効かないので重装が不利になる —— それが「敵に応じて着替える」動機になる。</li>
+ *   <li><b>最大体力は軽装が必ず勝つ</b>({@link #lightLeadsOnMaxHealth()})。守備を削ったぶんの
+ *       埋め合わせが体力なので、ここが逆転すると 1 の期待値合わせが成立しない。</li>
+ * </ol>
+ * 絶対値そのものは引き続き {@code tools/config-editor/test/armor-ladder.test.js} が
+ * 帯ごとの耐久回数として固定している(あちらも W-183 で再測定済み)。
  *
  * <h2>実効被ダメージ係数の定義</h2>
  * {@code ComponentDamageCalculator} のパイプライン(守備力を先に減算 → 防御率 → 耐性)と
@@ -105,8 +116,20 @@ class ArmorHeavyVersusLightDefenseOrderTest {
     }
     /** バニラのプレイヤー最大体力(max-health はここへの加算)。 */
     private static final double VANILLA_BASE_HEALTH = 20.0;
-    /** 重装は軽装の何倍以下の被ダメージであるべきか(0.80 = 20%以上少ない)。 */
-    private static final double REQUIRED_HEAVY_RATIO = 0.80;
+    /**
+     * 同帯の重装/軽装で「実効被ダメージ係数の比(重装 ÷ 軽装)」が収まるべき帯。
+     * 2026-08-21 (W-183) の実測は 0.885〜1.141。±20〜25% は
+     * 装備の刻み(小数2桁への丸め)と帯ごとのバニラ防具値の段差で必ず出る幅なので、
+     * そこを跨いだら「片方の役割へ寄せ直した」= 住み分けが壊れたと見なす。
+     */
+    private static final double PAIRED_DAMAGE_RATIO_MIN = 0.80;
+    private static final double PAIRED_DAMAGE_RATIO_MAX = 1.25;
+    /**
+     * 軽装の守備力(fixed 合計)が重装の何倍までなら許されるか。
+     * 出荷データの生成側(住み分けソルバ)は同帯の板金ラインの 0.80 倍を天井にしている。
+     * 素の革(帯外の入門装備)だけ 0.851 まで出るので、判定は 0.90 で締める。
+     */
+    private static final double LIGHT_FLAT_DEFENSE_CAP = 0.90;
 
     /**
      * 防御率。2026-08-15 に防具値({@code armor-defense-rate}, バニラ防具値の点数)を廃止し、
@@ -221,9 +244,9 @@ class ArmorHeavyVersusLightDefenseOrderTest {
     /**
      * 同じ必要レベルで対になる重装/軽装のフルセット。
      *
-     * @param sameLadderBand 2026-07-25 ラダーの「同じ帯」から生成された対か。
-     *                       true のときだけ守備力の完全同値を要求する
-     *                       (素の革だけは銅より1帯下の入門装備なので false)。
+     * @param sameLadderBand ラダーの「同じ帯」から生成された対か。true のときだけ
+     *                       軽装の守備力に上限比({@link #LIGHT_FLAT_DEFENSE_CAP})を課す
+     *                       (素の革だけは銅より1帯下の入門装備で、帯の天井の外側にいるので false)。
      */
     private record Matchup(int level, ArmorSet heavy, ArmorSet light, boolean sameLadderBand) {
     }
@@ -320,8 +343,8 @@ class ArmorHeavyVersusLightDefenseOrderTest {
     // === テスト ===
 
     @Test
-    @DisplayName("同レベル帯のフルセットで、重装の実効被ダメージが軽装より20%以上少ない(序列が逆転したら落ちる)")
-    void heavyArmorTakesAtLeastTwentyPercentLessDamageThanLightAtEveryTier() throws IOException {
+    @DisplayName("同レベル帯の重装/軽装は実効被ダメージの期待値が揃っている(どちらかが一択になったら落ちる)")
+    void pairedHeavyAndLightTakeComparableDamage() throws IOException {
         Map<String, ArmorPiece> pieces = shippedArmorPieces();
         assertEquals(9, MATCHUPS.size(),
                 "対になるシリーズの表が痩せている。物理系の帯を消したなら理由を Javadoc に書くこと");
@@ -329,19 +352,22 @@ class ArmorHeavyVersusLightDefenseOrderTest {
         for (Matchup matchup : MATCHUPS) {
             double heavyCoef = damageTakenCoefficient(resolve(pieces, matchup.heavy()), matchup.level());
             double lightCoef = damageTakenCoefficient(resolve(pieces, matchup.light()), matchup.level());
-            assertTrue(heavyCoef <= lightCoef * REQUIRED_HEAVY_RATIO,
-                    String.format("Lv%d %s vs %s: 重装の実効被ダメージ係数 %.5f が軽装 %.5f の %.1f%% でしかない"
-                                    + "(%.0f%% 以下であるべき)。軽装の phys-resistance を上げ戻したか、"
-                                    + "軽装に fixed.max-health を戻したはず。",
+            double ratio = heavyCoef / lightCoef;
+            assertTrue(ratio >= PAIRED_DAMAGE_RATIO_MIN && ratio <= PAIRED_DAMAGE_RATIO_MAX,
+                    String.format("Lv%d %s vs %s: 実効被ダメージ係数の比(重装 %.5f ÷ 軽装 %.5f)が %.3f で、"
+                                    + "許容帯 [%.2f, %.2f] の外。W-183 の住み分けは"
+                                    + "「守備は重装・体力は軽装・被ダメージ期待値は同じ」で成立している。"
+                                    + "片側の守備や体力だけを動かすとここが崩れる —— "
+                                    + "動かすなら相方(軽装なら最大体力・重装なら守備3軸)も同時に解き直すこと。",
                             matchup.level(), matchup.heavy().label(), matchup.light().label(),
-                            heavyCoef, lightCoef, heavyCoef / lightCoef * 100.0,
-                            REQUIRED_HEAVY_RATIO * 100.0));
+                            heavyCoef, lightCoef, ratio,
+                            PAIRED_DAMAGE_RATIO_MIN, PAIRED_DAMAGE_RATIO_MAX));
         }
     }
 
     @Test
-    @DisplayName("対になる重装/軽装で 物理耐性と最大体力の2軸がどちらも重装優位(片方だけ戻しても落ちる)")
-    void everyDefenceAxisKeepsHeavyAheadOfLight() throws IOException {
+    @DisplayName("守備系3軸(守備力/物理耐性/防御率)は同レベル帯の重装が必ず勝つ")
+    void heavyLeadsOnEveryMitigationAxis() throws IOException {
         Map<String, ArmorPiece> pieces = shippedArmorPieces();
 
         for (Matchup matchup : MATCHUPS) {
@@ -353,46 +379,52 @@ class ArmorHeavyVersusLightDefenseOrderTest {
             double heavyResistance = sum(heavy, K_PHYS_RESISTANCE, false);
             double lightResistance = sum(light, K_PHYS_RESISTANCE, false);
             assertTrue(heavyResistance > lightResistance,
-                    where + ": 物理耐性 重装 " + heavyResistance + " ≦ 軽装 " + lightResistance
-                            + "。軽装の phys-resistance は同レベル・同部位の重装の 0.60 倍が上限。");
+                    where + ": 物理耐性 重装 " + heavyResistance + " ≦ 軽装 " + lightResistance);
 
-            // 体力ボーナスは重装の取り柄。軽装の fixed は 0 でなければならない
-            // (random の上振れ分は軽装にも残してあるので fixed だけを見る)。
-            double heavyHealth = sum(heavy, K_MAX_HEALTH, true);
-            double lightHealth = sum(light, K_MAX_HEALTH, true);
-            assertEquals(0.0, lightHealth, 1e-9,
-                    where + ": 軽装の fixed.max-health 合計が " + lightHealth
-                            + "(0 であるべき)。ラダーが守備力と体力の絶対値を握っているので、"
-                            + "軽装の体力を戻すと重装との差が消える。");
-            assertTrue(heavyHealth > lightHealth,
-                    where + ": 最大体力 重装 " + heavyHealth + " ≦ 軽装 " + lightHealth);
+            double heavyRate = sum(heavy, K_DEFENSE_RATE, false);
+            double lightRate = sum(light, K_DEFENSE_RATE, false);
+            assertTrue(heavyRate > lightRate,
+                    where + ": 防御率 重装 " + heavyRate + " ≦ 軽装 " + lightRate);
+
+            // 守備力(引き算段)は重装の主軸。同じ帯から生成した対では軽装を天井で締めている。
+            double heavyFlat = sum(heavy, K_PHYS_FLAT, true);
+            double lightFlat = sum(light, K_PHYS_FLAT, true);
+            assertTrue(heavyFlat > lightFlat,
+                    where + ": 守備力(fixed 合計) 重装 " + heavyFlat + " ≦ 軽装 " + lightFlat);
+            if (matchup.sameLadderBand()) {
+                assertTrue(lightFlat <= heavyFlat * LIGHT_FLAT_DEFENSE_CAP + 1e-9,
+                        where + ": 軽装の守備力 " + lightFlat + " が重装 " + heavyFlat + " の "
+                                + String.format("%.1f%%", lightFlat / heavyFlat * 100.0)
+                                + " まで来ている(上限 "
+                                + String.format("%.0f%%", LIGHT_FLAT_DEFENSE_CAP * 100.0)
+                                + ")。守備を軽装へ寄せると「軽装は体力・重装は守備」の区別が消える。");
+            }
         }
     }
 
     @Test
-    @DisplayName("守備力は 2026-07-25 のラダーの持ち物なので、同じ帯の重装/軽装で同値のまま(片方を動かすとJS側のラダーが落ちる)")
-    void armorLadderKeepsIdenticalFlatDefenseBetweenHeavyAndLight() throws IOException {
+    @DisplayName("最大体力は同レベル帯の軽装が必ず勝つ(守備を削ったぶんの埋め合わせ)")
+    void lightLeadsOnMaxHealth() throws IOException {
         Map<String, ArmorPiece> pieces = shippedArmorPieces();
 
         for (Matchup matchup : MATCHUPS) {
             List<ArmorPiece> heavy = resolve(pieces, matchup.heavy());
             List<ArmorPiece> light = resolve(pieces, matchup.light());
-            double heavyFlat = sum(heavy, K_PHYS_FLAT, true);
-            double lightFlat = sum(light, K_PHYS_FLAT, true);
             String where = String.format("Lv%d %s vs %s", matchup.level(),
                     matchup.heavy().label(), matchup.light().label());
 
-            if (matchup.sameLadderBand()) {
-                assertEquals(heavyFlat, lightFlat, 1e-6,
-                        where + ": 守備力(fixed 合計)が重装 " + heavyFlat + " / 軽装 " + lightFlat
-                                + " とずれている。ここは要件#17 で触ってよい軸ではない —"
-                                + " tools/config-editor/test/armor-ladder.test.js が"
-                                + "「新規軽装7セットの守備力合計 = TABLE の fMax」と"
-                                + "「S理論値20発/厳選なし6発」で両側を固定している。");
-            } else {
-                assertTrue(heavyFlat >= lightFlat,
-                        where + ": 守備力(fixed 合計)が重装 " + heavyFlat + " < 軽装 " + lightFlat);
-            }
+            // fixed と 期待ロール込みの両方で見る。fixed だけ 0 のまま総量をロールへ逃がすと
+            // 「軽装は厳選しないと紙」になり、住み分けが厳選運の話にすり替わる(W-183 で実際に直した形)。
+            double heavyFixed = sum(heavy, K_MAX_HEALTH, true);
+            double lightFixed = sum(light, K_MAX_HEALTH, true);
+            assertTrue(lightFixed > heavyFixed,
+                    where + ": fixed.max-health 軽装 " + lightFixed + " ≦ 重装 " + heavyFixed
+                            + "。軽装の最大体力をロール任せにすると、厳選していない個体だけ紙になる。");
+
+            double heavyTotal = sum(heavy, K_MAX_HEALTH, false);
+            double lightTotal = sum(light, K_MAX_HEALTH, false);
+            assertTrue(lightTotal > heavyTotal,
+                    where + ": 最大体力(期待ロール込み) 軽装 " + lightTotal + " ≦ 重装 " + heavyTotal);
         }
     }
 

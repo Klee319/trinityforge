@@ -76,6 +76,11 @@ public final class SkillExpConfig {
     // この倍率まで絞る。1.0 = ダンジョンと同率、0.0 = 従来の dungeon-only-exp: true と同じ完全遮断。
     // 「オーバーワールドでも育つが、メインはダンジョン」を数値で担保するための鍵。
     private volatile double outsideDungeonExpRate = 0.25;
+    // --- 2026-08-21 ダンジョンEXPのナーフ(ユーザー指示) ---
+    // ダンジョン内の戦闘スキルEXP倍率。従来はここが常に 1.0 固定で、ダンジョン外だけを
+    // outside-dungeon-exp-rate で絞っていた(＝ダンジョンが外の4倍)。ダンジョンの取得量そのものを
+    // 落とせるようにするため、内側も倍率にした。既定 1.0 = 従来挙動。
+    private volatile double dungeonExpRate = 1.0;
     // --- 2026-07-26 TT/放置対策: 同一地点の逓減 (com.trinityforge.progression.LocationExpDiminishing) ---
     private volatile boolean spotDiminishingEnabled = true;
     private volatile double spotDiminishingRadius = 24.0;
@@ -301,8 +306,20 @@ public final class SkillExpConfig {
     }
 
     /**
-     * そのワールドで戦闘スキルEXPに掛けるべき倍率。ダンジョン内は常に 1.0、ダンジョン外は
-     * {@code dungeon-only-exp: true} なら 0.0、false なら {@link #outsideDungeonExpRate()}。
+     * ダンジョン内で戦闘スキルEXPに掛かる倍率 [0,1] (2026-08-21)。既定 1.0 = 従来の固定値。
+     *
+     * <p>プレイヤーが体感する「ダンジョンは外の何倍か」は、この値と
+     * {@link #outsideDungeonExpRate()} の<b>比</b>である。片方だけを動かすと比が変わるので、
+     * 「外を N 倍にする」「ダンジョンを M 倍にする」は必ず2つセットで決める。
+     */
+    public double dungeonExpRate() {
+        return dungeonExpRate;
+    }
+
+    /**
+     * そのワールドで戦闘スキルEXPに掛けるべき倍率。ダンジョン内は {@link #dungeonExpRate()}、
+     * ダンジョン外は {@code dungeon-only-exp: true} なら 0.0、false なら
+     * {@link #outsideDungeonExpRate()}。
      *
      * <p>武器EXP({@code CombatListener}、命中トリガ)と防具EXP({@code NativeSkillExperienceListener}、
      * 被弾トリガ)の両方がここを通る。倍率0は「付与しない」と等価なので、呼び出し側は {@code > 0} の
@@ -310,7 +327,7 @@ public final class SkillExpConfig {
      */
     public double worldExpRate(boolean inDungeonWorld) {
         if (inDungeonWorld) {
-            return 1.0;
+            return dungeonExpRate;
         }
         return dungeonOnlyExp ? 0.0 : outsideDungeonExpRate;
     }
@@ -623,6 +640,8 @@ public final class SkillExpConfig {
         this.dungeonOnlyExp = yaml.getBoolean("dungeon-only-exp", true);
         this.outsideDungeonExpRate = Math.max(0.0, Math.min(1.0,
                 yaml.getDouble("outside-dungeon-exp-rate", 0.25)));
+        this.dungeonExpRate = Math.max(0.0, Math.min(1.0,
+                yaml.getDouble("dungeon-exp-rate", 1.0)));
         // 日次逓減。window-hours は「時定数」で、その時間が経つと蓄積が 1/e (約37%) まで戻る。
         // exempt-skills は正規化前の生IDをそのまま集合に入れる(スキルIDは大文字固定なので一致する)。
         // 2026-08-01 仕様変更: 旧 threshold/step/decay-per-step(連続的な逓減)を廃止し、

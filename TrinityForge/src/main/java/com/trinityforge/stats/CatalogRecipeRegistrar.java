@@ -66,6 +66,9 @@ public final class CatalogRecipeRegistrar {
      */
     private static final String SMITHING_SUFFIX = "_smithing";
 
+    /** {@code compressed-smelting} のレシピキー接頭辞({@link #registerCompressedSmelting})。 */
+    private static final String COMPRESSED_SMELT_PREFIX = "compressed_smelt_";
+
     /**
      * {@code method: netherite} のテンプレ枠。<b>常にバニラのネザライト強化テンプレ</b>。
      *
@@ -83,6 +86,10 @@ public final class CatalogRecipeRegistrar {
     private final ItemFactory itemFactory;
     private final java.util.function.Supplier<List<com.trinityforge.config.domains.CraftingFeaturesConfig.AddedRecipe>>
             addedRecipesSupplier;
+    /** {@code compressed-smelting} の供給元({@link #registerCompressedSmelting})。{@code null} は「無し」。 */
+    private final java.util.function.Supplier<
+            Map<String, com.trinityforge.config.domains.CraftingFeaturesConfig.CompressedSmelt>>
+            compressedSmeltingSupplier;
     private final Set<NamespacedKey> registeredKeys = new HashSet<>();
     /**
      * 直近の {@link #registerAll()} で「ArsPaper 未 enable による未解決素材」を理由に登録を見送った
@@ -156,10 +163,25 @@ public final class CatalogRecipeRegistrar {
     public CatalogRecipeRegistrar(Plugin plugin, ItemCatalogConfig catalog, ItemFactory itemFactory,
             java.util.function.Supplier<List<com.trinityforge.config.domains.CraftingFeaturesConfig.AddedRecipe>>
                     addedRecipesSupplier) {
+        this(plugin, catalog, itemFactory, addedRecipesSupplier, null);
+    }
+
+    /**
+     * @param compressedSmeltingSupplier supplies {@code progression/crafting-features.yml} の
+     *                                    {@code compressed-smelting}(圧縮素材のかまど精錬)。
+     *                                    {@code null} は「無し」扱い。
+     */
+    public CatalogRecipeRegistrar(Plugin plugin, ItemCatalogConfig catalog, ItemFactory itemFactory,
+            java.util.function.Supplier<List<com.trinityforge.config.domains.CraftingFeaturesConfig.AddedRecipe>>
+                    addedRecipesSupplier,
+            java.util.function.Supplier<
+                    Map<String, com.trinityforge.config.domains.CraftingFeaturesConfig.CompressedSmelt>>
+                    compressedSmeltingSupplier) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.catalog = Objects.requireNonNull(catalog, "catalog");
         this.itemFactory = Objects.requireNonNull(itemFactory, "itemFactory");
         this.addedRecipesSupplier = addedRecipesSupplier;
+        this.compressedSmeltingSupplier = compressedSmeltingSupplier;
     }
 
     /**
@@ -199,6 +221,95 @@ public final class CatalogRecipeRegistrar {
             }
         });
         registerAddedRecipes();
+        registerCompressedSmelting();
+    }
+
+    /**
+     * {@code progression/crafting-features.yml} の {@code compressed-smelting} を、かまど/燻製器/焚き火の
+     * 3 つの {@link org.bukkit.inventory.CookingRecipe} として登録する
+     * (2026-08-23 ユーザー要望「圧縮したじゃがいもや生肉、生魚を焼けるように」)。
+     *
+     * <p><b>なぜ {@link RecipeChoice.ExactChoice} でなければならないか</b>: 圧縮素材の base_material は
+     * バニラと同じ(例 {@code potato_1x} = {@code POTATO})。{@code MaterialChoice} で登録すると
+     * 素のジャガイモにも一致し、SPIGOT-4638「一致した中の最後を採用」でこちらが勝つため
+     * <b>バニラのベイクドポテトを潰す</b>。逆に素の素材を焼いたときは ExactChoice が一致しないので
+     * バニラのレシピがそのまま使われる。同じ理由で {@link #registerReverseOne} も ExactChoice。
+     *
+     * <p><b>なぜ「レシピを登録せずイベントで結果を差し替える」方式ではないか</b>:
+     * バニラの {@code AbstractFurnaceBlockEntity#canBurn} は結果スロットの中身と
+     * <b>レシピが組み立てた結果</b>を {@code isSameItemSameComponents} で比較する。
+     * イベントで差し替えるだけだと、1 個目の圧縮焼き芋が結果スロットに入った時点で
+     * バニラのレシピ結果(素のベイクドポテト)と一致しなくなり、<b>2 個目以降が永久に焼けなくなる</b>。
+     * レシピごと登録すれば比較対象もこちらの結果になるので連続精錬が成立する。
+     *
+     * <p>ArsPaper が未 enable の間は入力/結果スタックを組めないので、その行だけ静かに見送る
+     * ({@code refreshCatalogRecipes()} 経由の再登録で解決する — {@link #registerOne} と同じ扱い)。
+     */
+    private void registerCompressedSmelting() {
+        Map<String, com.trinityforge.config.domains.CraftingFeaturesConfig.CompressedSmelt> table =
+                compressedSmeltingSupplier == null ? Map.of() : compressedSmeltingSupplier.get();
+        if (table == null || table.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, com.trinityforge.config.domains.CraftingFeaturesConfig.CompressedSmelt> entry
+                : table.entrySet()) {
+            String inputId = entry.getKey();
+            com.trinityforge.config.domains.CraftingFeaturesConfig.CompressedSmelt smelt = entry.getValue();
+            try {
+                ItemStack input = compressedSmeltStack(inputId);
+                ItemStack result = compressedSmeltStack(smelt.resultId());
+                if (input == null || result == null) {
+                    deferredArsCatalogIds.add(inputId);
+                    plugin.getLogger().log(Level.FINE,
+                            "[progression/crafting-features.yml] deferring compressed-smelting '" + inputId
+                            + "' until ArsPaper enables");
+                    continue;
+                }
+                // 3 レシピで RecipeChoice / 結果スタックを使い回さない(実装が保持するか複製するかに
+                // 依存しない形にしておく)。
+                addCookingRecipe(new org.bukkit.inventory.FurnaceRecipe(
+                        compressedSmeltKey(inputId, "furnace"), result.clone(),
+                        new RecipeChoice.ExactChoice(input.clone()),
+                        smelt.experience(), smelt.cookTime()));
+                addCookingRecipe(new org.bukkit.inventory.SmokingRecipe(
+                        compressedSmeltKey(inputId, "smoker"), result.clone(),
+                        new RecipeChoice.ExactChoice(input.clone()),
+                        smelt.experience(), smelt.smokingTime()));
+                addCookingRecipe(new org.bukkit.inventory.CampfireRecipe(
+                        compressedSmeltKey(inputId, "campfire"), result.clone(),
+                        new RecipeChoice.ExactChoice(input.clone()),
+                        smelt.experience(), smelt.campfireTime()));
+            } catch (RuntimeException ex) {
+                plugin.getLogger().log(Level.WARNING,
+                        "[progression/crafting-features.yml] failed to register compressed-smelting '"
+                        + inputId + "'; skipped", ex);
+            }
+        }
+    }
+
+    /** {@code trinityforge:compressed_smelt_<入力id>_<block>}。 */
+    private static NamespacedKey compressedSmeltKey(String inputId, String block) {
+        return new NamespacedKey(NAMESPACE, COMPRESSED_SMELT_PREFIX + inputId + "_" + block);
+    }
+
+    private void addCookingRecipe(Recipe recipe) {
+        Bukkit.addRecipe(recipe);
+        registeredKeys.add(((Keyed) recipe).getKey());
+    }
+
+    /**
+     * 圧縮素材の実体を 1 個ぶん組む。ArsPaper が持つ素材なので Ars 経由でしか作れない
+     * (作れなければ null を返して呼び出し側が見送る)。<b>ExactChoice はこのスタックと
+     * 型 + data component が完全一致するものだけを受理する</b>ので、プレイヤーが持っている物と
+     * 同じ作り方 = Ars のレジストリ経由で組むこと。
+     */
+    private ItemStack compressedSmeltStack(String id) {
+        ItemStack stack = arsBuiltResult(id).orElse(null);
+        if (stack == null) {
+            return null;
+        }
+        stack.setAmount(1);
+        return stack;
     }
 
     /**

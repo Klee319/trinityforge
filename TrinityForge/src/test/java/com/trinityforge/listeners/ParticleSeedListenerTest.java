@@ -2,6 +2,7 @@ package com.trinityforge.listeners;
 
 import com.trinityforge.config.domains.SpecialRewardsConfig;
 import com.trinityforge.pdc.ItemData;
+import com.trinityforge.progression.SpecialRewardService;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
@@ -36,6 +37,7 @@ class ParticleSeedListenerTest {
 
     private ServerMock server;
     private SpecialRewardsConfig config;
+    private SpecialRewardService rewards;
     private PlayerMock player;
     private ParticleSeedListener listener;
 
@@ -46,7 +48,10 @@ class ParticleSeedListenerTest {
         when(config.particleSeeds()).thenReturn(Map.of(
                 SEED_ID, new SpecialRewardsConfig.ParticleSeed(SEED_ID, "ignored", Particle.HAPPY_VILLAGER, 5)));
         player = server.addPlayer();
-        listener = new ParticleSeedListener(config);
+        // 発動側(BlockBreak/攻撃)は保有を見ない ── 刻印済みの道具は誰の手でも光る。
+        // 保有ゲートが掛かるのは合成側だけなので、ここでは既定の mock(全て未解放)で足りる。
+        rewards = mock(SpecialRewardService.class);
+        listener = new ParticleSeedListener(config, rewards);
     }
 
     @AfterEach

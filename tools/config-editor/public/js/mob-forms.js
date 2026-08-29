@@ -1417,10 +1417,16 @@
           desc: "このモブを倒したときに追加で出るアイテム。種別で Material(バニラ) と"
             + " カタログ/Ars素材 を切り替えます。"
         }),
-        fieldRow("chance", chanceInput, { label: "確率(0〜1)", desc: "1死亡あたりのドロップ確率。" }),
+        fieldRow("chance", chanceInput, {
+          label: "確率(0〜1)",
+          desc: "1死亡あたりのドロップ確率。下の「レベル比例の確率」をONにすると、そちらが優先されます。"
+        }),
         fieldRow("min", minInput, { label: "個数(最小)", desc: "ドロップ個数の下限。0以上の整数。" }),
         fieldRow("max", maxInput, { label: "個数(最大)", desc: "ドロップ個数の上限。0以上の整数、min以上。" })
       ]),
+      // 2026-08-21: ダンジョンのレベルでドロップ確率を変える。mob-level-table 側の add-drops と
+      // 同じ chance-by-level をそのまま使う(UI も Java の ChanceCurve も共通で、方言を作らない)。
+      buildChanceCurveSection(drop, onModeChange),
       h("button", { class: "btn-small danger", type: "button", text: "削除", onclick: onRemove })
     ]);
   }

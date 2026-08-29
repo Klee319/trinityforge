@@ -12,20 +12,108 @@
 #
 # particles.<id>:
 #   particle:       Bukkit Particle 名 (例: FLAME, CRIT, END_ROD)
-#   count:          1回の発生あたりのパーティクル数
-#   radius:         発生半径(ブロック)
 #   interval-ticks: 発生間隔(tick)
-#   shape:          circle(周囲に円形散布) | aura(自分の周りにまとわりつく)
+#   shape ほかの発生パラメータは particles / particle-seeds で共通。↓の「発生パラメータ」を参照
 #
-# particle-seeds.<id>: (ツール/武器合成用の「種」アイテム)
-#   seed-item: 合成素材。Material名 または custom:<カタログID>
-#   particle:  Bukkit Particle 名
-#   count:     ブロック破壊/攻撃時に発生させる数
+# 【発生パラメータ】 particles と particle-seeds の両方で同じ意味・同じ既定値 (2026-08-25 / W-243・W-244)
+#   shape: 形状。書ける値は 9 つ。★ 形状ごとに「効くパラメータ」が違う ので、
+#          その形状が使わないキーは書いても無視される(下の一覧のとおり)
+#     aura    まとわりつく雲       … count / radius(ばらつきの箱) / speed
+#     circle  水平の輪             … count / radius(半径) / speed ★speed>0 で外向きに飛び散る(円形拡散)
+#     sphere  球の表面             … count / radius(半径) / speed ★speed>0 で外向きへ射出
+#     burst   全方向へ射出         … count / speed ★speed が本体。radius は使わない
+#     helix   螺旋                 … count / radius(半径) / height(高さ) / turns(回転数)
+#     pillar  垂直の柱             … count / radius(横のばらつき) / height(高さ)
+#     arc     向いた方向へ薙ぐ弧   … count / radius(半径) / arc-degrees(開き角) / height(端の持ち上げ)
+#     trail   足元から後ろへ流れる軌跡 … count / radius(後ろへ伸ばす長さ) / speed(流れる速さ)
+#             ★「後ろ」は【進んでいる向きの逆】(止まっているときだけ向いている方向の逆)
+#             ★ y-offset の既定だけ他の形状と違い足元寄り(0.1)。空中に浮かせたいなら明示的に書く
+#     point   1点だけ              … count / speed
+#   count:       1回の発生あたりの点の数 (上限 64)
+#                ★ ここは見た目だけでなく【負荷】も決める。輪・球・螺旋・軌跡のように
+#                  点ごとに座標が違う形状は「点の数だけ」パケットが出て、しかも見ている人ごとに送るので
+#                  実際の量は 点の数 × 近くの人数。多すぎると感じたら count を下げるか
+#                  interval-ticks を伸ばす(2026-08-25 に出荷値を一段下げた)
+#   radius:      半径/ばらつき(ブロック)。形状によって意味が変わる(上の一覧)
+#   speed:       粒子の初速。0 = その場に留まる。circle/sphere/burst では「どちらへ飛ぶか」が決まる
+#   height:      垂直方向の伸び(ブロック)。helix / pillar / arc だけ
+#   turns:       回転数。helix だけ
+#   arc-degrees: 開き角(度)。arc だけ
+#   y-offset:    基準点からの高さ補正。負値可。既定は particles=1.0(腰のあたり) / particle-seeds=0.0
+#   ※ 書かなかったキーはその形状の既定値で埋まる。形状を変えたら、その形状が使うキーだけ書き足せばよい
+#
+# particle-seeds.<id>: (ツール/武器へ粒子を焼き付ける「種」アイテム)
+#   seed-item: 付与に使う素材。Material名 または custom:<カタログID>
+#              【専用アイテムにしたいとき】 custom:<カタログID> を書き、その中身は
+#              特殊アイテム設定(items/catalog.yml)側で定義する。シード専用の設定層は無い
+#              ── 見た目(material)・テクスチャ(custom-model-data)・入手方法(recipe)は
+#              すべてカタログのエントリに書く。ここでその3つを二重に持つと、
+#              editor とカタログのどちらが正か決まらなくなるので増やさない。
+#                例) items/catalog.yml:
+#                      ember_seed:
+#                        material: FIRE_CHARGE
+#                        display-name: <color:#ff7043>焔の種火</color>
+#                        custom-model-data: 7401     # テクスチャはリソースパック側
+#                        recipe:
+#                          method: workbench
+#                          type: shapeless
+#                          ingredients: [BLAZE_POWDER, BLAZE_POWDER, GOLD_NUGGET]
+#                    ここ(special-rewards.yml):
+#                      seed_flame:
+#                        seed-item: custom:ember_seed
+#              金床の判定・配布・/tf settings のアイコンはすべてカタログの実体を見るので、
+#              Material 指定と同じように動く(準備中 draft のIDだけは解決されない)。
+#   display:   道具の説明文(lore)と /tf settings に出す日本語名。省略するとIDがそのまま出る
+#   particle:  Bukkit Particle 名 (clears: true のときは不要)
+#   count ほかの発生パラメータは上の「発生パラメータ」と共通
+#   origin:    粒子を出す基準 (2026-08-25 / W-242)
+#              impact = 道具が実際に当たった場所【既定】。壊したブロックの中心 / 殴った相手の胴 /
+#                       矢の着弾点。2026-08-25 より前はここが常にプレイヤーの足元だった
+#              player = プレイヤー自身。演出を自分に固定したいときだけ
+#              ※ 弓・クロスボウ・トライデントは【放った瞬間の武器】の刻印で決まる
+#                (飛んでいる間に持ち替えても最初のシードが出る)。
+#                魔法(Ars の触媒)はこの経路を通らないので粒子は出ない
+#   clears:    true にすると「刻印を消すシード」になる (2026-08-25)
+#              ・粒子を持たないので particle は要らない
+#              ・解放を要求しない(剥がす操作は報酬ではないし、付け間違いを取り消せない方が害が大きい)
+#              ・何も刻印されていない道具には結果が出ない(素材とレベルだけ消えるのを防ぐ)
+#
+#   【付与は金床】 2026-08-25 (W-214)。金床の左に 道具/武器、右にこの seed-item を置くと
+#   結果に刻印済みの道具が出る。レベルコストは 1。作業台から移したのは、作業台には
+#   「盤面にカタログ品が乗ったら結果を消す」ガードが同じ優先度で並んでいて、
+#   どちらが先に走るかが登録順に依存していたため(TFの武器・道具はほぼ全部カタログ品)。
+#   解放していないシードは結果が出ない(誰でも手に入るバニラ材が seed-item なので、
+#   ここを外すと報酬の意味が無くなる)。
+#   プレイヤーは /tf settings の最下段で「自分が持っているシードと素材」を確認できる。
 #
 # display.nametag-clearance: 称号の行を頭上のどこに出すか (2026-08-03)
 #   称号は「プレイヤー名(ネームタグ)の上の別行」に出す。この値は、そのネームタグの上端から
 #   さらに何ブロック上へ離すかの余白(既定 0.4)。0 で真上に接し、大きくするほど離れる。
-#   0未満を書いた場合は既定値へ戻す(負にすると名前へ重なって隠すため)。
+#
+#   ⚠ 2026-08-24(W-212)から【負値も書ける】(下限 -0.35)。報告「称号のy座標をあと0.3くらい
+#     下げたい」への対応。それまでは負値を既定 0.4 へ戻していたので、0 まで下げた人が
+#     さらに下げようとすると【逆に 0.4 上がる】という最悪の挙動だった。
+#     この式の「1行の高さ 0.25」は見積りであって実測ではないので、見積りが過大なら
+#     余白 0 でも実機では隙間が残る ── そのぶんを負の余白で詰める。
+#   ⚠ 下げすぎると W-174「称号がネームタグを消す(名前が読めない)」へ近づく。
+#     名前が読みにくくなったら 0 へ戻すこと。下限より下は下限として扱い、警告を出す。
+#
+# display.title-teleport-duration: 称号が頭を追いかける補間の長さ(tick、既定 3)
+#   ⚠ 2026-08-24(W-212)追加。報告「称号の位置がネームタグと同期しておらず、遅れて追従して
+#     いる感じになっている」への対応。
+#   クライアントは【プレイヤー本体の位置を約3tickかけて補間】する(移動パケットが届くたびに
+#   やり直す)。一方 TextDisplay の位置は teleport_duration ぶんで補間される。ここを 1 にすると
+#   称号だけが先に目的地へ着くので、走り出し・停止・方向転換のたびに頭からズレる。
+#   本体と同じ 3 にすると同じ法則で動くので、他人を見たときのズレが最小になる。
+#     0     … 補間なし(20Hzで段階的に動く。カクつくが遅れは最小)
+#     1     … 2026-08-19〜08-24 の挙動(称号が先に着く)
+#     3     … 既定(本体の補間と同じ長さ)
+#     10まで… 長くすると滑らかだが、揺れて見えたら短くする(W-135)
+#   ⚠ 自分の称号を F5(三人称)で見たときの遅れは、ここを何にしても消えない。自分の本体だけは
+#     クライアントが予測して即座に描くのに対し、称号はサーバ由来で必ず往復ぶん遅れる。
+#     他人から見えている位置はズレていない。
+#   ⚠ プレイヤーへ騎乗させれば構造的にズレは消えるが、【ネームタグが消える】ので戻さないこと
+#     (W-153 → W-174 で実際にやって撤去した)。
 #
 #   【なぜ「余白」で持つのか】 バグ報告「称号を付けている人にネームタグが表示されなかった」の
 #   真因は、旧実装が値を「パッセンジャーのマウント点からの相対オフセット」として扱っていたこと。
@@ -63,7 +151,10 @@
 
 prune-orphaned-grants: true
 display:
-  nametag-clearance: 0.2
+  # 2026-08-24: 0(ネームタグ上端に接する)でも実機では高いという報告により -0.3。
+  nametag-clearance: -0.3
+  # 2026-08-24: 本体の補間(約3tick)と同じ長さにして追従のズレを最小化する。
+  title-teleport-duration: 3
 titles:
   title_collector:
     display: <color:gray><b>収集家</b></color>
@@ -103,15 +194,18 @@ titles:
     display: <color:dark_aqua><b>深淵を蓄える者</b></color>
   title_flamewalker:
     display: <gradient:#ff8c00:#ffd166><b>灼熱を歩く者</b></gradient>
-  new_title:
+  title_patron:
     display: <gradient:#8a2be2:#ff69b4><b>Patron</b></gradient>
 particles:
   particle_sparkle:
     particle: END_ROD
+    # 2026-08-25: 足元から後ろへ流れる軌跡の実例(shape: trail)。
+    # radius = 後ろへ伸ばす長さ、speed = 流れる速さ。高さは足元寄りの既定(0.1)に任せる。
     count: 6
-    radius: 0.8
-    interval-ticks: 15
-    shape: aura
+    radius: 1.4
+    interval-ticks: 6
+    shape: trail
+    speed: 0.02
   particle_ember_aura:
     particle: FLAME
     count: 8
@@ -120,34 +214,39 @@ particles:
     shape: aura
   particle_void_aura:
     particle: PORTAL
-    count: 12
-    radius: 1
+    count: 10
     interval-ticks: 10
-    shape: aura
+    # 半径ゼロの爆発。radius は使わず speed で広がりが決まる
+    shape: burst
+    speed: 0.15
   particle_soul_ring:
     particle: SOUL_FIRE_FLAME
     count: 10
     radius: 1.2
     interval-ticks: 14
     shape: circle
+    # circle に speed を入れると、輪の各点が外向きへ流れる(入れないと静止した輪)
+    speed: 0.04
   particle_snow_ring:
     particle: SNOWFLAKE
-    count: 12
+    count: 10
     radius: 1.1
-    interval-ticks: 14
+    interval-ticks: 16
     shape: circle
   particle_petal_ring:
     particle: CHERRY_LEAVES
-    count: 10
-    radius: 1.2
-    interval-ticks: 16
-    shape: circle
+    count: 12
+    radius: 0.7
+    interval-ticks: 20
+    shape: helix
+    height: 2.2
+    turns: 3
   particle_spark_ring:
     particle: ELECTRIC_SPARK
-    count: 14
-    radius: 1
-    interval-ticks: 12
-    shape: circle
+    count: 12
+    radius: 0.9
+    interval-ticks: 16
+    shape: sphere
   particle_dragon_aura:
     # 2026-08-16: DRAGON_BREATH は Paper 1.21.11 で「追加データ(Float)が必須の粒子」になっており、
     # SpecialRewardsConfig#parseParticle の「データ不要(Void)のみ通す」判定で丸ごと弾かれていた
@@ -163,25 +262,52 @@ particles:
 particle-seeds:
   seed_flame:
     seed-item: BLAZE_POWDER
+    display: 焔
     particle: FLAME
     count: 6
   seed_frost:
     seed-item: BLUE_ICE
+    display: 氷華
     particle: SNOWFLAKE
-    count: 6
+    count: 12
+    # 当たった場所に輪が広がる
+    shape: circle
+    radius: 0.7
+    speed: 0.05
   seed_soul:
     seed-item: SOUL_SAND
+    display: 魂火
     particle: SOUL
     count: 6
   seed_spark:
     seed-item: COPPER_INGOT
+    display: 雷花
     particle: ELECTRIC_SPARK
-    count: 8
+    count: 16
+    # 弾けるように全方向へ
+    shape: burst
+    speed: 0.3
   seed_void:
     seed-item: ENDER_EYE
+    display: 虚空
     particle: PORTAL
-    count: 10
+    count: 20
+    shape: sphere
+    radius: 0.6
   seed_bloom:
     seed-item: PINK_PETALS
+    display: 花吹雪
     particle: CHERRY_LEAVES
-    count: 6
+    count: 12
+    # 向いている方向へ薙ぐ弧(武器で振ったときに映える)
+    shape: arc
+    radius: 1
+    arc-degrees: 140
+  # 刻印を消すシード。誰でも最初から使える(解放は要らない)。
+  # 素材をイカスミにしているのは「塗り潰して消す」の見立てと、
+  # 取り消しに希少素材を要求すると付け間違いが取り返せなくなるため。
+  # 変えたいときはこの seed-item の1行だけ差し替えればよい。
+  seed_clear:
+    seed-item: INK_SAC
+    display: 消去
+    clears: true

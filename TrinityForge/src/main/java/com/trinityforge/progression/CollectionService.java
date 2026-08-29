@@ -47,6 +47,21 @@ public final class CollectionService {
     private final NativeExperienceDispatcher experienceDispatcher;
     private final PerkAttributeApplier perkAttributeApplier;
     private final CollectionEntryNames entryNames;
+    /** null 可(fail-soft)。配線順の都合で setter 注入。詳細は {@link #setParticleSeedDelivery}。 */
+    private volatile ParticleSeedDelivery particleSeedDelivery;
+
+    /**
+     * パーティクルシード報酬の実体配布を後付けで注入する(2026-08-21)。
+     *
+     * <p>コンストラクタ引数にしていないのは配線順の都合 ── {@code CollectionService} は
+     * {@code SpecialRewardsConfig} 由来のサービス群より先に組み上がる
+     * ({@code AchievementService#setLevelSources} と同じ理由)。未注入なら配布をスキップするが、
+     * その場合<b>シード報酬は「IDが1つ増えるだけで何も起きない」着手前の状態に戻る</b>ので、
+     * 本番配線を外さないこと。
+     */
+    public void setParticleSeedDelivery(ParticleSeedDelivery particleSeedDelivery) {
+        this.particleSeedDelivery = particleSeedDelivery;
+    }
 
     public CollectionService(CollectionConfig config, Logger log) {
         this(config, log, null, null);
@@ -297,6 +312,9 @@ public final class CollectionService {
             runCommands(player, tier);
             for (String specialId : tier.special()) {
                 data.grantSpecialReward(specialId);
+                if (particleSeedDelivery != null) {
+                    particleSeedDelivery.deliver(player, specialId);
+                }
             }
             grantItems(player, tier.items());
             if (tier.vanillaExp() > 0) {

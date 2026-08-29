@@ -44,6 +44,39 @@
 - **防御率（`defense-rate`）は 2026-08-15 に一本化された。** それ以前はアイテム側だけ `armor-defense-rate`（バニラ防具値の点数）で書き、`Attribute.ARMOR` へ写像して同じミラーから読み戻していたが、「防具値は直感的でない」というユーザー判断で防具値ステを廃止し、**1点=1.5%軽減（`combat/damage.yml` の `vanilla-armor.defense-rate-per-point`）で換算して `defense-rate` へ統合**した。いまは `DefenseStatBridge` が他の防御ステと同様この率を直接読む。**TFスタンプ装備の `Attribute.ARMOR` は `AttributeApplier` が材質既定ごと常に抑止する（＝防具バーは常に空）** ので、ミラー寄与は0でありTFの防御率と二重計上にならない。ミラー自体は素のバニラ防具（TF未スタンプ）用に残してある。
 - 属性系ステ（max-health 等）だけは item マップがバニラ属性へ自動反映されないので、`PerkAttributeApplier.apply()` が `channelOf==ATTRIBUTE` のものだけを Attribute へ merge する。ここが Haste 等の他プラグインと衝突しないよう「ライブ属性値を一切読まない」設計になっている（読むと相殺事故を起こす）。
 
+### 乗算レイヤは「レイヤ内は足し算・レイヤ同士は掛け算」── アドオンの倍率もレイヤを名乗る（2026-08-22、W-186）
+
+`PlayerCombatAggregate#multiplierFor(key)` は **Π over layers of (1 + Σ(v-1))**。
+つまり**同じレイヤに入れた倍率は足され、別レイヤに入れた倍率は掛かる**。
+レイヤの定義は `stats/lore.yml` の `multiplier-layers`（`{id, name, stat}`。**1レイヤ＝1基準ステ**で、
+現行は `layer_1:attack-power` / `layer_2:bleed-damage` / `layer_3:fixed-damage` / `layer_4:bleed-damage-rate`）。
+
+供給源は3つあり、**全部が同じレイヤ空間を共有している**:
+
+| 供給源 | 入口 | レイヤの決まり方 |
+|---|---|---|
+| 装備（item-stats） | `DerivedItemStats.resolveMultipliers` | `multipliers.<layer>.<section>.<stat>` のキーそのもの |
+| スキルツリーのパーク | `PerkBuffResolver` | パーク定義の乗算レイヤ（基準ステ不一致は**無言で捨てられる**） |
+| アドオン（ArsPaper のスレッドのセット効果） | `AddonCombatStats.readLayeredMultipliers` → `PlayerStatAggregator` | **PDC が持つレイヤID**（`thread-sets.yml` の `layer:`） |
+
+⚠️ **2026-08-22 まで、アドオン由来の倍率は `AddonCombatStats.MULTIPLIER_LAYER_ID`（`"addon"`）へ
+固定で入っていた。** 装備側にも同じステの倍率がある場合（攻撃力%）、別レイヤ扱い＝**掛け算で二重に乗る**。
+出荷 `thread-sets.yml` の攻撃力%13件がこの状態だった（装備 ×1.20 × スレッド ×1.25 = ×1.50。
+同レイヤなら ×1.45）。W-186 で `thread-sets.yml` に `layer:` を足し、13件を `layer_1` へ寄せた。
+
+- PDC の乗算チャネル（`PdcKeys#PLAYER_ADDON_COMBAT_MULTIPLIERS`）の書式は
+  **`"layer@key=value;layer@key=value"`**（値は倍率の**増分**。0.1 = +10%）。
+  コーデックは `AddonCombatStats#encodeLayered`/`#parseLayered` で、フォークは TF jar 越しに同じものを呼ぶ。
+- **`@` を含まないトークンは `"addon"` へ落とす（後方互換）。** PDC はサーバ再起動をまたいで
+  プレイヤーに残るので、旧形式を捨てると更新直後に再ログインしていないプレイヤーだけ倍率が無言で消える。
+- レイヤIDは合算側では**ただのグループキー**で、`lore.yml` に実在するかの検証はしていない
+  （存在しないIDを書くと「自分専用の1レイヤ」＝掛け算になる。エラーもログも出ない）。
+  出荷 yml については ArsPaper の `ThreadSetMultiplierLayerTest` が
+  「実在するレイヤを、基準ステが一致する形で名指ししているか」を固定している。
+- lore 表示も同じレイヤIDを使う（`LoreComposer#appendMultiplierLines`）。
+  **未定義のIDだと `[レイヤ名]` の括弧が出ない**ので、`x1.25` だけの行になっていたら
+  レイヤの書き忘れを疑う。`layer_1` を名乗ると装備と同じ `x1.25 [攻撃力％]` になる。
+
 ### ⚠️ オフハンドの規則は「持っているだけ」と「実際に使った」で別（2026-08-13 確定）
 
 `aggregate(Player, ItemStack mainhandContributor, boolean contributorIsOffhand)` の**寄与アイテム
@@ -1056,3 +1089,86 @@ EM独自の武器/防具スキルEXPが同時に加算される(意図した二�
 - [./config-editor.md](./config-editor.md)
 - [./common-traps.md](./common-traps.md)
 - [./bedrock-geyser.md](./bedrock-geyser.md)
+
+## スレッドに書けるステは思ったより狭い ── 3つの落とし穴（2026-08-23、W-187）
+
+トレジャーチェスト専用スレッド10種（CMD 300070-300079）を足すときに、
+**主軸に選んだ4軸が実装レベルで機能しない**ことが分かった。増種のたびに同じ穴を踏むので残す。
+
+### (1) ATTACK チャネル かつ `lore.yml` の `format: FLAT` は禁止
+
+`ShippedThreadBandIndependenceTest#noThreadCarriesAnAbsoluteAttackStat` が落とす。
+スレッドは帯非依存の固定値を配るので、実数のダメージステを持たせると**装備が弱い低帯だけ極端に強くなる**。
+該当キー: `attack-power` / `flat-bonus-damage` / `fixed-damage` / `bleed-damage` /
+`melee-knockback` / `aoe-radius` / `aoe-max-targets` / `stun-duration-bonus` /
+`power-attack-radius` / `arrow-knockback`。
+
+### (2) ATTRIBUTE チャネルは「無言で効かない」＋「手に持つだけで効く」の両方が起きる
+
+`attack-speed-bonus` / `attack-reach` / `max-health` / `knockback-resistance` / `move-speed`。
+
+- **効かない側**: 装着スレッドのステは fork の `ArmorManaListener` → `AddonCombatStats` →
+  `PlayerCombatAggregate#addon()` へ流れるが、`PerkAttributeApplier` の属性経路（同 219-249 行）が
+  合流させるのは **perk + native armor-set + 永続 buff + base-stats だけ**で、addon は入らない。
+- **効きすぎる側**: `AttributeProjection#defaults()` の投影対象キーは、スレッド個体が生成時に通る
+  `ItemFactory#stamp` → `ItemAssembler#assemble` で**バニラ属性として実際に付く**。
+  つまり**防具に挿さず手に持っているだけで**最大体力や攻撃速度が上がる。
+
+`attack-speed-bonus` だけは `PerkAttributeApplier#collectAttackSpeedBonus` が
+`aggregate.item() + aggregate.addon()` を明示的に足しているので「効かない」は当てはまらない。
+ただし手持ちの穴は残るので**スレッドには使わない**（2026-08-23 に一度これで組んで、
+`ShippedThreadItemStatsTest` の `primaryStatIsNeverProjectedToAVanillaAttribute` と
+`primaryStatIsReadableThroughTheAddonChannel` が実際に落ちた）。
+
+### (3) `flat-defense`（守備力）は typed キーがあると無視される後方互換の別名
+
+`DefenseStatBridge` は `phys-flat-defense` / `magic-flat-defense` が1つでもあればそちらを採り、
+`flat-defense` は捨てる。既存スレッドが `phys-flat-defense` を付帯枠で配っている以上、
+`flat-defense` を主軸にしたスレッドは**常に無視される側**になる。typed キーを使うこと。
+
+### あわせて: 増種時に触る場所は6つ
+
+`item-stats.yml`（効果） / fork `threads.yml`（名前・CMD・説明文） / `catalog.yml`（レジストリ登録） /
+`collection.yml`（図鑑。忘れると `ShippedCollectionEntryIdTest` が落ちる） /
+リソースパック（`textures/item` `models/item` `items/string.json` `cmd-registry.json`） /
+テスト4本の CMD 帯（`ShippedThreadItemStatsTest` / `ShippedThreadBandIndependenceTest` /
+`ThreadSocketedOnlyAggregationTest` / `ShippedThreadRollSpreadTest`）。
+**帯を伸ばし忘れると新種がガードの外側に落ちて、検査ごと素通りする。**
+
+`random:` の `max/min` は必ず 8 倍以上（`ShippedThreadRollSpreadTest`）。狭いと厳選する意味が消える。
+
+### 既存スレッドが主軸に使っている戦闘ステ（2026-08-23 時点、新種の軸を決める前に見る）
+
+`percent-bonus-damage` / `crit-chance` / `crit-damage` / `penetration` / `bleed-chance` /
+`armor-strength` / `dodge-chance` / `damage-reduction` / `magic-resistance` / `phys-resistance` /
+`health-regen-bonus` / `reflect-percent` / `stun-chance` / `cooldown-reduction` / `ammo-save-chance`
+
+洗い出しは `tmp/w187-thread-axes.py`（item-stats.yml を読んで主軸と random プールを一覧する）。
+ユーザー方針は**「住み分けできない（相互互換が発生する）ステータス校正にするな」**なので、
+新種はこの一覧に無い軸から選ぶ。2026-08-23 時点で空いていたのは
+`aoe-damage-rate` / `bleed-damage-rate` / `power-attack-damage` / `distance-damage-bonus` /
+`bow-accuracy` / `arrow-velocity` / `arrow-piercing` / `defense-rate` /
+`phys-flat-defense` / `magic-flat-defense` の**ちょうど10本だけ**だった。
+次に増やすときは、既存の整理か新ステの新設が先に要る。
+
+## ⚠️ 台帳の「耐えられる発数」の実測値は、その後の再較正で無言のうちに陳腐化する（2026-08-25）
+
+`reports/ACTIVE_RECORD.md` の残タスク項目は、`reports/ACTIVE_RECORD_ARCHIVE.md` に書かれた
+「着手前の実測」をそのまま前提として引用していることがある。しかし防具・モブ攻撃力は
+`item-stats.yml` / `mob-import.yml` / `mob-overrides.yml` の**3本セットで何度も再較正**されており
+（本ファイルの W-182/W-183/W-186 節を参照）、古い実測値は**その日のうちに別の作業で解決済み**に
+なっていることがある。実例: W-224（「軽装最終装備の耐久期待値を重装へ寄せる」指示）は
+W-183a（2026-08-21）の「着手前の実測」＝軽装(天陰一式)最大HP 30.3・耐発数0.9〜1.1発を前提にしていたが、
+**その同じ日の同じ作業（W-183a）で防具は既に住み分け直されている**
+（重装HP係数0.80・軽装1.50で被ダメージ期待値を揃える形に解決済み）。2026-08-25 に出荷 yml を
+`ComponentDamageCalculator` の実パイプラインで再計算すると、Lv100 踏破ボス(束縛者 第4段階)の通常攻撃に
+対する耐発数は**重装(不滅一式) 約3.27発・軽装(天陰一式、回避込み期待値) 約3.88発**で、
+軽装は既に重装以上（比 約1.19）だった。台帳の数値をそのまま信じて「軽装のHPを引き上げる」実装をすると、
+既に解決済みの問題をもう一段強化する方向に動かしてしまう。
+
+**How**: 「〜が弱い/強すぎる」という前提つきの指示を受けたら、**前提の数値をまず出荷 yml から
+再計算し直す**（`BinderOfWorldsHeavyVersusLightSurvivabilityTest`
+`TrinityForge/src/test/java/com/trinityforge/config/domains/` が束縛者×不滅/天陰の組み合わせを
+実データで固定しているので、まずこれを実走して現状の比を見る）。台帳の実測値には必ず日付が付くので、
+その日付以降に住み分け・再較正系の作業（W-179/W-181/W-182/W-183/W-186 等）が無いかを
+`ACTIVE_RECORD_ARCHIVE.md` で確認してから着手すること。

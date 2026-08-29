@@ -914,6 +914,13 @@ function validateTfSkillExp(data, errors) {
       }
       continue;
     }
+    // 2026-08-21 新設。ダンジョン内側の倍率。無いと Java 側は 1.0(従来の固定値)へ落ちる。
+    if (skill === "dungeon-exp-rate") {
+      if (!isNumber(section) || section < 0) {
+        errors.push("dungeon-exp-rate: 0以上の数値である必要があります");
+      }
+      continue;
+    }
     if (!isPlainObject(section)) { errors.push(`${skill}: マップである必要があります`); continue; }
     // 2026-08-18: 破壊時バニラEXPのベース量。0以上の数値のみ(負値はEXPが減る向きの寄与になる)。
     // 明示的に検証しないと base-exp のスペルミスが黙って無視され、「設定したのに効かない」になる。
@@ -1207,7 +1214,31 @@ function validateArsThreadSets(data, errors) {
       if (!/^\d+$/.test(String(n)) || Number(n) < 1) errors.push(`thread-sets.${tname}.thresholds: しきい値キー "${n}" は1以上の整数である必要があります`);
       if (!isPlainObject(statMap)) { errors.push(`thread-sets.${tname}.thresholds.${n}: ステのマップである必要があります`); continue; }
       for (const [stat, val] of Object.entries(statMap)) {
-        if (!isNumber(val)) errors.push(`thread-sets.${tname}.thresholds.${n}.${stat}: 数値である必要があります`);
+        // 2026-08-21: 乗算モード。数値 = 加算モード(従来)、{ mode: "multiply", value: 0.1 } = 総合値を ×1.1。
+        // 攻撃力のように帯(進行度)で桁が変わるステは固定値で配ると低帯だけ極端に強くなるため、
+        // 割合で配れるこの形が要る(fork ThreadSetConfig / TF PlayerCombatAggregate の乗算レイヤ)。
+        if (isNumber(val)) continue;
+        if (!isPlainObject(val)) {
+          errors.push(`thread-sets.${tname}.thresholds.${n}.${stat}: 数値、または { mode, value } のマップである必要があります`);
+          continue;
+        }
+        if (!isNumber(val.value)) {
+          errors.push(`thread-sets.${tname}.thresholds.${n}.${stat}.value: 数値である必要があります`);
+        }
+        if (val.mode !== undefined && val.mode !== null
+            && String(val.mode) !== "multiply" && String(val.mode) !== "add") {
+          errors.push(`thread-sets.${tname}.thresholds.${n}.${stat}.mode: "multiply" または "add" である必要があります`);
+        }
+        // 2026-08-22(W-186): 乗算の合流先レイヤ。lore.yml の multiplier-layers の id
+        // (layer_1 等)を書くと装備側の同じレイヤの中で足し算になり、書かないと "addon" という
+        // セット効果専用レイヤに入って装備側とは掛け算になる。fork ThreadSetConfig が読む。
+        if (val.layer !== undefined && val.layer !== null) {
+          if (typeof val.layer !== "string" || !val.layer.trim()) {
+            errors.push(`thread-sets.${tname}.thresholds.${n}.${stat}.layer: 空でない文字列である必要があります`);
+          } else if (String(val.mode) !== "multiply") {
+            errors.push(`thread-sets.${tname}.thresholds.${n}.${stat}.layer: 乗算モード(mode: multiply)のときだけ指定できます`);
+          }
+        }
       }
     }
   }
@@ -1582,7 +1613,16 @@ function validateMobDrops(drops, prefix, errors) {
     if (!isValidMobDropItemToken(d.material)) {
       errors.push(`${p}.material: Material名または custom:<カタログID> である必要があります`);
     }
-    if (!isNumber(d.chance) || d.chance < 0 || d.chance > 1) errors.push(`${p}.chance: 0.0〜1.0の数値である必要があります`);
+    // 2026-08-21: chance-by-level(ダンジョンのレベルで落ちやすさを変える)。
+    // これを書いた行は chance: を省略できる —— Java 側 MobOverridesConfig#parseDrops が
+    // 曲線の上端(to-chance)を素の chance として採用する。逆に両方無い行はロールできない。
+    validateLevelDropChanceCurve(d["chance-by-level"], p, errors);
+    const hasCurve = isPlainObject(d["chance-by-level"]);
+    if (d.chance === undefined || d.chance === null) {
+      if (!hasCurve) errors.push(`${p}.chance: 0.0〜1.0の数値である必要があります(chance-by-level を書くなら省略可)`);
+    } else if (!isNumber(d.chance) || d.chance < 0 || d.chance > 1) {
+      errors.push(`${p}.chance: 0.0〜1.0の数値である必要があります`);
+    }
     if (!isNonNegInteger(d.min)) errors.push(`${p}.min: 0以上の整数である必要があります`);
     if (!isNonNegInteger(d.max)) errors.push(`${p}.max: 0以上の整数である必要があります`);
     if (isNonNegInteger(d.min) && isNonNegInteger(d.max) && d.min > d.max) {
@@ -2916,7 +2956,51 @@ function validateTfLevelBroadcast(data, errors) {
 }
 
 // ---- progression/special-rewards.yml (tf-special-rewards) ----
-const PARTICLE_SHAPES = ["circle", "aura"];
+// Java 側 SpecialRewardsConfig.Shape と一字一句合わせること。ここに無い形状は保存時に弾かれ、
+// ここにだけ有る形状は「保存できるのに起動時に warning でシードごと捨てられる」になる。
+const PARTICLE_SHAPES = ["aura", "circle", "sphere", "burst", "helix", "pillar", "arc", "trail", "point"];
+const PARTICLE_ORIGINS = ["impact", "player"];
+// 1回の発生あたりの点の数の上限。Java 側 Emission.MAX_COUNT と同値 —— 向こうは黙って丸めるので、
+// editor 側で先に止めて「書いた数と出る数が違う」を作らない。
+// ⚠ 2026-08-25 に 400 から 64 へ下げた。座標が1点ずつ違う形状(輪/球/螺旋/軌跡)は
+// 点の数だけ spawnParticle を呼び、しかも per-viewer 送信なので
+// 実際のパケットは「点の数 × 近くの人数」。実機で「量が多すぎる」報告が出た。
+const PARTICLE_MAX_COUNT = 64;
+
+/**
+ * particles / particle-seeds で共通の発生パラメータ (2026-08-25 / W-243・W-244)。
+ * 両方から同じ関数で検査する —— 画面ごとに範囲がずれると、片方で作った値がもう片方で無効になる。
+ */
+function validateParticleEmission(prefix, entry, errors) {
+  if (entry.count !== undefined && entry.count !== null) {
+    if (!isNonNegInteger(entry.count)) {
+      errors.push(`${prefix}.count: 0以上の整数である必要があります`);
+    } else if (entry.count > PARTICLE_MAX_COUNT) {
+      errors.push(`${prefix}.count: ${PARTICLE_MAX_COUNT} 以下である必要があります(粒子は見ている人数ぶん送るため)`);
+    }
+  }
+  const ranges = [
+    ["radius", 0, 16],
+    ["speed", 0, 8],
+    ["height", 0, 16],
+    ["arc-degrees", 1, 360],
+    ["y-offset", -4, 8]
+  ];
+  for (const [key, min, max] of ranges) {
+    const value = entry[key];
+    if (value === undefined || value === null) continue;
+    if (!isNumber(value) || value < min || value > max) {
+      errors.push(`${prefix}.${key}: ${min} 以上 ${max} 以下の数値である必要があります`);
+    }
+  }
+  if (entry.turns !== undefined && entry.turns !== null
+      && (!Number.isInteger(entry.turns) || entry.turns < 1 || entry.turns > 16)) {
+    errors.push(`${prefix}.turns: 1 以上 16 以下の整数である必要があります`);
+  }
+  if (entry.shape !== undefined && entry.shape !== null && !PARTICLE_SHAPES.includes(entry.shape)) {
+    errors.push(`${prefix}.shape: ${PARTICLE_SHAPES.join(" / ")} のいずれかである必要があります`);
+  }
+}
 
 function validateTfSpecialRewards(data, errors) {
   if (data === null) return;
@@ -2946,18 +3030,10 @@ function validateTfSpecialRewards(data, errors) {
       if (entry.particle !== undefined && entry.particle !== null && typeof entry.particle !== "string") {
         errors.push(`particles.${id}.particle: 文字列(Bukkit Particle名)である必要があります`);
       }
-      if (entry.count !== undefined && entry.count !== null && !isNonNegInteger(entry.count)) {
-        errors.push(`particles.${id}.count: 0以上の整数である必要があります`);
-      }
-      if (entry.radius !== undefined && entry.radius !== null && (!isNumber(entry.radius) || entry.radius < 0)) {
-        errors.push(`particles.${id}.radius: 0以上の数値である必要があります`);
-      }
       if (entry["interval-ticks"] !== undefined && entry["interval-ticks"] !== null && !isNonNegInteger(entry["interval-ticks"])) {
         errors.push(`particles.${id}.interval-ticks: 0以上の整数である必要があります`);
       }
-      if (entry.shape !== undefined && entry.shape !== null && !PARTICLE_SHAPES.includes(entry.shape)) {
-        errors.push(`particles.${id}.shape: ${PARTICLE_SHAPES.join(" / ")} のいずれかである必要があります`);
-      }
+      validateParticleEmission(`particles.${id}`, entry, errors);
     }
   }
 
@@ -2972,8 +3048,20 @@ function validateTfSpecialRewards(data, errors) {
       if (entry.particle !== undefined && entry.particle !== null && typeof entry.particle !== "string") {
         errors.push(`particle-seeds.${id}.particle: 文字列(Bukkit Particle名)である必要があります`);
       }
-      if (entry.count !== undefined && entry.count !== null && !isNonNegInteger(entry.count)) {
-        errors.push(`particle-seeds.${id}.count: 0以上の整数である必要があります`);
+      validateParticleEmission(`particle-seeds.${id}`, entry, errors);
+      if (entry.origin !== undefined && entry.origin !== null && !PARTICLE_ORIGINS.includes(entry.origin)) {
+        errors.push(`particle-seeds.${id}.origin: ${PARTICLE_ORIGINS.join(" / ")} のいずれかである必要があります`);
+      }
+      if (entry.display !== undefined && entry.display !== null && typeof entry.display !== "string") {
+        errors.push(`particle-seeds.${id}.display: 文字列(loreとGUIに出す日本語名)である必要があります`);
+      }
+      if (entry.clears !== undefined && entry.clears !== null && typeof entry.clears !== "boolean") {
+        errors.push(`particle-seeds.${id}.clears: true/false である必要があります`);
+      }
+      // clears でないシードは particle が要る。Java 側は particle を解決できないと
+      // 起動時に warning を出してそのシードごと捨てるので、editor では保存前に止める。
+      if (!entry.clears && (entry.particle === undefined || entry.particle === null || entry.particle === "")) {
+        errors.push(`particle-seeds.${id}.particle: 必須です(粒子を出さない「消すシード」にするなら clears: true を付けてください)`);
       }
     }
   }
@@ -3892,5 +3980,7 @@ module.exports = {
   validateSkillTreeLayerRefs,
   BIND_TYPES,
   APPLIES_TO,
-  TF_CRAFT_QUALITY_SPREAD_DEFAULTS
+  TF_CRAFT_QUALITY_SPREAD_DEFAULTS,
+  // 形状の語彙は Java の enum・画面定義との3点一致をテストで固定している(schema-rewards.test.js)。
+  particleShapesForTest: PARTICLE_SHAPES
 };

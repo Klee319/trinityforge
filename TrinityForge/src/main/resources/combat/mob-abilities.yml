@@ -58,6 +58,25 @@
 #                     書いても無視される（データ引数なしで撃つと例外になり戦闘処理を道連れにするため）
 #   particle-count    パーティクル個数。1 未満は演出そのものをスキップ（0 は「消える」ではない）
 #   sound             効果音名（ENTITY_GENERIC_EXPLODE など）
+#   health-below      【自分の残HP割合がこの値以下のときだけ撃つ】(既定 1.0 = 制限なし)
+#                     「瀕死になると出す大技」を作るための門。倍率を上げた技をここで縛ると、
+#                     戦闘の最後だけ緊張が跳ね上がり、盾・回復・退避という対策の出番ができる。
+#                     倍率だけ上げて門を付けないと、開幕から即死技が飛ぶ理不尽になるので必ずセットで書く
+#   health-above      自分の残HP割合がこの値以上のときだけ撃つ (既定 0.0 = 制限なし)。
+#                     health-below と組み合わせると「HP 40〜70% の中盤だけ出る技」も書ける
+#
+# 【damage-percent の水準】(2026-08-21 W-183 「技ダメの耐発数が通常より多いのは違和感」)
+#   技にはテンプレごとのクールダウン(8〜45秒)とモブ共通クールダウン(12秒)と発動率があり、
+#   通常攻撃より発生頻度が桁違いに低い。だから【技は必ず通常攻撃より痛い】のが正しい。
+#   倍率は「避けられるほど高く」の一本の物差しで決める:
+#     delayed_zone(足元に印 -> 予告後に着弾。見て動けば当たらない) 2.0〜2.1  ← 最高倍率
+#     beam / charge / teleport_strike(向きと軌道が読める)          1.55〜1.70
+#     ground_slam / repulse(自分の周囲。距離で外せる)              1.25〜1.45
+#     aura(踏み続けた秒数だけ蓄積。総量で見る)                     0.40〜0.42 x 秒数
+#     効果が本体の技(拘束・引き寄せ)                               1.10 前後
+#   上限の目安は【1発が最大HPの 3/4 を超えないこと】(基準は Lv100・品質5・ツリー未投資)。
+#   例外は health-below を持つ瀕死技で、そこだけ 5/6 まで許す(発動条件が限定されているため)。
+#   ただし瀕死技を配ってよいのは【難易度6以上のダンジョンだけ】(W-184)。下の節を見ること。
 #
 # 【安全弁】数値は Java 側で範囲に丸める（半径 32 / クールダウン 0.5〜600 秒 / 投射数 64 など）。
 #   書き間違いでサーバが止まるより静かに丸める方を選んでいる。
@@ -96,6 +115,25 @@ global-cooldown-seconds: 12
 require-target: true
 require-line-of-sight: true
 
+# 【技の属性の決め方】(2026-08-21 W-181 「格下レベルのボスにワンパンされる」)
+# 2026-08-21 以前、技のダメージは damage-type の側へ【100%】寄せて解決していた。これはモブの
+# magic-ratio(通常攻撃の物理/魔法の配分)を完全に素通りする経路で、実害が2つあった:
+#   ・magic-ratio の上限 0.45 が効かない。あの上限は「魔法防御を持たないプレイヤーが何発耐えるか」
+#     で校正した安全弁なのに、damage-percent 2.0 の魔法技は実質 magic-ratio 2.0 相当で飛んでいた。
+#     難易度1のダンジョンのボスでも、1発で最大HPの7割以上を奪っていた。
+#   ・コンセプトと逆属性の技が理不尽になる。「敵は物理型(magic-ratio 0.10)」のダンジョンで、
+#     正しく物理防御を積んだプレイヤーが【魔法技1発だけで即死】する。対策のしようが無い。
+#
+# そこで技のダメージも【そのモブの magic-ratio で物理/魔法へ分割する】ようにし、damage-type は
+# 「そこからどれだけ自分の属性側へ引き寄せるか」という偏りに格下げした。実効の魔法割合は
+#     魔法技: r + (1 - r) * bias   /   物理技: r * (1 - bias)      (r = そのモブの magic-ratio)
+# 0 にすると技もモブと完全に同じ配分になり、1 にすると 2026-08-21 以前の挙動へ戻る。
+# 既定 0.35 では magic-ratio 0.10 のダンジョンの魔法技が 41.5% 魔法 / 58.5% 物理になり、
+# 物理防御を積んだプレイヤーにも受け止める余地が残る。
+# 刻印を持たないバニラモブ(magic-ratio 0)でも魔法技は bias ぶんだけ魔法で入るので、
+# ウィザーのビームが完全物理に化けることはない。
+ability-element-bias: 0.35
+
 abilities:
 
   # ---------------------------------------------------------------------------
@@ -105,7 +143,7 @@ abilities:
     display-name: "<red>震脚</red>"
     type: ground_slam
     damage-type: physical
-    damage-percent: 1.4
+    damage-percent: 1.45   # 自分の周囲AoE。距離で外せるので中倍率(W-183)
     cooldown-seconds: 9
     chance: 0.30
     range: 5
@@ -120,7 +158,7 @@ abilities:
     display-name: "<gold>足砕き</gold>"
     type: ground_slam
     damage-type: physical
-    damage-percent: 0.8
+    damage-percent: 1.15
     cooldown-seconds: 14
     chance: 0.25
     range: 4
@@ -182,7 +220,7 @@ abilities:
     display-name: "<red>突進</red>"
     type: charge
     damage-type: physical
-    damage-percent: 1.6
+    damage-percent: 1.7   # 突進線から外れれば当たらないので高め(W-183)
     cooldown-seconds: 12
     chance: 0.28
     range: 14
@@ -196,7 +234,7 @@ abilities:
     display-name: "<dark_purple>影渡り</dark_purple>"
     type: teleport_strike
     damage-type: physical
-    damage-percent: 1.8
+    damage-percent: 1.55
     cooldown-seconds: 16
     chance: 0.25
     range: 20
@@ -213,7 +251,7 @@ abilities:
     display-name: "<dark_gray>枯死の霧</dark_gray>"
     type: aura
     damage-type: magical
-    damage-percent: 0.35
+    damage-percent: 0.4
     cooldown-seconds: 22
     chance: 0.22
     range: 8
@@ -231,7 +269,7 @@ abilities:
     display-name: "<aqua>凍気</aqua>"
     type: aura
     damage-type: magical
-    damage-percent: 0.25
+    damage-percent: 0.42
     cooldown-seconds: 20
     chance: 0.22
     range: 8
@@ -252,7 +290,7 @@ abilities:
     display-name: "<light_purple>貫通光</light_purple>"
     type: beam
     damage-type: magical
-    damage-percent: 2.0
+    damage-percent: 1.7   # 直線。横へ避けられるので高め(W-183)
     cooldown-seconds: 15
     chance: 0.25
     range: 22
@@ -303,7 +341,7 @@ abilities:
     display-name: "<red>烈風叩き</red>"
     type: repulse
     damage-type: physical
-    damage-percent: 0.9
+    damage-percent: 1.25
     cooldown-seconds: 11
     chance: 0.28
     range: 6
@@ -322,7 +360,7 @@ abilities:
     display-name: "<dark_purple>深淵の手</dark_purple>"
     type: vortex_pull
     damage-type: magical
-    damage-percent: 0.3
+    damage-percent: 1.1
     cooldown-seconds: 13
     chance: 0.30
     range: 20
@@ -345,14 +383,14 @@ abilities:
     display-name: "<gold>星降りの徴</gold>"
     type: delayed_zone
     damage-type: magical
-    # 既存の最大倍率(piercing_beam の 2.0)を超えないこと。避けられる技だからと上げると、
-    # 「避けそこねた1回で即死」＝実質ワンショットになり、防具の投資が意味を失う。
-    damage-percent: 2.0
+    # 予告付きなので全テンプレ中の最高倍率を置いてよい。ただし【最大HPの 3/4 を超えないこと】。
+    # 超えると「避けそこねた1回で即死」＝実質ワンショットになり、防具の投資が意味を失う。
+    damage-percent: 2.1   # 予告2秒。見て動けば完全に避けられるので最高倍率(W-183)
     cooldown-seconds: 18
     chance: 0.26
     range: 24
     radius: 3.5
-    duration-seconds: 1.6   # 予告時間
+    duration-seconds: 2   # 予告時間
     knockback: 1.0
     particle: LAVA
     particle-count: 24
@@ -362,13 +400,126 @@ abilities:
     display-name: "<gray>地烈の棘</gray>"
     type: delayed_zone
     damage-type: physical
-    damage-percent: 1.7
+    damage-percent: 2.0   # 予告1.8秒。同上(W-183)
     cooldown-seconds: 15
     chance: 0.28
     range: 18
     radius: 3
-    duration-seconds: 1.2
+    duration-seconds: 1.8
     knockback: 1.6          # 棘に打ち上げられる
     particle: CRIT
     particle-count: 28
     sound: BLOCK_STONE_BREAK
+
+  # ---------------------------------------------------------------------------
+  # 属性違いの対（2026-08-21 W-183）
+  # ボスが「属性の違う技を撃ち分ける」ようにするため、既存アーキタイプの逆属性版を足した。
+  # 片方の防御だけ積んだビルドが全部の技を受け流せてしまう状態を崩すのが目的。
+  # ---------------------------------------------------------------------------
+
+  flare_slam:
+    display-name: "<gold>灼熱の踏み込み</gold>"
+    type: ground_slam
+    damage-type: magical      # shockwave の魔法版
+    damage-percent: 1.45
+    cooldown-seconds: 10
+    chance: 0.28
+    range: 5
+    radius: 5
+    knockback: 0.5
+    effects:
+      - type: SLOWNESS
+        duration-seconds: 3
+        amplifier: 0
+    particle: FLAME
+    particle-count: 30
+    sound: ENTITY_BLAZE_SHOOT
+
+  void_lunge:
+    display-name: "<dark_purple>虚無の踏み込み</dark_purple>"
+    type: charge
+    damage-type: magical      # bull_rush の魔法版
+    damage-percent: 1.7
+    cooldown-seconds: 13
+    chance: 0.26
+    range: 14
+    radius: 2.5
+    knockback: 1.0
+    particle: WITCH
+    particle-count: 24
+    sound: ENTITY_ENDERMAN_TELEPORT
+
+  searing_lance:
+    display-name: "<red>貫きの刺突</red>"
+    type: beam
+    damage-type: physical     # piercing_beam の物理版
+    damage-percent: 1.7
+    cooldown-seconds: 15
+    chance: 0.25
+    range: 22
+    radius: 1.2
+    count: 18
+    particle: CRIT
+    particle-count: 3
+    sound: ENTITY_PLAYER_ATTACK_CRIT
+
+  bleeding_aura:
+    display-name: "<dark_red>血の領域</dark_red>"
+    type: aura
+    damage-type: physical     # withering_aura / frost_field の物理版
+    damage-percent: 0.4
+    cooldown-seconds: 22
+    chance: 0.22
+    range: 8
+    radius: 6
+    duration-seconds: 6
+    particle: DAMAGE_INDICATOR
+    particle-count: 12
+    sound: ENTITY_PLAYER_HURT
+
+  # ---------------------------------------------------------------------------
+  # 瀕死技（2026-08-21 W-183）
+  # health-below で「残HPが減ってから」しか出ないようにしてある。予告時間を長めに取り、
+  # 見てから避ける / 盾で受ける / 離れる の余地を残したうえで倍率を上げている。
+  # ※ health-below を外すと開幕から飛ぶ即死技になる。倍率と門は必ずセットで動かすこと。
+  #
+  # ★ 配ってよいのは【難易度6以上のダンジョンだけ】(2026-08-21 W-184)。
+  #   瀕死技は「盾やダメージ軽減を用意しておく」という前提知識の上に成り立つ大技で、
+  #   その前提がまだ無い難易度1〜5 では対策不能な事故にしかならない
+  #   (W-183 では難易度1の闇の大聖堂にも 2.3 倍の last_stand_quake が乗っていた)。
+  #   低難易度へ技を足すときは【本数を減らさず】同じ属性を埋める通常技へ差し替えること。
+  #   減らすと「どのボスも物理と魔法の両方を持つ」が崩れ、片側の防御だけで受かるボスへ戻る。
+  #   この縛りは ShippedDungeonBurstAndElementTest が許可スコープの名前で固定している。
+  # ---------------------------------------------------------------------------
+
+  desperation_nova:
+    display-name: "<light_purple><bold>崩落の詠唱</bold></light_purple>"
+    type: delayed_zone
+    damage-type: magical
+    damage-percent: 2.5       # 瀕死技の枠(最大HPの 5/6 まで)
+    cooldown-seconds: 30
+    chance: 0.5
+    range: 24
+    radius: 4.5
+    duration-seconds: 2.5     # 予告2.5秒。全テンプレ中いちばん長い
+    knockback: 1.2
+    health-below: 0.3         # 残HP30%以下でのみ発動
+    particle: SOUL_FIRE_FLAME
+    particle-count: 36
+    sound: ENTITY_WITHER_SPAWN
+
+  last_stand_quake:
+    display-name: "<gray><bold>断末の震え</bold></gray>"
+    type: delayed_zone
+    damage-type: physical
+    damage-percent: 2.3
+    cooldown-seconds: 26
+    chance: 0.45
+    range: 20
+    radius: 4
+    duration-seconds: 2.2
+    knockback: 1.8
+    health-below: 0.35        # 残HP35%以下でのみ発動
+    particle: CRIT
+    particle-count: 36
+    sound: ENTITY_RAVAGER_ROAR

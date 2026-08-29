@@ -38,6 +38,20 @@ public final class SkillTreeLayout {
      * これ以上は上へ伸ばさず横へ探しに行く(親から縦に離れ過ぎると対応が読めなくなるため)。
      */
     private static final int MAX_DEEPER_ROWS = 2;
+    /**
+     * 「1段上へ逃げる」ことの重さ(レーン何本ぶんに相当するか) (2026-08-25 / W-250)。
+     *
+     * <p>以前は<b>1段上＝横1レーンと同じ重さ</b>だったため、希望のレーンが埋まっているノードは
+     * 「2レーン外側」より「1段上」を選んでいた。しかし GUI の<b>行はレベル帯そのもの</b>なので、
+     * 段を上げると<b>そのノードだけ帯がずれ</b>、コネクタは帯を1つまるごと縦断し、
+     * 続きのノードも玉突きでずれていく（付呪の排他3兄弟が lv60 の行に入れず、
+     * 片方だけ lv80 の行へ落ちていたのがこれ）。
+     *
+     * <p>同じ帯の外側なら「少し遠い」だけで読み方は壊れないので、
+     * <b>4レーン外側までは段を上げるより優先</b>する。半平面ガードがあるので、
+     * 外へ探しても反対側（排他路線側）へは滑り込まない。
+     */
+    private static final int DEEPER_ROW_COST = 4;
 
     private final Map<String, SkillNode> nodes;
     private final int startX;
@@ -54,8 +68,56 @@ public final class SkillTreeLayout {
      * 画面の半分が空くため。
      */
     private final boolean halfPlaneByRole;
+    /**
+     * 空きセル探索の優先順 (2026-08-24 / W-216)。
+     *
+     * <p>{@code true}(既定) = <b>まず同じ行を外側へ</b>探し、行が尽きてから1段上へ逃げる。
+     * {@code false} = 2026-07-30〜08-24 の挙動で、横へ探す前に上へ逃げる。
+     *
+     * <p>旧挙動では、チェーンの続きが置きたい行を<b>次の主軸の枝の根</b>に先取りされると
+     * 1段上（＝1レベル帯ぶん上）へ落ちてしまい、コネクタが他チェーンの間の通路を
+     * 縦に走る。実サーバ報告「総合で足元強化のノードが変なつながり方している」の正体
+     * （足元強化 II が lv40 の行に入れず lv60 の行へ、III が玉突きで lv80 の行へ）。
+     *
+     * <p>横へ探すと BRANCH が排他路線側の半平面へ滑り込む——これが旧挙動が深さ優先だった
+     * 理由——ので、行優先にするときは {@link #fits} の半平面ガードとセットでなければならない。
+     * {@code false} は<b>比較シミュレーション専用</b>で、実運用の経路からは渡されない。
+     */
+    private final boolean rowFirstSearch;
+    /**
+     * レーンを配る順序 (2026-08-25 / W-250)。
+     *
+     * <p>{@code true}(既定) = <b>下の行から順に処理し、同じ行では「チェーンの続き」を
+     * 「主軸から新しく出る扇」より先に置く</b>。{@code false} = 2026-08-25 以前の挙動で、
+     * 親が置けた順（＝根からの深さ順）に処理する。
+     *
+     * <p><b>なぜ順序が見た目を決めるのか</b>: 主軸ノードは最初に全部トランクへ置かれるので、
+     * 深さ順だと<b>どの主軸の扇も、下から伸びてきたチェーンの続きより先に</b>レーンを取る。
+     * 取られた続きは外側へ押し出され、親との間に 4〜6 セルの<b>斜めの経路</b>が生まれる。
+     * 通路の行はノード行の間に1本しか無いので、その斜めの線と扇の線が同じ行で合流し、
+     * {@code GridConnectorRouting#merge} が T 字・十字へ描き替える ―― これが実サーバ報告
+     * 「エンチャントと総合のノードのつながり方がおかしい」の正体（付呪では1本の通路の行に
+     * 5本のコネクタが載っていた）。
+     *
+     * <p>行を下から埋め、同じ行では続きを先に置くと、チェーンは<b>1列を保って真上へ伸びる</b>
+     * ので線は縦1セルになり、横に長く走る線は「主軸の扇」だけになる。
+     * {@code false} は<b>比較シミュレーション専用</b>で、実運用の経路からは渡されない。
+     */
+    private final boolean continuationFirst;
 
     public SkillTreeLayout(SkillTree tree) {
+        this(tree, true, true);
+    }
+
+    /** 旧挙動との比較用。{@code rowFirstSearch=false} で 2026-08-24 以前の配置を再現する。 */
+    SkillTreeLayout(SkillTree tree, boolean rowFirstSearch) {
+        this(tree, rowFirstSearch, true);
+    }
+
+    /** 旧挙動との比較用。{@code continuationFirst=false} で 2026-08-25 以前の順序を再現する。 */
+    SkillTreeLayout(SkillTree tree, boolean rowFirstSearch, boolean continuationFirst) {
+        this.rowFirstSearch = rowFirstSearch;
+        this.continuationFirst = continuationFirst;
         this.nodes = tree.nodes();
         int[] start = parseCoords(tree.startingCoords());
         this.startX = start[0];
@@ -106,6 +168,9 @@ public final class SkillTreeLayout {
             if (readyParents.isEmpty()) {
                 throw new IllegalStateException("parent cycle detected in skill tree");
             }
+            if (continuationFirst) {
+                readyParents = lowestRowContinuationFirst(readyParents);
+            }
             for (String parentId : readyParents) {
                 List<SkillNode> siblings = remaining.stream()
                         .map(nodes::get)
@@ -121,6 +186,53 @@ public final class SkillTreeLayout {
                 siblings.forEach(node -> remaining.remove(node.id()));
             }
         }
+    }
+
+    /**
+     * 「置ける親」のうち<b>一番下の行にいるものだけ</b>を、
+     * <b>チェーンの続き → 主軸の扇</b>の順に返す (2026-08-25 / W-250)。
+     *
+     * <h2>なぜ行を絞るのか</h2>
+     * 深さ順のウェーブでは、1回のウェーブに<b>複数の行</b>が混ざる（主軸は最初に全部置かれるので、
+     * 上の主軸の扇と下のチェーンの続きが同じウェーブに並ぶ）。混ざったまま親IDの順に処理すると、
+     * 上の主軸の扇が下のチェーンの続きより先にレーンを取ってしまう。
+     * <b>行を下から1つずつ閉じる</b>ことで、その行のレーンは必ず
+     * 「その行に来るべき全員」の中で優先順に配られる。
+     *
+     * <h2>なぜ続きを先にするのか</h2>
+     * チェーンの続きは<b>親の真上</b>に置ければコネクタが縦1セルで済み、外へ押し出されると
+     * 斜めの長い線になる。主軸の扇は<b>どのレーンに置いても</b>主軸の真上には来られない
+     * （そこは次の主軸が使う）ので、横へ走る線は避けられない。
+     * つまり<b>続きに内側を、扇に外側を</b>渡すのが、横に走る線の総数が最小になる配り方。
+     *
+     * <p>親が上へずれた場合（{@link #findFreeInLayer} が段を上げた場合）でも順序は壊れない ――
+     * ずれる方向は必ず上（y が小さい方）なので、その子の行はまだ処理していない行になる。
+     */
+    private List<String> lowestRowContinuationFirst(List<String> readyParents) {
+        int lowest = readyParents.stream().mapToInt(id -> parentAnchor(id).y()).max().orElseThrow();
+        List<String> ordered = new ArrayList<>();
+        for (String parentId : readyParents) {
+            if (parentAnchor(parentId).y() == lowest) {
+                ordered.add(parentId);
+            }
+        }
+        ordered.sort(Comparator.comparingInt((String id) -> isTrunkParent(id) ? 1 : 0)
+                .thenComparing(Comparator.nullsFirst(Comparator.<String>naturalOrder())));
+        // ⚠ ここは null を含みうる（親を持たないノードは parentId が null で「根の子」を表す規約）。
+        //    List.copyOf / List.of は null 要素で NPE を投げるので使えない。
+        return Collections.unmodifiableList(ordered);
+    }
+
+    /** 親の座標。親が居ない(=根に繋がる)ノードは根の座標を親とみなす({@link #layoutAll} と同じ規約)。 */
+    private Coord parentAnchor(String parentId) {
+        return parentId != null && memo.containsKey(parentId) ? memo.get(parentId) : rootCoord();
+    }
+
+    /** その親が「主軸側」か(＝子は新しい扇になる)。親が居ないノードも根＝主軸扱い。 */
+    private boolean isTrunkParent(String parentId) {
+        return parentId == null
+                || !nodes.containsKey(parentId)
+                || isTrunkAttachment(nodes.get(parentId));
     }
 
     public int startX() {
@@ -239,7 +351,7 @@ public final class SkillTreeLayout {
             } else {
                 offset = trunkParent ? (trunkFanOrdinal % 2 == 0 ? SIDE_STEP : -SIDE_STEP) : 0;
             }
-            put(only.id(), findFreeInLayer(new Coord(parent.x() + offset, y), parent));
+            put(only.id(), findFreeInLayer(new Coord(parent.x() + offset, y), parent, halfPlane(only)));
             return;
         }
         List<List<SkillNode>> buckets = groupBuckets(siblings);
@@ -251,7 +363,7 @@ public final class SkillTreeLayout {
             for (SkillNode member : bucket) {
                 int lane = ++lanesPerSide[side];
                 Coord preferred = new Coord(parent.x() + sign * lane * SIDE_STEP, y);
-                put(member.id(), findFreeInLayer(preferred, parent));
+                put(member.id(), findFreeInLayer(preferred, parent, halfPlane(member)));
             }
         }
     }
@@ -259,6 +371,17 @@ public final class SkillTreeLayout {
     /** 半平面分離の向き: GREEK(排他路線)は左(-1)、それ以外(BRANCH)は右(+1)。 */
     private static int sideSign(SkillNode node) {
         return node.role() == SkillRole.GREEK ? -1 : 1;
+    }
+
+    /**
+     * 空きセル探索で越えてはいけない側。{@code 0} は制約なし。
+     *
+     * <p>{@link #placeSiblingLayer} は「希望の座標」を半平面へ寄せるが、そこが埋まっていたときの
+     * <b>探索は半平面を見ていなかった</b>。行優先で横へ探すと BRANCH が排他側へ滑り込むので、
+     * 行優先のときだけ側を固定する({@link #rowFirstSearch} 参照)。
+     */
+    private int halfPlane(SkillNode node) {
+        return rowFirstSearch && halfPlaneByRole ? sideSign(node) : 0;
     }
 
     /**
@@ -295,44 +418,60 @@ public final class SkillTreeLayout {
      * <p>どうしても見つからない場合は「迂回なしコネクタ」→ 隣接禁止 → 主軸列予約の順に条件を
      * 緩めるので、「配置できずに例外」という結果が改修前より増えることはない。
      */
-    private Coord findFreeInLayer(Coord preferred, Coord parent) {
-        Coord strict = search(preferred, parent, true, true, true);
+    private Coord findFreeInLayer(Coord preferred, Coord parent, int halfPlane) {
+        Coord strict = search(preferred, parent, halfPlane, true, true, true);
         if (strict != null) return strict;
-        Coord relaxedRoute = search(preferred, parent, true, true, false);
+        Coord relaxedRoute = search(preferred, parent, halfPlane, true, true, false);
         if (relaxedRoute != null) return relaxedRoute;
-        Coord relaxedAdjacency = search(preferred, parent, false, true, false);
+        Coord relaxedAdjacency = search(preferred, parent, halfPlane, false, true, false);
         if (relaxedAdjacency != null) return relaxedAdjacency;
-        Coord anyFree = search(preferred, parent, false, false, false);
+        // 最後の砦では半平面も捨てる(置けずに例外で落とすより、ずれた側でも出したほうがまし)。
+        Coord anyFree = search(preferred, parent, 0, false, false, false);
         if (anyFree != null) return anyFree;
         throw new IllegalStateException("no free branch coordinate near " + preferred.format());
     }
 
-    private Coord search(Coord preferred, Coord parent, boolean requireGap, boolean avoidTrunkColumn,
-                         boolean requireDirectRoute) {
+    private Coord search(Coord preferred, Coord parent, int halfPlane, boolean requireGap,
+                         boolean avoidTrunkColumn, boolean requireDirectRoute) {
+        // 段を上げる重さ。continuationFirst(既定) では「帯を守る」ほうを強く優先する。
+        int depthCost = continuationFirst ? DEEPER_ROW_COST : 1;
         for (int cost = 0; cost <= MAX_DETOUR; cost++) {
-            for (int depth = Math.min(cost, MAX_DEEPER_ROWS); depth >= 0; depth--) {
-                int ring = cost - depth;
+            int maxDepth = Math.min(cost / depthCost, MAX_DEEPER_ROWS);
+            for (int step = 0; step <= maxDepth; step++) {
+                // 行優先(既定): depth 0 から = まず同じ行を外側へ。深さ優先(旧): depth 最大から。
+                int depth = rowFirstSearch ? step : maxDepth - step;
+                int ring = cost - depth * depthCost;
                 int y = preferred.y() - depth * TRUNK_STEP;
                 if (ring == 0) {
                     Coord center = new Coord(preferred.x(), y);
-                    if (fits(center, parent, requireGap, avoidTrunkColumn, requireDirectRoute)) return center;
+                    if (fits(center, parent, halfPlane, requireGap, avoidTrunkColumn, requireDirectRoute)) {
+                        return center;
+                    }
                     continue;
                 }
                 Coord left = new Coord(preferred.x() - ring * SIDE_STEP, y);
-                if (fits(left, parent, requireGap, avoidTrunkColumn, requireDirectRoute)) return left;
+                if (fits(left, parent, halfPlane, requireGap, avoidTrunkColumn, requireDirectRoute)) {
+                    return left;
+                }
                 Coord right = new Coord(preferred.x() + ring * SIDE_STEP, y);
-                if (fits(right, parent, requireGap, avoidTrunkColumn, requireDirectRoute)) return right;
+                if (fits(right, parent, halfPlane, requireGap, avoidTrunkColumn, requireDirectRoute)) {
+                    return right;
+                }
             }
         }
         return null;
     }
 
-    private boolean fits(Coord candidate, Coord parent, boolean requireGap, boolean avoidTrunkColumn,
-                         boolean requireDirectRoute) {
+    private boolean fits(Coord candidate, Coord parent, int halfPlane, boolean requireGap,
+                         boolean avoidTrunkColumn, boolean requireDirectRoute) {
         if (occupied.contains(candidate) || candidate.equals(parent) || candidate.equals(rootCoord())) {
             return false;
         }
         if (avoidTrunkColumn && candidate.x() == startX) {
+            return false;
+        }
+        // 行優先で横へ探すとき、主軸をまたいで反対側の半平面へ滑り込むのを禁じる。
+        if (halfPlane != 0 && Integer.signum(candidate.x() - startX) != halfPlane) {
             return false;
         }
         if (requireGap && touchesPlacedNode(candidate)) {

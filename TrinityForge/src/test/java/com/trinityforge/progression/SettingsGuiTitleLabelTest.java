@@ -65,7 +65,8 @@ class SettingsGuiTitleLabelTest {
         // 解放済みでないとボタンが「？？？ (未解放)」になり、表示名の検証にならない。
         when(rewardService.isUnlocked(any(), anyString())).thenReturn(true);
 
-        gui = new SettingsGui(MockBukkit.createMockPlugin(), config, rewardService);
+        gui = new SettingsGui(MockBukkit.createMockPlugin(), config, rewardService,
+                id -> java.util.Optional.empty());
         player = server.addPlayer();
     }
 

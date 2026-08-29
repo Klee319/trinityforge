@@ -235,7 +235,10 @@
         // 2026-08-14: lapis-cost-reduction も廃止 (ArsPaper の消費リスナーごと削除)。
         "ingredient-save-chance", "enchant-luck",
         "potion-quality-bonus", "brew-speed-bonus", "enchant-cost-reduction",
-        "glyph-damage-multiplier-bonus"
+        "glyph-damage-multiplier-bonus",
+        // 2026-08-25: 実装済み(WeaponCoatingListener が totalOf 経由でクランプ)なのに一覧から
+        // 漏れていたキーを追加(docs/config-reference/combat/stat-caps.md と同時に直した)。
+        "coating-charges-bonus"
       ]
     },
     {

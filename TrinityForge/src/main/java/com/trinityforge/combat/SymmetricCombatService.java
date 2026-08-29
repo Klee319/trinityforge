@@ -68,6 +68,27 @@ public final class SymmetricCombatService {
     }
 
     /**
+     * そのプレイヤーの<b>単一スキルのレベル</b>(未習得/未知の id は 0)。
+     *
+     * <p>{@link #combatLevelOf} が「全スキルを pillar 写像で 1 つに畳んだ値」なのに対して、こちらは
+     * 畳む前の生のレベル。2026-08-22 のユーザー指示で、<b>職業EXPのレベル差足きり</b>
+     * ({@code combat/damage.yml} の {@code level-cutoff.under-level})が
+     * 「そのEXPが入る職業のレベル」で判定するようになったため露出した。
+     *
+     * <p>戦闘レベルで判定していた頃は、軽武器 100 の純特化プレイヤーの戦闘レベルが 67
+     * (top1 の divisor が 1.5)にしかならず、<b>軽武器スキルがちょうど 100 なのに Lv100 モブとの
+     * レベル差が 33 と判定されて軽武器EXPが削られていた</b>。逆に、伸びている柱に引っ張られて
+     * 遅れている職業ほど足きりが甘くなる(軽武器80・魔法1の人の魔法EXPが戦闘Lv53 で判定される)
+     * という抜け穴も同時にあった。判定する数とEXPの帰属先を揃えるのがこの入口の役目。
+     */
+    public int skillLevelOf(UUID playerId, String skillId) {
+        if (skillId == null || skillId.isBlank()) {
+            return 0;
+        }
+        return Math.max(0, skillLevelSource.levelsOf(playerId).getOrDefault(skillId, 0));
+    }
+
+    /**
      * Physical component: the vanilla base damage is level-scaled and folded through the pipeline.
      *
      * @param attack the attacker's stats template (its {@code defaultDamage} is replaced by the scaled value)

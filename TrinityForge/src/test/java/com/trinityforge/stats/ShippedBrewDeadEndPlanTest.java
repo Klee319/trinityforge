@@ -17,33 +17,30 @@ import java.nio.file.Files;
 import java.util.List;
 import java.util.logging.Logger;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 行き止まり素材3種（柱4）の醸造が、<b>実際に PotionMix の登録対象まで到達する</b>ことを固定する
- * （2026-08-02 追加）。
+ * 行き止まり素材3種（{@code guardian_spine} / {@code husk_cloth} / {@code pillager_plate}、W-233）が
+ * {@link BrewPotionMixRegistrar#plan} を通っても登録対象に<b>現れないこと</b>を固定する
+ * （2026-08-25 現仕様へ書き直し）。
  *
- * <p><b>なぜ別テストが要るか</b>: {@code ShippedBrewDeadEndMaterialTest} は
- * {@code CraftingFeaturesConfig} のパース結果までしか見ておらず、
- * 「{@code brew-unlocks} のグループに居る」ことしか固定していない。
- * しかし {@link BrewPotionMixRegistrar#plan} は
- * <b>未知素材・バニラのレシピと衝突するベース・同じ(ベース,素材)ペアの重複</b>を
- * <b>WARNING を出すだけで黙って落とす</b>。つまり yml に書いてあっても登録されないことがあり、
- * その場合は「行き止まりを解消した」つもりで<b>何も解消していない</b>状態になる。
+ * <p>そもそも {@code crafting-features.yml} の {@code brew-unlocks} にこの3種が ingredient として
+ * 1件も存在しないので、{@code plan()} の出力にも現れないのが期待挙動。ユーザー判断は
+ * 「出口は作らない、行き止まりのまま許容する」なので、これは<b>将来出口ができたら落ちる逆向きの
+ * 検査ではなく</b>、現状（yml に無い→ plan() にも無い）をそのまま固定するテスト。
+ *
+ * <p>旧版はこのテストを「出口があるはず」の向きで書いており、存在しない素材/グループの組で
+ * 恒久的に赤くなっていた。
  *
  * <p>{@code plan} は package-private なのでこのテストは {@code com.trinityforge.stats} に置く
  * （呼べるようにするためだけに可視性を広げない）。
  */
 class ShippedBrewDeadEndPlanTest {
 
-    /** 素材ID -&gt; 醸造グループ。プラン柱4の表がそのまま出典。 */
-    private static final List<String[]> EXPECTED = List.of(
-            new String[] {"custom:pillager_plate", "survivor-brew"},
-            new String[] {"custom:piglin_ear", "hunter-hex"},
-            new String[] {"custom:skeleton_horse_bone", "apex-brew"});
+    private static final List<String> DEAD_END_INGREDIENTS =
+            List.of("custom:guardian_spine", "custom:husk_cloth", "custom:pillager_plate");
 
     private CraftingFeaturesConfig config;
 
@@ -68,30 +65,20 @@ class ShippedBrewDeadEndPlanTest {
     }
 
     @Test
-    @DisplayName("行き止まり素材3種が plan() を通って実際に登録対象になる(黙って落とされない)")
-    void deadEndMaterialsSurvivePlanning() {
+    @DisplayName("行き止まり素材3種は plan() の結果にも現れない(行き止まりを許容する現仕様の固定)")
+    void deadEndMaterialsStayAbsentFromPlan() {
         Logger log = Logger.getLogger(ShippedBrewDeadEndPlanTest.class.getName());
         List<BrewPotionMixRegistrar.MixPlan> plans =
                 BrewPotionMixRegistrar.plan(config.brewUnlocks(), log);
-        assertFalse(plans.isEmpty(), "plan() が1件も返していない");
+        assertFalse(plans.isEmpty(), "plan() が1件も返していない(他の醸造グループまで巻き添えで壊れている)");
 
-        for (String[] expected : EXPECTED) {
-            String ingredient = expected[0];
-            String groupId = expected[1];
-
+        for (String ingredient : DEAD_END_INGREDIENTS) {
             List<BrewPotionMixRegistrar.MixPlan> hits = plans.stream()
-                    .filter(mp -> groupId.equals(mp.groupId()))
                     .filter(mp -> ingredient.equals(mp.spec().ingredient()))
                     .toList();
-
-            assertEquals(1, hits.size(),
-                    "'" + ingredient + "' が plan() の結果に居ない。"
-                            + "yml には書いてあるのに登録されない = 行き止まりのまま。"
-                            + "plan() が落とす理由は「未知素材」「バニラのレシピと衝突するベース」"
-                            + "「同じ(ベース,素材)ペアの重複」の3つで、いずれも WARNING しか出ない。"
-                            + "現在 plan() が通した " + groupId + " の素材: "
-                            + plans.stream().filter(mp -> groupId.equals(mp.groupId()))
-                                    .map(mp -> mp.spec().ingredient()).toList());
+            assertTrue(hits.isEmpty(),
+                    "'" + ingredient + "' は行き止まりのまま許容する仕様(W-233)だが、"
+                            + "plan() の結果に出現している。出口を作ったなら、この固定テストごと更新すること。");
         }
     }
 

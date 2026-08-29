@@ -119,16 +119,17 @@ const {
   FUNCTIONAL_ITEM_IDS
 } = require("../public/js/functional-items.js");
 
-test("TF_SPECIAL_ITEM_IDS: 既存2件 + 2026-08-04追加の券3件のちょうど5件", () => {
+test("TF_SPECIAL_ITEM_IDS: 既存2件 + 券3件 + 2026-08-24追加の良薬3件のちょうど8件", () => {
   assert.deepEqual(TF_SPECIAL_ITEM_IDS.slice().sort(), [
+    "exp_cleanse_tonic_greater", "exp_cleanse_tonic_lesser", "exp_cleanse_tonic_supreme",
     "quality_upgrade_ticket", "role_reselect_ticket", "skill_node_lock",
     "skill_tree_reset", "stat_reroll_ticket"
   ]);
 });
 
-test("TF_SPECIAL_ITEM_IDS は Ars の FUNCTIONAL_ITEM_IDS(7件)と重複しない", () => {
+test("TF_SPECIAL_ITEM_IDS は Ars の FUNCTIONAL_ITEM_IDS(8件)と重複しない", () => {
   for (const id of TF_SPECIAL_ITEM_IDS) {
-    assert.ok(!FUNCTIONAL_ITEM_IDS.includes(id), `${id} が Ars 7件と重複している`);
+    assert.ok(!FUNCTIONAL_ITEM_IDS.includes(id), `${id} が Ars 8件と重複している`);
   }
 });
 

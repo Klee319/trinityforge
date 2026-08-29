@@ -27,6 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -73,10 +75,20 @@ class VeinMiningListenerTest {
     }
 
     private BlockBreakEvent breakEvent(Block block) {
+        return breakEvent(block, 0);
+    }
+
+    /**
+     * @param expToDrop バニラが起点に載せてくる経験値量。ダイヤ鉱石なら 3〜7、シルクタッチなら 0。
+     *                  連鎖分のオーブはこの実測値を {@code 1 + 連鎖数} 倍して出すので、
+     *                  0 のままだと倍率のテストが常に素通りする。
+     */
+    private BlockBreakEvent breakEvent(Block block, int expToDrop) {
         BlockBreakEvent event = mock(BlockBreakEvent.class);
         when(event.isCancelled()).thenReturn(false);
         when(event.getBlock()).thenReturn(block);
         when(event.getPlayer()).thenReturn(player);
+        when(event.getExpToDrop()).thenReturn(expToDrop);
         return event;
     }
 
@@ -132,6 +144,80 @@ class VeinMiningListenerTest {
                 "trigger-chance-percent=100 must always draw+drop the sole open entry");
     }
 
+    // --- 2026-08-24「一括破壊すると連鎖分の追加ドロップが抽選されていない」(W-204 と同型) ---
+
+    /** 一括破壊の共通スタブ(tier1・連鎖上限 {@code maxExtra}・抽選上限 {@code chainDropRollsMax})。 */
+    private void stubVeinMiningWithDropTable(int maxExtra, int chainDropRollsMax) {
+        when(gimmickConfig.oreBlocks()).thenReturn(Set.of(Material.DIAMOND_ORE));
+        when(dedicatedEffects.valueMax(any(), eq("vein-mining"))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.veinMiningMaxExtraBlocks(1)).thenReturn(maxExtra);
+        when(gimmickConfig.veinMiningChainDropRollsMax()).thenReturn(chainDropRollsMax);
+        DropTableConfig.Category category = new DropTableConfig.Category("gacha", "Gacha", 100.0,
+                List.of(new DropTableConfig.Entry("tf_gacha_ticket_1", 1, 1)), false);
+        when(gimmickConfig.dropTables()).thenReturn(Map.of("gacha", category));
+        when(itemResolver.create(eq("tf_gacha_ticket_1")))
+                .thenReturn(Optional.of(new ItemStack(Material.PAPER)));
+    }
+
+    /**
+     * 起点 + {@code extraBlocks} 個の鉱脈を x 方向に並べ、起点を返す。
+     * 抽選回数は itemResolver の呼び出し回数で数える —— ワールドのアイテム数を数えると
+     * 鉱石そのもののドロップと混ざって何も固定できない。
+     */
+    private Block oreVein(int extraBlocks, boolean markExtraAsPlaced) {
+        Block origin = player.getWorld().getBlockAt(0, 64, 0);
+        origin.setType(Material.DIAMOND_ORE);
+        for (int x = 1; x <= extraBlocks; x++) {
+            Block extra = player.getWorld().getBlockAt(x, 64, 0);
+            extra.setType(Material.DIAMOND_ORE);
+            if (markExtraAsPlaced) {
+                placedBlockTracker.markPlaced(extra);
+            }
+        }
+        return origin;
+    }
+
+    @Test
+    void chainBrokenOresRollDropTableUpToTheConfiguredCap() {
+        stubVeinMiningWithDropTable(8, 3);
+
+        listener().onBlockBreak(breakEvent(oreVein(5, false)));
+
+        verify(itemResolver, times(3)).create(eq("tf_gacha_ticket_1"));
+    }
+
+    @Test
+    void chainDropRollsAreLimitedByTheNumberOfBrokenBlocks() {
+        stubVeinMiningWithDropTable(8, 8);
+
+        listener().onBlockBreak(breakEvent(oreVein(2, false)));
+
+        verify(itemResolver, times(2)).create(eq("tf_gacha_ticket_1"));
+    }
+
+    @Test
+    void chainDropRollCapOfZeroDisablesTheChainRollEntirely() {
+        stubVeinMiningWithDropTable(8, 0);
+
+        listener().onBlockBreak(breakEvent(oreVein(5, false)));
+
+        verifyNoInteractions(itemResolver);
+    }
+
+    /**
+     * 手置きの鉱石は抽選の母数に入れない。起点の抽選({@code onBlockBreakDropTables})が設置ブロックを
+     * 除外しているのと同じ規約 —— ここを外すと「回収 → 並べて設置 → 一括破壊」で追加ドロップだけを
+     * 無限に引ける。
+     */
+    @Test
+    void playerPlacedChainBlocksDoNotRollDropTable() {
+        stubVeinMiningWithDropTable(8, 8);
+
+        listener().onBlockBreak(breakEvent(oreVein(5, true)));
+
+        verifyNoInteractions(itemResolver);
+    }
+
     @Test
     void veinMiningToggleOffPreventsChainBreakEvenWhenUnlocked() {
         // 2026-07-25 gather-rework-active-framework §2 B-2: プレイヤートグルOFFなら一括破壊しない。
@@ -151,9 +237,10 @@ class VeinMiningListenerTest {
     }
 
     @Test
-    void placedOriginOreBlockNeverTriggersChainBreak() {
-        // GTH-02 exploit fix: silk-touch-preserve + place-a-grid + fortune-break-the-origin must not
-        // chain-break the (placed) neighbors too — the placed origin itself must block the trigger.
+    void placedOriginOreBlockStillTriggersChainBreak() {
+        // 2026-08-24 ユーザー要望「鉱石の一括破壊は手置きのものにも適用されるようにしてほしい」。
+        // 元は GTH-02(シルクタッチ回収 → 並べて設置 → 幸運で連鎖)を止めるため起点が設置ブロックなら
+        // 発動しない仕様だった。要望により発動させ、代わりに報酬側(EXP)を落とす方式へ切り替えた。
         when(gimmickConfig.oreBlocks()).thenReturn(Set.of(Material.DIAMOND_ORE));
         when(dedicatedEffects.valueMax(any(), eq("vein-mining"))).thenReturn(OptionalDouble.of(1.0));
         when(gimmickConfig.veinMiningMaxExtraBlocks(1)).thenReturn(8);
@@ -166,8 +253,135 @@ class VeinMiningListenerTest {
 
         listener().onBlockBreak(breakEvent(origin));
 
-        assertEquals(Material.DIAMOND_ORE, neighbor.getType(),
-                "a placed origin block must not trigger a chain-break of its neighbors");
+        assertEquals(Material.AIR, neighbor.getType(),
+                "手置きの鉱石を起点にしても連鎖破壊が起きること(2026-08-24 の要望)");
+    }
+
+    @Test
+    void placedOriginOreBlockKeepsItsVanillaExperienceOrb() {
+        // 2026-08-24 差し戻しの固定。一度ここで setExpToDrop(0) を入れて「鉱石ブロックを砕いた
+        // ときのバニラEXPまで消したらダメでは？」と差し戻された。
+        //
+        // 要望の「バニラEXPは反映されないように」が指すのは<b>TF のステ「破壊時バニラEXP」</b>
+        // (ブロック破壊におまけの経験値を配るパーク)であって、<b>鉱石固有の経験値オーブではない</b>。
+        // 前者は NativeSkillExperienceListener の設置マークガードが既に弾いている。
+        // 後者はバニラが設置ブロックでも等しく出すので、ここで消すとバニラからの無言の乖離になる。
+        when(gimmickConfig.oreBlocks()).thenReturn(Set.of(Material.DIAMOND_ORE));
+        when(dedicatedEffects.valueMax(any(), eq("vein-mining"))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.veinMiningMaxExtraBlocks(1)).thenReturn(8);
+
+        Block origin = player.getWorld().getBlockAt(0, 64, 0);
+        origin.setType(Material.DIAMOND_ORE);
+        placedBlockTracker.markPlaced(origin);
+
+        // 隣接なし = 連鎖0。連鎖分の上乗せと混ざらない状態で「起点のオーブを削らない」だけを見る。
+        BlockBreakEvent event = breakEvent(origin, 5);
+        listener().onBlockBreak(event);
+
+        org.mockito.Mockito.verify(event, org.mockito.Mockito.never())
+                .setExpToDrop(org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    void naturalOriginOreBlockKeepsItsVanillaExperienceOrb() {
+        // 自然生成側も同様に expToDrop を触らない。設置/自然の両方を固定しておくのは、
+        // 「設置だけ落とす」実装を足したときにどちらの側から入れても落ちるようにするため。
+        when(gimmickConfig.oreBlocks()).thenReturn(Set.of(Material.DIAMOND_ORE));
+        when(dedicatedEffects.valueMax(any(), eq("vein-mining"))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.veinMiningMaxExtraBlocks(1)).thenReturn(8);
+
+        Block origin = player.getWorld().getBlockAt(0, 64, 0);
+        origin.setType(Material.DIAMOND_ORE);
+
+        BlockBreakEvent event = breakEvent(origin, 5);
+        listener().onBlockBreak(event);
+
+        org.mockito.Mockito.verify(event, org.mockito.Mockito.never()).setExpToDrop(org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    void chainBrokenOresMultiplyTheOriginVanillaExperienceOrb() {
+        // 2026-08-24 ユーザー指摘「連鎖分のバニラEXPオーブでないの問題じゃない？」。
+        // ChainBreakSupport は setType(AIR) で壊すので連鎖分はオーブを1個も出さない。
+        // = 一括破壊が存在して以来、鉱脈を一括で掘ると起点1ブロック分しか経験値が入っていなかった。
+        // 起点の expToDrop(この材質・この道具での実測値)を 1 + 連鎖数 倍して補う。
+        when(gimmickConfig.oreBlocks()).thenReturn(Set.of(Material.DIAMOND_ORE));
+        when(dedicatedEffects.valueMax(any(), eq("vein-mining"))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.veinMiningMaxExtraBlocks(1)).thenReturn(8);
+
+        Block origin = player.getWorld().getBlockAt(0, 64, 0);
+        Block neighbor = player.getWorld().getBlockAt(1, 64, 0);
+        origin.setType(Material.DIAMOND_ORE);
+        neighbor.setType(Material.DIAMOND_ORE);
+
+        BlockBreakEvent event = breakEvent(origin, 5);
+        listener().onBlockBreak(event);
+
+        // 起点1 + 連鎖1 = 2ブロック分。
+        org.mockito.Mockito.verify(event).setExpToDrop(10);
+    }
+
+    @Test
+    void placedChainBlocksAlsoCountTowardTheVanillaExperienceOrb() {
+        // 設置ブロックも数に入れる。オーブはバニラが設置ブロックにも等しく出すもので、ここで抜くと
+        // 「手置きの段だけ経験値が出ない」という乖離になる(2026-08-24 の差し戻しと同じ理由)。
+        // 増殖にはならない —— 鉱石は壊すと資源に変わってブロックが戻らないので、シルクタッチで
+        // 回収して置き直しても総量は1個ずつ壊した場合と同じ(シルクタッチ側が0)。
+        when(gimmickConfig.oreBlocks()).thenReturn(Set.of(Material.DIAMOND_ORE));
+        when(dedicatedEffects.valueMax(any(), eq("vein-mining"))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.veinMiningMaxExtraBlocks(1)).thenReturn(8);
+
+        Block origin = player.getWorld().getBlockAt(0, 64, 0);
+        Block neighbor = player.getWorld().getBlockAt(1, 64, 0);
+        origin.setType(Material.DIAMOND_ORE);
+        neighbor.setType(Material.DIAMOND_ORE);
+        placedBlockTracker.markPlaced(origin);
+        placedBlockTracker.markPlaced(neighbor);
+
+        BlockBreakEvent event = breakEvent(origin, 5);
+        listener().onBlockBreak(event);
+
+        org.mockito.Mockito.verify(event).setExpToDrop(10);
+    }
+
+    @Test
+    void silkTouchChainBreakStillYieldsNoVanillaExperience() {
+        // シルクタッチ(および鉄/銅/金/古代の残骸のように元から経験値を落とさない鉱石)では
+        // 起点の expToDrop が 0。掛け算しても 0 なので<b>setExpToDrop 自体を呼ばない</b> ——
+        // 0 を書き込むと「TF が経験値を消した」ように見え、他プラグインの上書きとも競合する。
+        when(gimmickConfig.oreBlocks()).thenReturn(Set.of(Material.DIAMOND_ORE));
+        when(dedicatedEffects.valueMax(any(), eq("vein-mining"))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.veinMiningMaxExtraBlocks(1)).thenReturn(8);
+
+        Block origin = player.getWorld().getBlockAt(0, 64, 0);
+        Block neighbor = player.getWorld().getBlockAt(1, 64, 0);
+        origin.setType(Material.DIAMOND_ORE);
+        neighbor.setType(Material.DIAMOND_ORE);
+
+        BlockBreakEvent event = breakEvent(origin, 0);
+        listener().onBlockBreak(event);
+
+        assertEquals(Material.AIR, neighbor.getType(), "連鎖そのものは起きること");
+        org.mockito.Mockito.verify(event, org.mockito.Mockito.never())
+                .setExpToDrop(org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    void veinMiningThatBreaksNothingLeavesTheVanillaExperienceOrbAlone() {
+        // 連鎖0(隣接なし)なら起点の分だけ。1倍を書き戻すのも避ける — 他プラグインが MONITOR より
+        // 前に書き換えた値を、同じ値で上書きし直す意味が無いため。
+        when(gimmickConfig.oreBlocks()).thenReturn(Set.of(Material.DIAMOND_ORE));
+        when(dedicatedEffects.valueMax(any(), eq("vein-mining"))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.veinMiningMaxExtraBlocks(1)).thenReturn(8);
+
+        Block origin = player.getWorld().getBlockAt(0, 64, 0);
+        origin.setType(Material.DIAMOND_ORE);
+
+        BlockBreakEvent event = breakEvent(origin, 7);
+        listener().onBlockBreak(event);
+
+        org.mockito.Mockito.verify(event, org.mockito.Mockito.never())
+                .setExpToDrop(org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test

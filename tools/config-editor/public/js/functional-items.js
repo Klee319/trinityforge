@@ -7,13 +7,13 @@
 // recipe の5つのみで、全て単一ファイル内で完結する(旧来の source:"catalog"|"items" 振り分けや
 // recipeKey(waystone_craft 等)の特別扱いは、統合により不要になったため削除した)。
 //
-// 対象7アイテム: dominion_wand / teleport_compass / pedestal / ritual_core /
-//                scribing_table / waystone / source_berry
+// 対象8アイテム: dominion_wand / teleport_compass / pedestal / ritual_core /
+//                scribing_table / waystone / infinity_source_core / source_berry
 // 内部ID(このファイルのitems.<id>キー名そのもの)は fork Java 実装が直接参照する固定値のため
 // editorからは新規追加/削除/リネーム不可(読み取り専用のIDチップとしてのみ表示)。
 //
 // material の編集可否は3件(dominion_wand/teleport_compass/source_berry=保持アイテム)のみ許可。
-// 残り4件(ブロック系)は fork の FunctionalItemConfig.java#MATERIAL_OVERRIDE_ALLOWED で拒否され
+// 残り5件(ブロック系)は fork の FunctionalItemConfig.java#MATERIAL_OVERRIDE_ALLOWED で拒否され
 // warning ログのみで無視される(TileState対応判定・儀式の近傍探索がMaterialに密結合のため)。
 // この許可リストは Java 側が唯一の正典。JS側の MATERIAL_EDITABLE_IDS はその複製であり、
 // test/functional-items-java-parity.test.js が FunctionalItemConfig.java のソースを直接
@@ -28,10 +28,14 @@
     return v === undefined ? undefined : JSON.parse(JSON.stringify(v));
   }
 
-  // functional-items.yml items.<id> の正典7件 (ファイル内の並び順)。
+  // functional-items.yml items.<id> の正典8件 (ファイル内の並び順)。
+  // 2026-08-24 追加: infinity_source_core。実体は Java のカスタムブロック
+  // (InfinitySourceCore) だが定義だけ materials.yml に残っており、ブロック登録済み id は
+  // 素材アイテム登録の側で丸ごとスキップされるため、素材画面で直しても無反応だった
+  // (効いていたのは recipe だけ)。実装を Java で特別扱いするアイテムはこの画面が正典。
   const FUNCTIONAL_ITEM_IDS = Object.freeze([
     "dominion_wand", "teleport_compass", "pedestal",
-    "ritual_core", "scribing_table", "waystone", "source_berry"
+    "ritual_core", "scribing_table", "waystone", "infinity_source_core", "source_berry"
   ]);
 
   // ============================================================
@@ -109,16 +113,24 @@
   // resourcepack/cmd-registry.json が別セッション編集中だったため custom-model-data 未設定のまま
   // 出荷している(CMD割当は reports/ACTIVE_RECORD.md 追跡の後追いタスク)。UI上は他の2件と同じ
   // カードで material/CMD/表示名/enchant-glow/lore/recipe を編集できる(CMDが空欄なだけ)。
+  // 2026-08-24追加の3件(exp_cleanse_tonic_*)は「EXP解呪の良薬」。日次逓減(stats/skill-exp.yml の
+  // daily-diminishing)を飲んだ瞬間だけ全スキル一括で引き戻す使い切りで、引き戻す先の倍率は
+  // com.trinityforge.items.ExpCleanseTonic が持つ固定値(50/75/90%)。ここから編集できるのは
+  // 見た目とレシピだけで、倍率は editor 側に無い。custom-model-data も未割り当て。
   const TF_SPECIAL_ITEM_IDS = Object.freeze([
     "skill_node_lock", "skill_tree_reset",
-    "role_reselect_ticket", "stat_reroll_ticket", "quality_upgrade_ticket"
+    "role_reselect_ticket", "stat_reroll_ticket", "quality_upgrade_ticket",
+    "exp_cleanse_tonic_lesser", "exp_cleanse_tonic_greater", "exp_cleanse_tonic_supreme"
   ]);
   const TF_SPECIAL_ITEM_LABELS = Object.freeze({
     skill_node_lock: "スキルノードの楔",
     skill_tree_reset: "スキル再構築の書",
     role_reselect_ticket: "職業付け替えの証",
     stat_reroll_ticket: "厳選やり直しの護符",
-    quality_upgrade_ticket: "品質昇華の結晶"
+    quality_upgrade_ticket: "品質昇華の結晶",
+    exp_cleanse_tonic_lesser: "EXP解呪の良薬・並 (50%まで)",
+    exp_cleanse_tonic_greater: "EXP解呪の良薬・上 (75%まで)",
+    exp_cleanse_tonic_supreme: "EXP解呪の良薬・極 (90%まで)"
   });
 
   // catalog.yml の items.<id> のうち TF 特殊アイテム2件だけを、無ければ空オブジェクトで補完する。

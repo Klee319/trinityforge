@@ -42,11 +42,19 @@ test("前提: catalog.yml のスレッドを十分な件数見ている(空振�
   assert.ok(threads().length >= 45, `スレッドを ${threads().length} 件しか拾えていない`);
 });
 
-test("スレッドのベース材質はすべて鍛冶型である(W-103)", () => {
+// 2026-08-21: ベース材質を鍛冶型 → STRING(糸)へ一律変更した(ユーザー指示)。
+// 理由は「鍛冶型はバニラの説明文(装備できる部位・素材の一覧)が lore に出て、
+// スレッド自身の効果表示を圧迫していた」から。糸はバニラ説明を持たない。
+// 検査の向きは変えていない ——【材質は全スレッドで1種類に揃っている】ことを縛る。
+// 混在すると item-stats のキー(`<材質>#<CMD>`)と items 宣言が材質ごとに分裂し、
+// ステが無言で 0 になる穴(W-103)が戻る。
+const THREAD_BASE_MATERIAL = "STRING";
+
+test("スレッドのベース材質はすべて糸である(W-103)", () => {
   const wrong = threads()
-    .filter((t) => !String(t.material).endsWith("_SMITHING_TEMPLATE"))
+    .filter((t) => String(t.material) !== THREAD_BASE_MATERIAL)
     .map((t) => `${t.id}=${t.material}`);
-  assert.deepEqual(wrong, [], "壺の欠片・旗の模様・糸などが混ざっている");
+  assert.deepEqual(wrong, [], "鍛冶型・壺の欠片・旗の模様などが混ざっている");
 });
 
 test("CMD台帳の材質は catalog.yml と一致する", () => {

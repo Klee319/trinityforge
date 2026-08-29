@@ -34,6 +34,608 @@
           "type": "minecraft:model",
           "model": "trinityforge:item/reinforced_fiber"
         }
+      },
+      {
+        "threshold": 100023,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_better_fortune"
+        }
+      },
+      {
+        "threshold": 100024,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_gacha"
+        }
+      },
+      {
+        "threshold": 100025,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_role_luck"
+        }
+      },
+      {
+        "threshold": 100026,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_role_effeciency"
+        }
+      },
+      {
+        "threshold": 100027,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_blindness"
+        }
+      },
+      {
+        "threshold": 100028,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_translate"
+        }
+      },
+      {
+        "threshold": 300001,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_empty"
+        }
+      },
+      {
+        "threshold": 300002,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_mana_regen"
+        }
+      },
+      {
+        "threshold": 300003,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_mana_boost"
+        }
+      },
+      {
+        "threshold": 300004,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_speed"
+        }
+      },
+      {
+        "threshold": 300005,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_jump_boost"
+        }
+      },
+      {
+        "threshold": 300006,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_night_vision"
+        }
+      },
+      {
+        "threshold": 300007,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_fire_resistance"
+        }
+      },
+      {
+        "threshold": 300008,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_dolphins_grace"
+        }
+      },
+      {
+        "threshold": 300009,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_conduit_power"
+        }
+      },
+      {
+        "threshold": 300010,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_hero_of_the_village"
+        }
+      },
+      {
+        "threshold": 300011,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_health_boost"
+        }
+      },
+      {
+        "threshold": 300012,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_hit_mana_recovery"
+        }
+      },
+      {
+        "threshold": 300013,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_damage_mana_recovery"
+        }
+      },
+      {
+        "threshold": 300014,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_spell_cost_down"
+        }
+      },
+      {
+        "threshold": 300015,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_flight"
+        }
+      },
+      {
+        "threshold": 300016,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_backpack"
+        }
+      },
+      {
+        "threshold": 300017,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_mana_amplify"
+        }
+      },
+      {
+        "threshold": 300018,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_mana_circulate"
+        }
+      },
+      {
+        "threshold": 300019,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_source_thrift"
+        }
+      },
+      {
+        "threshold": 300020,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_artisan"
+        }
+      },
+      {
+        "threshold": 300021,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_ritualist"
+        }
+      },
+      {
+        "threshold": 300022,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_thrift"
+        }
+      },
+      {
+        "threshold": 300023,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_salvage"
+        }
+      },
+      {
+        "threshold": 300024,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_miner"
+        }
+      },
+      {
+        "threshold": 300025,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_angler"
+        }
+      },
+      {
+        "threshold": 300026,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_harvest"
+        }
+      },
+      {
+        "threshold": 300027,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_timber"
+        }
+      },
+      {
+        "threshold": 300028,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_spoils"
+        }
+      },
+      {
+        "threshold": 300029,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_diligence"
+        }
+      },
+      {
+        "threshold": 300030,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_experience"
+        }
+      },
+      {
+        "threshold": 300031,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_scholar"
+        }
+      },
+      {
+        "threshold": 300032,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_mending_flesh"
+        }
+      },
+      {
+        "threshold": 300033,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_endurance"
+        }
+      },
+      {
+        "threshold": 300034,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_gourmet"
+        }
+      },
+      {
+        "threshold": 300035,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_thorn"
+        }
+      },
+      {
+        "threshold": 300036,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_concussion"
+        }
+      },
+      {
+        "threshold": 300037,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_swiftcast"
+        }
+      },
+      {
+        "threshold": 300038,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_marksman"
+        }
+      },
+      {
+        "threshold": 300039,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_slow_falling"
+        }
+      },
+      {
+        "threshold": 300040,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_luck"
+        }
+      },
+      {
+        "threshold": 300041,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_perfumer"
+        }
+      },
+      {
+        "threshold": 300042,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_apiarist"
+        }
+      },
+      {
+        "threshold": 300043,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_herder"
+        }
+      },
+      {
+        "threshold": 300044,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_appraiser"
+        }
+      },
+      {
+        "threshold": 300045,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_excavation"
+        }
+      },
+      {
+        "threshold": 300046,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_swordsman"
+        }
+      },
+      {
+        "threshold": 300047,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_berserker"
+        }
+      },
+      {
+        "threshold": 300048,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_lancer"
+        }
+      },
+      {
+        "threshold": 300049,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_reaper"
+        }
+      },
+      {
+        "threshold": 300050,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_crusher"
+        }
+      },
+      {
+        "threshold": 300051,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_assassin"
+        }
+      },
+      {
+        "threshold": 300052,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_duelist"
+        }
+      },
+      {
+        "threshold": 300053,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_titan"
+        }
+      },
+      {
+        "threshold": 300054,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_greatsword"
+        }
+      },
+      {
+        "threshold": 300055,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_longshot"
+        }
+      },
+      {
+        "threshold": 300056,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_tidecaller"
+        }
+      },
+      {
+        "threshold": 300057,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_earthshaker"
+        }
+      },
+      {
+        "threshold": 300058,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_bolter"
+        }
+      },
+      {
+        "threshold": 300059,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_spellblade"
+        }
+      },
+      {
+        "threshold": 300060,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_onslaught"
+        }
+      },
+      {
+        "threshold": 300061,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_precision"
+        }
+      },
+      {
+        "threshold": 300062,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_execution"
+        }
+      },
+      {
+        "threshold": 300063,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_piercer"
+        }
+      },
+      {
+        "threshold": 300064,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_hemorrhage"
+        }
+      },
+      {
+        "threshold": 300065,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_bulwark"
+        }
+      },
+      {
+        "threshold": 300066,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_aegis"
+        }
+      },
+      {
+        "threshold": 300067,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_ironhide"
+        }
+      },
+      {
+        "threshold": 300068,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_evasion"
+        }
+      },
+      {
+        "threshold": 300069,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_resilience"
+        }
+      },
+      {
+        "threshold": 300070,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_maelstrom"
+        }
+      },
+      {
+        "threshold": 300071,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_exsanguinate"
+        }
+      },
+      {
+        "threshold": 300072,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_skyfall"
+        }
+      },
+      {
+        "threshold": 300073,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_farsight"
+        }
+      },
+      {
+        "threshold": 300074,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_truesight"
+        }
+      },
+      {
+        "threshold": 300075,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_swiftarrow"
+        }
+      },
+      {
+        "threshold": 300076,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_piercingshot"
+        }
+      },
+      {
+        "threshold": 300077,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_rampart"
+        }
+      },
+      {
+        "threshold": 300078,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_bastion"
+        }
+      },
+      {
+        "threshold": 300079,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_wardstone"
+        }
+      },
+      {
+        "threshold": 300080,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/thread_stealth"
+        }
       }
     ]
   }

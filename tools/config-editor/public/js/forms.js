@@ -261,6 +261,41 @@
   // skilltree / spellbooks / thread-sets 等のステ行でも同じ単位スロットを使う。
   window.statUnitSlot = statUnitSlot;
 
+  // 値入力セル: [値入力] + [単位スロット] を「総幅固定」のセルに包む (2026-08-22)。
+  //
+  // これが無いとセルの幅が中身で変わる: %ステは pct-suffix("%") のぶん広く、
+  // 単位なしステは狭く、単位ありステ("ダメ"/"MP"/"/秒")はさらに広い。
+  // その差がそのまま後ろへ伝わって、**同じ表の中で「max」「乗算」「×」の縦線が行ごとに
+  // 13〜26px ずれる**(実測: 貫通率の行と物理守備力の行で × が 26px ずれていた)。
+  // セルの幅は CSS 側 (.value-cell) で固定してあるので、中身が何であれ外側の列は動かない。
+  // 単位を行末に1つ置くのではなく**値ごとに**置くのは、min/max の2列を持つランダムロール行で
+  // 「max だけ単位が付く」非対称を避けるため (%ステは元から両方に % が付いていた)。
+  function valueCell(control, unitEl) {
+    return h("span", { class: "value-cell" }, [
+      control,
+      unitEl || h("span", { class: "unit-suffix unit-slot", text: "" })
+    ]);
+  }
+  // skilltree / spellbooks / thread-sets のステ行からも同じセルを使う (列を揃えるため)。
+  window.valueCell = valueCell;
+
+  // 加算/乗算の切替ボタン (2026-08-22)。
+  //
+  // それまで item-stats とスキルツリーは**チェックボックス**、スレッドのセット効果は
+  // **プルダウン**と、同じ「加算か乗算か」を3画面で3通りに出していた。K指示でボタンに統一。
+  // 表示は「今どちらか」(現在のモード)で、押すともう一方へ切り替わる。
+  // onToggle(nextIsMultiply) は次の状態を受け取る (チェックボックス時代の引数と同じ意味)。
+  function modeToggleButton(isMultiply, onToggle, title) {
+    return h("button", {
+      class: "btn-small mode-toggle" + (isMultiply ? " is-multiply" : ""),
+      type: "button",
+      text: isMultiply ? "乗算" : "加算",
+      title: (title ? title + " / " : "") + "クリックで 加算 ⇄ 乗算 を切り替えます",
+      onclick: () => onToggle(!isMultiply)
+    });
+  }
+  window.modeToggleButton = modeToggleButton;
+
   function card(titleChildren, bodyChildren) {
     return h("div", { class: "entry-card" }, [
       h("div", { class: "entry-head" }, titleChildren),
@@ -1162,9 +1197,9 @@
         }
       });
     }
-    /** 乗算モードチェックボックス (加算行/乗算行 共通)。強制乗算(加算行が既にある)状態の拒否は change ハンドラ内の alert で行う。 */
-    function multModeCheckbox(entryRef, sectionKey, stat, isMult) {
-      const cb = window.checkboxInput(isMult, (v) => {
+    /** 加算/乗算の切替ボタン (加算行/乗算行 共通)。強制乗算(加算行が既にある)状態の拒否はハンドラ内の alert で行う。 */
+    function multModeToggle(entryRef, sectionKey, stat, isMult) {
+      return window.modeToggleButton(isMult, (v) => {
         if (v && !isMult) {
           // このステ用のレイヤ未定義なら乗算モード自体を許可しない (未選択レイヤは保存もできず行き止まりになる)。
           if (layersForStatDef(stat).length === 0) {
@@ -1196,12 +1231,8 @@
           entryRef[sectionKey][stat] = sectionKey === "random" ? { min: 0, max: 0 } : 0;
           render();
         }
-      });
-      const label = h("label", {
-        class: "inline-check",
-        title: "ONにするとプレイヤーの合算済み総合ステータスへこの倍率を掛けます (同一レイヤの倍率は足し合わせてから乗算)。Lore表示は符号x・単位なし。"
-      }, [cb, h("span", { class: "mini-label", text: "乗算" })]);
-      return label;
+      }, "加算 = 合算値へそのまま足す / 乗算 = プレイヤーの合算済み総合ステータスへ倍率を掛ける"
+        + "(同一レイヤの倍率は足し合わせてから乗算)。Lore表示は符号x・単位なし。");
     }
 
     // fixed/per-quality/random の1行レンダラ (item エントリとフォールバックの両方で共用)。
@@ -1240,14 +1271,19 @@
         if (range.max == null) range.max = 0;
         entryRef.random[stat] = range;
         row.appendChild(h("span", { class: "range-label", text: "min" }));
-        row.appendChild(statValueControl(stat, range.min, (v) => { range.min = v; }, { allowIntDecimal: true }));
+        row.appendChild(valueCell(
+          statValueControl(stat, range.min, (v) => { range.min = v; }, { allowIntDecimal: true }),
+          window.statUnitSlot(stat)));
         row.appendChild(h("span", { class: "range-label", text: "max" }));
-        row.appendChild(statValueControl(stat, range.max, (v) => { range.max = v; }, { allowIntDecimal: true }));
+        row.appendChild(valueCell(
+          statValueControl(stat, range.max, (v) => { range.max = v; }, { allowIntDecimal: true }),
+          window.statUnitSlot(stat)));
       } else {
-        row.appendChild(statValueControl(stat, entryRef[sectionKey][stat], (v) => { entryRef[sectionKey][stat] = v; }, valueOpts));
+        row.appendChild(valueCell(
+          statValueControl(stat, entryRef[sectionKey][stat], (v) => { entryRef[sectionKey][stat] = v; }, valueOpts),
+          window.statUnitSlot(stat)));
       }
-      row.appendChild(window.statUnitSlot(stat));
-      if (entryKey) row.appendChild(multModeCheckbox(entryRef, sectionKey, stat, false));
+      if (entryKey) row.appendChild(multModeToggle(entryRef, sectionKey, stat, false));
       row.appendChild(h("button", {
         class: "btn-small danger", type: "button", text: "×",
         onclick: () => { delete entryRef[sectionKey][stat]; render(); }
@@ -1281,17 +1317,22 @@
         if (range.max == null) range.max = 1;
         sec[stat] = range;
         row.appendChild(h("span", { class: "range-label", text: "min" }));
-        row.appendChild(h("span", { class: "mult-prefix", text: "x" }));
-        row.appendChild(window.numberInput(range.min, (v) => { range.min = v == null ? 1 : v; }));
+        row.appendChild(valueCell(h("span", { class: "mult-input" }, [
+          h("span", { class: "mult-prefix", text: "x" }),
+          window.numberInput(range.min, (v) => { range.min = v == null ? 1 : v; })
+        ])));
         row.appendChild(h("span", { class: "range-label", text: "max" }));
-        row.appendChild(h("span", { class: "mult-prefix", text: "x" }));
-        row.appendChild(window.numberInput(range.max, (v) => { range.max = v == null ? 1 : v; }));
+        row.appendChild(valueCell(h("span", { class: "mult-input" }, [
+          h("span", { class: "mult-prefix", text: "x" }),
+          window.numberInput(range.max, (v) => { range.max = v == null ? 1 : v; })
+        ])));
       } else {
-        row.appendChild(h("span", { class: "mult-prefix", text: "x", title: "倍率 (1.2 = 総合値を1.2倍)" }));
-        row.appendChild(window.numberInput(sec[stat], (v) => { sec[stat] = v == null ? 1 : v; }));
+        row.appendChild(valueCell(h("span", { class: "mult-input", title: "倍率 (1.2 = 総合値を1.2倍)" }, [
+          h("span", { class: "mult-prefix", text: "x" }),
+          window.numberInput(sec[stat], (v) => { sec[stat] = v == null ? 1 : v; })
+        ])));
       }
-      row.appendChild(window.statUnitSlot(null));
-      row.appendChild(multModeCheckbox(entryRef, sectionKey, stat, true));
+      row.appendChild(multModeToggle(entryRef, sectionKey, stat, true));
       row.appendChild(multLayerSelect(entryRef, sectionKey, stat, layerId));
       row.appendChild(h("button", {
         class: "btn-small danger", type: "button", text: "×",
@@ -1627,8 +1668,9 @@
         render(); return true;
       }, allowed);
       row.appendChild(s);
-      row.appendChild(statValueControl(stat, catSec.fixed[stat], (v) => { catSec.fixed[stat] = v; }));
-      row.appendChild(window.statUnitSlot(stat));
+      row.appendChild(valueCell(
+        statValueControl(stat, catSec.fixed[stat], (v) => { catSec.fixed[stat] = v; }),
+        window.statUnitSlot(stat)));
       const loreDesc = window.LABELS && typeof window.LABELS.fieldDesc === "function"
         ? window.LABELS.fieldDesc("lore-default")
         : "ONなら値が0でも Lore に表示";
@@ -1873,6 +1915,28 @@
       // 操作感は旧 set-effects のものをそのまま流用し、書き込み先だけ
       // threadSetsRoot["thread-sets"][threadId].thresholds へ差し替えた。
       // threadSetsRoot が渡っていない画面(旧来の呼び出し経路)では何も描かない。
+      // 2026-08-22(W-186): セット効果の乗算にも合流先レイヤを持たせる。
+      // レイヤを名指ししない乗算は "addon" という専用レイヤに入り、装備側の同種倍率とは
+      // 【掛け算】になる(TF: レイヤ内は Σ(v-1) の足し算、レイヤ同士は積)。攻撃力%のように
+      // 装備側にも同じ倍率があるステはレイヤを合わせないと二重に乗る。
+      // 文字列 "addon" は fork の ThreadSetConfig#DEFAULT_LAYER / TF の
+      // AddonCombatStats#MULTIPLIER_LAYER_ID と一致していなければならない。
+      const SET_EFFECT_DEFAULT_LAYER = "addon";
+      /** セット効果1件の現在の乗算レイヤ(未指定は専用レイヤ)。 */
+      function setEffectLayerOf(val) {
+        const raw = val && typeof val === "object" ? val.layer : null;
+        return typeof raw === "string" && raw.trim() ? raw.trim() : SET_EFFECT_DEFAULT_LAYER;
+      }
+      /** 乗算をONにしたときの既定レイヤ: このステ用の定義済みレイヤがあればそれ、無ければ専用レイヤ。 */
+      function setEffectDefaultLayer(stat) {
+        const defs = layersForStatDef(stat);
+        return defs.length ? defs[0].id : SET_EFFECT_DEFAULT_LAYER;
+      }
+      /** 乗算の値を書き換えるときレイヤを落とさないための組み立て。 */
+      function multiplyValue(delta, layer) {
+        return { mode: "multiply", value: delta == null ? 0 : delta, layer: layer };
+      }
+
       function renderThreadSetEffects(tid) {
         if (!threadSetsRoot || !tid) return null;
         if (!threadSetsRoot["thread-sets"] || typeof threadSetsRoot["thread-sets"] !== "object") {
@@ -1892,6 +1956,50 @@
           title: "N個以上装備で発動する累積しきい値式のステータス。" }));
         const node = setsMap[tid] && typeof setsMap[tid] === "object" ? setsMap[tid] : null;
         const thresholds = node && node.thresholds && typeof node.thresholds === "object" ? node.thresholds : {};
+        /**
+         * 乗算レイヤの選択。候補は「このステが基準になっている定義済みレイヤ」＋「セット効果専用(addon)」。
+         * item-stats 側 (multLayerSelect) と違って未選択状態を作らない —— セット効果は
+         * レイヤ未定義のステでも乗算にできる(addon へ落ちる)ので、行き止まりが存在しない。
+         */
+        function setEffectLayerSelect(statsRef, statKey, current) {
+          const opts = layersForStatDef(statKey).map((l) => ({
+            value: l.id,
+            primary: l.name,
+            secondary: l.id !== l.name ? l.id : "",
+            title: `装備側の「${l.name}」と同じレイヤに合流します(レイヤ内は足し算)`
+          }));
+          opts.push({
+            value: SET_EFFECT_DEFAULT_LAYER,
+            primary: "セット効果専用",
+            secondary: SET_EFFECT_DEFAULT_LAYER,
+            title: "どの乗算レイヤにも属さない受け皿。装備側の倍率とは掛け算になります"
+          });
+          // 現在のレイヤがこのステ用の定義に無い(未定義 or 基準ステ不一致)場合も選択肢に残す。
+          if (!opts.some((o) => o.value === current)) {
+            const def = multiplierLayers().find((l) => l.id === current);
+            opts.push({
+              value: current,
+              primary: (def ? def.name : current) + " (このステ用の定義ではありません)",
+              secondary: current,
+              title: def
+                ? `レイヤ「${def.name}」の基準ステータスは ${def.stat || "(未設定)"} です。`
+                : "未定義のレイヤです。"
+            });
+          }
+          return window.listSelect({
+            value: current,
+            className: "mult-layer-select",
+            options: opts,
+            onCommit: (nv) => {
+              if (!nv || nv === current) return false;
+              const val = statsRef[statKey];
+              statsRef[statKey] = multiplyValue(
+                val && typeof val === "object" ? Number(val.value) || 0 : 0, nv);
+              render();
+              return true;
+            }
+          });
+        }
         const thrKeys = Object.keys(thresholds).sort((a, b) => Number(a) - Number(b));
         const thrRows = h("div", { class: "pedestal-rows" });
         if (thrKeys.length === 0) {
@@ -1924,6 +2032,31 @@
           ]));
           const statKeys = Object.keys(stats);
           statKeys.forEach((st) => {
+            // 2026-08-21 乗算モード: 値は「数値(加算)」か「{ mode: "multiply", value }(乗算)」の
+            // どちらか。乗算は総合値に掛かる割合なので、加算モードのステ種別に関係なく必ず % 入力にする
+            // (攻撃力のような実数ステでも「+10%」と入れたいのがこのモードの目的)。
+            const isMultiply = stats[st] != null && typeof stats[st] === "object"
+              && String(stats[st].mode) === "multiply";
+            const rawValue = isMultiply ? Number(stats[st].value) || 0 : stats[st];
+            const layerId = isMultiply ? setEffectLayerOf(stats[st]) : null;
+            // 2026-08-22: プルダウンをやめ、item-stats / スキルツリーと同じ切替ボタンへ統一した。
+            const modeToggle = window.modeToggleButton(isMultiply, (next) => {
+              const current = isMultiply ? (Number(stats[st].value) || 0) : (Number(stats[st]) || 0);
+              // 乗算ONではレイヤも決める(未指定のまま保存すると装備側と掛け算になり二重に乗る)。
+              stats[st] = next ? multiplyValue(current, setEffectDefaultLayer(st)) : current;
+              render();
+            }, "加算 = 総合値へそのまま足す / 乗算 = 総合値へ割合で掛ける(攻撃力など帯で桁が変わるステはこちら)");
+            const valueControl = isMultiply
+              // 乗算は「倍率の増分」を保存する(0.1 = +10%)。しきい値をまたいで素直に足し合わせられる
+              // 表現なので、fork 側の累積しきい値式とそのまま噛み合う。
+              ? window.rateValueControl(rawValue, (v) => {
+                  stats[st] = multiplyValue(v, layerId);
+                }, { blankWhenEmpty: false })
+              // 2026-08-12: 素の numberInput だと %ステ(dodge-chance 等)が割合のまま
+              // 「0.03」と出て単位も付かなかった(statUnitSlot は %ステに空スロットを返す。
+              // % は statValueControl の pct-suffix が出す前提のため)。他の全ステ行と同じく
+              // statValueControl に通して「3 %」入力・割合保存へ揃える。
+              : window.statValueControl(st, rawValue, (v) => { stats[st] = v == null ? 0 : v; });
             card.appendChild(h("div", { class: "stat-row" }, [
               window.statSelect(st, (nv) => {
                 if (!nv || nv === st) return false;
@@ -1932,12 +2065,11 @@
                 render();
                 return true;
               }),
-              // 2026-08-12: 素の numberInput だと %ステ(dodge-chance 等)が割合のまま
-              // 「0.03」と出て単位も付かなかった(statUnitSlot は %ステに空スロットを返す。
-              // % は statValueControl の pct-suffix が出す前提のため)。他の全ステ行と同じく
-              // statValueControl に通して「3 %」入力・割合保存へ揃える。
-              window.statValueControl(st, stats[st], (v) => { stats[st] = v == null ? 0 : v; }),
-              window.statUnitSlot(st),
+              // 並びは item-stats / スキルツリーと同じ [ステ選択][値セル][加算/乗算][乗算レイヤ][×]。
+              window.valueCell(valueControl,
+                isMultiply ? h("span", { class: "unit-suffix unit-slot", text: "", title: "" }) : window.statUnitSlot(st)),
+              modeToggle,
+              isMultiply ? setEffectLayerSelect(stats, st, layerId) : null,
               h("button", {
                 class: "btn-small danger", type: "button", text: "×",
                 onclick: () => { delete stats[st]; pruneNode(); render(); }

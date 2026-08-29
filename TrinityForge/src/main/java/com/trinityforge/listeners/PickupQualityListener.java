@@ -20,6 +20,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.CrafterCraftEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
@@ -60,6 +61,9 @@ import java.util.logging.Logger;
  * 同一tickに複数イベントが来ても走査は {@code pendingSweep} で1回に集約する。
  */
 public final class PickupQualityListener implements Listener {
+
+    /** 品質は0始まりで tier 0 が最低(stats/quality-tiers.yml の先頭 = 劣悪)。 */
+    private static final int WORST_QUALITY = 0;
 
     private final Plugin plugin;
     private final ItemFactory itemFactory;
@@ -288,6 +292,63 @@ public final class PickupQualityListener implements Listener {
      * {@link ItemStack#hasItemMeta()} が false のバニラ既定品(クリエイティブ取得など)も対象 —
      * {@code getItemMeta()} で組み立て可能なら刻印する。
      */
+    /**
+     * 自動作業台(Crafter, 1.21)で作られたものは<b>必ず最低品質(tier 0 = 劣悪)</b>で刻印する
+     * (2026-08-21 ユーザー指示「自動作業台でできるものはすべて劣悪品質にしてほしい」)。
+     *
+     * <p><b>塞いでいる穴</b>: Crafter にはクラフトしたプレイヤーが居ないので、成果物は
+     * <b>未刻印のまま</b>出てくる。未刻印品は {@link #stampIfEligible} が「拾った人の開運」で
+     * 品質を決めるので、<b>自動作業台で量産して開運の高い人が拾う</b>という、腕でも運でもない
+     * 品質稼ぎの経路になっていた。ここで craft 時点に品質を確定させれば、拾う側の経路は
+     * {@code hasRollSeed()} で素通りするので、誰が拾っても劣悪のまま変わらない。
+     *
+     * <p><b>触らないもの</b>: 既に刻印済みの成果物(カタログレシピが品質付きで返すもの)と、
+     * 儀式の「品質未決定」マーカー付き。どちらも品質の決め方が別に定義されているので、
+     * ここで上書きすると設計を壊す。
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onCrafterCraft(CrafterCraftEvent event) {
+        ItemStack result = event.getResult();
+        if (stampAtWorstQuality(result)) {
+            event.setResult(result);
+        }
+    }
+
+    /**
+     * 未刻印で {@code item-stats.yml} に設定のあるアイテムを<b>品質0固定</b>で刻印する。
+     * 乱数も開運も一切参照しない ── 参照した瞬間「誰が回したか」で結果が変わり、
+     * {@link #onCrafterCraft} が塞いでいる穴が戻る。
+     *
+     * @return 刻印したら {@code true}(呼び出し側が書き戻す)
+     */
+    boolean stampAtWorstQuality(ItemStack stack) {
+        if (stack == null || stack.getType().isAir()) {
+            return false;
+        }
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null) {
+            return false;
+        }
+        ItemData data = ItemData.of(meta);
+        if (data.hasRollSeed() || data.pendingCraftQuality()) {
+            return false;
+        }
+        if (qualityTiers.tiers().isEmpty()) {
+            return false;
+        }
+        if (hasArsThreadMarker(meta)) {
+            // スレッドは専用loreを持つので汎用stampへ流さない(W-53 と同じ理由)。
+            return arsThreadRestamper.restampIfThread(stack, WORST_QUALITY);
+        }
+        Integer cmd = DerivedItemStats.customModelDataOf(meta);
+        if (itemStats.profileFor(stack.getType(), cmd).isEmpty()) {
+            return false;
+        }
+        stack.setItemMeta(meta);
+        itemFactory.stamp(stack, ThreadLocalRandom.current().nextLong(), WORST_QUALITY);
+        return true;
+    }
+
     boolean stampIfEligible(ItemStack stack, Player player) {
         if (stack == null || stack.getType().isAir()) {
             return false;

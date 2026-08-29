@@ -583,6 +583,43 @@ function entryModelFor(material, allocation) {
   return tree;
 }
 
+// material を付け替えられた行(reconcileWithUsageDetailed の moved)の自動生成モデルを、
+// 新しい material のバニラリーフへ貼り直す。
+//
+// 自動生成モデルの parent は「登録時の material のバニラモデル」を焼き込んである。
+// 貼り直さないと (1) 構え方・大きさが旧 material のまま残り、(2) BOW/TRIDENT のように
+// リーフ構成が違う material へ移した場合は entryModelFor が参照する
+// <assetName>__pulling_0.json 等がそもそも存在せず、描画が丸ごと落ちる。
+//
+// customModel:true の行は作者が書いた JSON なので絶対に上書きしない。
+// 旧 material 由来の余分なリーフファイルは消さない(共有アセットを誤削除しない方針に合わせる)。
+function rewriteMovedModels(packRoot, moved) {
+  const modDir = modelsDir(packRoot);
+  const rewritten = [];
+  for (const move of Array.isArray(moved) ? moved : []) {
+    if (!move || !move.assetName || move.customModel) continue;
+    if (!move.to || !move.to.material) continue;
+    // 元から未配線(モデルJSONが無い)の行は対象外。
+    if (!fs.existsSync(path.join(modDir, `${move.assetName}.json`))) continue;
+    let leaves;
+    try {
+      leaves = vanillaLeafModels(move.to.material);
+    } catch (_) {
+      continue; // バニラ定義データを持たない material は従来どおり触らない
+    }
+    for (const leaf of leaves) {
+      const leafAsset = leafAssetName(move.assetName, leaf.suffix);
+      fs.writeFileSync(
+        path.join(modDir, `${leafAsset}.json`),
+        JSON.stringify(generatedLeafModel(leaf.vanillaId, move.assetName), null, 2) + "\n",
+        "utf8"
+      );
+    }
+    rewritten.push(move.assetName);
+  }
+  return rewritten;
+}
+
 // 台帳を material ごとにグループし、assets/minecraft/items/<material>.json (range_dispatch) を
 // 全再生成する。
 //
@@ -793,6 +830,7 @@ function status(packRoot, registryPath) {
 module.exports = {
   writeTexture,
   writeModel,
+  rewriteMovedModels,
   regenerateItemDefinitions,
   buildPack,
   status,

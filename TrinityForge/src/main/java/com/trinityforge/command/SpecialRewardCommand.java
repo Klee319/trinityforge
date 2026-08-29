@@ -7,6 +7,7 @@ import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.trinityforge.config.domains.SpecialRewardsConfig;
 import com.trinityforge.pdc.PlayerData;
+import com.trinityforge.progression.ParticleSeedDelivery;
 import com.trinityforge.progression.SpecialRewardService;
 import com.trinityforge.skilltree.runtime.PerkAttributeApplier;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
@@ -45,12 +46,21 @@ public final class SpecialRewardCommand {
     private final SpecialRewardService service;
     /** null 可。ATTRIBUTE系の再適用は特殊報酬には無いが、称号表示の張り直しに合わせて残してある。 */
     private final PerkAttributeApplier perkAttributeApplier;
+    /** null 可(fail-soft)。パーティクルシードIDを付与したとき、シード素材と使い方を渡す。 */
+    private final ParticleSeedDelivery particleSeedDelivery;
 
     public SpecialRewardCommand(SpecialRewardsConfig config, SpecialRewardService service,
                                  PerkAttributeApplier perkAttributeApplier) {
+        this(config, service, perkAttributeApplier, null);
+    }
+
+    public SpecialRewardCommand(SpecialRewardsConfig config, SpecialRewardService service,
+                                 PerkAttributeApplier perkAttributeApplier,
+                                 ParticleSeedDelivery particleSeedDelivery) {
         this.config = Objects.requireNonNull(config, "config");
         this.service = Objects.requireNonNull(service, "service");
         this.perkAttributeApplier = perkAttributeApplier;
+        this.particleSeedDelivery = particleSeedDelivery;
     }
 
     public LiteralArgumentBuilder<CommandSourceStack> node() {
@@ -95,6 +105,11 @@ public final class SpecialRewardCommand {
             return Command.SINGLE_SUCCESS;
         }
         data.grantSpecialReward(id);
+        if (particleSeedDelivery != null) {
+            // パーティクルシードだけは「解放しただけでは手元に何も無い」ので、
+            // アチーブ/図鑑と同じくシード素材と使い方をここでも渡す(2026-08-21)。
+            particleSeedDelivery.deliver(target, id);
+        }
         if (perkAttributeApplier != null) {
             perkAttributeApplier.apply(target);
         }
@@ -153,6 +168,20 @@ public final class SpecialRewardCommand {
         }
         sender.sendMessage(Component.text("perk由来: " + (viaPerk.isEmpty() ? "なし" : String.join(", ", viaPerk)),
                 NamedTextColor.GRAY));
+        // パーティクルシードだけは装備画面(/tf settings)に出ないので、保有していても
+        // 使い方に辿り着けない。ここで素材名まで出す(2026-08-21 の修正前に解放済みだった
+        // プレイヤーには解放時の案内が届いていないため、事後の唯一の確認手段になる)。
+        Set<String> heldSeeds = new LinkedHashSet<>();
+        for (String id : config.particleSeeds().keySet()) {
+            if (direct.contains(id) || viaPerk.contains(id)) {
+                heldSeeds.add(id);
+            }
+        }
+        for (String id : heldSeeds) {
+            SpecialRewardsConfig.ParticleSeed seed = config.particleSeeds().get(id);
+            sender.sendMessage(Component.text("  シード " + id + ": " + seed.seedItem()
+                    + " と 道具/武器 の2つだけを作業台に置く", NamedTextColor.LIGHT_PURPLE));
+        }
         return Command.SINGLE_SUCCESS;
     }
 

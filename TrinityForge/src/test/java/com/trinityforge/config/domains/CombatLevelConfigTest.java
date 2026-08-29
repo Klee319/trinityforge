@@ -94,4 +94,46 @@ class CombatLevelConfigTest {
         assertTrue(result[0]);
         assertEquals(2.0, config.model().skillWeights().get("ARCHERY"), 0.0);
     }
+
+    /**
+     * 出荷 {@code progression/combat-level.yml} の {@code pillars:} と、config に
+     * {@code pillars:} が無いときに使われるコード側の既定値が一致していることを固定する。
+     *
+     * <p>2026-08-25 まで両者はずれていた(コード側が top1/1.0、出荷 yml が top1/1.5)。
+     * {@code pillars:} を持たない config を読んだ環境だけ純特化プレイヤーの戦闘レベルが
+     * 67 ではなく 100 になり、それを前提に書かれている {@code combat/damage.yml} の
+     * level-cutoff が丸ごとずれる。既定値を書く場所が 2 つある以上、
+     * 片方だけ直すと必ずまた割れるのでここで縛る。
+     */
+    @Test
+    void shippedPillarsMatchTheCodeDefaultsSoAConfigWithoutPillarsBehavesTheSame(@TempDir File tempDir)
+            throws IOException {
+        String shipped;
+        try (var stream = getClass().getResourceAsStream("/" + CombatLevelConfig.PATH)) {
+            assertTrue(stream != null, "bundled " + CombatLevelConfig.PATH);
+            shipped = new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+
+        boolean[] shippedResult = new boolean[1];
+        var shippedModel = loaded(tempDir, shipped, shippedResult).model();
+        assertTrue(shippedResult[0], "the bundled combat-level.yml must load cleanly");
+
+        // pillars: を丸ごと欠いた config -> コード側の既定値が使われる。
+        boolean[] fallbackResult = new boolean[1];
+        var fallbackModel = loaded(tempDir, """
+                skills:
+                  LIGHT_WEAPONS: 1.0
+                curve:
+                  scale: 1.0
+                  min-level: 0
+                  max-level: 100
+                """, fallbackResult).model();
+
+        assertEquals(shippedModel.pillars(), fallbackModel.pillars(),
+                "コード側の既定 pillars が出荷 yml とずれている");
+
+        // 純特化 100 の戦闘レベルは 67(=100/1.5)。damage.yml の level-cutoff はこの値を前提にしている。
+        assertEquals(67, shippedModel.compute(Map.of("LIGHT_WEAPONS", 100)),
+                "純特化 100 の戦闘レベルは 67 のはず(damage.yml の level-cutoff の前提)");
+    }
 }

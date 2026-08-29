@@ -44,6 +44,15 @@ public final class WoodcuttingGimmickConfig {
     /** 1tickあたりに壊す葉の枚数の既定値(2026-07-31 N2)。512枚なら約11tick=0.55秒で樹冠が消える。 */
     private static final int DEFAULT_LEAVES_PER_TICK = 48;
     /**
+     * 一括伐採1回あたりに引くドロップテーブルの上限回数の既定値(2026-08-24)。
+     *
+     * <p>連鎖で壊した葉は {@code BlockBreakEvent} を発火しないので、リンゴ等の追加ドロップは
+     * <b>一括伐採では1回も抽選されていなかった</b>(手で葉を割ったときだけ出る、の状態)。
+     * かといって葉1枚ごとに引くと1回の伐採で最大1024回引くことになり、手で割るのと桁が変わる。
+     * そこで「壊した葉の枚数と、この上限の小さいほう」だけ引く。
+     */
+    public static final int DEFAULT_CHAIN_DROP_ROLLS_MAX = 8;
+    /**
      * 「木全体」を把握する走査の上限本数の既定値(2026-07-31 G1 レビュー指摘6b)。
      * {@link com.trinityforge.woodcutting.TreeScan#TREE_SCAN_LIMIT} と同じ値。
      * <b>Java 側の既定値をここで変えると出荷 yml とドリフトする</b>ので、変えるなら両方を同時に直すこと。
@@ -80,6 +89,7 @@ public final class WoodcuttingGimmickConfig {
     private volatile int treeFellLeavesMax = DEFAULT_LEAVES_MAX;
     private volatile int treeFellLeavesPerTick = DEFAULT_LEAVES_PER_TICK;
     private volatile boolean treeFellLeavesDecayOnly = true;
+    private volatile int treeFellChainDropRollsMax = DEFAULT_CHAIN_DROP_ROLLS_MAX;
     private volatile int treeFellScanLimit = DEFAULT_SCAN_LIMIT;
     private volatile int treeFellMaxHorizontalDistance = DEFAULT_MAX_HORIZONTAL_DISTANCE;
     private volatile int treeFellMaxVerticalDistance = DEFAULT_MAX_VERTICAL_DISTANCE;
@@ -171,6 +181,21 @@ public final class WoodcuttingGimmickConfig {
     }
 
     /**
+     * {@code tree-fell.chain-drop-rolls-max}(既定 8): 一括伐採1回あたりに引く
+     * {@code drop-tables} の上限回数(2026-08-24)。
+     *
+     * <p>実際に引く回数は「連鎖で壊した葉の枚数」とこの値の小さいほう。
+     * <b>0 以下ならこの経路の抽選を行わない</b>(＝一括伐採では追加ドロップが出ない、
+     * 2026-08-24 以前の挙動)。
+     *
+     * <p>手で葉を割ったときの抽選({@code onBlockBreakDropTables})とは別枠で、そちらは
+     * 従来どおり1枚につき1回引く。
+     */
+    public int treeFellChainDropRollsMax() {
+        return treeFellChainDropRollsMax;
+    }
+
+    /**
      * {@code tree-fell.scan-limit}(既定 512): 「木全体」を把握するときに読むブロックの上限本数
      * (2026-07-31 G1 レビュー指摘6b で定数から config へ出した)。
      *
@@ -247,6 +272,10 @@ public final class WoodcuttingGimmickConfig {
         this.treeFellLeavesMax = yaml.getInt("tree-fell.leaves-max", DEFAULT_LEAVES_MAX);
         this.treeFellLeavesPerTick = yaml.getInt("tree-fell.leaves-per-tick", DEFAULT_LEAVES_PER_TICK);
         this.treeFellLeavesDecayOnly = yaml.getBoolean("tree-fell.leaves-decay-only", true);
+        // chain-drop-rolls-max は「0以下 = この経路の抽選を行わない」という別の意味を持つので
+        // clampPositiveInt は通さない(無効化したい運用者が 0 と書けるようにするため)。
+        this.treeFellChainDropRollsMax =
+                yaml.getInt("tree-fell.chain-drop-rolls-max", DEFAULT_CHAIN_DROP_ROLLS_MAX);
         this.treeFellScanLimit = clampPositiveInt(
                 yaml.getInt("tree-fell.scan-limit", DEFAULT_SCAN_LIMIT),
                 "tree-fell.scan-limit", DEFAULT_SCAN_LIMIT, log);

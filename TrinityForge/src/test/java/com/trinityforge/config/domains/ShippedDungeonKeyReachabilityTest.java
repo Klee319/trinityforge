@@ -227,22 +227,38 @@ class ShippedDungeonKeyReachabilityTest {
                         + "または『存在しない印を要求する』のどちらかになる");
     }
 
+    /**
+     * 2026-08-25 に現仕様へ書き直した。
+     *
+     * <p>以前は「key_binder は {@code list:dungeon_seals} を5個要求する」を固定していたが、
+     * 印を集める形はやめて固有素材5種の shaped レシピになった（ユーザー確定「意図した変更」）。
+     * 旧テストは実装が意図どおり変わった側を落とし続けていたので、主張を差し替える。
+     *
+     * <p>ここで固定するのは「鍵が合成でしか手に入らない以上、レシピが存在し、
+     * 素材が作業台に並ぶ数に収まっていること」だけ。素材の顔ぶれはバランス調整で動くので縛らない。
+     */
     @Test
-    @DisplayName("key_binder は印を5個要求する(任意5種で到達できる)")
-    void binderKeyConsumesFiveSeals() {
+    @DisplayName("key_binder は作業台で作れる(印は要求しない)")
+    void binderKeyIsCraftableWithoutDungeonSeals() {
         ConfigurationSection binder = catalogItems().getConfigurationSection("key_binder");
         assertNotNull(binder, "key_binder が定義されていない");
         ConfigurationSection recipe = binder.getConfigurationSection("recipe");
         assertNotNull(recipe, "key_binder にレシピが無い(合成でしか入手できない鍵なので必須)");
 
-        List<String> ingredients = recipe.getStringList("ingredients");
-        long seals = ingredients.stream().filter("list:dungeon_seals"::equals).count();
-        assertEquals(5, seals,
-                "key_binder が要求する印の数が5個ではない。"
-                        + "全種すべてを要求すると『名目上の第1目標が実際は最後に解ける』構造に戻る");
-        assertTrue(ingredients.size() <= 9,
-                "shapeless レシピの素材が9個を超えている(作業台に並べきれず登録が落ちる): "
-                        + ingredients.size());
+        ConfigurationSection ingredientMap = recipe.getConfigurationSection("ingredients");
+        assertNotNull(ingredientMap,
+                "key_binder のレシピに ingredients が無い(shaped なので記号→素材の対応表が要る)");
+        Set<String> symbols = ingredientMap.getKeys(false);
+        assertFalse(symbols.isEmpty(), "key_binder の素材が空");
+        assertTrue(symbols.size() <= 9,
+                "作業台に並べきれる素材種は9種まで(超えると登録が落ちる): " + symbols.size());
+
+        List<String> sealIngredients = symbols.stream()
+                .map(symbol -> String.valueOf(ingredientMap.get(symbol)))
+                .filter(value -> value.contains("dungeon_seal"))
+                .toList();
+        assertTrue(sealIngredients.isEmpty(),
+                "印を要求しない形へ変えたはずの key_binder が印を要求している: " + sealIngredients);
     }
 
     @Test

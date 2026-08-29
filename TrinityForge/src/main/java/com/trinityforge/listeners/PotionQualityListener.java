@@ -105,6 +105,18 @@ public final class PotionQualityListener implements Listener {
         if (!(event.getBlock().getState() instanceof BrewingStand stand)) {
             return;
         }
+        // カスタム効果ポーションの醸造そのものを禁止する(2026-08-25 ユーザー決定 / W-116)。
+        // 反転(発酵したクモの目)の意味定義は実装しない。代わりに、ここまでに救済されなかった
+        // (=延長/強化/スプラッシュ化/残留化のどれでもなかった)組み合わせで、ビン枠に
+        // baseがWATERへ倒れたカスタム効果ポーションが残っているなら、その醸造を丸ごと止める。
+        // バニラの醸造表は「(ベースの種類, 素材)→ 結果」でしか引かないため、他のどんな素材でも
+        // WATERベースのビンへ何かを入れると効果が消えたバニラ結果(ARKWARD等)に化けてしまう
+        // (延長/強化/スプラッシュ化/残留化の4つだけが例外的に救済済み)。
+        if (hasProtectedCustomPotion(event.getContents())) {
+            notifyBrewBlocked(stand);
+            event.setCancelled(true);
+            return;
+        }
         Optional<UUID> ownerId = brewOwnership.ownerOf(stand);
         if (ownerId.isEmpty()) {
             return;
@@ -184,6 +196,11 @@ public final class PotionQualityListener implements Listener {
         for (PotionEffect effect : boosted) {
             meta.addCustomEffect(effect, true);
         }
+        // baseをWATERへ倒すと【統合版での見た目も「水入り瓶」に化ける】。GeyserはPotionContentsの
+        // baseから色を引くため、setColorを焼かないと色が無いまま=水入り瓶として描画される
+        // (2026-08-25)。効果から導出した色を焼き付ける(BrewRecipeSupport#applyMixedColorへ集約、
+        // customPotionと同じ規則)。
+        BrewRecipeSupport.applyMixedColor(meta, boosted);
         // baseをWATERへ倒すと【名前も「水入り瓶」に化ける】。ポーション名はベースの種類からしか
         // 引かれないので(PotionContents#getName)、効果を足しても名前は戻らない。
         // 2026-08-18 実サーバ報告「進捗バーも動いて完了音も鳴るのに水入り瓶が完成する」の真因がこれ。
@@ -217,6 +234,37 @@ public final class PotionQualityListener implements Listener {
 
     private static boolean isSplashOrLingering(Material type) {
         return type == Material.SPLASH_POTION || type == Material.LINGERING_POTION;
+    }
+
+    /** アクションバーの通知文言(2026-08-25 / W-116: 無言で弾くと不具合に見えるため)。 */
+    private static final net.kyori.adventure.text.Component BREW_BLOCKED_MESSAGE =
+            net.kyori.adventure.text.Component.text(
+                    "カスタム効果のポーションは、延長・強化・スプラッシュ化・残留化以外の醸造には使えません(効果が消えるため投入を止めました)。",
+                    net.kyori.adventure.text.format.NamedTextColor.RED);
+
+    /**
+     * ビン枠(0..2)のどれかに、baseが {@code WATER} へ倒れた<b>カスタム効果ポーション</b>が
+     * 載っているか。#rewriteCustomEffectUpgrade / #rewriteCustomEffectContainerMix のどちらでも
+     * 救済されなかった時点でここへ来るので、trueなら「このまま進めると効果が消える」ことが確定する。
+     */
+    private static boolean hasProtectedCustomPotion(BrewerInventory inv) {
+        for (int slot = 0; slot < 3; slot++) {
+            ItemStack bottle = inv.getItem(slot);
+            if (bottle == null || !(bottle.getItemMeta() instanceof PotionMeta meta)) {
+                continue;
+            }
+            if (meta.getBasePotionType() == PotionType.WATER && meta.hasCustomEffects()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 醸造をブロックしたことをプレイヤーへ知らせる(所有者PDCの読み取りは既存の brewOwnership に一本化)。 */
+    private void notifyBrewBlocked(BrewingStand stand) {
+        brewOwnership.ownerOf(stand)
+                .map(Bukkit::getPlayer)
+                .ifPresent(owner -> owner.sendActionBar(BREW_BLOCKED_MESSAGE));
     }
 
     // ---- スプラッシュ化(火薬) / 残留化(ドラゴンブレス) の救済 ------------------------------

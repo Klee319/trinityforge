@@ -442,7 +442,7 @@
     "exp_damage_piece": { label: "被ダメEXP(1部位)", desc: "防具スキル: ダメージを受けたときのEXP。" },
     "exp_damage_piece_min_damage": { label: "被ダメEXP 最低ダメージ", desc: "この値未満の最終ダメージ(矢の掠り等)では防具EXPを付与しない(semi-AFK farm対策)。" },
     "exp_damage_piece_cooldown_seconds": { label: "被ダメEXP CD(秒)", desc: "同一攻撃者からの被弾EXPは(被害者,攻撃者)単位でこの秒数に1回まで。" },
-    "exp_multiplier_point": { label: "防具値1点あたりEXP倍率", desc: "装備中の防具値1点ごとに被弾EXPへ加算する倍率。" },
+    "exp_multiplier_point": { label: "装備の硬さEXP係数", desc: "被弾EXPに掛ける『装備の硬さ』の係数。式は EXP×(1 + 防御率の合計 × この値)。⚠ 2026-08-15 に入力が防具値(点数・最良装備で約20)から防御率(0〜1・同 0.30)へ変わったので、桁が約1/67になった。旧スケールの 0.05 前後を書くと係数がほぼ 1.0(＝硬さボーナスなし)になる。最良装備で約2倍にしたいなら 3.3 前後。" },
     "pvp_multiplier_exponent": { label: "PvP EXP倍率指数", desc: "プレイヤーから被弾した際のPvP倍率を何乗して防具EXPへ適用するか。1はそのまま、2は倍率の2乗。" },
     "entity_exp_multipliers": { label: "敵種類別EXP倍率表", desc: "攻撃元のEntityTypeごとに防具EXPへ掛ける倍率。未指定の種類は既定倍率を使う。" },
     "exp_multiplier_mine": { label: "採掘EXP倍率", desc: "通常採掘でのEXP倍率。" },
@@ -473,6 +473,7 @@
     "prestige_decay_rate": { label: "プレステージ減衰率", desc: "プレステージ後の総合スキル進行へ適用する減衰率。" },
     // skill-exp.yml 直下スカラー・追加セクション (2026-07-27 タスク1: ID表示バグ修正)
     "outside-dungeon-exp-rate": { label: "ダンジョン外EXP倍率", desc: "dungeon-only-exp: false のとき、ダンジョン外で得る戦闘スキルEXP(武器・魔法=討伐、防具=被弾、弓術=命中)に掛かる倍率。ダンジョン内は常に1.0。1.0=ダンジョンと同率、0.25(既定)=ダンジョンの1/4、0.0=完全遮断。dungeon-only-exp: true のときは参照されない。" },
+    "dungeon-exp-rate": { label: "ダンジョン内EXP倍率", desc: "ダンジョン内で得る戦闘スキルEXP(武器・魔法=討伐、防具=被弾)に掛かる倍率。2026-08-21 新設で、それまでは 1.0 固定だった。プレイヤーが体感する『ダンジョンは外の何倍か』はこの値と『ダンジョン外EXP倍率』の【比】なので、片方だけ動かすと比が変わる。出荷値 0.375(ダンジョン外 0.1875 の2倍)。" },
     "exp-mode": { label: "採取EXP算出方式", desc: "MINING/FARMING/WOODCUTTING/DIGGING共通。drop_sum(既定)=ドロップ品(素材側)の値の合計。block_value=ブロックそのものの値をそのまま使う。max=両者の大きい方。" },
     "radius": { label: "同一地点判定半径", desc: "spot-diminishing: 直近window-seconds秒のあいだにこの半径(ブロック)以内で得たEXP回数を数える。" },
     "window-seconds": { label: "判定時間窓(秒)", desc: "spot-diminishing: この秒数のあいだの獲得回数を同一地点判定に使う。" },

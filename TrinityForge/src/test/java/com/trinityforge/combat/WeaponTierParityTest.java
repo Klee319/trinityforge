@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,6 +17,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -74,8 +76,16 @@ class WeaponTierParityTest {
 
     /** 杖の詠唱クールダウン(秒)。2026-08-20 に全帯 4 秒固定へ揃えた。 */
     private static final double WAND_COOLDOWN_SECONDS = 4.0;
-    /** 杖の attack-power は同系列の剣の何倍か。 */
+    /** 杖の attack-power は同系列の剣の何倍か（2026-08-20 決定。実効火力の分母として今も生きている）。 */
     private static final double WAND_ATTACK_POWER_MULTIPLIER = 1.5;
+    /** 杖の damage-modifier の下限・上限（2026-08-21 決定「tier に応じて 0.5〜0.6」）。 */
+    private static final double WAND_DAMAGE_MODIFIER_MIN = 0.50;
+    private static final double WAND_DAMAGE_MODIFIER_MAX = 0.60;
+    /**
+     * 2026-08-21 の引き上げ前の damage-modifier。<b>実効火力を据え置く</b>のが今回の要件なので、
+     * 「剣 × 1.5 × この期待値」が動かしてはいけない基準値になる。
+     */
+    private static final double WAND_LEGACY_DAMAGE_MODIFIER = 0.30;
 
     /**
      * 武器種ごとの「同系列の剣に対する実効DPS比」の許容帯。
@@ -221,7 +231,8 @@ class WeaponTierParityTest {
 
     private record Weapon(String statKey, String id, String type, String series, int level,
                           double attackSpeed, double rate, double perHit, double bleed,
-                          double reach, double fixedAttackPower, double cooldown) {
+                          double reach, double fixedAttackPower, double cooldown,
+                          double damageModifier) {
         double dps() {
             return perHit * rate + bleed;
         }
@@ -238,6 +249,22 @@ class WeaponTierParityTest {
         } catch (Exception ex) {
             throw new IllegalStateException(resource + " を読めない", ex);
         }
+    }
+
+    /**
+     * {@code damage-modifier} の実効端点。<b>未設定は 0 ではなく中立の 1.0</b>。
+     *
+     * <p>{@link #stat} は未設定キーを 0.0 で返すが、{@code damage-modifier} の 0 は
+     * 「毎撃 ×0〜×1 のサイコロ」という<b>実在する強い減衰</b>を意味するので、
+     * そのまま期待値へ通すと未設定の武器が ×0.5 に化ける（本番では
+     * {@code AttackStatBridge} が未設定を中立端点へ変換している）。
+     */
+    private static double damageModifierEndpoint(ConfigurationSection item) {
+        ConfigurationSection fixed = item.getConfigurationSection("fixed");
+        ConfigurationSection random = item.getConfigurationSection("random");
+        boolean authored = (fixed != null && fixed.isSet("damage-modifier"))
+                || (random != null && random.getConfigurationSection("damage-modifier") != null);
+        return authored ? stat(item, "damage-modifier") : 1.0;
     }
 
     /** {@code fixed} と {@code random}（min/max の中央＝期待値）を足した実効値。品質0で評価する。 */
@@ -323,11 +350,11 @@ class WeaponTierParityTest {
             double rate = "wand".equals(type) && cooldown > 0
                     ? 1.0 / cooldown
                     : (attackSpeed > 0 ? Math.min(attackSpeed, MAX_RATE) : MAX_RATE);
-            double modifier = stat(item, "damage-modifier");
+            double modifier = damageModifierEndpoint(item);
             double perHit = stat(item, "attack-power")
                     * (1 + PER_LEVEL * level)
                     * (1 + stat(item, "crit-chance") * stat(item, "crit-damage"))
-                    * ((Math.min(1, 1 + modifier) + Math.max(1, 1 + modifier)) / 2.0)
+                    * expectedDamageModifier(modifier)
                     + stat(item, "fixed-damage");
             // 出血は victim ごとに1件しか持たず(BleedService は Map#put で上書き)、
             // tick-interval 20 tick で bleed-damage を刻む。毎秒2発当たる前提では常に更新
@@ -335,7 +362,8 @@ class WeaponTierParityTest {
             double bleed = stat(item, "bleed-chance") > 0 ? stat(item, "bleed-damage") : 0.0;
             out.add(new Weapon(statKey, id, type, series, level,
                     attackSpeed, rate, perHit, bleed, stat(item, "attack-reach"),
-                    fixed.getDouble("attack-power", 0.0), cooldown));
+                    fixed.getDouble("attack-power", 0.0), cooldown,
+                    fixed.getDouble("damage-modifier", 1.0)));
         }
         assertFalse(out.isEmpty(), "武器を1件も読めていない(この検査は空振りしている)");
         return out;
@@ -617,48 +645,126 @@ class WeaponTierParityTest {
     }
 
     /**
-     * 2026-08-20 ユーザー決定「杖は剣とほぼ同じ攻撃力(1.5倍程度)で、いずれも CT は 4s 固定」。
+     * この検査ファイルの実効DPS模型が、{@code damage-modifier} を<b>実装と同じ意味</b>で
+     * 扱っていることを固定する。
+     *
+     * <p>⚠ 2026-08-21 まで、ここの模型は {@code (min(1, 1+補正) + max(1, 1+補正)) / 2} ＝
+     * <b>補正を「1 への上乗せ」として扱っていた</b>（0.30 に対し真値 0.65 ではなく 1.15）。
+     * 誤差がほぼ全武器に一様に効くので<b>武器種どうしの比を見る帯は破綻せず</b>、
+     * 壊れたまま何度もこの表を再較正していた。実際、直したところで
+     * <b>戦鎚が意図より 1.4〜5.4% 強い</b>のが表に出て 14 本を下げ直している。
+     *
+     * <p>ユーザーの言葉での仕様: 「90% なら 0.9〜1 倍のダメージ。1 倍を超えるのは補正が
+     * 100% 以上の場合で、130% なら 1〜1.3 倍のランダムダメージ」。
+     */
+    @Test
+    @DisplayName("実効DPS模型のダメージ補正が実装と同じ意味(端点。90%なら0.9〜1.0倍)")
+    void theDpsModelReadsDamageModifierTheSameWayTheGameDoes() {
+        // 90% -> 0.9〜1.0 の一様分布 -> 期待 0.95。1 を超えるのは 100% 超のときだけ。
+        assertEquals(0.95, expectedDamageModifier(0.90), 1e-9);
+        assertEquals(1.00, expectedDamageModifier(1.00), 1e-9);
+        assertEquals(1.15, expectedDamageModifier(1.30), 1e-9, "130% は 1.0〜1.3 倍");
+        assertEquals(0.65, expectedDamageModifier(0.30), 1e-9, "旧模型はここで 1.15 を返していた");
+
+        // 模型が実装から離れないよう、両端を実装そのものと突き合わせる。
+        for (double authored : new double[] {0.30, 0.53, 0.65, 0.84, 0.98, 1.00, 1.30}) {
+            double lo = ComponentDamageCalculator.rollDamageModifierMultiplier(authored, 0.0);
+            double hi = ComponentDamageCalculator.rollDamageModifierMultiplier(authored, 1.0);
+            assertEquals((lo + hi) / 2.0, expectedDamageModifier(authored), 1e-9,
+                    "端点 " + authored + " で実装のロール幅 [" + lo + ", " + hi + "] と食い違っている");
+        }
+
+        // 未設定は 0（＝毎撃 ×0〜×1 の強い減衰）ではなく中立の 1.0。
+        YamlConfiguration bare = new YamlConfiguration();
+        bare.createSection("fixed").set("attack-power", 100.0);
+        assertEquals(1.0, damageModifierEndpoint(bare), 1e-9,
+                "damage-modifier 未設定の武器が ×0.5 に化けている");
+    }
+
+    /**
+     * {@code damage-modifier} は倍率ではなく「100% に対する端点」なので、1 発の期待倍率は
+     * {@code (1 + 端点) / 2}。実装は {@link ComponentDamageCalculator#rollDamageModifierMultiplier}。
+     */
+    private static double expectedDamageModifier(double authored) {
+        double endpoint = ComponentDamageCalculator.normalizeDamageModifierEndpoint(authored);
+        return (Math.min(1.0, endpoint) + Math.max(1.0, endpoint)) / 2.0;
+    }
+
+    /**
+     * 2026-08-20 ユーザー決定「杖は剣とほぼ同じ攻撃力(1.5倍程度)で、いずれも CT は 4s 固定」＋
+     * 2026-08-21 ユーザー決定「DPS を維持したまま damage-modifier を tier に応じて 0.5〜0.6 へ上げる
+     * （代わりに攻撃力を下げる）」。
      *
      * <p>それ以前は「詠唱DPS が剣の 47.5%」という帯で縛っていたが、その帯は
      * <b>1発の威力と CT を同時に動かせてしまう</b>ので、実際には
      * 「1発が剣の 2.2〜2.7 倍・CT は上位ほど短い(3.5s→2.1s)」という逆進カーブを許していた。
-     * 上位帯ほど杖が強くなる原因がここにあったため、DPS 帯ではなく
-     * <b>攻撃力の倍率と CT そのもの</b>を直接固定する。
      *
-     * <p>倍率は fixed の attack-power で見る。{@code random:} も同じ比で縮めてあるが、
+     * <p>そして 2026-08-21 の変更で <b>attack-power 単体を固定するのも不十分</b>になった。
+     * {@code damage-modifier} を上げて {@code attack-power} を下げる、という2つ同時の変更が
+     * 「実効火力は据え置き」の中身だからで、片方だけ見る検査は<b>もう片方を自由に動かせてしまう</b>。
+     * ＝ この検査が固定するのは <b>{@code attack-power × ダメージ補正の期待値}</b> の方。
+     * 基準は「同系列の剣 × 1.5 × 旧 0.30 の期待値(0.65)」で、これは 2026-08-20 時点の実効火力そのもの。
+     *
+     * <p>許容は 1%。{@code attack-power} を整数へ丸めている分（最大 0.5）と、端点を小数第2位へ
+     * 丸めている分を吸収する幅で、片方だけ動かせば必ず外れる。
+     *
+     * <p>倍率は fixed の値で見る。{@code random:} も同じ係数で縮めてあるが、
      * 剣と杖でロール幅の比率が違うので合計値で見ると 1.5 からずれる（そこは意図した差）。
      */
     @Test
-    @DisplayName("杖の攻撃力が同系列の剣の1.5倍・CTは全帯4秒で固定されている")
-    void wandsAreOneAndAHalfSwordsOnAFixedFourSecondCooldown() {
+    @DisplayName("杖はダメージ補正0.5〜0.6・CT4秒固定で、実効火力(攻撃力×補正期待値)が剣の1.5倍据え置き")
+    void wandsKeepTheirEffectivePowerWhileRaisingTheDamageModifier() {
         List<Weapon> weapons = loadWeapons();
         Map<String, Double> swordAp = swordFixedApBySeries(weapons);
         List<String> problems = new ArrayList<>();
-        int checked = 0;
+        // tier 昇順（＝攻撃力昇順）に damage-modifier が下がらないことも見る。
+        List<Weapon> wands = new ArrayList<>();
         for (Weapon w : weapons) {
-            if (!"wand".equals(w.type())) {
-                continue;
+            if ("wand".equals(w.type())) {
+                wands.add(w);
             }
-            checked++;
+        }
+        wands.sort(Comparator.comparingDouble(Weapon::fixedAttackPower));
+
+        for (Weapon w : wands) {
             if (Math.abs(w.cooldown() - WAND_COOLDOWN_SECONDS) > 1e-6) {
                 problems.add(String.format("%s (Lv%d): item-cooldown が %.2fs（%.1fs 固定のはず）",
                         w.id(), w.level(), w.cooldown(), WAND_COOLDOWN_SECONDS));
             }
+            if (w.damageModifier() < WAND_DAMAGE_MODIFIER_MIN - 1e-9
+                    || w.damageModifier() > WAND_DAMAGE_MODIFIER_MAX + 1e-9) {
+                problems.add(String.format("%s (Lv%d): damage-modifier %.2f が %.2f〜%.2f の外",
+                        w.id(), w.level(), w.damageModifier(),
+                        WAND_DAMAGE_MODIFIER_MIN, WAND_DAMAGE_MODIFIER_MAX));
+            }
             Double sword = w.series() == null ? null : swordAp.get(w.series());
             if (sword == null || sword <= 0) {
-                problems.add(String.format("%s: 同系列(%s)の剣が引けない（倍率を検査できていない）",
+                problems.add(String.format("%s: 同系列(%s)の剣が引けない（実効火力を検査できていない）",
                         w.id(), w.series()));
                 continue;
             }
-            // 期待値は round(剣 x 1.5)。小数へ丸めた実データと突き合わせるので許容は ±1。
-            double expected = Math.round(sword * WAND_ATTACK_POWER_MULTIPLIER);
-            if (Math.abs(w.fixedAttackPower() - expected) > 1.0) {
-                problems.add(String.format("%s (Lv%d): attack-power %.0f は剣 %.0f の %.2f 倍（狙いは %.1f 倍 = %.0f）",
-                        w.id(), w.level(), w.fixedAttackPower(), sword,
-                        w.fixedAttackPower() / sword, WAND_ATTACK_POWER_MULTIPLIER, expected));
+            // 動かしてはいけない基準値 = 剣 × 1.5 × 旧補正(0.30)の期待値。
+            double baseline = sword * WAND_ATTACK_POWER_MULTIPLIER
+                    * expectedDamageModifier(WAND_LEGACY_DAMAGE_MODIFIER);
+            double actual = w.fixedAttackPower() * expectedDamageModifier(w.damageModifier());
+            if (Math.abs(actual - baseline) > baseline * 0.01) {
+                problems.add(String.format(
+                        "%s (Lv%d): 実効火力 %.1f（攻撃力 %.0f × 補正期待値 %.3f）が基準 %.1f から %.1f%% ずれている"
+                                + "（剣 %.0f × %.1f × %.3f）。補正と攻撃力は必ずセットで動かすこと",
+                        w.id(), w.level(), actual, w.fixedAttackPower(),
+                        expectedDamageModifier(w.damageModifier()), baseline,
+                        (actual / baseline - 1) * 100, sword, WAND_ATTACK_POWER_MULTIPLIER,
+                        expectedDamageModifier(WAND_LEGACY_DAMAGE_MODIFIER)));
             }
         }
-        assertTrue(checked >= 8, "杖を " + checked + " 本しか読めていない(この検査は空振りしている)");
+        for (int i = 1; i < wands.size(); i++) {
+            if (wands.get(i).damageModifier() < wands.get(i - 1).damageModifier() - 1e-9) {
+                problems.add(String.format("%s の damage-modifier %.2f が下位の %s(%.2f) を下回っている",
+                        wands.get(i).id(), wands.get(i).damageModifier(),
+                        wands.get(i - 1).id(), wands.get(i - 1).damageModifier()));
+            }
+        }
+        assertTrue(wands.size() >= 8, "杖を " + wands.size() + " 本しか読めていない(この検査は空振りしている)");
         assertTrue(problems.isEmpty(), String.join("\n", problems));
     }
 }

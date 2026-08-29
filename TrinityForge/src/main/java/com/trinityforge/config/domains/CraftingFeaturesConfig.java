@@ -37,6 +37,32 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
     public record WoodRepairMaterial(int durability, boolean quickRepair) {}
 
     /**
+     * 圧縮素材のかまど精錬 1 行 (2026-08-23)。
+     *
+     * @param resultId  焼き上がりの ArsPaper 素材 id（{@code custom:} 接頭辞は付けない）
+     * @param cookTime  1 個あたりの調理時間(tick)。バニラは 200。燃料は燃焼時間で減るので
+     *                  ここを 9 倍にすると燃料も 9 倍かかる
+     */
+    public record CompressedSmelt(String resultId, int cookTime, float experience) {
+
+        /**
+         * {@code experience} 未指定時の既定 3.15 = バニラの食材精錬(0.35)×9。
+         * 焼き芋・焼き肉・焼き魚はバニラでは<b>全部 0.35</b> なので 1 つの既定で足りる。
+         */
+        public static final double DEFAULT_EXPERIENCE = 3.15;
+
+        /** 燻製器の調理時間。バニラの比率(かまど200:燻製器100)に合わせて半分。 */
+        public int smokingTime() {
+            return Math.max(1, cookTime / 2);
+        }
+
+        /** 焚き火の調理時間。バニラの比率(かまど200:焚き火600)に合わせて3倍。 */
+        public int campfireTime() {
+            return Math.max(1, cookTime * 3);
+        }
+    }
+
+    /**
      * 解体の戻り先候補1件 (2026-07-27)。{@code weight} は同一ルール内の相対重みで、
      * 1ルールにつき<b>1件だけ</b>当たる(全部が出るのではない)。
      *
@@ -158,6 +184,12 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
     /** Legacy fallback when PDC flat damage is absent (old items stamped with stacks only). */
     private volatile double coatingLegacyBonusPerStack = 2.0;
     private volatile Map<String, WoodRepairMaterial> woodRepairMaterials = Map.of();
+    /**
+     * {@code compressed-smelting.<入力素材id>} (2026-08-23): 圧縮素材をかまどで焼いたときの
+     * 差し替え先と調理時間。Bukkit のレシピにしていない理由は yml 側のコメントと
+     * {@link com.trinityforge.listeners.CompressedSmeltListener} の javadoc を参照。
+     */
+    private volatile Map<String, CompressedSmelt> compressedSmelting = Map.of();
     private volatile int disassemblyPercentPerLevel = 25;
     /**
      * {@code disassembly.tiers.<level>.percent} (2026-07-28 数値のギミックyml集約)。キーは解体レベル
@@ -261,6 +293,21 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
 
     public Map<String, WoodRepairMaterial> woodRepairMaterials() {
         return woodRepairMaterials;
+    }
+
+    /** 圧縮素材のかまど精錬表。キーは入力側の ArsPaper 素材 id。 */
+    public Map<String, CompressedSmelt> compressedSmelting() {
+        return compressedSmelting;
+    }
+
+    /**
+     * 入力素材 id に対応する精錬結果を返す。
+     *
+     * @param inputId ArsPaper 素材 id（{@code custom:} 接頭辞なし）。null 可
+     * @return 未登録なら null
+     */
+    public CompressedSmelt compressedSmelt(String inputId) {
+        return inputId == null ? null : compressedSmelting.get(inputId);
     }
 
     public WoodRepairMaterial woodRepairMaterial(String catalogId) {
@@ -499,6 +546,7 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
         loadXpBottleStore(yaml, log);
         loadCoating(yaml);
         loadWoodRepair(yaml);
+        loadCompressedSmelting(yaml, log);
         loadDisassembly(yaml, log);
         loadScrapConversion(yaml, log);
         loadPotionMerge(yaml, log);
@@ -639,6 +687,47 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
             this.coatingLegacyBonusPerStack = mats.values().iterator().next().bonusDamage();
         }
         this.coatingMaterials = Collections.unmodifiableMap(mats);
+    }
+
+    /**
+     * {@code compressed-smelting.<入力素材id>} (2026-08-23)。
+     *
+     * <p>行が壊れている(result 未指定 / cook-time が 0 以下)エントリは<b>警告して落とす</b> ——
+     * 黙って既定へ倒すと「焼けるはずが焼けない」だけの無言の穴になり、
+     * かまどの前で原因を切り分ける手段が無い。
+     */
+    private void loadCompressedSmelting(YamlConfiguration yaml, Logger log) {
+        ConfigurationSection section = yaml.getConfigurationSection("compressed-smelting");
+        if (section == null) {
+            this.compressedSmelting = Map.of();
+            return;
+        }
+        Map<String, CompressedSmelt> map = new LinkedHashMap<>();
+        for (String inputId : section.getKeys(false)) {
+            ConfigurationSection entry = section.getConfigurationSection(inputId);
+            if (entry == null) {
+                log.warning("[" + PATH + "] compressed-smelting." + inputId + ": マップである必要があります");
+                continue;
+            }
+            String result = entry.getString("result", "");
+            if (result == null || result.isBlank()) {
+                log.warning("[" + PATH + "] compressed-smelting." + inputId + ": result が未指定です");
+                continue;
+            }
+            int cookTime = entry.getInt("cook-time", 0);
+            if (cookTime <= 0) {
+                log.warning("[" + PATH + "] compressed-smelting." + inputId + ": cook-time は1以上のtickである必要があります");
+                continue;
+            }
+            double experience = entry.getDouble("experience", CompressedSmelt.DEFAULT_EXPERIENCE);
+            if (experience < 0.0) {
+                log.warning("[" + PATH + "] compressed-smelting." + inputId
+                        + ": experience が負なので0として扱います");
+                experience = 0.0;
+            }
+            map.put(inputId, new CompressedSmelt(result.trim(), cookTime, (float) experience));
+        }
+        this.compressedSmelting = Collections.unmodifiableMap(map);
     }
 
     private void loadWoodRepair(YamlConfiguration yaml) {

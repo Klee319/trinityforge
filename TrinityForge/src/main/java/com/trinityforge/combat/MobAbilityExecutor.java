@@ -67,10 +67,40 @@ public final class MobAbilityExecutor {
 
     private final Plugin plugin;
     private final SymmetricCombatService combat;
+    private final java.util.function.DoubleSupplier elementBias;
 
     public MobAbilityExecutor(Plugin plugin, SymmetricCombatService combat) {
+        this(plugin, combat, () -> com.trinityforge.config.domains.MobAbilitiesConfig.DEFAULT_ELEMENT_BIAS);
+    }
+
+    /**
+     * @param elementBias {@code combat/mob-abilities.yml} の {@code ability-element-bias} を
+     *                    <b>毎回読み直す</b>供給元（{@code /trinityforge reload} で即反映させるため、
+     *                    値ではなくサプライヤで受ける）。詳細は
+     *                    {@link com.trinityforge.config.domains.MobAbilitiesConfig#elementBias()}。
+     */
+    public MobAbilityExecutor(Plugin plugin, SymmetricCombatService combat,
+                              java.util.function.DoubleSupplier elementBias) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.combat = Objects.requireNonNull(combat, "combat");
+        this.elementBias = Objects.requireNonNull(elementBias, "elementBias");
+    }
+
+    /**
+     * 技の実効「魔法割合」。<b>技は自分の属性へ 100% 寄せない</b> —— そのモブの
+     * {@code magic-ratio} を土台にして、{@code damage-type} のぶんだけ自分の属性側へ引き寄せる。
+     *
+     * <p>2026-08-21(W-181) 以前は {@code damage-type} の側へ 100% 寄せていて、
+     * {@code magic-ratio} の上限 0.45（＝「魔法防御を持たないプレイヤーが何発耐えるか」で
+     * 校正した安全弁）を技だけが素通りしていた。{@code damage-percent: 2.0} の魔法技は
+     * 実質 magic-ratio 2.0 相当で、難易度1のダンジョンでも最大HPの7割以上を1発で奪っていた。
+     * さらに「敵は物理型」のダンジョンで魔法技だけが即死級になり、
+     * <b>正しく物理防御を積んだプレイヤーほど理不尽に死ぬ</b>という逆転が起きていた。
+     */
+    public static double effectiveMagicRatio(double mobMagicRatio, DamageType abilityType, double bias) {
+        double r = Math.max(0.0, Math.min(1.0, mobMagicRatio));
+        double b = Math.max(0.0, Math.min(1.0, bias));
+        return abilityType == DamageType.MAGICAL ? r + (1.0 - r) * b : r * (1.0 - b);
     }
 
     /**
@@ -401,10 +431,14 @@ public final class MobAbilityExecutor {
         // 刻印が無いモブ(バニラ)は Bukkit の既定近接ダメージ相当を 2.0 として扱う。
         double base = attack.defaultDamage() != 0 ? attack.defaultDamage() : 2.0;
         double abilityBase = base * ability.damagePercent();
-        AttackStats scaled = attack.withDefaultDamage(abilityBase);
-        double finalDamage = ability.damageType() == DamageType.MAGICAL
-                ? combat.magicalFinalDamageFromMob(mob, victim, abilityBase, scaled)
-                : combat.physicalFinalDamageFromMob(mob, victim, abilityBase, scaled);
+        // 2026-08-21(W-181): 技も【そのモブの magic-ratio を土台に】物理/魔法へ分割する。
+        // physicalFinalDamageFromMob は magicRatio が 0 / 1 / 中間 のいずれでも正しく捌く
+        // (0=完全物理・1=完全魔法・中間=1回の回避ロールで両成分へ通す hybrid)ので、
+        // 属性ごとに呼び分けず、実効比率を載せた AttackStats を1本で渡す。
+        AttackStats scaled = attack.withDefaultDamage(abilityBase)
+                .withMagicRatio(effectiveMagicRatio(attack.magicRatio(), ability.damageType(),
+                        elementBias.getAsDouble()));
+        double finalDamage = combat.physicalFinalDamageFromMob(mob, victim, abilityBase, scaled);
         if (finalDamage <= 0.0) {
             applyEffects(victim, ability);
             return;

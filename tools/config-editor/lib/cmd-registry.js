@@ -24,13 +24,16 @@ const path = require("path");
 //   - メイジ防具のベース等 (100011, 100012)
 //   - 筆記台/儀式の核/台座/ウェイストーン 等の fork ブロック (200001, 300001, 300002, 400001)
 //   - メイジ防具セット・スレッド等 (200002-200007, 300003-300016)
+//   - 無限ソース核 (500001) — 2026-08-24 追加。他の fork ブロックと同じく Java の
+//     getCustomModelData() でしか決まらないのに予約から漏れていた(自動採番が奪い得た)。
 // これらは fork の resources/Java でのみ CMD が決まり、TF config スキャンでは検出できないため予約が必要。
 const RESERVED_CMDS = new Set([
   100011, 100012,
   200001, 200002, 200003, 200004, 200005, 200006, 200007,
   300001, 300002, 300003, 300004, 300005, 300006, 300007, 300008,
   300009, 300010, 300011, 300012, 300013, 300014, 300015, 300016,
-  400001
+  400001,
+  500001
 ]);
 
 const MAX_CMD = 9999999; // schema.js の ITEM_STATS_KEY_RE (1〜7桁) に合わせる
@@ -133,6 +136,19 @@ const SCANNERS = {
   sourcelinks: scanSourceLinks
 };
 const CMD_SCAN_IDS = Object.keys(SCANNERS);
+const CMD_SCAN_ID_SET = new Set(CMD_SCAN_IDS);
+
+// 台帳の行が「CMDスキャン対象の config には実体が無い外部由来」かどうか。
+// fork の Java が material と CMD をハードコードしているアイテム (functional-items の
+// infinity_source_core など) が該当し、どの yml にも書かれていないので scanUsage には
+// 絶対に現れない。reconcile がこれを usage 起点の行と同じ扱いで落とすと、
+// 次に誰かが editor で config を1つ保存した瞬間にリソパの配線ごと黙って消える。
+// source 未設定(null)は usage 起点の行なので外部扱いしない(従来どおり usage に従う)。
+function isExternalSource(source) {
+  const base = String(source == null ? "" : source).split(":")[0];
+  if (!base) return false;
+  return !CMD_SCAN_ID_SET.has(base);
+}
 
 // readEntryFn(configId) は上記 id を受け取り、パース済み YAML データ (無ければ null) を返す。
 // 戻り値: [{material, cmd, sources:[{file, id}]}]  (同一 (material,cmd) は sources に集約)
@@ -383,26 +399,106 @@ function adoptFromConfigs(usage, registry) {
 // 台帳を「現存するconfigのCMD」へ完全同期する。削除済みアイテムの行を残すと、
 // リソースパック定義にも残ってしまうため、履歴台帳ではなく現行の配線台帳として扱う。
 // 同一(material,cmd)の assetName/customModel 等は維持し、由来/idだけ最新のconfigへ正規化する。
+//
+// 2026-08-22: editor で material だけを差し替える（鎌を HOE から SWORD へ、など）と
+// (material,cmd) が別キーになるため、この行は「新規の未配線行」として扱われ
+// assetName/parent が無言で消えていた。台帳が assetName を失うと
+// regenerateItemDefinitions が「未配線」と判断してバニラモデルの entry を書くので、
+// **アセットは1つも消えていないのにテクスチャの割り当てだけが外れる**。
+// キーが変わっただけの行は id で引き継ぐ（下記 detailed 実装を参照）。
 function reconcileWithUsage(usage, registry) {
+  return reconcileWithUsageDetailed(usage, registry).registry;
+}
+
+// reconcileWithUsage の本体。引き継ぎが起きた行を moved で返すので、
+// 呼び出し側は「新しい material のバニラリーフへモデルを貼り直す」処理を続けられる。
+// 戻り値: { registry, moved: [{id, assetName, customModel, from:{material,cmd}, to:{material,cmd}}] }
+// registry には moved を含めない（saveRegistry がそのまま JSON 化するため）。
+function reconcileWithUsageDetailed(usage, registry) {
+  const priorList = (registry && registry.allocations) || [];
+  const entries = Array.isArray(usage) ? usage : [];
+
   const existing = new Map();
-  for (const allocation of (registry && registry.allocations) || []) {
+  for (const allocation of priorList) {
     existing.set(`${allocation.material}#${allocation.cmd}`, allocation);
   }
+  const nextKeys = new Set(entries.map((entry) => `${entry.material}#${entry.cmd}`));
+
+  // fork の Java 由来など、スキャン対象の config には実体が無い行は usage で判断できない。
+  // usage に同じ (material,cmd) が現れていない限りそのまま残す(消せるのは登録解除だけ)。
+  const preserved = priorList.filter(
+    (allocation) => isExternalSource(allocation.source)
+      && !nextKeys.has(`${allocation.material}#${allocation.cmd}`)
+  );
+  const preservedKeys = new Set(preserved.map((a) => `${a.material}#${a.cmd}`));
+
+  // 引き継ぎ候補 = 「assetName を持ち、かつ元の (material,cmd) が今回の usage に残っていない」行。
+  // 元のキーが残っているなら別アイテムがそこに居るということなので移動ではない。
+  // 同じ id が複数行にあると引き継ぎ先を決められないため、その id ごと候補から落とす
+  // （黙って片方へ寄せると、もう片方が理由不明で未配線になる）。
+  const movable = new Map();
+  for (const allocation of priorList) {
+    const id = allocation.id;
+    if (!id || !allocation.assetName) continue;
+    if (nextKeys.has(`${allocation.material}#${allocation.cmd}`)) continue;
+    // 残す行は移動元にしない(引き継がれると assetName が二重に使われる)。
+    if (preservedKeys.has(`${allocation.material}#${allocation.cmd}`)) continue;
+    movable.set(id, movable.has(id) ? null : allocation);
+  }
+
+  // 既に (material,cmd) 一致で維持される assetName は引き継ぎ先に使えない
+  // （別 (material,cmd) と同じ assetName を共有すると、どちらのモデルを書いたか分からなくなる）。
+  const claimed = new Set();
+  for (const entry of entries) {
+    const prior = existing.get(`${entry.material}#${entry.cmd}`);
+    if (prior && prior.assetName) claimed.add(prior.assetName);
+  }
+  for (const allocation of preserved) {
+    if (allocation.assetName) claimed.add(allocation.assetName);
+  }
+
   const allocations = [];
-  for (const entry of Array.isArray(usage) ? usage : []) {
-    const key = `${entry.material}#${entry.cmd}`;
-    const prior = existing.get(key) || {};
+  const moved = [];
+  for (const entry of entries) {
+    const prior = existing.get(`${entry.material}#${entry.cmd}`) || {};
     const primary = entry.sources && entry.sources[0] ? entry.sources[0] : {};
-    allocations.push({
+    const id = primary.id || null;
+
+    let carried = null;
+    if (!prior.assetName && id) {
+      const candidate = movable.get(id);
+      if (candidate && !claimed.has(candidate.assetName)) {
+        carried = candidate;
+        claimed.add(candidate.assetName);
+        movable.set(id, null); // 1行にしか引き継がない
+      }
+    }
+
+    const next = {
       ...prior,
       material: entry.material,
       cmd: entry.cmd,
-      id: primary.id || null,
+      id,
       source: primary.file || null,
-      allocatedAt: prior.allocatedAt || new Date().toISOString()
-    });
+      allocatedAt: prior.allocatedAt || (carried && carried.allocatedAt) || new Date().toISOString()
+    };
+    if (carried) {
+      next.assetName = carried.assetName;
+      if (carried.parent) next.parent = carried.parent;
+      if (carried.customModel) next.customModel = carried.customModel;
+      moved.push({
+        id,
+        assetName: carried.assetName,
+        customModel: !!carried.customModel,
+        from: { material: carried.material, cmd: carried.cmd },
+        to: { material: entry.material, cmd: entry.cmd }
+      });
+    }
+    allocations.push(next);
   }
-  return { version: (registry && registry.version) || 1, allocations };
+  allocations.push(...preserved);
+
+  return { registry: { version: (registry && registry.version) || 1, allocations }, moved };
 }
 
 module.exports = {
@@ -411,6 +507,7 @@ module.exports = {
   CMD_SCAN_IDS,
   RegistryCorruptError,
   isValidMaterial,
+  isExternalSource,
   loadRegistry,
   loadRegistrySafe,
   saveRegistry,
@@ -420,5 +517,6 @@ module.exports = {
   allocate,
   allocateBulk,
   adoptFromConfigs,
-  reconcileWithUsage
+  reconcileWithUsage,
+  reconcileWithUsageDetailed
 };

@@ -22,15 +22,17 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.util.Transformation;
-import org.joml.Vector3f;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.DoubleSupplier;
 import java.util.function.Function;
+import java.util.function.IntSupplier;
 
 /**
  * 称号(titles) の頭上表示 (2026-07-23-stat-gate-overhaul §6.1): 装備中プレイヤーの<b>頭上の別行</b>に
@@ -42,7 +44,7 @@ import java.util.function.Function;
  * <b>別行のままで良い</b>という判断に戻った。そこで表示位置の決め方だけを作り直している。
  *
  * <p><b>旧実装が名前を隠していた理由(算数で確定できる)</b>: 旧実装は
- * {@code player.addPassenger(display)} でマウントし、{@link org.bukkit.util.Transformation} の
+ * {@code player.addPassenger(display)} でマウントし、{@code Transformation} の
  * 平行移動に config 値をそのまま入れていた。しかしパッセンジャーの描画基準は足元ではなく
  * <b>マウント点</b>(バニラ既定 {@code 高さ×0.75} = 立ち状態で 1.35)で、バニラのネームタグは
  * <b>足元から {@code 高さ+0.5} = 2.3</b> に出る。
@@ -62,7 +64,43 @@ import java.util.function.Function;
  * <b>パッセンジャーが付いたエンティティはプラグインからのテレポートを妨げる</b>という
  * 旧実装のもう1つの欠陥(ダンジョン入口の転送が失敗しうる)も同時に消えている。
  *
- * <h2>2026-08-19 (W-153): 追従のズレは「クライアント騎乗」で構造的に消した</h2>
+ * <h2>2026-08-25: 残っていた遅れを「1tick先読み」で詰めた(W-248)</h2>
+ * 実サーバ報告「称号の位置同期がまだネームタグより遅い」。W-212 で補間長を本体と揃えても
+ * 遅れが残るのは、<b>揃えたのが補間の“長さ”だけで、目標地点そのものが過去だから</b> ──
+ * 毎tick読む {@code player.getLocation()} はクライアントが送ってきた位置で、
+ * ネームタグ(＝本体そのもの)より必ず後ろに居る。
+ *
+ * <p>そこで {@link MotionLead} で<b>直前1tickの移動量ぶん進めた位置</b>へテレポートする。
+ * 等速移動中はズレが消え、加速・減速の瞬間だけ最大「1tickの移動量」(走行時 0.3 ブロック弱)
+ * 行き過ぎる。テレポートのような巨大な差分は先読みを丸ごと捨てる(上限
+ * {@link MotionLead#MAX_LEAD_BLOCKS})ので、称号が遠くへ飛ぶことはない。
+ *
+ * <p>⚠ <b>自分の称号を F5 で見たときの遅れはこれでも完全には消えない</b>(往復ぶんの遅れは
+ * 先読み1tickより大きいことがある)。他人から見えている位置のズレを消すのが目的。
+ *
+ * <h2>2026-08-21: クライアント騎乗(W-153)は撤去した —— <b>名前が消える代償が大きすぎた</b></h2>
+ * 実サーバ報告「ネームタグが表示されていない(他人の名前も見えない)」。切り分けで
+ * <b>「称号を外している人のネームタグは出る」</b>ことが確認され、称号表示が原因と確定した。
+ *
+ * <p><b>重なり(W-174)ではない。</b> W-174 の幾何修正
+ * ({@code 高さ + 0.5 + 0.25 + clearance}) が稼働 jar に入っていることは逆アセンブルで確認済みで、
+ * 実サーバの clearance 0.1 でも称号はネームタグの 0.1 ブロック上に居る。それでも名前は出ない。
+ *
+ * <p><b>残った差分は騎乗だけだった。</b> 2026-08-03({@code a1dd403})〜2026-08-19 の間、称号は
+ * 「毎tickテレポートで追従する独立エンティティ」で、同じ高さに出ていて<b>名前も見えていた</b>。
+ * 2026-08-19(W-153)でクライアント騎乗を足した<b>翌日</b>に「称号が名前を消す」が報告され、
+ * 高さの問題として直した(W-174)あとも消えたままだった ──
+ * つまりプレイヤーを乗騎にすること自体がクライアント側でネームタグの描画を止めている。
+ * 描画側の判定はサーバ jar に無いので機構そのものは断定できないが、
+ * <b>騎乗の有無だけが「名前が出る/出ない」を分けている</b>ことは実サーバで確認済みの事実である。
+ *
+ * <p><b>だから騎乗は戻さないこと。</b> 騎乗が消していたのは「1tickぶんの追従の遅れ」であって、
+ * 引き換えに消えるのは<b>プレイヤーの名前</b>という、この表示より遥かに重要な情報だった。
+ * 追従は {@code teleport} + {@code teleport_duration} 補間に戻す(下の W-135 の記述どおり
+ * 補間長を更新間隔に揃えてあるので<b>揺れ</b>は出ない。残るのは僅かな<b>遅れ</b>だけ)。
+ * 再発防止の実行可能なガードは {@code TitleDisplayServiceTest} にある。
+ *
+ * <h2>2026-08-19 (W-153): 追従のズレを「クライアント騎乗」で消していた(撤去済み・記録のみ)</h2>
  * 実サーバ報告「称号の位置がネームタグの位置と同期していない。少し遅れてついてきている」。
  * <b>毎tickテレポート追従では原理的に直らない</b> ── クライアントはプレイヤー本体と表示体を
  * 別々に補間する(本体は移動パケットを既定3tickかけて補間、表示体は {@code teleport_duration} ぶん)ので、
@@ -72,10 +110,10 @@ import java.util.function.Function;
  * <p>Paper のドキュメントが勧めるとおり表示体をパッセンジャーにすればズレは構造的に消えるが、
  * <b>サーバ側で本当に騎乗させると乗騎のテレポートが無言で失敗する</b>(PaperMC/Paper#10168。
  * {@code PlayerTeleportEvent} すら発火しないので他プラグインからは原因が見えない)。
- * そこで {@link TitleDisplayMountBridge} が<b>パケットだけ</b>で騎乗させる ──
+ * そこで {@code TitleDisplayMountBridge}(撤去済み) が<b>パケットだけ</b>で騎乗させる ──
  * サーバ側は独立エンティティのままなのでテレポートを一切妨げない。
- * 騎乗中の描画基準は取付点(高さ×0.75)になるので、{@link #mountTranslationY} が
- * 「置きたい絶対高さ − 取付点」を {@link Transformation} の平行移動として与える。
+ * 騎乗中の描画基準は取付点(高さ×0.75)になるので、{@code mountTranslationY} が
+ * 「置きたい絶対高さ − 取付点」を {@code Transformation} の平行移動として与える。
  * packetevents 未導入の環境では騎乗せず、従来のテレポート追従のまま動く(ズレは残るが表示は出る)。
  *
  * <p>{@code FocusHpDisplay} と同じ「死亡位置に浮遊残留させない」規律も維持する: 死亡/リスポーン/
@@ -90,15 +128,27 @@ public final class TitleDisplayService implements Listener {
     /** 追従tick間隔。{@code FocusHpDisplay} と揃える。 */
     private static final long PERIOD_TICKS = 1L;
     /**
-     * テレポート間をクライアント側で補間するtick数。
+     * テレポート間をクライアント側で補間するtick数の<b>フォールバック</b>。
+     * 実際の値は {@code progression/special-rewards.yml} の
+     * {@code display.title-teleport-duration}（既定 3）から毎tick読む。
      *
-     * <p><b>{@link #PERIOD_TICKS} と必ず同じ値にすること(2026-08-19 / W-135)。</b>
-     * 補間長が更新間隔より長いと、毎tick「まだ終わっていない補間」を新しい目的地で
-     * 上書きし続けることになり、称号は常に本体より遅れて追いつけないまま<b>揺れて見える</b>
-     * (実サーバ報告「少し揺れる」)。等しくしておけば、補間はちょうど次の更新が届く瞬間に
-     * 完了するので、滑らかさを保ったまま遅れが出ない。
+     * <p><b>2026-08-24(W-212)に「補間長 = 更新間隔(1)」という規約をやめた。</b>
+     * 2026-08-19(W-135)の理屈は「補間長が更新間隔より長いと、まだ終わっていない補間を
+     * 毎tick上書きし続けて揺れる」だったが、<b>それはクライアントがプレイヤー本体に対して
+     * やっていることそのもの</b>(移動パケットが届くたびに約3tickの補間をやり直す)で、
+     * 本体は揺れて見えない。つまり揃えるべき相手は「自分が teleport を呼ぶ間隔」ではなく
+     * <b>本体の補間長</b>だった。1 にすると称号だけが先に目的地へ着くので、
+     * 走り出し・停止・方向転換のたびに頭からズレる。
+     *
+     * <p>⚠ 「パケットが数tickに1回しか来ない」たぐいの遅れではないことは確認済み ――
+     * 稼働中の paper-1.21.11 の {@code EntityType} を逆アセンブルすると
+     * {@code text_display} は {@code updateInterval(1)} で登録されており、位置更新は毎tick届く。
+     *
+     * <p>⚠ <b>自分の称号を F5(三人称)で見たときの遅れはここを何にしても消えない。</b>
+     * 自分の本体だけはクライアントが予測して即座に描くのに対し、称号はサーバ由来なので
+     * 必ず往復ぶん遅れる。他人から見えている位置はズレていない。
      */
-    private static final int TELEPORT_DURATION_TICKS = (int) PERIOD_TICKS;
+    private static final int FALLBACK_TELEPORT_DURATION_TICKS = 3;
     /**
      * バニラがネームタグを描画する高さ(足元から {@code 高さ + この値})。Minecraft 側の定数であり
      * 設定値ではない。ここを config にすると「バニラの描画位置」という観測事実が設定ミスで
@@ -122,56 +172,59 @@ public final class TitleDisplayService implements Listener {
     private static final double NAMETAG_LINE_HEIGHT = 0.25;
     /** {@link #nametagClearance} が壊れた値(NaN/負)を返したときのフォールバック。 */
     private static final double FALLBACK_CLEARANCE = 0.4;
-    /**
-     * 乗客(パッセンジャー)の描画基準になる取付点の高さ比率。
-     *
-     * <p><b>2026-08-20 W-174: 0.75 は誤りだったので 1.0 に直した。</b>
-     * 稼働サーバの {@code paper-1.21.11} を逆アセンブルして確定させた事実:
-     * <ul>
-     *   <li>{@code EntityAttachment.PASSENGER} の fallback は {@code Fallback.AT_HEIGHT}、
-     *       その実体は {@code new Vec3(0, height, 0)}(= <b>高さそのもの</b>。
-     *       {@code AT_CENTER} だけが {@code height / 2})。</li>
-     *   <li>{@code EntityType.PLAYER} のビルダは
-     *       {@code sized(0.6, 1.8) → eyeHeight(1.62) → vehicleAttachment(...)} だけで、
-     *       <b>{@code passengerAttachments(...)} を呼んでいない</b>
-     *       ＝プレイヤーは fallback をそのまま使う。</li>
-     * </ul>
-     * つまり取付点は {@code 高さ × 1.0}。0.75 のままだと平行移動を {@code 0.25 × 高さ}
-     * (立ち状態で <b>0.45 ブロック</b>)引きすぎ、称号が<b>その分だけ高く浮く</b>。
-     * 実サーバ報告「位置が従来より上によっている」がこれ。
-     *
-     * <p>Minecraft 側の定数であり設定値ではない(config にすると「バニラの描画位置」という
-     * 観測事実が設定ミスでずれ、称号がまた名前に重なる余地を作る)。
-     */
-    private static final double VANILLA_PASSENGER_ATTACHMENT_RATIO = 1.0;
-    /** 平行移動を metadata で撃ち直す閾値(ブロック)。これ未満の変化は無視して通信量を抑える。 */
-    private static final double TRANSLATION_EPSILON = 0.01;
 
     private final Plugin plugin;
     /** プレイヤーの現在の装備称号MiniMessage文字列を返す(未装備/未保有なら null)。 */
     private final Function<Player, String> textResolver;
-    /** ネームタグ上端からさらに上へ空ける余白(ブロック)。config駆動、reloadで次tickから反映。 */
+    /**
+     * ネームタグ上端からさらに上へ空ける余白(ブロック)。config駆動、reloadで次tickから反映。
+     * <b>負値も来る</b>(2026-08-24 / W-212。下限は {@code SpecialRewardsConfig} 側でクランプ済み)。
+     */
     private final DoubleSupplier nametagClearance;
+    /** 追従補間の長さ(tick)。config駆動、reloadで次tickから反映。 */
+    private final IntSupplier teleportDurationTicks;
     private final Map<UUID, TextDisplay> active = new ConcurrentHashMap<>();
     /**
-     * パケット層のクライアント騎乗に使う「乗騎(プレイヤー)と称号表示の entity id 対」
-     * (2026-08-19 / W-153)。<b>キーは両者の entity id</b>(どちらの SPAWN_ENTITY を見ても
-     * 同じ対が引けるようにするため)。値は {@code {乗騎id, 乗客id}}。
-     *
-     * <p>パケット層は netty のスレッドから読むので {@link ConcurrentHashMap} で持つ。
-     * Bukkit の API をそちらから触らずに済むよう、必要な id だけをここへ写しておく。
+     * 追従の遅れを詰めるための先読み(2026-08-25 / W-248)。<b>毎tick 1回だけ sample する</b>こと ──
+     * 差分は「前回 sample からの移動量」なので、抜け道を通って sample を飛ばすと
+     * 次のtickで2tickぶん先読みして称号が行き過ぎる。
      */
-    private final Map<Integer, int[]> mountPairsByEntityId = new ConcurrentHashMap<>();
-    /** 直近に適用した平行移動のY(表示ごと)。metadata パケットを毎tick撒かないための差分判定用。 */
-    private final Map<UUID, Double> appliedTranslationY = new ConcurrentHashMap<>();
-    /** パケット層のクライアント騎乗が実際に動いているか({@code TitleDisplayMountBridge} が立てる)。 */
-    private volatile boolean mountBridgeActive;
+    private final MotionLead motion = new MotionLead();
+    /**
+     * 迷子掃除の間隔(tick)。5秒 —— 二重表示に気付く前に消える速さと、
+     * 近傍検索を毎tick回さない安さの折衷。
+     */
+    private static final long ORPHAN_SWEEP_PERIOD_TICKS = 100L;
+    /**
+     * 迷子掃除で見る半径(ブロック)。称号はプレイヤーの位置に湧くので、
+     * 「今誰かに見えている迷子」はプレイヤーの近傍にしか居ない。
+     * 全ワールド総なめ({@link #sweepOrphans})を定期実行すると人数と規模で効いてくるので使わない。
+     */
+    private static final double ORPHAN_SWEEP_RADIUS = 16.0;
+
     private BukkitTask task;
+    private BukkitTask orphanSweepTask;
 
     public TitleDisplayService(Plugin plugin, Function<Player, String> textResolver, DoubleSupplier nametagClearance) {
+        this(plugin, textResolver, nametagClearance, () -> FALLBACK_TELEPORT_DURATION_TICKS);
+    }
+
+    public TitleDisplayService(Plugin plugin, Function<Player, String> textResolver,
+                               DoubleSupplier nametagClearance, IntSupplier teleportDurationTicks) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.textResolver = Objects.requireNonNull(textResolver, "textResolver");
         this.nametagClearance = Objects.requireNonNull(nametagClearance, "nametagClearance");
+        this.teleportDurationTicks = Objects.requireNonNull(teleportDurationTicks, "teleportDurationTicks");
+    }
+
+    /**
+     * config から補間長を読む。壊れた値(負)はフォールバックへ落とす ――
+     * {@code setTeleportDuration} に負値を渡すと {@code IllegalArgumentException} で
+     * 毎tick例外を吐き、称号の追従が丸ごと止まる。
+     */
+    private int resolvedTeleportDuration() {
+        int ticks = teleportDurationTicks.getAsInt();
+        return ticks >= 0 ? ticks : FALLBACK_TELEPORT_DURATION_TICKS;
     }
 
     /**
@@ -179,10 +232,18 @@ public final class TitleDisplayService implements Listener {
      *
      * <p>{@code playerHeight + 0.5} がバニラのネームタグの描画高さ(<b>中心</b>)。そこへ
      * {@link #NAMETAG_LINE_HEIGHT}(名前の行を跨ぐぶん)と {@code clearance}(設定で足す余白)を
-     * 足したところに称号の<b>中心</b>を置く。返り値が常に
-     * {@code playerHeight + 0.5 + NAMETAG_LINE_HEIGHT} 以上であることが、
-     * 「称号が名前に重ならない」＝報告されたバグが再発しないことの保証になる
-     * (2026-08-20 W-174 で「下に来ない」から「重ならない」へ強めた)。
+     * 足したところに称号の<b>中心</b>を置く。
+     *
+     * <p><b>2026-08-24(W-212)に不変条件を緩めた。</b> それまでは
+     * 「返り値は常に {@code playerHeight + 0.5 + NAMETAG_LINE_HEIGHT} 以上」＝
+     * 名前に絶対重ならないことを保証していた(W-174 の再発防止)。しかし実サーバの余白は既に 0 で、
+     * <b>それでも実機では高すぎる</b>という報告(「y座標をあと0.3くらい下げたい」)が来た。
+     * この式の {@code NAMETAG_LINE_HEIGHT} は「1行の高さ 0.25」という<b>見積り</b>であって
+     * 実測ではないので、見積りが過大なら余白 0 でも隙間が残る。
+     * そこで負の余白を許し、下限は {@code SpecialRewardsConfig} 側
+     * ({@code MIN_TITLE_NAMETAG_CLEARANCE = -0.35}) で持つことにした。
+     * 今の保証は「<b>名前を完全に覆う位置までは下げられない</b>」に弱まっている ――
+     * 名前が読みにくくなったら {@code display.nametag-clearance} を 0 へ戻すこと。
      *
      * <p>{@code playerHeight} は {@code player.getHeight()} をそのまま渡す。スニーク中(1.5)や
      * スケール変更にも自動追従し、立ち状態(1.8)を定数で埋め込まない。
@@ -206,61 +267,12 @@ public final class TitleDisplayService implements Listener {
     static double titleAnchorY(double playerHeight, double eyeHeight, double clearance) {
         double height = Double.isFinite(playerHeight) && playerHeight > 0 ? playerHeight : 1.8;
         double eyes = Double.isFinite(eyeHeight) && eyeHeight > 0 ? eyeHeight : 0.0;
-        double gap = Double.isFinite(clearance) && clearance >= 0 ? clearance : FALLBACK_CLEARANCE;
+        // ⚠ 2026-08-24(W-212): 負値を FALLBACK へ落とさない。
+        //   落としていたせいで「0 まで下げた人が更に下げようとすると逆に 0.4 上がる」という
+        //   最悪の挙動になっていた。下限のクランプは SpecialRewardsConfig 側の責務。
+        //   ここで弾くのは非有限値(NaN/∞)だけ ―― teleport 先が NaN になると追従が丸ごと壊れる。
+        double gap = Double.isFinite(clearance) ? clearance : FALLBACK_CLEARANCE;
         return Math.max(height, eyes) + VANILLA_NAMETAG_OFFSET + NAMETAG_LINE_HEIGHT + gap;
-    }
-
-    /**
-     * クライアント騎乗させたときの、表示エンティティに与える<b>平行移動のY</b>(2026-08-19 / W-153)。
-     *
-     * <p>騎乗した乗客の描画基準は足元ではなく<b>乗騎のパッセンジャー取付点</b>
-     * (バニラ既定は {@code 高さ × 0.75})になる。称号を置きたいのは
-     * {@link #titleAnchorY(double, double, double)} が返す<b>足元からの絶対高さ</b>なので、
-     * 差分だけを {@link Transformation} の平行移動で足す。
-     *
-     * <p><b>ここを当て推量で書いたのが 2026-08-02 以前のバグの正体</b>(オフセットに config 値を
-     * そのまま入れていたため、ネームタグに重なって名前が読めなかった)。取付点を式に明示して
-     * 引き算する形にしてあるので、どの clearance を入れてもネームタグより下には来ない。
-     */
-    static double mountTranslationY(double playerHeight, double eyeHeight, double clearance) {
-        return titleAnchorY(playerHeight, eyeHeight, clearance)
-                - passengerAttachmentY(playerHeight);
-    }
-
-    /**
-     * 騎乗した乗客が描画される<b>足元からの高さ</b>(= バニラのパッセンジャー取付点)。
-     *
-     * <p>{@link #mountTranslationY} と表裏一体なので、テストが定数を書き写して
-     * 「実装と同じ思い込み」を固定してしまわないよう<b>ここ1点を正</b>にする
-     * (0.75 を実装にもテストにも書いていたせいで、間違いが誰にも検出されなかった)。
-     */
-    static double passengerAttachmentY(double playerHeight) {
-        double height = Double.isFinite(playerHeight) && playerHeight > 0 ? playerHeight : 1.8;
-        return height * VANILLA_PASSENGER_ATTACHMENT_RATIO;
-    }
-
-    /**
-     * {@code entityId}(乗騎でも乗客でもよい)に対応する {@code {乗騎id, 乗客id}}。
-     * 無ければ {@code null}。<b>パケット層(netty スレッド)から呼ばれる</b>ので Bukkit API を触らない。
-     */
-    public int[] mountPairFor(int entityId) {
-        return mountPairsByEntityId.get(entityId);
-    }
-
-    /**
-     * パケット層のクライアント騎乗が有効になったことを通知する({@code TitleDisplayMountBridge} が呼ぶ)。
-     *
-     * <p>true の間だけ表示体へ平行移動を載せる。false のまま平行移動を載せると、
-     * 騎乗していない(＝実座標がそのまま描画位置になる)フォールバック経路で
-     * <b>称号が二重にせり上がる</b>。
-     */
-    public void setMountBridgeActive(boolean active) {
-        this.mountBridgeActive = active;
-    }
-
-    /** 現在の全ペア(新規に張り直すとき用)。 */
-    public java.util.Collection<int[]> mountPairs() {
-        return mountPairsByEntityId.values();
     }
 
     public void start() {
@@ -271,6 +283,10 @@ public final class TitleDisplayService implements Listener {
         if (task == null) {
             task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, PERIOD_TICKS, PERIOD_TICKS);
         }
+        if (orphanSweepTask == null) {
+            orphanSweepTask = Bukkit.getScheduler().runTaskTimer(plugin, this::sweepNearbyOrphans,
+                    ORPHAN_SWEEP_PERIOD_TICKS, ORPHAN_SWEEP_PERIOD_TICKS);
+        }
     }
 
     public void shutdown() {
@@ -278,12 +294,14 @@ public final class TitleDisplayService implements Listener {
             task.cancel();
             task = null;
         }
+        if (orphanSweepTask != null) {
+            orphanSweepTask.cancel();
+            orphanSweepTask = null;
+        }
         for (TextDisplay display : active.values()) {
             safeRemove(display);
         }
         active.clear();
-        mountPairsByEntityId.clear();
-        appliedTranslationY.clear();
     }
 
     /** 装備状態(称号テキスト)に合わせて表示を張り直す。称号未装備/死亡中/オフラインなら消すのみ。 */
@@ -322,23 +340,44 @@ public final class TitleDisplayService implements Listener {
                 despawn(playerId);
                 continue;
             }
+            // ⚠ どの分岐へ抜けるより先に位置を決める(sample を飛ばすと次tickの先読みが2倍になる)。
+            Location target = nextAnchorFor(player);
             if (display == null || !display.isValid()) {
-                active.remove(playerId);
+                // ⚠️ 追跡から外すだけでは【実体が残る】(2026-08-21 実サーバ報告「称号が二個付いている」)。
+                // isValid() が false になるのは「死んだ」ときだけではない ── CraftEntity#isValid() は
+                // チャンクがロード済みでワールドのエンティティリストに載っていることまで見るので、
+                // 遠距離テレポート直後や湧かせた直後にも false になる。そこで実体を消さずに
+                // 張り直すと、誰も追跡していない称号が世界に残り、新しいほうと二段に並ぶ。
+                despawn(playerId);
                 refresh(player);
                 continue;
             }
-            Location anchor = anchorFor(player);
-            if (!Objects.equals(display.getWorld(), anchor.getWorld())) {
+            if (!Objects.equals(display.getWorld(), target.getWorld())) {
                 refresh(player);
                 continue;
             }
-            display.setTeleportDuration(TELEPORT_DURATION_TICKS);
-            display.teleport(anchor);
-            // 実座標の追従はクライアント騎乗中も残す —— 描画位置はもう乗騎側で決まるが、
-            // エンティティ追跡(誰に見えるか)は実座標で決まるので、置き去りにすると
-            // 遠くのプレイヤーから称号が消える。
-            syncMountTranslation(player, display);
+            // 補間長は config 駆動(既定3 = クライアントがプレイヤー本体を補間するのと同じ長さ)。
+            // 毎tick読み直しているので /trinityforge reload が次tickから効く(W-212)。
+            display.setTeleportDuration(resolvedTeleportDuration());
+            display.teleport(target);
         }
+    }
+
+    /**
+     * 次のtickで称号を置く位置。<b>{@link #tick()} が使う唯一の位置決め</b>で、
+     * 「頭上の高さ」({@link #anchorFor})に<b>1tickぶんの先読み</b>({@link MotionLead})を足したもの。
+     *
+     * <p>先読みを足す理由: ネームタグはプレイヤー本体そのものなので、サーバが知っている位置に
+     * 置いた称号は<b>構造的に本体より後ろへズレる</b>(2026-08-25 / W-248)。
+     *
+     * <p>package-private なのは<b>試験のため</b>。{@code TextDisplay} の生成は MockBukkit が
+     * 未実装で、{@link #tick()} をそのまま呼ぶテストは書けない(踏むと FAILED ではなく
+     * <b>SKIPPED に化ける</b>)。位置決めだけを切り出しておけば、追従の遅れの回帰は実サーバ無しで
+     * 固定できる ―― <b>1tickに1回しか呼んではいけない</b>点だけ注意(移動量の差分を消費する)。
+     */
+    Location nextAnchorFor(Player player) {
+        double[] lead = motion.sample(player, MotionLead.DEFAULT_LEAD_TICKS);
+        return anchorFor(player).add(lead[0], lead[1], lead[2]);
     }
 
     private Location anchorFor(Player player) {
@@ -358,63 +397,87 @@ public final class TitleDisplayService implements Listener {
             d.setSeeThrough(true);
             d.setDefaultBackground(false);
             d.setTextOpacity((byte) 200);
-            d.setTeleportDuration(TELEPORT_DURATION_TICKS);
+            d.setTeleportDuration(resolvedTeleportDuration());
             d.text(text);
         });
         active.put(player.getUniqueId(), display);
-        // クライアント騎乗用のペア台帳(2026-08-19 / W-153)。乗騎・乗客どちらの id からも引けるようにする。
-        int[] pair = {player.getEntityId(), display.getEntityId()};
-        mountPairsByEntityId.put(pair[0], pair);
-        mountPairsByEntityId.put(pair[1], pair);
-        appliedTranslationY.remove(player.getUniqueId());
-        syncMountTranslation(player, display);
-    }
-
-    /**
-     * クライアント騎乗中の平行移動を現在の姿勢に合わせる(2026-08-19 / W-153)。
-     *
-     * <p>スニークや乗り物で {@code getHeight()} が縮むと取付点も称号の目標高さも動くので、
-     * 差分である平行移動も動かす必要がある。metadata パケットになるため、
-     * {@link #TRANSLATION_EPSILON} 以上動いたときだけ書く。
-     *
-     * <p>騎乗ブリッジが動いていない環境(packetevents 未導入)では<b>何もしない</b> ——
-     * その場合の描画位置は実座標そのものなので、平行移動を足すと二重にせり上がる。
-     */
-    private void syncMountTranslation(Player player, TextDisplay display) {
-        if (!mountBridgeActive) {
-            return;
-        }
-        double translationY = mountTranslationY(
-                player.getHeight(), player.getEyeHeight(), nametagClearance.getAsDouble());
-        Double previous = appliedTranslationY.get(player.getUniqueId());
-        if (previous != null && Math.abs(previous - translationY) < TRANSLATION_EPSILON) {
-            return;
-        }
-        Transformation transformation = display.getTransformation();
-        display.setTransformation(new Transformation(
-                new Vector3f(0.0f, (float) translationY, 0.0f),
-                transformation.getLeftRotation(),
-                transformation.getScale(),
-                transformation.getRightRotation()));
-        appliedTranslationY.put(player.getUniqueId(), translationY);
     }
 
     private void despawn(UUID playerId) {
-        TextDisplay display = active.remove(playerId);
-        appliedTranslationY.remove(playerId);
-        if (display != null) {
-            int[] pair = mountPairsByEntityId.remove(display.getEntityId());
-            if (pair != null) {
-                mountPairsByEntityId.remove(pair[0]);
-            }
-        }
-        safeRemove(display);
+        safeRemove(active.remove(playerId));
+        // 消してから張り直すまでの間に動いていることがある。その差分は「1tickの移動」ではない。
+        motion.forget(playerId);
     }
 
-    private static void safeRemove(Entity entity) {
-        if (entity != null && entity.isValid()) {
+    /**
+     * 表示体を確実に消す。
+     *
+     * <p><b>{@code isValid()} で門を張ってはいけない</b>(2026-08-21「称号が二個付いている」の真因の片割れ)。
+     * {@code CraftEntity#isValid()} は「生きている」に加えて<b>チャンクがロード済みで、ワールドの
+     * エンティティリストに登録済み</b>まで要求する。つまり<b>消したい相手が一番消えにくい状況</b>
+     * (プレイヤーが遠くへ飛んだ直後・湧かせた直後でまだ登録前・ワールド跨ぎの最中)でだけ false になり、
+     * そこで諦めると表示体は誰にも追跡されないまま残る。
+     * {@code Entity#remove()} は既に消えている個体へ呼んでも安全なので、素通しでよい。
+     */
+    static void safeRemove(Entity entity) {
+        if (entity != null) {
             entity.remove();
         }
+    }
+
+    /**
+     * 近傍の<b>迷子の称号</b>(TF の印を持つのに誰の追跡下にも無い {@link TextDisplay})を消す。
+     *
+     * <p>{@link #sweepOrphans} が起動時の1回きりなのに対し、こちらは常時走る安全網。
+     * 迷子を作る経路を個別に塞いでも、称号の表示体は「消し損ねても何のエラーも出ない」ので、
+     * 次に同種の穴が空いたときに気付けるのは<b>プレイヤーの目視だけ</b>になる。
+     * 追跡中の個体は entity id で除外する ── ここを間違えると自分の称号を毎5秒消して回る。
+     */
+    void sweepNearbyOrphans() {
+        Set<Integer> tracked = trackedEntityIds();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            removeOrphans(player.getNearbyEntities(
+                    ORPHAN_SWEEP_RADIUS, ORPHAN_SWEEP_RADIUS, ORPHAN_SWEEP_RADIUS), tracked);
+        }
+    }
+
+    /** 今このサービスが追跡している表示体の entity id。 */
+    Set<Integer> trackedEntityIds() {
+        Set<Integer> ids = new HashSet<>();
+        for (TextDisplay display : active.values()) {
+            if (display != null) {
+                ids.add(display.getEntityId());
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * {@code candidates} のうち「TF の称号の印を持つのに {@code trackedEntityIds} に居ない」個体を消す。
+     * Bukkit の生成に触れないので単体で試験できる(MockBukkit は {@code TextDisplay} の spawn を
+     * 未実装で、踏むとテストが FAILED ではなく SKIPPED に化ける)。
+     *
+     * @return 消した数
+     */
+    static int removeOrphans(Collection<Entity> candidates, Set<Integer> trackedEntityIds) {
+        if (candidates == null) {
+            return 0;
+        }
+        int removed = 0;
+        for (Entity entity : candidates) {
+            if (!(entity instanceof TextDisplay display)) {
+                continue;
+            }
+            if (!display.getPersistentDataContainer().has(PdcKeys.TITLE_DISPLAY, PersistentDataType.BYTE)) {
+                continue;
+            }
+            if (trackedEntityIds != null && trackedEntityIds.contains(display.getEntityId())) {
+                continue;
+            }
+            safeRemove(display);
+            removed++;
+        }
+        return removed;
     }
 
     private void sweepOrphans() {

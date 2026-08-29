@@ -77,7 +77,13 @@ class CatalogVanillaOperationGuardListenerTest {
         features = mock(CraftingFeaturesConfig.class);
         when(features.brewUnlocks()).thenReturn(Map.of());
         dedicatedEffects = mock(com.trinityforge.config.domains.DedicatedEffectsConfig.class);
-        listener = new CatalogVanillaOperationGuardListener(catalog, features, dedicatedEffects);
+        // パーティクルシードの除外(2026-08-25 / W-214)はこのテストの対象外なので、
+        // シードが1つも定義されていない = 常に「シード付与ではない」状態にしておく。
+        com.trinityforge.config.domains.SpecialRewardsConfig specialRewards =
+                mock(com.trinityforge.config.domains.SpecialRewardsConfig.class);
+        when(specialRewards.particleSeeds()).thenReturn(Map.of());
+        listener = new CatalogVanillaOperationGuardListener(catalog, features, dedicatedEffects,
+                specialRewards, mock(com.trinityforge.progression.SpecialRewardService.class));
     }
 
     @AfterEach

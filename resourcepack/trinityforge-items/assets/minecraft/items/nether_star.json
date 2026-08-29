@@ -8,7 +8,7 @@
     },
     "entries": [
       {
-        "threshold": 5445,
+        "threshold": 500001,
         "model": {
           "type": "minecraft:model",
           "model": "trinityforge:item/infinity_source_core"

@@ -1,6 +1,7 @@
 package com.trinityforge.skilltree.runtime;
 
 import com.trinityforge.progression.NativeProgressionService;
+import com.trinityforge.progression.core.SkillId;
 import com.trinityforge.progression.repository.LoadResult;
 import com.trinityforge.skilltree.SkillNode;
 import com.trinityforge.skilltree.SkillTree;
@@ -58,6 +59,13 @@ public final class NativeSkillTreeMenu implements Listener {
      * perk ID は {@code <skill>_perk_<node>} 形式なのでこの値と衝突せず、ノード描画にも影響しない。
      */
     private static final String RESET_PENDING_PREFIX = "reset:";
+
+    /** プレステージ確認画面: 警告アイコン(トーテム)を置くスロット。 */
+    private static final int PRESTIGE_WARNING_SLOT = 13;
+    /** プレステージ確認画面: 「はい」の既定スロット。 */
+    private static final int PRESTIGE_YES_SLOT = 29;
+    /** プレステージ確認画面: 「いいえ」の既定スロット。 */
+    private static final int PRESTIGE_NO_SLOT = 33;
 
     private final Plugin plugin;
     private final NativeProgressionService progression;
@@ -254,6 +262,11 @@ public final class NativeSkillTreeMenu implements Listener {
         String value = clicked.getItemMeta().getPersistentDataContainer()
                 .get(valueKey, PersistentDataType.STRING);
         if (action == null) {
+            // プレステージ確認画面はモーダル。余白をクリックしても描き直さない
+            // (描き直すと pendingPerkId が落ち、「はい」を押しても無反応な画面が残る)。
+            if (session.mode == Mode.PRESTIGE_CONFIRM) {
+                return;
+            }
             if (session.pendingPerkId != null) {
                 reopenNextTick(player, session, null);
             }
@@ -284,7 +297,10 @@ public final class NativeSkillTreeMenu implements Listener {
                     player, session.skillId, session.center, null, Mode.PERK_LIST, parsePage(value));
             case "jump-perk" -> jumpToPerk(player, session, value);
             case "node" -> handleNode(player, session, value);
-            case "prestige" -> handlePrestige(player, session, value);
+            case "prestige" -> handlePrestige(player, session, value, event.getRawSlot());
+            case "prestige-confirm" -> confirmPrestige(player, session, value);
+            case "prestige-cancel" -> reopenNextTick(
+                    player, session.skillId, session.center, null, Mode.DETAIL, 0);
             default -> { }
         }
     }
@@ -446,15 +462,25 @@ public final class NativeSkillTreeMenu implements Listener {
         player.getInventory().setItemInMainHand(held.getAmount() <= 0 ? null : held);
     }
 
-    private void handlePrestige(Player player, Session session, String perkId) {
+    /**
+     * プレステージ枠(トーテム)を押したときの入口。<b>ここでは決してプレステージを実行しない</b> ──
+     * 必ず専用の確認モーダル({@link #openPrestigeConfirm})を開く。
+     *
+     * <p>⚠ <b>2026-08-21 に入れた「同じマスをもう一度クリックで確定」方式は実サーバで直らなかった</b>
+     * (2026-08-23 再報告「トーテムアイコンを押すと勝手にプレステージされる」)。原因は方式そのもので、
+     * 確定ボタンが<b>押したのと同じマスに居座る</b>こと。1 tick(50ms)後に確認状態へ描き直されるので、
+     * ダブルクリック(統合版やタッチ操作では素の操作として出る)の2打目がそこへそのまま入り、
+     * プレイヤーから見れば「1回押したら確定した」になる。
+     * 別画面へ移し、さらに{@link #prestigeYesSlot}で<b>直前に押したスロットには「はい」を置かない</b>
+     * ことで、2打目がどこへ落ちても確定にならないようにした。
+     */
+    private void handlePrestige(Player player, Session session, String perkId, int originSlot) {
         SkillTree tree = perks.tree(session.skillId);
         if (tree == null || tree.prestige() == null) return;
         var skill = progression.snapshot(player.getUniqueId())
                 .skillOrDefault(tree.skill(), 100);
         int tier = prestigeTier(perkId);
-        boolean unlockable = tier == skill.prestige() + 1
-                && skill.level() >= tree.prestige().atLevel();
-        if (!unlockable) {
+        if (!prestigeUnlockable(tree, skill.prestige(), skill.level(), tier)) {
             player.sendMessage(Component.text(
                     skill.prestige() >= tier ? "このプレステージは解放済みです。"
                             : "プレステージ条件を満たしていません。",
@@ -462,8 +488,37 @@ public final class NativeSkillTreeMenu implements Listener {
             reopenNextTick(player, session, null);
             return;
         }
-        if (!perkId.equals(session.pendingPerkId)) {
-            reopenNextTick(player, session, perkId);
+        // アイコンの lore だけだと、スクロール位置や統合版クライアントの描画次第で気付けない。
+        // ツリーリセット(applyTreeReset)と同じく、チャットにも何が起きるかを出す。
+        player.sendMessage(Component.text(
+                "「" + prestigeLabel(tree) + "」の確認画面を開きます（" + tier + "回目）。"
+                        + "このツリーの解放済みパークは全て外れ（SPは返却／ロック中のパークは維持）、"
+                        + prestigeLevelNotice(tree)
+                        + " 実行するには確認画面の「はい」を押してください。",
+                NamedTextColor.YELLOW));
+        plugin.getServer().getScheduler().runTask(plugin, () ->
+                openPrestigeConfirm(player, session.skillId, session.center, perkId, originSlot));
+    }
+
+    /**
+     * 確認モーダルの「はい」。<b>この画面から以外は絶対に通さない</b>
+     * (ツリー本体には {@code prestige-confirm} のボタンを一切描かないが、
+     * 将来どこかへ紛れ込んでも実行されないよう、モードと対象IDの両方を突き合わせる)。
+     */
+    private void confirmPrestige(Player player, Session session, String perkId) {
+        if (session.mode != Mode.PRESTIGE_CONFIRM
+                || perkId == null || !perkId.equals(session.pendingPerkId)) {
+            return;
+        }
+        SkillTree tree = perks.tree(session.skillId);
+        if (tree == null || tree.prestige() == null) return;
+        var skill = progression.snapshot(player.getUniqueId())
+                .skillOrDefault(tree.skill(), 100);
+        // 確認画面を開いてから条件が変わっている可能性があるので、実行直前にもう一度見る。
+        if (!prestigeUnlockable(tree, skill.prestige(), skill.level(), prestigeTier(perkId))) {
+            player.sendMessage(Component.text(
+                    "プレステージ条件を満たしていません。", NamedTextColor.RED));
+            reopenNextTick(player, session.skillId, session.center, null, Mode.DETAIL, 0);
             return;
         }
         var result = perks.prestige(player.getUniqueId(), session.skillId);
@@ -474,7 +529,103 @@ public final class NativeSkillTreeMenu implements Listener {
                 result == NativePerkService.PrestigeResult.PRESTIGED
                         ? NamedTextColor.GREEN : NamedTextColor.RED));
         reopenNextTick(player, session.skillId, NativeSkillTreeCanvas.project(tree).start(), null,
-                session.mode, session.page);
+                Mode.DETAIL, 0);
+    }
+
+    /** そのティアのプレステージが今まさに解放できるか。判定を1箇所に集約する。 */
+    private static boolean prestigeUnlockable(SkillTree tree, int currentPrestige, int level,
+                                              int tier) {
+        return tree.prestige() != null
+                && tier == currentPrestige + 1
+                && level >= tree.prestige().atLevel();
+    }
+
+    /**
+     * 確認モーダルの「はい」を置くスロット。<b>直前に押したスロットとは必ず別になる。</b>
+     *
+     * <p>ダブルクリックの2打目は、1 tick 後に開くこの画面へ落ちる。同じ位置に確定ボタンがあると
+     * 「押したら確定した」に逆戻りするので、ぶつかるときは「はい」と「いいえ」を入れ替える
+     * (＝2打目は必ず<b>取り消し</b>になる)。
+     */
+    static int prestigeYesSlot(int originSlot) {
+        return originSlot == PRESTIGE_YES_SLOT ? PRESTIGE_NO_SLOT : PRESTIGE_YES_SLOT;
+    }
+
+    /**
+     * プレステージ専用の確認モーダル。ツリーの中身もナビも描かず、赤字の警告と「はい」「いいえ」
+     * だけを置く。ここは {@code remember} を呼ばない ── 覚えるとメニューを開き直しただけで
+     * 確定ボタンのある画面が出てしまう。
+     */
+    private void openPrestigeConfirm(Player player, String skillId,
+                                     NativeSkillTreeCanvas.Point center, String perkId,
+                                     int originSlot) {
+        SkillTree tree = perks.tree(skillId);
+        if (tree == null || tree.prestige() == null) return;
+        Session holder = new Session(skillId, center, perkId, Mode.PRESTIGE_CONFIRM, 0);
+        Inventory inventory = plugin.getServer().createInventory(holder, 54, MENU_TITLE);
+        holder.inventory = inventory;
+
+        List<Component> warning = new ArrayList<>(prestigeWarningLore(tree));
+        warning.add(separatorLine());
+        warning.add(Component.text(prestigeTier(perkId) + " 回目のプレステージです。",
+                NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
+        inventory.setItem(PRESTIGE_WARNING_SLOT, display(
+                new SkillTreeGuiVisuals.Visual(Material.TOTEM_OF_UNDYING, null),
+                Component.text("「" + prestigeLabel(tree) + "」でプレステージしますか？",
+                        NamedTextColor.RED),
+                warning));
+
+        int yesSlot = prestigeYesSlot(originSlot);
+        int noSlot = yesSlot == PRESTIGE_YES_SLOT ? PRESTIGE_NO_SLOT : PRESTIGE_YES_SLOT;
+        inventory.setItem(yesSlot, button(Material.LIME_DYE, "prestige-confirm", perkId,
+                Component.text("はい、プレステージする", NamedTextColor.GREEN),
+                List.of(Component.text("押した瞬間に実行されます。取り消せません。",
+                        NamedTextColor.RED).decoration(TextDecoration.ITALIC, false))));
+        inventory.setItem(noSlot, button(Material.BARRIER, "prestige-cancel", "",
+                Component.text("いいえ、やめる", NamedTextColor.WHITE),
+                List.of(Component.text("何もせずスキルツリーへ戻ります。",
+                        NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false))));
+        player.openInventory(inventory);
+    }
+
+    /**
+     * プレステージ枠に必ず出す赤字の警告。確認モーダルとツリー/パーク一覧のアイコンで
+     * <b>同じ関数</b>を使う ── 2箇所で書き分けると、片方だけ「レベルが0に戻る」が抜けて嘘になる。
+     */
+    private static List<Component> prestigeWarningLore(SkillTree tree) {
+        return List.of(
+                warningLine("⚠ これはプレステージです"),
+                warningLine("解放すると永続バフを獲得しますが、"),
+                warningLine("このツリーの解放済みパークは全て外れます（SPは返却）。"),
+                warningLine(prestigeLevelNotice(tree)),
+                Component.text("🔒 ロック中のパークだけは維持されます。", NamedTextColor.GOLD)
+                        .decoration(TextDecoration.ITALIC, false));
+    }
+
+    private static Component warningLine(String text) {
+        return Component.text(text, NamedTextColor.RED).decoration(TextDecoration.ITALIC, false);
+    }
+
+    private static Component separatorLine() {
+        return Component.text("────────────────", NamedTextColor.DARK_GRAY)
+                .decoration(TextDecoration.ITALIC, false);
+    }
+
+    /** プレステージ枠の表示名(未設定なら生成器と同じ既定名)。 */
+    private static String prestigeLabel(SkillTree tree) {
+        String name = tree.prestige() == null ? null : tree.prestige().name();
+        return name == null || name.isBlank() ? tree.displayName() + " プレステージ" : name;
+    }
+
+    /**
+     * プレステージ後にレベルがどうなるかの一文。POWERだけは0リセットではなく
+     * 他スキルの現在レベルから再導出される({@link NativePerkService} の 2026-08-04 修正)ので、
+     * 同じ文言を出すと嘘になる。
+     */
+    private static String prestigeLevelNotice(SkillTree tree) {
+        return SkillId.POWER.equals(tree.skill())
+                ? "レベルは他スキルの現在レベルから引き直されます。"
+                : "スキルレベルは0に戻ります。";
     }
 
     /**
@@ -513,15 +664,26 @@ public final class NativeSkillTreeMenu implements Listener {
                 pending ? "「" + cell.perk().name() + "」を解放しますか？" : cell.perk().name(),
                 status.unlocked ? NamedTextColor.GREEN
                         : status.unlockable ? NamedTextColor.AQUA : NamedTextColor.GRAY);
+        // プレステージ枠だけは、何が起きるかを赤字で必ず出す(2026-08-23, W-188)。
+        // 生成器が入れる説明文は「永続ボーナス」程度なので、レベルが0に戻ることが読み取れない。
+        boolean prestigeNode = "prestige".equals(action);
         List<Component> lore = new ArrayList<>(descriptionLines(cell.perk().description()));
-        lore.add(Component.text("────────────────", NamedTextColor.DARK_GRAY));
+        if (prestigeNode) {
+            if (!lore.isEmpty()) {
+                lore.add(separatorLine());
+            }
+            lore.addAll(prestigeWarningLore(tree));
+        }
+        lore.add(separatorLine());
         lore.add(Component.text("必要Lv: " + cell.perk().requiredLv() + " / 現在Lv: " + level,
                 level >= cell.perk().requiredLv() ? NamedTextColor.GRAY : NamedTextColor.RED));
         lore.add(Component.text("コスト: " + cell.perk().cost() + " / 所持: " + availablePoints,
                 NamedTextColor.GRAY));
         lore.add(Component.text(status.unlocked ? "解放済み"
                         : pending ? "もう一度クリックして確定"
-                        : status.unlockable ? "クリックして確認" : "解放条件を満たしていません",
+                        : status.unlockable
+                                ? prestigeNode ? "クリックすると確認画面が開きます" : "クリックして確認"
+                                : "解放条件を満たしていません",
                 pending ? NamedTextColor.YELLOW
                         : status.unlockable ? NamedTextColor.AQUA : NamedTextColor.DARK_GRAY));
         if (lockedPerks.contains(cell.perkId())) {
@@ -598,8 +760,22 @@ public final class NativeSkillTreeMenu implements Listener {
      * 1つも無かった</b>ため「なんとなくEXPが渋い」としか分からなかった。段が離散なのは
      * 「あと何EXPで落ちるか数えられるように」という設計なので、その数字をここで出す。
      *
-     * <p><b>⚠ 回復までの時間は「オンラインのまま、そのスキルを稼がずにいる」前提の目安</b>。
-     * 蓄積は永続化しておらず退出時に捨てられるので、再ログインすると表示より早く戻る。
+     * <p>2026-08-25: 「戻るまでの残り時間が、下がった通知のときにしか見えない」というユーザー報告を
+     * 受けて2点足した。(1) <b>この lore を通常モードの選択バーだけでなく、一覧モード
+     * （{@link #openOverview}）の各ツリーアイコンにも出す</b>。従来はここが「レベル/プレステージ/
+     * 解放済みノード数」しか出さず、EXP取得量が下がっている最中でも一覧からは分からなかった。
+     * (2) <b>「次の段階まで」の残り時間を足す</b>。「段階的に戻る」設計（{@link DailyExpDiminishing}
+     * のコメント参照）なのに、従来は「完全に等倍へ戻るまで」の1本しか出しておらず、途中経過が
+     * 見えなかった（{@link DailyExpDiminishing.Status#millisUntilImproved()} は最初から存在して
+     * いたが production から一度も呼ばれていなかった）。EXPバッジ（{@code ×70%}等）自体には
+     * 手を入れない（ユーザー確定: バッジへ他の係数を足さない）── ここは lore だけの変更。
+     *
+     * <p><b>⚠ 回復までの時間は「そのスキルを稼がずにいる」前提の目安</b>。蓄積は 2026-08-18 から
+     * 永続化されており、オフライン時間も同じ式で減衰するので、ログアウトして待っても同じだけ掛かる
+     * （それ以前の「再ログインで即リセット」はもう起きない）。
+     * 表示する時間には W-154 の強制解除（発動から {@code lock-release-hours}）も織り込んである
+     * ── 2026-08-21 まではここが指数減衰だけの見積りで、出荷設定では平然と 24 時間を超える数字を
+     * 出していた（実際には遅くとも 24 時間で等倍へ戻る）。
      */
     private List<Component> dailyRateLore(java.util.UUID playerId, String skillId) {
         com.trinityforge.progression.DailyExpDiminishing.Status status =
@@ -622,6 +798,11 @@ public final class NativeSkillTreeMenu implements Listener {
         lines.add(Component.text("EXP取得量: "
                 + com.trinityforge.progression.DailyExpRateText.percent(status.multiplier())
                 + "（稼ぎすぎによる逓減）", NamedTextColor.RED));
+        String untilImproved =
+                com.trinityforge.progression.DailyExpRateText.duration(status.millisUntilImproved());
+        if (untilImproved != null) {
+            lines.add(Component.text("次の段階まで: " + untilImproved, NamedTextColor.DARK_GRAY));
+        }
         String untilFull = com.trinityforge.progression.DailyExpRateText.duration(status.millisUntilFull());
         if (untilFull != null) {
             lines.add(Component.text("休むと戻ります: 等倍まで " + untilFull, NamedTextColor.DARK_GRAY));
@@ -734,8 +915,16 @@ public final class NativeSkillTreeMenu implements Listener {
                 tree, cell.perkId(), node, level, availablePoints, prestige, owned, null);
         Material icon = material(cell.perk().icon(), material(tree.icon(), Material.STONE));
         List<Component> lore = new ArrayList<>(descriptionLines(cell.perk().description()));
+        // ツリー本体({@link #nodeIcon})と同じ赤字警告を出す。片方だけだと、一覧から飛ぶ経路で
+        // 「レベルが0に戻る」を読まないままトーテムに辿り着ける。
+        if (node == null && cell.perkId().contains("_perk_ng")) {
+            if (!lore.isEmpty()) {
+                lore.add(separatorLine());
+            }
+            lore.addAll(prestigeWarningLore(tree));
+        }
         if (!lore.isEmpty()) {
-            lore.add(Component.text("────────────────", NamedTextColor.DARK_GRAY));
+            lore.add(separatorLine());
         }
         lore.add(Component.text("必要Lv: " + cell.perk().requiredLv() + " / 現在Lv: " + level,
                 level >= cell.perk().requiredLv() ? NamedTextColor.GRAY : NamedTextColor.RED));
@@ -790,17 +979,23 @@ public final class NativeSkillTreeMenu implements Listener {
                     .filter(id -> id.startsWith(PerkNaming.compact(tree.skill()) + "_perk_"))
                     .count();
             boolean isCurrent = tree.skill().equals(currentSkillId);
+            // 一覧モードにも日次逓減の状態を出す(2026-08-25)。従来はここが
+            // レベル/プレステージ/解放済みノード数しか出さず、EXP取得量が下がっている最中でも
+            // 「全スキルを一目で見る」画面からは分からなかった(通常モードの選択バーだけにしか
+            // 出ておらず、そこは常に7ツリーぶんしか見えない)。整形は dailyRateLore に一本化する。
+            List<Component> lore = new ArrayList<>(List.of(
+                    Component.text("レベル: " + skill.level(), NamedTextColor.GRAY),
+                    Component.text("プレステージ: " + skill.prestige(), NamedTextColor.GRAY),
+                    Component.text("解放済みノード: " + unlockedCount, NamedTextColor.GRAY)));
+            lore.addAll(dailyRateLore(snapshot.playerId(), tree.skill()));
+            lore.add(Component.text("クリックでこのツリーへ移動", NamedTextColor.DARK_GRAY));
             inventory.setItem(slot, button(
                     SkillTreeGuiVisuals.skill(
                             tree.skill(), material(tree.icon(), Material.NETHER_STAR)),
                     "select-skill", tree.skill(),
                     Component.text(tree.displayName(),
                             isCurrent ? NamedTextColor.GOLD : NamedTextColor.WHITE),
-                    List.of(
-                            Component.text("レベル: " + skill.level(), NamedTextColor.GRAY),
-                            Component.text("プレステージ: " + skill.prestige(), NamedTextColor.GRAY),
-                            Component.text("解放済みノード: " + unlockedCount, NamedTextColor.GRAY),
-                            Component.text("クリックでこのツリーへ移動", NamedTextColor.DARK_GRAY))));
+                    lore));
         }
         renderModeButtons(inventory, Mode.OVERVIEW, null);
         remember(player, holder);
@@ -934,7 +1129,13 @@ public final class NativeSkillTreeMenu implements Listener {
         /** 全スキルツリーをアイコンだけで並べる一覧モード(2026-08-04)。 */
         OVERVIEW,
         /** 現在のスキルツリーのパークだけを一覧の体裁で並べるモード(2026-08-05, W-29)。 */
-        PERK_LIST
+        PERK_LIST,
+        /**
+         * プレステージ専用の確認モーダル(2026-08-23, W-188)。ツリーの中身もナビも描かず、
+         * 警告と「はい」「いいえ」だけを置く。{@code lastView} へは覚えさせない
+         * (覚えるとメニューを開き直しただけで確定ボタンのある画面が出る)。
+         */
+        PRESTIGE_CONFIRM
     }
 
     private static final class Session implements InventoryHolder {

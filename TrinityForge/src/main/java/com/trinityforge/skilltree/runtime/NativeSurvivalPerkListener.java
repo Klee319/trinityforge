@@ -2,7 +2,9 @@ package com.trinityforge.skilltree.runtime;
 
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.mobs.MobDropRoller;
+import com.trinityforge.pdc.MobData;
 import com.trinityforge.stats.StatKeys;
+import org.bukkit.Material;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -14,10 +16,16 @@ import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerExpChangeEvent;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.loot.LootContext;
+import org.bukkit.loot.LootTable;
+import org.bukkit.loot.Lootable;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -101,6 +109,91 @@ public final class NativeSurvivalPerkListener implements Listener {
         if (expFactor > 1.0) {
             event.setDroppedExp((int) Math.round(event.getDroppedExp() * expFactor));
         }
+    }
+
+    /**
+     * ドロップ増加ステを<b>レアなバニラドロップ(1個か0個しか出ないもの)</b>へ効かせる
+     * (2026-08-24 ユーザー指示「落ちなかった分を再抽選する」)。
+     *
+     * <p><b>なぜ別ハンドラなのか。</b> {@link #onDeathDrops} の個数加算は「既に落ちたスタックを増やす」
+     * 仕組みなので、ウィザースケルトンの頭・ネザースター・カカシの棒のような
+     * <b>抽選に外れると 0 個で現れない</b>ドロップには構造的に効かない
+     * (0 に何を足しても 0 のまま)。そこでモブの loot table をもう一度引き直し、
+     * <b>今回落ちなかった種類だけ</b>を追加する。落ちた種類は個数加算側の担当なので触らない。
+     *
+     * <p><b>優先度を {@code NORMAL} にしてある理由。</b> {@code VanillaItemRemovalListener} と
+     * {@code MobLevelTableListener} の削除は {@code HIGH} で走る。ここを {@code MONITOR} にすると
+     * <b>削除された種類が「落ちなかった種類」に見えて復活する</b>ので、必ず削除より前に置くこと。
+     *
+     * <p><b>EliteMobs のモブは対象外。</b> 取り込んだモブの戦利品は EliteMobs 側の
+     * {@code EliteDropPolicy} が可否を決めているので、TF が loot table を引き直すと
+     * その判断を無効化してしまう。
+     */
+    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+    public void onDeathRerollAbsentDrops(EntityDeathEvent event) {
+        LivingEntity entity = event.getEntity();
+        if (entity instanceof Player) return;
+        Player killer = entity.getKiller();
+        if (killer == null) return;
+        MobData data = MobData.of(entity);
+        if (data.profileId().isPresent() || data.dungeonTheme().isPresent()) return;
+        if (!(entity instanceof Lootable lootable)) return;
+        LootTable table = lootTableOf(lootable);
+        if (table == null) return;
+        double dropBonus = MobDropRoller.clampBonus(aggregator.aggregate(killer).totalOf(MOB_DROP_BONUS));
+        int rerolls = MobDropRoller.extraCount(dropBonus, ThreadLocalRandom.current().nextDouble());
+        if (rerolls <= 0) return;
+
+        LootContext context = new LootContext.Builder(entity.getLocation())
+                .lootedEntity(entity)
+                .killer(killer)
+                .build();
+        for (int i = 0; i < rerolls; i++) {
+            Collection<ItemStack> rerolled;
+            try {
+                rerolled = table.populateLoot(ThreadLocalRandom.current(), context);
+            } catch (RuntimeException | LinkageError ex) {
+                // loot table を引けない実装(テストダブル等)でも死亡処理を壊さない。
+                // 例外を投げると EntityDeathEvent の残りのハンドラが丸ごと落ちる。
+                return;
+            }
+            event.getDrops().addAll(absentTypes(event.getDrops(), rerolled));
+        }
+    }
+
+    /**
+     * モブの loot table。取れない実装(テストダブル、loot table を持たないモブ)では {@code null}。
+     * 例外を外へ出さないのは、ここで投げると {@code EntityDeathEvent} の残りのハンドラが
+     * 丸ごと落ちる(＝EXP付与や他のドロップ処理まで消える)ため。
+     */
+    private static LootTable lootTableOf(Lootable lootable) {
+        try {
+            return lootable.hasLootTable() ? lootable.getLootTable() : null;
+        } catch (RuntimeException | LinkageError ex) {
+            return null;
+        }
+    }
+
+    /**
+     * {@code rerolled} のうち {@code existing} に<b>1個も入っていない材質</b>のスタックだけを返す。
+     * 引き直しの中での重複も潰す(同じ再抽選で同じ材質が2度出ても1つしか足さない)。
+     *
+     * <p>純関数にしてあるのは、{@code populateLoot} が MockBukkit 未実装で
+     * テストが SKIPPED に化けても<b>判定そのものは検証できるようにする</b>ため。
+     */
+    static List<ItemStack> absentTypes(List<ItemStack> existing, Collection<ItemStack> rerolled) {
+        Set<Material> present = new HashSet<>();
+        for (ItemStack stack : existing) {
+            if (stack == null || stack.getType().isAir()) continue;
+            present.add(stack.getType());
+        }
+        List<ItemStack> added = new ArrayList<>();
+        for (ItemStack stack : rerolled) {
+            if (stack == null || stack.getType().isAir() || stack.getAmount() <= 0) continue;
+            if (!present.add(stack.getType())) continue;
+            added.add(stack);
+        }
+        return added;
     }
 
     /**

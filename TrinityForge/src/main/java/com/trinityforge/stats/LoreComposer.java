@@ -87,21 +87,41 @@ public final class LoreComposer {
     public List<Component> statLines(Map<String, Double> stats,
                                      Map<String, StatDisplaySpec> displayTable,
                                      LoreLayout layout) {
+        return statLines(stats, Map.of(), displayTable, layout);
+    }
+
+    /**
+     * {@link #statLines(Map, Map, LoreLayout)} の乗算レイヤつき版(2026-08-21、スレッドのセット効果
+     * lore 用)。{@code multipliers} は<b>レイヤID → canonicalステキー → 倍率そのもの</b>
+     * ({@code 1.1} = ×1.10。{@code PlayerCombatAggregate} が持つ「増分 Σ(v-1)」とは<b>別の表現</b>
+     * なので、増分を持っている呼び出し元は {@code 1 + delta} にしてから渡すこと)。
+     *
+     * <p>区切り線・header/footer・品質行を付けない点は加算のみの版と同じ。乗算行の体裁
+     * ({@code x1.10} + レイヤ名)は装備 lore ({@link #compose})と同一の
+     * {@link #appendMultiplierLines} を通るので、表示が2種類に分かれることはない。
+     */
+    public List<Component> statLines(Map<String, Double> stats,
+                                     Map<String, Map<String, Double>> multipliers,
+                                     Map<String, StatDisplaySpec> displayTable,
+                                     LoreLayout layout) {
         Objects.requireNonNull(stats, "stats");
+        Objects.requireNonNull(multipliers, "multipliers");
         Objects.requireNonNull(displayTable, "displayTable");
         Objects.requireNonNull(layout, "layout");
 
         Map<String, StatDisplaySpec> canonicalTable = canonicalizeTable(displayTable);
         Map<String, Double> displayStats = new LinkedHashMap<>(canonicalizeStats(stats));
+        Map<String, Map<String, Double>> displayMultipliers = canonicalizeMultipliers(multipliers);
         Set<String> inert = canonicalizeKeys(inertStatKeys.get());
         if (!inert.isEmpty()) {
             displayStats.keySet().removeAll(inert);
+            displayMultipliers.values().forEach(values -> values.keySet().removeAll(inert));
         }
 
         List<Component> lines = new ArrayList<>();
         for (StatCategory category : CATEGORY_ORDER) {
             appendSection(lines, displayStats, canonicalTable, Map.of(), Set.of(), Set.of(),
-                    Map.of(), layout, category, false);
+                    displayMultipliers, layout, category, false);
         }
         return List.copyOf(lines);
     }

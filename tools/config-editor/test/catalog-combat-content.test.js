@@ -66,9 +66,18 @@ test("木～ネザライトのツール斧は戦斧と異なるソースジェ�
   }
 });
 
-test("インフィニティツールの未確定レシピを再追加しない", () => {
+// 2026-08-25: 以前ここは「レシピを再追加しない」というガードだった(当時は入手経路が未確定
+// だったため)。総ざらいで、出荷カタログのうち入手経路をどこにも持たないのがこの4件だけと
+// 判明し、ユーザー決定「クラフトで作れるようにする」で作業台レシピを付けた。
+// よってガードの向きを逆にする ── レシピが消えたら「図鑑には載るのに永久に作れない」状態へ
+// 戻るので、そこで落ちてほしい。素材の妥当性と形の重複は Java 側の
+// ShippedInfinityToolCraftabilityTest が見ている。
+test("インフィニティツールは作業台で作れる", () => {
   for (const type of ["pickaxe", "shovel", "axe_tool", "hoe"]) {
-    assert.equal(catalog.items[`infinity_${type}`]?.recipe, undefined, `infinity_${type} のレシピ`);
+    const recipe = catalog.items[`infinity_${type}`]?.recipe;
+    assert.ok(recipe, `infinity_${type} のレシピが無い(入手経路ゼロへ逆戻りしている)`);
+    assert.equal(recipe.method, "workbench", `infinity_${type} のレシピ方式`);
+    assert.equal(recipe.type, "shaped", `infinity_${type} のレシピ種別`);
   }
 });
 

@@ -75,6 +75,25 @@ def thresholds(document: dict) -> list[int]:
     return [entry["threshold"] for entry in entries if "threshold" in entry]
 
 
+def drawn_thresholds(document: dict) -> set[int]:
+    """threshold のうち「自前モデル(trinityforge:)を実際に指しているもの」だけを返す。
+
+    respack.js の H-3 修正以降、未配線の割当にも threshold entry は必ず生成される
+    (省略すると range_dispatch が1つ下の threshold へフォールスルーするため)。
+    つまり **entry があること自体は「絵が出ている」証拠にならない** ので、
+    threshold の有無だけを見る検査は 2026-08-22 の鎌の事故を1件も検出できなかった。
+    """
+    drawn: set[int] = set()
+    for entry in document.get("model", {}).get("entries", []):
+        if "threshold" not in entry:
+            continue
+        found: set[str] = set()
+        model_ids(entry.get("model"), found)
+        if found:
+            drawn.add(entry["threshold"])
+    return drawn
+
+
 def model_ids(node: object, found: set[str]) -> None:
     """入れ子になった model 定義から trinityforge: 名前空間の参照を全部拾う。
 
@@ -328,10 +347,10 @@ def check_undrawn_item_assets(
             continue
 
         document = json.loads(items_path.read_text(encoding="utf-8"))
-        if entry["cmd"] not in thresholds(document):
+        if entry["cmd"] not in drawn_thresholds(document):
             problems.append(
                 f"cmd {entry['cmd']} ({material}:{asset_name}): "
-                "パックに実物があるのに items json の threshold に配線されていない"
+                "パックに実物があるのに items json の threshold が自前モデルを指していない"
             )
     return problems
 

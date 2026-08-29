@@ -43,6 +43,7 @@ public final class AchievementService {
     private final NativeExperienceDispatcher experienceDispatcher;
     private final PerkAttributeApplier perkAttributeApplier;
     private final CollectionService collectionService;
+    private volatile ParticleSeedDelivery particleSeedDelivery;
     private volatile SkillLevelSource skillLevelSource;
     private volatile CombatLevelSource combatLevelSource;
 
@@ -102,6 +103,19 @@ public final class AchievementService {
         this.experienceDispatcher = experienceDispatcher;
         this.perkAttributeApplier = perkAttributeApplier;
         this.collectionService = collectionService;
+    }
+
+    /**
+     * パーティクルシード報酬の実体配布を後付けで注入する(2026-08-21)。
+     *
+     * <p>コンストラクタ引数にしていないのは配線順の都合({@code AchievementService#setLevelSources}
+     * と同じ理由 ── {@code CollectionService} は {@code SpecialRewardsConfig} 由来のサービス群より
+     * 先に組み上がる)。未注入なら配布をスキップする(fail-soft)が、その場合
+     * <b>シード報酬は「IDが1つ増えるだけで何も起きない」着手前の状態に戻る</b>ので、
+     * 本番配線を外さないこと。
+     */
+    public void setParticleSeedDelivery(ParticleSeedDelivery particleSeedDelivery) {
+        this.particleSeedDelivery = particleSeedDelivery;
     }
 
     /** 全オンラインプレイヤーの statistic 型アチーブメントをポーリング判定する(1分毎想定)。 */
@@ -426,6 +440,9 @@ public final class AchievementService {
         }
         for (String specialId : achievement.rewards().special()) {
             data.grantSpecialReward(specialId);
+            if (particleSeedDelivery != null) {
+                particleSeedDelivery.deliver(player, specialId);
+            }
         }
         grantItems(player, achievement.rewards().items());
         if (achievement.rewards().vanillaExp() > 0) {

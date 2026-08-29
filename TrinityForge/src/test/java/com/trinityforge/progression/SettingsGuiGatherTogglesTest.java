@@ -37,7 +37,8 @@ class SettingsGuiGatherTogglesTest {
         when(config.titles()).thenReturn(Map.of());
         when(config.particles()).thenReturn(Map.of());
         SpecialRewardService rewardService = mock(SpecialRewardService.class);
-        gui = new SettingsGui(MockBukkit.createMockPlugin(), config, rewardService);
+        gui = new SettingsGui(MockBukkit.createMockPlugin(), config, rewardService,
+                id -> java.util.Optional.empty());
         player = server.addPlayer();
     }
 

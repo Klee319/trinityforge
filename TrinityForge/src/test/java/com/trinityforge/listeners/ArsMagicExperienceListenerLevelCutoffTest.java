@@ -6,6 +6,7 @@ import com.trinityforge.config.domains.SkillExpConfig;
 import com.trinityforge.integration.ars.ArsProgressionBridge;
 import com.trinityforge.pdc.MobData;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
+import com.trinityforge.progression.core.SkillId;
 import org.bukkit.GameMode;
 import org.bukkit.damage.DamageSource;
 import org.bukkit.entity.EntityType;
@@ -45,6 +46,13 @@ import static org.mockito.Mockito.when;
  *
  * <p>足きりの倍率そのものの正しさ({@code exp-threshold} からの逓減カーブ)は
  * {@code MobLevelCutoff} 側のテストが持つ。ここが固定するのは<b>掛け忘れないこと</b>だけ。
+ *
+ * <p><b>2026-08-22</b>: 判定に使うレベルが戦闘レベルから【そのEXPが入る職業のレベル】へ変わったので、
+ * 呼ぶ先も {@code expMultiplier}(バニラEXP用・戦闘レベル基準)から
+ * {@link KillRewardAdjuster#skillExpMultiplier} へ移った。<b>{@code ARS_MAGIC} を渡すこと自体が
+ * 検査対象</b> ── ここで別のスキルidや戦闘レベル版を呼ぶと、武器を伸ばした人が魔法1のまま
+ * 高レベル帯で魔法を育てられる穴(戦闘レベル基準のときに実在した)が戻る。
+ * 基準レベルの選び分けそのものは {@code KillRewardAdjusterSkillLevelExpTest} が固定する。
  */
 class ArsMagicExperienceListenerLevelCutoffTest {
 
@@ -58,7 +66,7 @@ class ArsMagicExperienceListenerLevelCutoffTest {
     @Test
     void magicKillExpIsScaledByTheLevelCutoff() {
         Fixture f = new Fixture();
-        when(f.adjuster.expMultiplier(f.killer, f.dead)).thenReturn(0.25);
+        when(f.adjuster.skillExpMultiplier(f.killer, f.dead, SkillId.ARS_MAGIC)).thenReturn(0.25);
 
         try (MockedStatic<MobData> mobData = mockStatic(MobData.class);
              MockedStatic<ArsProgressionBridge> bridge = mockStatic(ArsProgressionBridge.class)) {
@@ -70,13 +78,13 @@ class ArsMagicExperienceListenerLevelCutoffTest {
             bridge.verify(() -> ArsProgressionBridge.grantMagicExp(
                     f.plugin, f.killer, BASE_AMOUNT * 0.25));
         }
-        verify(f.adjuster).expMultiplier(f.killer, f.dead);
+        verify(f.adjuster).skillExpMultiplier(f.killer, f.dead, SkillId.ARS_MAGIC);
     }
 
     @Test
     void magicKillExpIsSuppressedEntirelyWhenTheCutoffReturnsZero() {
         Fixture f = new Fixture();
-        when(f.adjuster.expMultiplier(f.killer, f.dead)).thenReturn(0.0);
+        when(f.adjuster.skillExpMultiplier(f.killer, f.dead, SkillId.ARS_MAGIC)).thenReturn(0.0);
 
         try (MockedStatic<MobData> mobData = mockStatic(MobData.class);
              MockedStatic<ArsProgressionBridge> bridge = mockStatic(ArsProgressionBridge.class)) {
@@ -102,7 +110,7 @@ class ArsMagicExperienceListenerLevelCutoffTest {
 
             bridge.verify(() -> ArsProgressionBridge.grantMagicExp(f.plugin, f.killer, BASE_AMOUNT));
         }
-        verify(f.adjuster, never()).expMultiplier(any(), any());
+        verify(f.adjuster, never()).skillExpMultiplier(any(), any(), any());
     }
 
     /** マーカー付き魔法キル1件ぶんの最小構成。 */

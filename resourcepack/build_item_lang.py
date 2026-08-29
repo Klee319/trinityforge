@@ -47,8 +47,12 @@ lang のキーはパック全体でグローバルなので、``item.minecraft.*
   * ``TrinityForge/src/main/resources/items/catalog.yml`` の ``display-name``
     (MiniMessage 記法)
   * ArsPaper フォークの ``materials.yml`` の ``display_name`` (レガシー ``&`` 記法)
+  * ArsPaper フォークの ``functional-items.yml`` の ``display-name`` (MiniMessage 記法)
+    ── こちらは Java 実装が材質と CMD を決めるのでエントリ自体は材質を持たない。
+    材質と CMD は台帳の ``id`` で引く (2026-08-24 に無限ソース核を ``materials.yml``
+    から移して以降、この経路が無いとブロック系特殊アイテムの名前が引けない)。
 
-どちらもタグ/カラーコードを剥がしてプレーン日本語にする。
+いずれもタグ/カラーコードを剥がしてプレーン日本語にする。
 ``materials.yml`` はフォーク側 = ``.gitignore`` 対象でクローンには存在しない。
 存在しないときは **既存の生成物から「まだパックが参照していて、かつ台帳の
 source が materials のもの」だけを引き継ぐ**。こうしないとフォークを持たない
@@ -75,6 +79,9 @@ LANG_DIR = PACK_ROOT / "assets" / "trinityforge" / "lang"
 REGISTRY = HERE / "cmd-registry.json"
 CATALOG = REPO / "TrinityForge" / "src" / "main" / "resources" / "items" / "catalog.yml"
 MATERIALS = REPO / "fork-handoff" / "arspaper" / "fork" / "src" / "main" / "resources" / "materials.yml"
+FUNCTIONAL_ITEMS = (
+    REPO / "fork-handoff" / "arspaper" / "fork" / "src" / "main" / "resources" / "functional-items.yml"
+)
 
 NAMESPACE = "trinityforge"
 # GeyserExtra の javaPackLocale が ja_jp、フォールバックが en_us
@@ -184,6 +191,32 @@ def material_names() -> dict[tuple[str, int], str]:
     return names
 
 
+def functional_item_names(sources: dict[tuple[str, int], dict]) -> dict[tuple[str, int], str]:
+    """ArsPaper の ``functional-items.yml``(設定エディタの「特殊アイテム」)の表示名。
+
+    このファイルのエントリは **材質と CMD を持たない** ── ブロック系のアイテムは
+    Java 実装 (``getBlockMaterial`` / ``getCustomModelData``) が決めるため。
+    そこで台帳の ``id`` を突き合わせて (material, cmd) へ写す。
+
+    2026-08-24 に無限ソース核を ``materials.yml`` から移した時点で、この経路が無いと
+    表示名が 1 件も引けなくなり、統合版でアイテム名が識別子のまま出る。
+    """
+    if not FUNCTIONAL_ITEMS.exists():
+        return {}
+    document = yaml.safe_load(FUNCTIONAL_ITEMS.read_text(encoding="utf-8"))
+    by_id: dict[str, str] = {}
+    for item_id, item in (document.get("items") or {}).items():
+        display = (item or {}).get("display-name")
+        if display:
+            by_id[str(item_id)] = str(display)
+    names: dict[tuple[str, int], str] = {}
+    for key, entry in sources.items():
+        display = by_id.get(str(entry.get("id")))
+        if display:
+            names[key] = display
+    return names
+
+
 def previous_entries() -> dict[str, str]:
     path = LANG_DIR / f"{LOCALES[0]}.json"
     if not path.exists():
@@ -207,6 +240,8 @@ def generate() -> tuple[dict[str, str], list[str]]:
     names = dict(catalog_names())
     forked = material_names()
     for key, value in forked.items():
+        names.setdefault(key, value)
+    for key, value in functional_item_names(sources).items():
         names.setdefault(key, value)
 
     have_fork = bool(forked)

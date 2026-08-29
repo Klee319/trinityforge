@@ -32,6 +32,11 @@
 `PotionMeta#getAllEffects()` も同様で、`PotionQualityListenerTest` 8件中5件が素通りしていた
 （到達しなかったテストだけが緑という最悪の形）。
 
+`PlayerInventorySlotChangeEvent` も同じ形で刺さる（2026-08-22）。Paper の実装は
+**コンストラクタの中で `player.getOpenInventory().convertSlot(rawSlot)` を呼ぶ**ので、
+`new` するだけで MockBukkit が落ちる ── イベントを組み立てる行が本題より前にあるため、
+リスナーの検査は1つも走らない。スロット番号を読まないリスナーなら Mockito のモックで代用する。
+
 - 回避策1: 耐久消費は `HumanEntity#damageItemStack` を呼ばず、`Damageable` メタを直接操作して
   UNBREAKING の `1/(L+1)` 判定込みで自前実装する。
 - 回避策2: `Mockito.spy()` で該当APIだけ個別にスタブする。
@@ -157,6 +162,57 @@ PDC 付き実物と `ExactChoice` が `isSimilar` 不一致になる問題を避
 これは `ExactChoice` 登録で per-slot ガードに掛からないから成立している例外で、
 **`MaterialChoice` で登録するものを載せ忘れると必ず上記の死に方をする。**
 
+## 同じイベントを2本のリスナーで受けるときの罠（2026-08-22 追加）
+
+### ⚠️ 「消費する」台帳を複数のリスナーで共有すると、登録順しだいで片方が空を受け取る
+
+**Bukkit は同一優先度のリスナーの呼び出し順を保証しない。** つまり
+`EntityDeathEvent` を MONITOR で受ける 2 本が同じ台帳を `consume`（＝読んで取り除く）と、
+**先に走った方だけが中身を得る**。落ちるのではなく「入る日と入らない日がある」形で壊れるので、
+テストでも実機でも再現しにくい。
+
+実例: 討伐図鑑を「削った全員」へ配るとき、既存の `CombatKillCreditTracker`（戦闘EXPの寄与比台帳）を
+流用しかけた。`CombatListener#onCombatKill` と `CollectionListener#onMobDeath` はどちらも MONITOR で
+同じイベントを受けるので、共有した時点でこの罠に入る。**図鑑側は独立した台帳
+（`MobKillParticipants`）を持たせた。**
+
+- 共有したいなら「消費しない読み取り」を用意するか、**片方のリスナーがもう片方を呼ぶ**形にする。
+- そもそも**流用する前に、その台帳が何を記録しているかを確かめる**。
+  `CombatKillCreditTracker` は `isKillBasedCombatWeaponSkill` で fail-closed になっており、
+  **重武器・軽武器・弓術のダメージしか入らない**。魔法で削った人は載らないので、
+  「戦闘に参加した人」の意味では使えない。
+
+### ⚠️ 「プレイヤーが倒した」を `getKiller()` で書くと、とどめを刺した1人しか取れない
+
+`LivingEntity#getKiller()` は**最後の一撃を入れたプレイヤー1人**。
+複数人で削った討伐・魔法や継続ダメージでの致死は取りこぼす。
+「誰が参加したか」を知りたいなら、`EntityDamageEvent` の
+**`DamageSource#getCausingEntity()`** を自分で控える（近接・矢・魔法・爆発を1つの形に吸収してくれる。
+ここに攻撃手段ごとの分岐を書くと、その手段だけ無言で対象外になる）。
+
+現在 `getKiller()` に依存している主な箇所（＝同じ制約を持つ）:
+`MobLevelTableListener` / `MobOverrideDropListener` / `MobOverrideExpListener` /
+`MobTypeDropListener` / `LevelCutoffExpListener` / `NativeSurvivalPerkListener` /
+`ArsMagicExperienceListener`。**ドロップと報酬は「とどめを刺した1人」で意図的に設計している**ので、
+ここを一律に広げてはいけない。広げたのは図鑑（収集要素）だけ。
+
+### 図鑑の記録の入口は4つ（増やすときはここを見る）
+
+`CollectionListener` がアイテムを記録する経路。**どれか1つでも通れば載る**（記録は冪等）:
+
+| 入口 | 拾えるもの |
+|---|---|
+| `EntityPickupItemEvent` | 地面から拾った品 |
+| `PlayerInventorySlotChangeEvent` | **地面を経由せず直接インベントリへ入る品**（2026-08-22 追加） |
+| `InventoryCloseEvent` → 全スロット走査 | 画面を閉じた時点の持ち物 |
+| `PlayerJoinEvent`（40tick 後）→ 全スロット走査 | 参加時の持ち物（HuskSync の適用待ち） |
+
+2026-08-22 まで 2 番目が無く、**EliteMobs のダンジョン報酬・ガチャ・メール・スクラップ変換・
+儀式やアチーブメントの報酬・`/tf give` が、GUI を閉じるか再ログインするまで載らなかった**
+（実サーバ報告「ドロップ状態を拾い上げないと反映されない」）。
+**「与える側」を1つずつ直す方式は採らない** ── TF 内だけで 10 箇所以上あり、
+EliteMobs / ArsPaper も直接 `addItem` するので、列挙は必ず漏れる。
+
 ## Paper プラグイン基盤の罠
 
 ### ⚠️ `paper-plugin.yml` は Bukkit形式の `softdepend:` を黙って捨てる
@@ -181,6 +237,31 @@ dependencies:
 ### パーティクルパケットの個数 `0` は「表示しない」ではない
 バニラは count==0 を「offset を速度として1個だけ飛ばす」という別の意味に解釈する。
 完全に非表示にしたいならパケットごとキャンセルするしかない。
+
+**この仕様は「向きのある演出」の唯一の書き方でもある**（2026-08-25）。
+`spawnParticle(particle, loc, count, offX, offY, offZ, extra)` は
+
+| `count` | `offX/Y/Z` の意味 | `extra` の意味 |
+|---|---|---|
+| `> 0` | ばらつきの箱（箱の中にランダムに置く） | 粒子の速さ |
+| `== 0` | **飛ばす向きのベクトル** | **その向きへの速さ** |
+
+なので、`count > 0` のまま speed を上げても**向きが揃わない**（＝円形拡散・爆発は書けない）。
+TF は形状 → 呼び出し列の変換を `ParticleGeometry` に閉じ込め、`speed > 0` のときだけ
+`count == 0` 側へ落としている。
+
+### パーティクルの「量」は count ではなく **count × 見ている人数** で効く
+輪・球・螺旋・軌跡のように**点ごとに座標が違う形状は、点の数だけ `spawnParticle` を呼ぶ**
+（座標の違うものを1パケットに束ねる方法は Bukkit に無い）。さらに TF は
+「他人の演出を非表示」トグルを守るため `World#spawnParticle`（ブロードキャスト）ではなく
+**`Player#spawnParticle` で閲覧者ごとに送る**。したがって実際に飛ぶパケットは
+
+```
+点の数 × 近くに居る人数   ← これが interval-ticks ごとに出る
+```
+
+2026-08-25 に「量が多すぎる」報告を受けて上限を 400 → **64** へ下げ、出荷値も一段下げた。
+形状を足すときは「見た目が良い点の数」ではなく**この掛け算**で決めること。
 
 ### ⚠️⚠️ `PlayerInteractEvent` に `ignoreCancelled = true` を付けると **RIGHT_CLICK_AIR が一切届かない**
 
@@ -337,7 +418,125 @@ JDBC の `setAutoCommit(false)` は既定で `BEGIN DEFERRED` を発行する。
   **上書きしないと複製する**。「上書きしてよいか」の判定自体は必須で、判定をやめる方向の
   修正は複製バグに戻るので注意。
 
+## 一時効果の設計原理
+
+### ⚠️⚠️ `AttributeModifier` で作る一時効果は、スケジューラだけで解除してはいけない（2026-08-23 W-191）
+
+**属性修飾子はエンティティの NBT に保存される。** ログアウト・サーバ再起動・チャンクアンロードの
+どれが挟まっても**そのまま残る**のに、`runTaskLater` の解除タスクはプロセス内にしか無い。
+＝ 効果時間が切れる前にどれか 1 つが起きると**永久に戻らない**
+（スケール魔法で縮んだまま戻らなくなった実例）。ポーション効果と違って
+「サーバが面倒を見てくれる」ものではない、と覚えること。
+
+同じ理由で **解除タスクに `Entity` 参照を握らせてはいけない**。再ログインすると `Player` は
+別インスタンスになるので `isValid()` が false になり、**タスクが動いても何もしない**。
+`Bukkit.getEntity(uuid)` で引き直す。
+
+正しい型（`FlightRitualEffect` / `ScaleEffect` が同型）:
+
+1. 終了時刻を対象の **PDC に LONG（エポックミリ秒）で書く**
+2. `PlayerJoinEvent` / `EntitiesLoadEvent` で読み直し、期限切れなら剥がす・残っていれば張り直す
+3. **PDC が無いのに修飾子だけ付いている個体は無条件に剥がす**（＝修正前に固定化した被害者の救済。
+   これを入れないと「直したのに既に壊れている人は直らない」）
+4. `onDisable` は cancel だけでなく**実際に剥がす**、`onEnable` はオンライン全員を見直す
+   （`/reload` では `PlayerJoinEvent` が飛ばない）
+5. 参加時の処理は **1 tick 後と数秒後の 2 回**やる —— HuskSync の snapshot 適用は
+   `PlayerJoinEvent` より後で、`PersistentData#apply` が `clearNBT()` → merge、
+   `Attributes#apply` が属性を入れ直す（W-138 で職業バフが消えたのと同じ順序問題）
+
 ## 権利・レシピの設計原理
+
+### ⚠️⚠️ かまどの結果を `FurnaceSmeltEvent#setResult` で差し替えると **2個目から焼けなくなる**（2026-08-23 W-190）
+
+バニラの `AbstractFurnaceBlockEntity#canBurn`（Paper 1.21.11 実物で確認）は
+
+```java
+return itemStack1.isEmpty() || ItemStack.isSameItemSameComponents(itemStack1, itemStack) && ...
+//     ^ 結果スロットの中身                                        ^ レシピが組み立てた結果
+```
+
+＝ **結果スロットの中身**と『**レシピが組み立てた結果**』を data component ごと比較する。
+`canBurn` は Bukkit のイベントより**前**に走るので、イベントで結果を差し替えると
+
+1. 1個目は差し替わってカスタム品が結果スロットに入る
+2. 2個目からは「結果スロットのカスタム品」と「バニラのレシピ結果（素の焼き芋）」が
+   component 不一致 → `canBurn` が false → **精錬が止まる**（燃料だけ燃えて何も起きない）
+
+**カスタム品を焼き上がりにしたいならレシピごと登録すること。** 比較対象も自分の結果になるので
+連続精錬が成立する。素材は必ず `RecipeChoice.ExactChoice`（`MaterialChoice` だと素のバニラ素材にも
+一致して**バニラのレシピを潰す**）。プラグインのレシピがバニラより優先されるのは
+CraftBukkit の `RecipeManager#getRecipeFor` が `list.getLast()` を返すため（SPIGOT-4638）。
+
+Paper のサーバ実装ソースは Gradle キャッシュに `.java` のまま入っている（推測せずここを読む）:
+`~/.gradle/caches/paperweight-userdev/v2/work/applyDevBundlePatches_*/output.jar` の中の
+`net/minecraft/world/level/block/entity/*.java`。
+
+### ⚠️ ArsPaper の materials.yml 素材は「かまどへ入れる経路が3つとも塞がっている」（W-132）
+
+`CustomItemListener` が `InventoryClickEvent` / `InventoryMoveItemEvent` / `BlockCookEvent` の
+3経路すべてで materials.yml 素材のかまど搬入を止めている（圧縮素材が焼かれて 9個ぶんが1個に
+化けるのを防ぐため）。**かまどで何かをさせたいならレシピ登録だけでは一度も発火しない。**
+穴あけは `TrinityForgeBridge#tfSmeltableMaterialIds()`（`compressed-smelting` の入力＋結果）を通す。
+**結果側も通さないと、焼き上がった品を結果スロットから取り出すクリックまで塞がる。**
+穴はかまど／燻製器に限る（溶鉱炉では圧縮食料が焼けないので通す意味が無い）。
+
+**醸造台も同じ集合で塞がっていた（2026-08-24 / W-209 で修正）。** 塞いだ根拠として書かれていた
+「醸造台は材料スロットが Material しか見ずに飲み込む」は**誤り** —— TF の `BrewPotionMixRegistrar` は
+`PotionMix` を**述語**（`PotionMix.createPredicateChoice`）で登録しており、
+素材スロットの受け入れ判定 `PotionBrewing#isIngredient` はその述語を見るので、
+**醸造台は PDC 付きのカスタム素材をちゃんと見分ける**。この誤解のせいで
+`brew-unlocks` の醸造素材 8 件（全部 materials.yml 素材）が 1 件も入れられず、
+**カスタム素材を使う醸造レシピが 1 件残らず死んでいた**。
+起動ログには `registered N custom potion mix(es)` が正常に出るので**ログには何も現れない**。
+穴あけは `TrinityForgeBridge#tfBrewIngredientMaterialIds()`（`brew-unlocks` の `ingredient`）。
+
+### ⚠️ `PlayerInteractEvent` が通っても、その操作が実行されたとは限らない（W-210）
+
+「右クリックできた」を報酬の根拠にすると、**操作が実行されなかったケースで無限に稼げる**。
+`PlayerInteractEvent#isCancelled()` は **`useInteractedBlock()` と等価**なので、
+`ignoreCancelled = true` は `setUseItemInHand(DENY)` を素通しする。さらにバニラ自身が
+「イベントは通すが何もしない」ことがある —— 代表例が斧の皮剥ぎで、
+**`AxeItem#useOn` はオフハンドに `blocks_attacks` を持つ品（＝盾）があり、かつスニークしていなければ
+何もせず `PASS` を返す**（盾を構えて原木を剥いでしまう事故を防ぐための意図的な挙動）。
+実際に「盾を持って原木を連打するだけで伐採EXPが無限に入る」報告になった。
+
+**報酬は「操作が起きた」ではなく「状態が変わった」で判定する。**
+ブロック変換なら `EntityChangeBlockEvent`（MONITOR / `ignoreCancelled = true`）が
+`setBlock` の直前に発火するので、ここまで届けば変換は必ず起きる。
+バニラ側の門を自前で真似るのは禁物（バージョンが上がると静かにズレる）。
+
+**同じ形の穴は盾以外にもある（W-245 で横展開して1件見つかった）。** バニラが
+「イベントは通すが何もしない」に落ちる経路は少なくとも 4 つ:
+
+| 経路 | 何が起きるか |
+|---|---|
+| **スニーク中で手が空でない** | **ブロックへの操作を丸ごと飛ばす**（ブロック設置のための仕様。`isSecondaryUseActive()`）。ベリー・洞窟のツタ・蜂の巣の蜜など**ブロック操作系すべて**が該当 |
+| オフハンドの盾（＋非スニーク） | `AxeItem#useOn` が `PASS`（上記） |
+| 他プラグインの `setUseItemInHand(DENY)` | `isCancelled()` に出ないので `ignoreCancelled` では防げない |
+| 後段イベントのキャンセル | `EntityChangeBlockEvent` などを別プラグインが止める |
+
+実際に踏んでいたのは農業EXP（`NativeSkillExperienceListener#onFarmingInteract`）で、
+**スニークしたまま熟したベリーや満タンの巣を連打すると、実が減らないままEXPが入り続けた**。
+→ ベリー／ツタは `PlayerHarvestBlockEvent`（収穫が確定した瞬間だけ発火）へ移し、
+**「採れた」を教えてくれるイベントが無い蜂の巣は、次の tick に蜜量を読み直して
+実際に減っていたときだけ配る**。イベントが無い場所でも規則は同じ ——
+*クリックを根拠にしない*。
+
+判定の型（監査するときはこの順で見る）:
+
+1. その処理は**報酬・消費**か、それとも**自前で完結する操作**（キャンセルして全部やる）か。
+   後者はこの穴の対象外（＝そのクリックが操作そのもの）。
+2. 報酬・消費なら、根拠にしているのは**クリック**か**結果**か。
+3. 結果を見るイベントが無いなら、**次 tick に状態を読み直す**。
+
+### ⚠️ `InventoryClickEvent#getInventory()` はクリック位置に関係なく常に「上段」を返す
+
+装置インベントリを見張るガードで `getInventory().getType()` だけを条件にすると、
+**プレイヤー側インベントリのスロットを触ったクリックにも同じ判定が掛かる**。
+ArsPaper の装置ガードがこれを踏み、**かまど／醸造台／石切台などを開いている間は
+手持ちの materials.yml 素材を掴むことすらできなかった**（W-209 の症状の半分）。
+装置へ物が入る経路は「上段のスロットを直接触る（`rawSlot < topInventory.getSize()`）」か
+「シフトクリックのクイック移動」の 2 つだけなので、ガードはその 2 つに絞ること。
 
 ### 消費キャンセル型の「+1で返す」リスナーは、全キャンセラより後の優先度でないと複製になる
 素材消費をキャンセルしてから `+1` して返すタイプのリスナー（醸造素材の保存など）で、
@@ -841,3 +1040,52 @@ PY
 `MiningProgressionBadlandsDriftTest` / `NativeSkillCatalogTest` が RED になっていたが、
 **フルテストの失敗件数だけを見ていると「他セッションの WIP 由来」に紛れて見落とす**。
 配備前は失敗の**中身**を1件ずつ見る。
+
+## 頭上表示をプレイヤーへ**騎乗させる**とバニラのネームタグが消える（2026-08-21）
+
+称号の `TextDisplay` をパケット（`WrapperPlayServerSetPassengers`）でプレイヤーへ騎乗させると、
+**そのプレイヤーの名前が誰からも見えなくなる**。実サーバ報告
+「ネームタグが表示されていない（他人の名前も見えない）」。
+
+- **高さの重なりではない。** 同じ症状を 2 度「高さの問題」として直して 2 度とも再発している
+  （2026-08-03 `a1dd403` / 2026-08-20 `b5fab44` W-174）。3 度目の調査で
+  W-174 の幾何修正（`高さ + 0.5 + 0.25 + clearance`）が**稼働 jar に入っていることを
+  逆アセンブルで確認**したうえで、実サーバの `clearance: 0.1` でも称号がネームタグの
+  上に居ることを計算で示し、それでも名前が出ない＝重なりではない、と切り分けた。
+- **残った差分は騎乗だけ。** 2026-08-03〜2026-08-19 は「毎tickテレポートで追従する独立
+  エンティティ」で、同じ高さに出ていて名前も見えていた。騎乗（W-153）を足した**翌日**に
+  「称号が名前を消す」が報告された。
+- 描画側の判定はサーバ jar に無いので機構そのものは断定できないが、
+  **騎乗の有無だけが「名前が出る/出ない」を分けている**ことは実機で確認済み
+  （称号を外した人のネームタグは出る）。
+- 騎乗が消していたのは **1tick ぶんの追従の遅れ**だけ。引き換えに消えるのはプレイヤーの名前なので
+  釣り合わない。**頭上表示は騎乗させず、`teleport` + `teleport_duration` 補間で追従させる**
+  （補間長を更新間隔に揃えれば「揺れ」も出ない ← W-135）。
+- 再発防止テストは高さではなく **騎乗機構の不在そのもの**を固定してある
+  （`TitleDisplayServiceTest#theTitleIsNeverMountedOnThePlayer`）。
+  もっともらしい高さの説明で塞いだつもりになるのを 3 度繰り返さないため。
+
+## サーバ由来の位置に置いたものは、本体・ネームタグより**構造的に後ろへズレる**（2026-08-25）
+
+「称号の位置がネームタグより遅れる」「パーティクルが体より後ろに出る」は、設定でも補間長でもなく
+**目標地点そのものが過去**であることが原因。
+
+- 毎tick読む `player.getLocation()` は**クライアントが送ってきた位置**。
+- **自分の本体**はクライアントが自前で予測して即座に描く（遅れゼロ）。
+  **ネームタグは本体そのもの**なので、本体と完全に同じ動きをする。
+- だから「サーバ位置に置いたもの」は必ず後ろに居る。**補間長を本体と揃えても消えない**
+  （2026-08-24 W-212 で揃えたのは補間の“長さ”であって、目標地点の“古さ”ではない）。
+
+対処は**1tick先読み**（`MotionLead`）: 前回自分が見た位置との差分だけ進めた位置を目標にする。
+非自明な点が 3 つある。
+
+1. **速度は `player.getVelocity()` から取らない。** プレイヤーの `deltaMovement` は
+   クライアント操作で動く場合に当てにならない。「前回 sample からの移動量」を自分で取るのが確実。
+2. **sample は 1tick に 1 回だけ。** 発生間隔が 10tick の演出でも**毎tick sample して、
+   出すtickだけ結果を使う**（間隔ごとに sample すると差分が 10tick ぶんになり先読みが暴れる）。
+3. **上限を超えた差分は縮めずに捨てる。** テレポート/ダンジョン転送/ノックバックは1tickの差分が
+   数千ブロックになる。縮めると「1ブロックだけズレた場所に出る」原因不明の不整合になるので、
+   移動ではないと判った差分は**使わない**。
+
+粒子は per-viewer 送信なので、**先読みは本人の視点にだけ掛ける** ―― 他人から見た本体は逆に
+補間で遅れて描かれるため、同じ先読みを他人にも掛けると今度は体より前に出る。

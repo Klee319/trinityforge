@@ -1024,6 +1024,38 @@ config が生成されてからでないと触れないものを、ここにま�
 > 引き継ぎたい場合は **一度 `storage-method: h2` へ戻して `/lp export perms` → `mariadb` に戻して
 > `/lp import perms`**。作り直すなら不要。詳しくは手順 14。
 
+### 13-4b. 統合版がらみを配るときは `deploy-full.cmd` 1 本（2026-08-24 追加）
+
+**GeyserExtra を触ったら、`deploy.cmd` ではなくこちらを使う。**
+`deploy.cmd` は GeyserExtra を知らない（別リポジトリなので対象外）。手で 4 コマンド打つと
+**順序を間違えやすく、間違えると症状が「レシピが全部消える」という無関係な形で出る**。
+
+```bat
+ops\launch\deploy-full.cmd
+```
+
+計画を出して `DEPLOY` と打たせてから、**ビルド → 停止 → 配備 → 起動**を通しで行う。
+`--dry-run` は計画だけ（書き込みゼロ）、`--yes` は確認を飛ばす。
+
+| なぜこの形か | 理由 |
+|---|---|
+| **ビルドを停止より前に置く** | `deploy.cmd` は稼働チェックの後にビルドするので、**コンパイルエラーの代償がネットワーク停止**になる。先にビルドすれば失敗しても無停止で終わる |
+| **GeyserExtra → TrinityForge の順で配る** | TF が書く `bedrock-recipes.json` は形式 2。**旧 GeyserExtra は 1 しか受け付けず表を丸ごと reject する**ので、鍛冶台どころか作業台の補正まで全部消える。逆順（GeyserExtra だけ新しい）は 1 も 2 も受理するので安全側 |
+| **失敗したら停止したまま止める** | 中途半端な配備は目視が要る。復旧コマンド（`start-all.cmd`）はスクリプトが出力する |
+
+**配らないもの**: config（yml）は `deploy-config-head.cmd`、フォークは `deploy.cmd`。
+混ぜると他セッションの編集途中の yml やビルドしていないフォークまで出荷される。
+
+配備後にこの 2 行が出るまでは信用しない（TF と ArsPaper が enable した後、最大 1 分）:
+
+```
+backend : [bedrock-recipes] <backend>: N recipes from 2 plugin(s)
+proxy   : [bedrock-recipes] N corrected recipes loaded
+```
+
+統合版クライアントは次の接続でパックを取り直す（パッチ版が単調増加カウンタなので
+キャッシュ消しは不要）。
+
 ### 13-5. ソースを変えたときの配備（ビルド → 3 バックエンドへ jar を配る）
 
 `launch\deploy.cmd` 1 本で、**TF 本体 / ArsPaper フォーク / EliteMobs フォークのうち

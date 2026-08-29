@@ -82,6 +82,12 @@ cd tools/config-editor && npm test
 
 ## 並列作業
 
+**セッション間の知識同期は自動化されている**（2026-08-24〜、グローバルフック）。セッション開始時と
+各プロンプト時に `<session-sync>` ブロックで他セッションの完了・決定・編集・commit が注入される。
+自分の完了・決定・着手・重要発見は `log_event.py` で即記録する（運用規約は
+`~/.claude/rules/common/session-sync.md`）。設定エディタ由来の未コミット yml が
+「持ち主不明」警告に出ないのは `.git/claude-sync/config.json` の `orphan_ignore` によるもの。
+
 複数のエージェント／セッションで同時に実装する場合は **`docs/agent-context/parallel-worktrees.md`** に従う。
 要点だけ: **worktree はワークツリー衝突を消すがマージ衝突は消さない**（避けるのはファイル所有権の分割）。
 `reports/ACTIVE_RECORD.md` / `TrinityForge.java` の配線 / `config-editor` の `constants.js` 2 本は

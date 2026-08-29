@@ -67,13 +67,20 @@ public final class CatalogVanillaOperationGuardListener implements Listener {
     private final CraftingFeaturesConfig features;
     /** 木材修繕の解放判定にだけ使う({@link #onPrepareAnvil} の javadoc)。 */
     private final com.trinityforge.config.domains.DedicatedEffectsConfig dedicatedEffects;
+    /** パーティクルシード付与の判定にだけ使う({@link #onPrepareAnvil} の javadoc)。 */
+    private final com.trinityforge.config.domains.SpecialRewardsConfig specialRewards;
+    private final com.trinityforge.progression.SpecialRewardService specialRewardService;
 
     public CatalogVanillaOperationGuardListener(
             ItemCatalogConfig catalog, CraftingFeaturesConfig features,
-            com.trinityforge.config.domains.DedicatedEffectsConfig dedicatedEffects) {
+            com.trinityforge.config.domains.DedicatedEffectsConfig dedicatedEffects,
+            com.trinityforge.config.domains.SpecialRewardsConfig specialRewards,
+            com.trinityforge.progression.SpecialRewardService specialRewardService) {
         this.catalog = Objects.requireNonNull(catalog, "catalog");
         this.features = Objects.requireNonNull(features, "features");
         this.dedicatedEffects = Objects.requireNonNull(dedicatedEffects, "dedicatedEffects");
+        this.specialRewards = Objects.requireNonNull(specialRewards, "specialRewards");
+        this.specialRewardService = Objects.requireNonNull(specialRewardService, "specialRewardService");
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -223,7 +230,7 @@ public final class CatalogVanillaOperationGuardListener implements Listener {
 
     /**
      * 金床(U4): 宣言済み combine レシピに加えて、エンチャント本の適用と同一 identity の修理、
-     * および<b>解放済みプレイヤーの木材修繕</b>を許可する。
+     * <b>解放済みプレイヤーの木材修繕</b>、および<b>解放済みプレイヤーのパーティクルシード付与</b>を許可する。
      * それ以外(素材アイテムによる修理・改名のみ等、カタログ品を素材として食う操作)は従来どおり拒否。
      *
      * <p><b>木材修繕を除外する理由(2026-08-05 の実サーバ報告「元からある防具以外、木材で修繕ができない」)</b>:
@@ -242,7 +249,8 @@ public final class CatalogVanillaOperationGuardListener implements Listener {
         if (matchesDeclaredCombine(inventory)
                 || appliesEnchantmentBook(inventory)
                 || sameCatalogIdentity(inventory.getFirstItem(), inventory.getSecondItem())
-                || isUnlockedWoodRepair(event)) {
+                || isUnlockedWoodRepair(event)
+                || isSeedApplication(event)) {
             return;
         }
         event.setResult(null);
@@ -251,13 +259,34 @@ public final class CatalogVanillaOperationGuardListener implements Listener {
 
     /** 解放済みプレイヤーによる木材修繕か({@link WoodRepairListener#isUnlockedWoodRepair} へ委譲)。 */
     private boolean isUnlockedWoodRepair(PrepareAnvilEvent event) {
-        if (event.getView() == null
-                || !(event.getView().getPlayer() instanceof org.bukkit.entity.Player player)) {
-            return false;
-        }
-        return WoodRepairListener.isUnlockedWoodRepair(player,
+        org.bukkit.entity.Player player = viewerOf(event);
+        return player != null && WoodRepairListener.isUnlockedWoodRepair(player,
                 event.getInventory().getFirstItem(), event.getInventory().getSecondItem(),
                 dedicatedEffects, features);
+    }
+
+    /**
+     * 解放済みプレイヤーによるパーティクルシード付与か
+     * ({@link ParticleSeedListener#isSeedApplication} へ委譲、2026-08-25 / W-214)。
+     *
+     * <p>木材修繕と同じ理由でここに要る ── {@link ParticleSeedListener#onPrepareAnvil} は {@code HIGH}
+     * なので、{@code HIGHEST} のここが必ず後から結果を消す。TF の武器・道具はほぼ全部カタログ品なので、
+     * 除外しないと<b>付与できるのはバニラの道具だけ</b>になる。
+     */
+    private boolean isSeedApplication(PrepareAnvilEvent event) {
+        org.bukkit.entity.Player player = viewerOf(event);
+        return player != null && ParticleSeedListener.isSeedApplication(player,
+                event.getInventory().getFirstItem(), event.getInventory().getSecondItem(),
+                specialRewards, specialRewardService);
+    }
+
+    /** この金床を開いているプレイヤー。view が無い経路(合成イベント等)では {@code null}。 */
+    private static org.bukkit.entity.Player viewerOf(PrepareAnvilEvent event) {
+        if (event.getView() == null
+                || !(event.getView().getPlayer() instanceof org.bukkit.entity.Player player)) {
+            return null;
+        }
+        return player;
     }
 
     /** 第2スロットがエンチャント本({@link EnchantmentStorageMeta})なら、その適用は許可する。 */

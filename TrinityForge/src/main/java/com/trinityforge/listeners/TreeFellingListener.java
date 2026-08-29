@@ -288,6 +288,7 @@ public final class TreeFellingListener implements Listener, SemiActiveCooldown {
         // だけで、EXPも耐久も一切処理されていなかった)。
         int broken = ChainBreakSupport.breakChain(player, world, extra, type, tool, chainBreakExp);
         int leaves = breakLeavesStaged(player, world, doomedLeaves, tool);
+        rollChainDropTables(player, origin, leaves);
         // 2026-07-25 §2 B-1: 発動フィードバック(控えめなactionbar)。2026-07-31 N2: 原木0本でも
         // 葉の掃除だけが走ることがある(1本木・幹の最後の1本)ので、その場合は葉だけを出す。
         if (broken > 0) {
@@ -536,6 +537,35 @@ public final class TreeFellingListener implements Listener, SemiActiveCooldown {
             return OptionalDouble.empty();
         }
         return tier;
+    }
+
+    /**
+     * 一括伐採で連鎖破壊した葉のぶんのドロップテーブル抽選(2026-08-24 実サーバ報告
+     * 「リンゴなど伐採の追加ドロップが一括伐採時にドロップしない」)。
+     *
+     * <p><b>なぜ必要か。</b> 追加ドロップは {@link #onBlockBreakDropTables} が
+     * {@code BlockBreakEvent} を見て引くが、連鎖分の葉は {@link ChainBreakSupport} が
+     * {@code setType(AIR)} で消すだけで <b>{@code BlockBreakEvent} を発火しない</b>
+     * (合成すると設置追跡・採掘運など10以上のリスナーが連鎖分にも反応してしまうため意図的にそうしてある)。
+     * その結果、一括伐採では追加ドロップの抽選が <b>1回も走っていなかった</b>。
+     *
+     * <p><b>なぜ葉1枚ごとに引かないか。</b> 1回の伐採で壊れる葉は最大 1024 枚あり、
+     * そのまま引くと手で割るときと入手量の桁が変わる。
+     * {@code tree-fell.chain-drop-rolls-max} を上限として「壊した枚数と上限の小さいほう」だけ引く。
+     *
+     * <p>落とす位置は叩いた原木。葉は既に消えているうえ樹冠まで拾いに行かせたくないので、
+     * プレイヤーの手元に集める。
+     *
+     * @param leaves 実際に連鎖破壊した葉の枚数(0 なら何もしない)
+     */
+    private void rollChainDropTables(Player player, Block origin, int leaves) {
+        if (leaves <= 0) {
+            return;
+        }
+        int rolls = Math.min(leaves, gimmickConfig.treeFellChainDropRollsMax());
+        for (int i = 0; i < rolls; i++) {
+            rollDropTables(player, origin);
+        }
     }
 
     /** Evaluates every {@code woodcutting} drop-table category independently (§4). */

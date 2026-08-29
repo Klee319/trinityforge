@@ -1426,10 +1426,14 @@
               render();
               return true;
             }),
-            window.statValueControl
-              ? window.statValueControl(k, map[k], (v) => { map[k] = v; })
+            // 値+単位は forms.js と同じ「総幅固定の値セル」へ (単位の有無で × の縦線がずれない)。
+            window.valueCell
+              ? window.valueCell(
+                  window.statValueControl
+                    ? window.statValueControl(k, map[k], (v) => { map[k] = v; })
+                    : window.numberInput(map[k], (v) => { map[k] = v == null ? 0 : v; }),
+                  window.statUnitSlot ? window.statUnitSlot(k) : null)
               : window.numberInput(map[k], (v) => { map[k] = v == null ? 0 : v; }),
-            window.statUnitSlot ? window.statUnitSlot(k) : null,
             h("button", {
               class: "btn-small danger", type: "button", text: "×",
               onclick: () => { delete map[k]; render(); }

@@ -8,20 +8,6 @@
     },
     "entries": [
       {
-        "threshold": 49,
-        "model": {
-          "type": "minecraft:model",
-          "model": "trinityforge:item/source_gem_scythe"
-        }
-      },
-      {
-        "threshold": 53,
-        "model": {
-          "type": "minecraft:model",
-          "model": "trinityforge:item/diamond_scythe"
-        }
-      },
-      {
         "threshold": 76,
         "model": {
           "type": "minecraft:model",

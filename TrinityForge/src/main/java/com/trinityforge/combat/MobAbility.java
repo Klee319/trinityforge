@@ -37,13 +37,19 @@ import java.util.Locale;
  * @param particleCount   パーティクル個数。<b>0 は「出さない」ではなく Bukkit では特殊な意味になる</b>ので
  *                        1 未満は演出そのものをスキップする
  * @param sound           効果音名（{@code Sound} enum、空なら無音）
+ * @param healthBelow     <b>自分の残HP割合がこの値<u>以下</u>のときだけ撃つ</b>（1.0 = 制限なし）。
+ *                        「瀕死になると出す大技」を作るための門。倍率を上げた技をここで縛れば、
+ *                        戦闘の最後だけ緊張が跳ね上がり、盾・回復・退避といった<b>対策の出番</b>ができる
+ * @param healthAbove     自分の残HP割合がこの値<u>以上</u>のときだけ撃つ（0.0 = 制限なし）。
+ *                        {@code healthBelow} と組み合わせると「HP 40〜70% の中盤だけ出る技」も書ける
  */
 public record MobAbility(String id, String displayName, Type type, DamageType damageType,
                          double damagePercent, double cooldownSeconds, double chance,
                          double range, double radius, int count, double spreadDegrees,
                          String projectile, String summonType, double durationSeconds,
                          double knockback, List<EffectSpec> effects,
-                         String particle, int particleCount, String sound) {
+                         String particle, int particleCount, String sound,
+                         double healthBelow, double healthAbove) {
 
     /** 攻撃の型。<b>enum を増やすと {@code MobAbilityExecutor} の switch がコンパイルエラーで教えてくれる。</b> */
     public enum Type {
@@ -131,6 +137,39 @@ public record MobAbility(String id, String displayName, Type type, DamageType da
         particle = particle == null ? "" : particle.trim().toUpperCase(Locale.ROOT);
         particleCount = (int) clamp(particleCount, 0, 500);
         sound = sound == null ? "" : sound.trim().toUpperCase(Locale.ROOT);
+        // 残HP割合の門。未設定(既定)は healthBelow = 1.0 / healthAbove = 0.0 で「制限なし」。
+        // 範囲だけを [0,1] へ丸める。healthBelow < healthAbove の書き間違いは丸めない ——
+        // 黙って直すと「書いたのに出ない」原因が消えるので、そのまま発動しない方が気づける。
+        healthBelow = clamp(healthBelow, 0.0, 1.0);
+        healthAbove = clamp(healthAbove, 0.0, 1.0);
+    }
+
+    /**
+     * 残HPの門を持たない従来書式のコンストラクタ（{@code healthBelow = 1.0} /
+     * {@code healthAbove = 0.0} ＝ 制限なし）。
+     */
+    public MobAbility(String id, String displayName, Type type, DamageType damageType,
+                      double damagePercent, double cooldownSeconds, double chance,
+                      double range, double radius, int count, double spreadDegrees,
+                      String projectile, String summonType, double durationSeconds,
+                      double knockback, List<EffectSpec> effects,
+                      String particle, int particleCount, String sound) {
+        this(id, displayName, type, damageType, damagePercent, cooldownSeconds, chance,
+                range, radius, count, spreadDegrees, projectile, summonType, durationSeconds,
+                knockback, effects, particle, particleCount, sound, 1.0, 0.0);
+    }
+
+    /**
+     * その残HP割合で発動できるか。{@code healthFraction} は 0〜1（{@code getHealth() / 最大HP}）。
+     *
+     * <p>最大HP が 0 以下で割合を計算できない個体（MockBukkit や属性を持たない実体）は
+     * <b>門を課さない</b>。ここで false を返すと、属性を読めない環境で技が丸ごと沈黙する。
+     */
+    public boolean allowedAtHealth(double healthFraction) {
+        if (!Double.isFinite(healthFraction)) {
+            return true;
+        }
+        return healthFraction <= healthBelow && healthFraction >= healthAbove;
     }
 
     private static double clamp(double value, double min, double max) {

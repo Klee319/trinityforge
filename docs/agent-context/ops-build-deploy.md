@@ -573,3 +573,102 @@ JVM 再起動以外に復旧手段なし）なので、軽い判定に置き換�
 - [./config-editor.md](./config-editor.md)
 - [./common-traps.md](./common-traps.md)
 - [./forks-and-mobs.md](./forks-and-mobs.md)
+
+## ⚠️⚠️ バックエンドごとにデータパックが違うと HuskSync がインベントリを丸ごと捨てる（2026-08-21）
+
+**症状**: 「サーバ移動でごくまれに（条件不明）アイテムがロストする」。
+
+**機構**: HuskSync は snapshot の NBT を ItemStack へ戻すときに、その鯖の registry を引く。
+**登録されていないエンチャント／コンポーネントが 1 個でも混ざると ItemStack 変換が例外**になり、
+HuskSync は例外を握って **そのデータ型（＝インベントリなりエンダーチェストなり）を丸ごと skip** する:
+
+```
+[HuskSync] Failed to deserialize %s data for snapshot %s; skipping it.
+           ... The player will load without this data type for this session.
+NbtApiException: Failed to convert NBT to ItemStack.
+           DataResult.Error['Failed to get element nova_structures:spiteful ...
+```
+
+**1 個のアイテムのせいでインベントリ全部が来ない。** しかもその後の save で snapshot が上書きされるので恒久ロスト。
+
+**この構成での実際のズレ**: `Resource_Server/world/datapacks/` にだけ 17 個のデータパック
+（**Dungeons and Taverns v5.1.0** ほか DnT オーバーホール 10 種・Terralith・Incendium・Nullscape・Structory 等）が入っており、
+DnT 本体が `data/nova_structures/enchantment/*.json` で**カスタムエンチャント 34 種**を登録している。
+**Main_Server / Dev_Server の `world/datapacks/` は `bukkit` だけ。**
+→ 資源鯖で拾った DnT エンチャ品を持って Main へ移動した瞬間に発火する。
+
+**確認手順**（推測しない。実物を見る）:
+
+```bash
+V=/d/game/minecraft/PaperServer/Velocity_for_TF
+for s in Main_Server Resource_Server Dev_Server; do ls "$V/$s/world/datapacks/"; done
+grep -a "Failed to deserialize" "$V/Main_Server/logs/latest.log"
+```
+
+**原則: HuskSync で結ぶバックエンドは、registry を足すデータパックを全台で一致させる。**
+worldgen を変えたくない鯖には「registry だけ入った版」を作って配る。
+プラグイン jar のバージョン差より**データパックの差のほうが先に事故る**。
+
+**復旧**: `max_user_data_snapshots: 16` / `snapshot_backup_frequency: 4h` の範囲内なら
+`/userdata list <player>` → `/userdata restore` で戻せる。**ローテーションで消える前に動く。**
+
+## ヴォールトと試練のスポナーは `LootGenerateEvent` を発火しない（2026-08-23、W-187）
+
+ユーザー報告「試練のスポナーにカスタム登録のアイテムが反映されず、一部チェストが空」の真因は2段だった。
+
+1. `loot-tables.yml` の `pools` に **トライアルチャンバーの表が1本も入っていなかった**
+   （2026-08-16 に「無限湧きで経済が壊れる」として意図的に除外していた）。
+2. 仮に足しても当たらない。**ヴォールト（vault）と試練のスポナー（trial spawner）は戦利品を
+   ブロックが直接排出するので `LootGenerateEvent` を発火しない**
+   （[PaperMC #11680](https://github.com/PaperMC/Paper/issues/11680) は「対応しない」でクローズ）。
+
+唯一の入口は Paper 1.21.10 で入った
+[`BlockDispenseLootEvent`](https://jd.papermc.io/paper/1.21.11/org/bukkit/event/block/BlockDispenseLootEvent.html)。
+`getDispensedLoot()` / `setDispensedLoot(List)` / `getLootTable()` / `getPlayer()`（**試練のスポナーの
+報酬排出では null**）/ `Cancellable`。ArsPaper の `LootTableListener#onBlockDispenseLoot` がこれを受ける。
+
+⚠ **試練の間の「普通のチェスト」（`minecraft:chests/trial_chambers/*`）は `LootGenerateEvent` 側**。
+つまり試練の間だけで**入口が2本に割れている**。片方だけ直すと「ヴォールトだけ空」に戻るので、
+共通処理は `LootTableListener#applyPools` に集約してある。
+
+### 構造物のルート表は structures.json に全部は載らない
+
+`tmp/worldgen/loot_tiers.py` は `report/structures.json`（構造物 piece が参照する表）を基に集めるが、
+**ヴォールトと試練のスポナーは piece ではなくブロックが表を持つので載らない**。
+`UNREFERENCED_INCLUDE_TOKENS`（`vault` / `spawners/`）で拾い直している。
+2026-08-23 の実測でこれが 99 本あった（＝それまで丸ごと視界の外だった）。
+
+### 「一部チェストが空」のもう1つの候補
+
+1.21.8 で生成済みのワールドを 1.21.10/1.21.11 へ上げると、**アップグレード前に生成された
+トライアルチャンバーのヴォールトが恒久的に不活性になる**既知の不具合がある
+（[PaperMC #13521](https://github.com/PaperMC/Paper/issues/13521)、未修正）。
+この場合はプラグイン側では直せないので、該当チャンバーを再生成する（WorldEdit の `//regen` 等）か、
+資源ワールドのリセットで作り直すしかない。
+
+## `reset-resource.cmd` はダブルクリックで完結する（2026-08-23 変更）
+
+以前は**引数なしだと必ず dry run で終わっていた**ので、「押したのに何も起きない」と読めた。
+2026-08-23 から「dry run で消える物を全部出す → `RESET` と打ち込ませる → 本実行」の2段になった。
+`--apply` を渡すと確認を飛ばす（自動実行用）。
+
+- 資源ワールドのシードは `server.properties` の `level-seed=` が**空**なので、
+  本実行すれば毎回新しい地形になる（「シードごと変わる」という期待どおり）。
+- ⚠ **editor の「構造物ルート抽選 (loot-tables)」はデータパックではない。**
+  ArsPaper がチェスト生成の瞬間に差し込む実行時設定なので、**ワールドリセットなしでも
+  次に生成されるチェストから効く**。データパックが供給しているのは構造物そのものだけ。
+- ⚠ 配備先（`Velocity_for_TF\launch\`）の `.cmd` はリポジトリのコピーなので、
+  変更を届けるには `ops\launch\deploy-launch.cmd` を実行する必要がある。
+
+### `loot-tables.yml` の生成元はリポジトリの外側に片足を置いている
+
+`fork-handoff/arspaper/fork/src/main/resources/loot-tables.yml` は**生成物**で、
+真源は `tmp/worldgen/loot_tiers.py`（表を豪華さでティアへ分ける）と
+`tmp/worldgen/gen_loot_yml.py`（どのティアに何を出すかの割り当て表）。
+**yml を手で直すと次の再生成で消える。**
+
+⚠ `tmp/` は `.gitignore` 対象なので、この2本だけ `git add -f` で追跡している。
+一方それらが読む `tmp/worldgen/report/*.json`（バニラ＋データパックのルート表ダンプ、約1MB）は
+**追跡されていない＝新しいクローンには存在しない**。別のマシンで再生成するには
+先に `tmp/worldgen/fetch_vanilla.py` などでダンプを作り直す必要がある。
+割り当て表（＝手で決めた設計そのもの）は追跡されているので、そこだけは失われない。

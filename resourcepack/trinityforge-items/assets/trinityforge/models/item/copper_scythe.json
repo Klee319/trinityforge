@@ -1,5 +1,5 @@
 {
-  "parent": "minecraft:item/copper_hoe",
+  "parent": "minecraft:item/copper_sword",
   "textures": {
     "layer0": "trinityforge:item/copper_scythe"
   }

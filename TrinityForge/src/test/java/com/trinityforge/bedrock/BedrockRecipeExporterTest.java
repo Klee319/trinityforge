@@ -68,6 +68,37 @@ class BedrockRecipeExporterTest {
     }
 
     /**
+     * 結果も解決できないエントリは<b>表から落ちるだけ</b>で、他のレシピを道連れにしないこと。
+     *
+     * <p>{@code template} が {@code null} なのは異常ではなく
+     * {@code progression/crafting-features.yml} の {@code added-recipes} の正常形
+     * ({@code fixedResult} を持つ)。<b>結果を持つ正常な added-recipes を通す回帰テストは
+     * {@code CatalogRecipeRegistrarTest} 側</b> ── あちらは {@code fixedResult} に本物の
+     * {@code ItemStack} が要るので MockBukkit の上に置いてある。
+     */
+    @Test
+    void anEntryWithNeitherTemplateNorResultIsSkippedNotFatal() {
+        CatalogRecipeRegistrar.RegisteredRecipe broken = new CatalogRecipeRegistrar.RegisteredRecipe(
+                NamespacedKey.fromString("trinityforge:added_broken"),
+                null,
+                RecipeSpec.shaped(
+                        List.of("ii", "ii"),
+                        Map.of('i', RecipeIngredient.ofCatalog("stone_1x")),
+                        1),
+                null);
+
+        BedrockRecipeTable.Table table = buildCrafting(
+                List.of(broken,
+                        entry("stone_2x", template("stone_2x", Material.STONE, STONE_2X_CMD),
+                                compression("stone_1x"))),
+                resolver(Map.of("stone_1x", BedrockRecipeTable.ItemRef.of(Material.STONE, STONE_1X_CMD))));
+
+        assertEquals(1, table.recipes().size(), "健全な方は残る");
+        assertTrue(table.skipped().contains("trinityforge:added_broken"),
+                "落とした分は skipped に記録する: " + table.skipped());
+    }
+
+    /**
      * <b>本題。</b> 素材の CustomModelData がそのまま表に出ること。
      * ここが null になると受け取り側はバニラ素材の descriptor しか作れず、
      * Geyser の既定変換と同じ＝何も直らない表になる。

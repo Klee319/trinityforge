@@ -177,6 +177,12 @@ function registerCmdRoutes(app, ctx) {
     try {
       const removed = removeAllocationEverywhere(ctx, material, cmd);
       if (removed.length === 0) {
+        // fork の Java が material と CMD をハードコードしているアイテムは、どの yml にも
+        // 実体が無いので上の走査では1件も当たらない。この場合は台帳の行だけを落として
+        // 「リソパの配線を外す」(アイテム自体は fork 側に残る) 意味の登録解除にする。
+        removed.push(...removeExternalAllocation(ctx, material, cmd));
+      }
+      if (removed.length === 0) {
         return res.status(404).json({ error: `${material}#${cmd} を参照するconfigが見つかりませんでした` });
       }
       const syncWarning = syncCmdRegistryAfterSave(ctx);
@@ -311,6 +317,28 @@ function removeAllocationEverywhere(ctx, material, cmd) {
   return removed;
 }
 
+// スキャン対象の config には実体が無い外部由来(fork の Java ハードコード等)の割当を
+// 台帳から落とす。scanUsage に現れない行なので、config を書き換える経路では消せない。
+// 戻り値: 削除された [{file,id}] の配列 (該当なしなら空)。
+function removeExternalAllocation(ctx, material, cmd) {
+  const registryPath = ctx.cmdRegistryPath();
+  const registry = CmdRegistry.loadRegistry(registryPath);
+  const list = Array.isArray(registry.allocations) ? registry.allocations : [];
+  const kept = [];
+  const removed = [];
+  for (const allocation of list) {
+    if (allocation.material === material && allocation.cmd === cmd
+        && CmdRegistry.isExternalSource(allocation.source)) {
+      removed.push({ file: String(allocation.source), id: allocation.id || "(no-id)" });
+      continue;
+    }
+    kept.push(allocation);
+  }
+  if (removed.length === 0) return [];
+  CmdRegistry.saveRegistry(registryPath, { ...registry, allocations: kept });
+  return removed;
+}
+
 // CMD台帳を保存後の全config状態へ同期する (未登録分の自動追記)。
 // config自体の保存は既に成功しているため、台帳が壊れていても保存結果は失敗にしない。
 // 代わりに破損メッセージを返し、呼び出し側 (server.js) が cmdWarnings へ含める (H-2)。
@@ -318,8 +346,11 @@ function syncCmdRegistryAfterSave(ctx) {
   try {
     const usage = CmdRegistry.scanUsage(ctx.readEntryById);
     const registry = CmdRegistry.loadRegistry(ctx.cmdRegistryPath());
-    const nextRegistry = CmdRegistry.reconcileWithUsage(usage, registry);
+    const { registry: nextRegistry, moved } = CmdRegistry.reconcileWithUsageDetailed(usage, registry);
     CmdRegistry.saveRegistry(ctx.cmdRegistryPath(), nextRegistry);
+    // material だけ差し替えられた行は、自動生成モデルの parent が旧 material を指したまま残る。
+    // item定義を再生成する前に、新しい material のバニラリーフへ貼り直す。
+    Respack.rewriteMovedModels(ctx.resourcePackRoot(), moved);
     // 台帳から外れたモデルは item定義からも除去する。PNG等の生アセットは安全のため消さず、
     // 必要なら再利用できる状態で残す（共有テクスチャを誤削除しない）。
     Respack.regenerateItemDefinitions(ctx.resourcePackRoot(), ctx.cmdRegistryPath());

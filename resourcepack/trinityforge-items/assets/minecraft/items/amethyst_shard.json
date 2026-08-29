@@ -22,6 +22,20 @@
         }
       },
       {
+        "threshold": 5447,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/amethyst_shard_1x"
+        }
+      },
+      {
+        "threshold": 5448,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/source_shard_1x"
+        }
+      },
+      {
         "threshold": 5760,
         "model": {
           "model": "minecraft:item/amethyst_shard",

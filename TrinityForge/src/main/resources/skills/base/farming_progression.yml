@@ -17,17 +17,28 @@ experience:
     TWISTING_VINES: 0
     WEEPING_VINES: 0
     WEEPING_VINES_PLANT: 0
+  # 【畑の作物は 2026-08-21(W-180)に現行の 40% へ圧縮した】
+  # 対象は一括収穫(area-harvest)が拾う5種 = WHEAT / POTATOES / CARROTS / BEETROOTS /
+  # NETHER_WART。一覧の実体は FarmingCropCatalog.CROPS で、【そちらが増えたらここも増やす】。
+  # 圧縮した理由: 一括収穫は連鎖した1ブロックごとにこの値を丸ごと配る。半径4の tier では
+  # 1回の収穫で最大81ブロックぶん入るので、単価をそのままにすると他の採取スキルと桁が変わる。
+  # 48 → 19.2 のように小数で構わない(値は Number として読むので整数に丸められない)。
+  #
+  # ⚠️ この表の【ブロック名の行】だけが実際のEXP量になる。stats/skill-exp.yml の
+  # gathering.exp-mode が block_value のため、下にある POTATO / CARROT / BEETROOT などの
+  # 【ドロップ品の行は1度も読まれない】(drop_sum / max へ戻したときだけ効く)。
+  # そちらを触っても実サーバのEXPは1も動かないので、調整はブロック名の行で行うこと。
   block_drops:
     TORCHFLOWER_CROP: 500
     PITCHER_CROP: 500
-    WHEAT: 48
-    POTATOES: 40
-    CARROTS: 40
-    BEETROOTS: 48
+    WHEAT: 19.2
+    POTATOES: 19.2
+    CARROTS: 19.2
+    BEETROOTS: 19.2
     COCOA: 80
     MELON: 80
     PUMPKIN: 80
-    NETHER_WART: 10
+    NETHER_WART: 19.2
     BROWN_MUSHROOM: 80
     RED_MUSHROOM: 80
     SUGAR_CANE: 24
@@ -111,31 +122,37 @@ experience:
     PIG: 100
     BEE: 100
     CHICKEN: 80
+  # 【家畜討伐のEXPは 2026-08-21(W-180)に現行の 80% へ圧縮した】
+  # ここは「倒した家畜が落とした品」1個あたりのEXPで、【個数ぶん掛かる】
+  # (NativeSkillExperienceListener#onFarmingMobDeath → dropActionExp)。
+  # 上の entity_breed は【繁殖のEXP】かつ討伐EXPのゲート(載っていない種は討伐EXP0)なので、
+  # 討伐だけを弱めたいときにあちらを触ってはいけない —— 繁殖まで巻き添えになり、
+  # 値を0にすると【その種の討伐EXPが丸ごと消える】。
   entity_drops:
-    BEEF: 40
-    PORKCHOP: 60
-    CHICKEN: 40
-    RABBIT: 100
-    MUTTON: 40
-    LEATHER: 40
-    FEATHER: 40
-    WHITE_WOOL: 40
-    BLACK_WOOL: 40
-    BLUE_WOOL: 40
-    BROWN_WOOL: 40
-    CYAN_WOOL: 40
-    GRAY_WOOL: 40
-    GREEN_WOOL: 40
-    LIGHT_BLUE_WOOL: 40
-    LIGHT_GRAY_WOOL: 40
-    LIME_WOOL: 40
-    MAGENTA_WOOL: 40
-    ORANGE_WOOL: 40
-    PINK_WOOL: 40
-    PURPLE_WOOL: 40
-    RED_WOOL: 40
-    YELLOW_WOOL: 40
-    RABBIT_HIDE: 20
+    BEEF: 32
+    PORKCHOP: 48
+    CHICKEN: 32
+    RABBIT: 80
+    MUTTON: 32
+    LEATHER: 32
+    FEATHER: 32
+    WHITE_WOOL: 32
+    BLACK_WOOL: 32
+    BLUE_WOOL: 32
+    BROWN_WOOL: 32
+    CYAN_WOOL: 32
+    GRAY_WOOL: 32
+    GREEN_WOOL: 32
+    LIGHT_BLUE_WOOL: 32
+    LIGHT_GRAY_WOOL: 32
+    LIME_WOOL: 32
+    MAGENTA_WOOL: 32
+    ORANGE_WOOL: 32
+    PINK_WOOL: 32
+    PURPLE_WOOL: 32
+    RED_WOOL: 32
+    YELLOW_WOOL: 32
+    RABBIT_HIDE: 16
   entity_shear:
     SHEEP: 150
     MUSHROOM_COW: 1000

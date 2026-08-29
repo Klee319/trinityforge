@@ -559,40 +559,16 @@
           return json && json.data && typeof json.data === "object" ? json.data : {};
         } catch (_) { return {}; }
       }
-      const [catalog, materials, items, threads, externalItems] = await Promise.all([
-        grab("catalog"), grab("materials"), grab("items"), grab("threads"), grab("external-items")
+      // items.yml は読まない ── レシピ定義だけのファイルでカスタムアイテムを1件も登録しない。
+      // items: のキーを custom:<id> として流していたため、実在しない
+      // `custom:エンチャントされた金リンゴ` `custom:trident` が選択肢に並んでいた
+      // (2026-08-21 ユーザー報告)。理由の詳細は recipe-custom-candidates.js の冒頭。
+      const [catalog, materials, threads, externalItems] = await Promise.all([
+        grab("catalog"), grab("materials"), grab("threads"), grab("external-items")
       ]);
-      const entries = [];
-      for (const [k, ent] of Object.entries((catalog.items) || {})) {
-        const rawName = ent && ent["display-name"];
-        const label = rawName
-          ? (typeof window.stripDisplayNamePlain === "function"
-            ? window.stripDisplayNamePlain(rawName) : String(rawName))
-          : k;
-        entries.push({ id: k, label });
-      }
-      for (const [k, ent] of Object.entries(materials.materials || {})) {
-        const rawName = ent && ent.display_name;
-        const label = rawName
-          ? (typeof window.stripDisplayNamePlain === "function"
-            ? window.stripDisplayNamePlain(rawName) : String(rawName))
-          : k;
-        entries.push({ id: k, label });
-      }
-      for (const k of Object.keys(items.items || {})) entries.push({ id: k, label: k });
-      entries.push({ id: "thread_empty", label: "空のスレッド" });
-      for (const [k, ent] of Object.entries(threads.threads || {})) {
-        const rawName = ent && ent.display_name;
-        const label = rawName
-          ? (typeof window.stripDisplayNamePlain === "function"
-            ? window.stripDisplayNamePlain(rawName) : String(rawName))
-          : k;
-        entries.push({ id: "thread_" + k, label });
-      }
-      for (const [k, ent] of Object.entries(externalItems.items || {})) {
-        const label = ent && ent["display-name"] ? String(ent["display-name"]) : `外部: ${k}`;
-        entries.push({ id: k, label });
-      }
+      const entries = typeof window.buildRecipeCustomCandidates === "function"
+        ? window.buildRecipeCustomCandidates({ catalog, materials, threads, externalItems })
+        : [];
       if (typeof window.setCustomItemCandidates === "function") {
         window.setCustomItemCandidates(entries, { replace: false });
       } else {

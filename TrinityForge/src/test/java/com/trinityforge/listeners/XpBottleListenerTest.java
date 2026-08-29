@@ -298,6 +298,63 @@ class XpBottleListenerTest {
                 "充填時の tier が瓶に残らないと、取り出し時に持ち主の tier で率が揺れる");
     }
 
+    // ---- 同じクリックで飛んでくる2発目 (2026-08-24) --------------------------------------------
+
+    @Test
+    @DisplayName("スタック1で格納した直後の2発目で取り出しへ反転しない")
+    void secondEventOfTheSameClickDoesNotUndoTheStore() {
+        // 実バグ: ブロックに向けた右クリックはクライアントが UseItemOn と UseItem を続けて送る。
+        // CraftBukkit は「同じ位置・同じ手・同じアイテムなら 2発目の RIGHT_CLICK_AIR を発火しない」
+        // という抑止を持つが、スタック1のときだけ手の中身が別アイテムへ差し替わるので抑止が外れ、
+        // 2発目が「充填済みの瓶を右クリックした」として取り出しに走っていた。
+        when(gimmickConfig.xpBottleStoreAmount(1)).thenReturn(100);
+        when(gimmickConfig.xpBottleReturnRate(1)).thenReturn(1.0);
+        player.giveExp(500);
+        Block stone = mock(Block.class);
+        when(stone.getType()).thenReturn(Material.STONE);
+
+        listener.onInteract(interactEvent(new ItemStack(Material.GLASS_BOTTLE), stone));
+        PlayerInteractEvent second = sameClickFollowUpEvent();
+        listener.onInteract(second);
+
+        assertEquals(400, totalPlayerExp(), "2発目で取り出しに反転すると500へ戻ってしまう");
+        ItemStack inHand = player.getInventory().getItemInMainHand();
+        assertEquals(Material.EXPERIENCE_BOTTLE, inHand.getType(), "手には充填済みの瓶が残ること");
+        assertEquals(100, storedAmountOf(inHand));
+        verify(second, times(1)).setCancelled(true);
+    }
+
+    @Test
+    @DisplayName("スタック1で取り出した直後の2発目で格納へ反転しない")
+    void secondEventOfTheSameClickDoesNotRefillTheBottle() {
+        when(gimmickConfig.xpBottleReturnRate(1)).thenReturn(1.0);
+        when(gimmickConfig.xpBottleStoreAmount(1)).thenReturn(100);
+        Block stone = mock(Block.class);
+        when(stone.getType()).thenReturn(Material.STONE);
+
+        listener.onInteract(interactEvent(filledBottle(100), stone));
+        listener.onInteract(sameClickFollowUpEvent());
+
+        assertEquals(100, totalPlayerExp(), "2発目で格納に反転すると取り出した分がまた吸われる");
+        assertEquals(Material.GLASS_BOTTLE, player.getInventory().getItemInMainHand().getType());
+    }
+
+    @Test
+    @DisplayName("tickが進んだ次のクリックは通常どおり処理する(ガードが居座らない)")
+    void aLaterClickIsStillHandled() {
+        when(gimmickConfig.xpBottleStoreAmount(1)).thenReturn(100);
+        when(gimmickConfig.xpBottleReturnRate(1)).thenReturn(1.0);
+        player.giveExp(500);
+        listener.onInteract(interactEvent(new ItemStack(Material.GLASS_BOTTLE), null));
+        assertEquals(400, totalPlayerExp());
+
+        server.getScheduler().performTicks(1L);
+        listener.onInteract(sameClickFollowUpEvent());
+
+        assertEquals(500, totalPlayerExp(), "次tickの右クリックでは取り出せること");
+        assertEquals(Material.GLASS_BOTTLE, player.getInventory().getItemInMainHand().getType());
+    }
+
     // ---- fixtures -----------------------------------------------------------------------------
 
     private ItemStack filledBottle(int storedAmount) {
@@ -334,6 +391,19 @@ class XpBottleListenerTest {
         when(event.getAction()).thenReturn(
                 clicked == null ? Action.RIGHT_CLICK_AIR : Action.RIGHT_CLICK_BLOCK);
         when(event.getClickedBlock()).thenReturn(clicked);
+        return event;
+    }
+
+    /**
+     * 同じクリックの2発目({@code RIGHT_CLICK_AIR})。{@link #interactEvent} と違い
+     * <b>手の中身を書き換えない</b> —— 1発目で入れ替わった手をそのまま次のイベントへ渡すのが要点。
+     */
+    private PlayerInteractEvent sameClickFollowUpEvent() {
+        PlayerInteractEvent event = mock(PlayerInteractEvent.class);
+        when(event.getPlayer()).thenReturn(player);
+        when(event.getHand()).thenReturn(EquipmentSlot.HAND);
+        when(event.getAction()).thenReturn(Action.RIGHT_CLICK_AIR);
+        when(event.getClickedBlock()).thenReturn(null);
         return event;
     }
 

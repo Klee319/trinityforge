@@ -47,6 +47,7 @@ import com.trinityforge.listeners.CollectionListener;
 import com.trinityforge.listeners.AnimalDamageListener;
 import com.trinityforge.listeners.BeekeepingListener;
 import com.trinityforge.listeners.CombatListener;
+import com.trinityforge.listeners.CompressedSmeltGuardListener;
 import com.trinityforge.listeners.CraftQualityListener;
 import com.trinityforge.listeners.ItemDamageClampListener;
 import com.trinityforge.listeners.CatalogAnvilListener;
@@ -181,6 +182,8 @@ public final class TrinityForge extends JavaPlugin {
     private ProgressionRepository progressionRepository;
     private NativeSkillCatalog progressionCatalog;
     private NativePerkService nativePerkService;
+    /** 消えたノードのperkを剥がしてSPを返す掃除役 (2026-08-24 / W-213)。 */
+    private com.trinityforge.skilltree.runtime.SkillTreePerkPruner skillTreePerkPruner;
     private NativeSkillTreeMenu nativeSkillTreeMenu;
     private CraftQualityService craftQualityService;
     private SkillPerkStatSource skillPerkStatSource;
@@ -204,7 +207,6 @@ public final class TrinityForge extends JavaPlugin {
      */
     private Runnable damageIndicatorUninstaller;
     /** 称号のクライアント騎乗(任意依存 packetevents)の登録解除。未導入なら null のまま。 */
-    private Runnable titleMountUninstaller;
     private ItemFactory itemFactory;
     /** {@link #loreComposer()} の実体。{@code inertStatKeys} 配線済みの1本を共有する。 */
     private LoreComposer loreComposer;
@@ -457,6 +459,13 @@ public final class TrinityForge extends JavaPlugin {
             this.dailyExpAutosaveTask = getServer().getScheduler().runTaskTimerAsynchronously(
                     this, () -> dailyExpPersistence.saveAll(), autosaveTicks, autosaveTicks);
         }
+        // EXP解呪の良薬(2026-08-24): 日次逓減を飲んだ瞬間だけ全スキル一括で引き戻す使い切り。
+        // dailyExpPersistence が null(DBを開けなかった環境)でもメモリ側だけで動く。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.items.ExpCleanseTonicListener(
+                        this, dailyExpDiminishing,
+                        () -> configManager.skillExp().dailyDiminishing(),
+                        dailyExpPersistence), this);
         this.nativePerkService = new NativePerkService(progressionService,
                 () -> configManager.skillTrees().all().values());
         // スキルノードロック(2026-07-27): プレステージ時に維持する perk をプレイヤーPDCから供給する。
@@ -468,6 +477,19 @@ public final class TrinityForge extends JavaPlugin {
                     ? java.util.Set.of()
                     : java.util.Set.copyOf(com.trinityforge.pdc.PlayerData.of(online).lockedPerks());
         });
+        // 消えたノードのperkを剥がしてSPを返す掃除役 (2026-08-24 / W-213)。
+        // 起動時と /trinityforge reload の直後に走らせる。スキルツリーの読み込みに
+        // 1件でも問題があった回は自分で見送るので、呼ぶ側で条件を持たない。
+        this.skillTreePerkPruner = new com.trinityforge.skilltree.runtime.SkillTreePerkPruner(
+                progressionService,
+                () -> configManager.skillTrees().all().values(),
+                () -> configManager.skillTrees().lastLoadOk());
+        try {
+            skillTreePerkPruner.pruneAll();
+        } catch (RuntimeException ex) {
+            getLogger().log(java.util.logging.Level.WARNING,
+                    "[progression] 起動時の孤児perk掃除に失敗しました(SPの返却は次回リロードへ持ち越し)", ex);
+        }
         // Public ItemStack -> AttackStats derivation, reusing the same item-category config +
         // stats/item-stats.yml (the SOLE per-item stat source) + attack-stat-keys mapping the
         // CombatListener runs for a melee weapon. Exposed via weaponAttackStats() so the ArsPaper fork can
@@ -667,6 +689,9 @@ public final class TrinityForge extends JavaPlugin {
         // 2026-08-19 W-148: 魔法の討伐EXPにも武器・弓術と同じ足きりを掛ける。ここを外すと
         // 「同じモブを倒しても魔法だけ満額で入る」非対称が戻る(実サーバ報告の症状そのもの)。
         arsMagicExperienceListener.setKillRewardAdjuster(killRewardAdjuster);
+        // 2026-08-22: 防具の被弾EXPにも同じ足きりを掛ける(比較相手は「殴ってきた敵のレベル」)。
+        // ここを外すと、格上モブに殴られるだけで防具EXPだけが満額入る非対称が戻る。
+        nativeSkillExperienceListener.setKillRewardAdjuster(killRewardAdjuster);
         getServer().getPluginManager().registerEvents(combatListener, this);
 
         // Aggro/threat tracking (gap C5). The service owns a bounded, self-evicting HateTable and
@@ -695,7 +720,8 @@ public final class TrinityForge extends JavaPlugin {
                 tableGeneration,
                 configManager.itemCatalog(),
                 configManager.skillTrees(),
-                configManager.craftingFeatures());
+                configManager.craftingFeatures(),
+                configManager.specialRewards());
         this.itemFactory = new ItemFactory(itemAssembler, configManager.itemStats(),
                 configManager.craftingFeatures(), configManager.equipmentAssets());
         // Single id->ItemStack resolution seam (TF catalog -> ArsPaper registry -> vanilla Material) used
@@ -733,7 +759,8 @@ public final class TrinityForge extends JavaPlugin {
         // Bukkit recipes each catalog entry declares. Re-run on every /trinityforge reload (below)
         // AND from ArsPaper's enable hook (refreshCatalogRecipes) so Ars-built results converge.
         this.catalogRecipeRegistrar = new CatalogRecipeRegistrar(this, configManager.itemCatalog(), itemFactory,
-                () -> configManager.craftingFeatures().addedRecipes());
+                () -> configManager.craftingFeatures().addedRecipes(),
+                () -> configManager.craftingFeatures().compressedSmelting());
         catalogRecipeRegistrar.registerAll();
         exportBedrockRecipeTable();
         // W-44: ArsPaper 定義の custom: 素材(例 material-lists.yml の dungeon_seals 28件)は TF が
@@ -856,13 +883,17 @@ public final class TrinityForge extends JavaPlugin {
                 configManager.specialRewards(), configManager.dedicatedEffects());
         this.titleDisplayService = new com.trinityforge.progression.TitleDisplayService(this,
                 player -> specialRewardService.equippedTitleDisplay(player).orElse(null),
-                () -> configManager.specialRewards().titleNametagClearance());
+                () -> configManager.specialRewards().titleNametagClearance(),
+                () -> configManager.specialRewards().titleTeleportDurationTicks());
         getServer().getPluginManager().registerEvents(titleDisplayService, this);
         this.particleEffectService = new com.trinityforge.progression.ParticleEffectService(
                 this, configManager.specialRewards());
         getServer().getPluginManager().registerEvents(particleEffectService, this);
         com.trinityforge.progression.SettingsGui settingsGui = new com.trinityforge.progression.SettingsGui(
-                this, configManager.specialRewards(), specialRewardService);
+                this, configManager.specialRewards(), specialRewardService,
+                // シード一覧のアイコン用。custom:<カタログID> のシードは実体を作らないと
+                // material と custom-model-data(テクスチャ)を再現できない。
+                crossPluginItemResolver::create);
         settingsGui.setOnTitleChanged(titleDisplayService::refresh);
         settingsGui.setOnParticleChanged(particleEffectService::invalidate);
         getServer().getPluginManager().registerEvents(settingsGui, this);
@@ -890,11 +921,19 @@ public final class TrinityForge extends JavaPlugin {
                         this, configManager.itemCatalog(), itemFactory);
         getServer().getPluginManager().registerEvents(catalogGui, this);
         this.catalogCommand = new com.trinityforge.command.CatalogCommand(catalogGui);
+        // パーティクルシード報酬の実体配布(2026-08-21)。着手前は special: [seed_*] を付与しても
+        // そのIDを読む処理が1つも無く、アイテムも案内も出ないため「解放しても何も起きない」状態だった。
+        com.trinityforge.progression.ParticleSeedDelivery particleSeedDelivery =
+                new com.trinityforge.progression.ParticleSeedDelivery(
+                        configManager.specialRewards(), crossPluginItemResolver, getLogger());
+        collectionService.setParticleSeedDelivery(particleSeedDelivery);
         // 特殊報酬の運営付与/剥奪 (2026-07-27)。アチーブ/図鑑ティアと同じ「直接付与」枠を触る。
         this.specialRewardCommand = new com.trinityforge.command.SpecialRewardCommand(
-                configManager.specialRewards(), specialRewardService, perkAttributeApplier);
+                configManager.specialRewards(), specialRewardService, perkAttributeApplier,
+                particleSeedDelivery);
         getServer().getPluginManager().registerEvents(
-                new com.trinityforge.listeners.ParticleSeedListener(configManager.specialRewards()), this);
+                new com.trinityforge.listeners.ParticleSeedListener(
+                        configManager.specialRewards(), specialRewardService), this);
         // special-rewards.yml から削除された報酬IDをプレイヤーPDCの保持分からも掃除する(2026-07-28)。
         // オフラインPDCは触れないため参加時が唯一の掃除機会 + /trinityforge reload 後のオンライン全員一括。
         this.specialRewardPruneListener = new com.trinityforge.listeners.SpecialRewardPruneListener(
@@ -909,6 +948,7 @@ public final class TrinityForge extends JavaPlugin {
         // AchievementService の構築時点では両方とも既に組み上がっているが、循環を避けるため
         // コンストラクタ引数ではなく setter で渡す。
         achievementService.setLevelSources(skillLevelSource, combatService::combatLevelOf);
+        achievementService.setParticleSeedDelivery(particleSeedDelivery);
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.AchievementListener(achievementService), this);
         // 2026-08-16: type: gear-use(その武器でダメージを与えた / その防具を着て被弾した)の記録側。
@@ -942,7 +982,8 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new CatalogVanillaOperationGuardListener(
                         configManager.itemCatalog(), configManager.craftingFeatures(),
-                        configManager.dedicatedEffects()), this);
+                        configManager.dedicatedEffects(),
+                        configManager.specialRewards(), specialRewardService), this);
         // 鍛冶村人取引: perk-gated custom trades (economy/villager-trades.yml).
         getServer().getPluginManager().registerEvents(
                 new VillagerTradeListener(configManager.dedicatedEffects(), configManager.villagerTrades(),
@@ -976,6 +1017,10 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new ScrapConversionListener(configManager.craftingFeatures(),
                         configManager.itemCatalog(), itemFactory), this);
+        // 圧縮素材の精錬(2026-08-23)。本命は CatalogRecipeRegistrar が登録するかまど/燻製器/焚き火の
+        // レシピで、このリスナーは「そちらが選ばれなかったときに 9 個分が 1 個へ消えるのを防ぐ」保険。
+        getServer().getPluginManager().registerEvents(
+                new CompressedSmeltGuardListener(configManager.craftingFeatures()), this);
         getServer().getPluginManager().registerEvents(
                 new PotionMergeListener(configManager.dedicatedEffects(), configManager.craftingFeatures()), this);
         // ゲート判定は「実際に登録された customMix」だけを見る (2026-07-31 D10 レビュー指摘#1/#3)。
@@ -1013,9 +1058,15 @@ public final class TrinityForge extends JavaPlugin {
                 aggregator, configManager.itemStats());
         PlayerLootLuckSource lootLuck = new PlayerLootLuckSource(getLogger(), aggregator);
         this.lootLuckSource = lootLuck;
-        // mobドロップ品質のmode+1は幸運ではなく専用stat(mob_drop_quality、装備+perk合算)が担う
-        // (幸運spec=「ドロップとクラフト以外」)。EliteMobsフォークからは mobDropBonus() で読む。
-        PlayerMobDropBonusSource mobDropBonus = new PlayerMobDropBonusSource(getLogger(), aggregator);
+        // mobドロップ品質のmode+1は専用stat(mob_drop_quality、装備+perk合算)が主役。
+        // 2026-08-25 (W-253): これに加えてバニラ幸運(ポーション)も合算する。旧仕様は
+        // 「幸運spec=ドロップとクラフト以外」でモブドロップを意図的に外していたが、
+        // ユーザー確定要件「幸運のポーションのエフェクトはドロップ品質に乗るように」で撤回した。
+        // 換算レートは作業台/儀式/醸造と同じ stats/quality.yml の luck-potion-quality-per-level。
+        // ⚠ 供給はラムダで渡す(値ではなく)。ここで getDouble を1回読んで固定すると
+        //   /trinityforge reload でつまみを変えても反映されない。
+        PlayerMobDropBonusSource mobDropBonus = new PlayerMobDropBonusSource(
+                getLogger(), aggregator, () -> configManager.quality().luckPotionQualityPerLevel());
         this.mobDropBonusSource = mobDropBonus;
         getServer().getPluginManager().registerEvents(
                 new CraftQualityListener(this, itemFactory, craftQualityService, configManager.craftQuality(),
@@ -1327,9 +1378,9 @@ public final class TrinityForge extends JavaPlugin {
         damagePopupDisplay.start();
 
         installDamageIndicatorLimiter();
-        installTitleDisplayMountBridge();
 
-        // 称号頭上表示(パッセンジャーTextDisplay) + パーティクル演出の周期タスク開始。
+        // 称号頭上表示(毎tickテレポート追従のTextDisplay) + パーティクル演出の周期タスク開始。
+        // ⚠️ 2026-08-21: プレイヤーへ騎乗させてはいけない(名前が消える)。理由は TitleDisplayService の javadoc。
         titleDisplayService.start();
         particleEffectService.start();
         // アチーブメント統計ポーリング(1分毎、§6.2): JUMP/WALK_ONE_CM/PLAY_ONE_MINUTE等バニラStatistic。
@@ -1357,7 +1408,8 @@ public final class TrinityForge extends JavaPlugin {
         // combat/mob-overrides.yml の abilities: に従って撃つ。プレイヤー周囲だけを走査する。
         this.mobAbilityTask = new com.trinityforge.combat.MobAbilityTask(this,
                 configManager.mobAbilities(), configManager.mobOverrides(),
-                new com.trinityforge.combat.MobAbilityExecutor(this, combatService),
+                new com.trinityforge.combat.MobAbilityExecutor(this, combatService,
+                        () -> configManager.mobAbilities().elementBias()),
                 new com.trinityforge.combat.MobAbilityCooldowns(),
                 new java.util.Random());
         mobAbilityTask.start();
@@ -1392,34 +1444,6 @@ public final class TrinityForge extends JavaPlugin {
                     com.trinityforge.combat.DamageIndicatorParticleLimiter.install(this, configManager.display());
         } catch (Throwable ex) { // NoClassDefFoundError も含めて握る — 表示だけの機能で起動を止めない
             getLogger().warning("[display] damage_indicator パーティクル上限を有効化できませんでした: " + ex);
-        }
-    }
-
-    /**
-     * 称号の表示体をクライアント側でだけプレイヤーへ騎乗させる(任意依存、2026-08-19 / W-153)。
-     *
-     * <p>実サーバ報告「称号の位置がネームタグと同期していない。少し遅れてついてくる」への対処。
-     * サーバ側で本当に騎乗させると<b>そのプレイヤーのテレポートが無言で失敗する</b>
-     * (PaperMC/Paper#10168)ので、パケットだけで騎乗させる。
-     * packetevents が無ければ {@link com.trinityforge.progression.TitleDisplayMountBridge} を
-     * <b>参照してはならない</b>(クラスロードが {@link NoClassDefFoundError} になる)。
-     * 未導入時は従来のテレポート追従のまま動く(ズレは残るが表示は出る)。
-     */
-    private void installTitleDisplayMountBridge() {
-        if (titleDisplayService == null) {
-            return;
-        }
-        if (getServer().getPluginManager()
-                .getPlugin(com.trinityforge.progression.TitleDisplayMountBridge.PACKETEVENTS_PLUGIN) == null) {
-            getLogger().info("[title-display] packetevents が未導入のため、称号はテレポート追従で表示します"
-                    + "(ネームタグとの追従に僅かなズレが残ります)。");
-            return;
-        }
-        try {
-            this.titleMountUninstaller =
-                    com.trinityforge.progression.TitleDisplayMountBridge.install(this, titleDisplayService);
-        } catch (Throwable ex) { // NoClassDefFoundError も含めて握る — 表示だけの機能で起動を止めない
-            getLogger().warning("[title-display] 称号のクライアント騎乗を有効化できませんでした: " + ex);
         }
     }
 
@@ -1462,14 +1486,6 @@ public final class TrinityForge extends JavaPlugin {
                 getLogger().warning("[display] damage_indicator パーティクル上限の登録解除に失敗しました: " + ex);
             }
             damageIndicatorUninstaller = null;
-        }
-        if (titleMountUninstaller != null) {
-            try {
-                titleMountUninstaller.run();
-            } catch (Throwable ex) {
-                getLogger().warning("[title-display] 称号のクライアント騎乗の登録解除に失敗しました: " + ex);
-            }
-            titleMountUninstaller = null;
         }
         // DamagePopupDisplay has no shutdown(): its displays are one-shot and so short-lived (default
         // 15 ticks = 0.75s) that forced cleanup on disable is unnecessary — each already schedules its
@@ -1561,6 +1577,16 @@ public final class TrinityForge extends JavaPlugin {
         if (gatheringEfficiencyApplier != null) {
             gatheringEfficiencyApplier.applyAllOnline();
         }
+        // ArsPaper のスレッド/マナ系ステ(ArmorManaListener)はプッシュ型で、reload 自体は
+        // その6経路(装備変更/インベントリクリック/持ち替え/参加/GUIを閉じる等)のどれも踏まない。
+        // reload 直後に /tf status を開いても古い値が残らないよう、オンライン全員を同期的に
+        // 再計算しておく(2026-08-25、ArsPaper未導入時はfail-softで無害)。
+        // getServer() == null(テストダブル等、実サーバ未起動)は素通し(何もしない)。
+        if (getServer() != null) {
+            for (Player online : getServer().getOnlinePlayers()) {
+                com.trinityforge.integration.ars.ArsArmorStatRefreshBridge.refresh(online);
+            }
+        }
     }
 
     private void registerCommands() {
@@ -1583,6 +1609,30 @@ public final class TrinityForge extends JavaPlugin {
                                     .requires(TrinityForge::isTfAdmin)
                                     .executes(ctx -> {
                                         int issues = configManager.loadAll();
+                                        // スキルツリーを編集してノードが消えたときの後始末 (2026-08-24 / W-213)。
+                                        // 曲線の再計算より【先】に走らせる: 先に spent を減らしておけば、
+                                        // 直後の ProgressionCurveReconciler が available = earned - spent を
+                                        // 書き戻す際に返却分がそのまま残高へ乗る。逆順だと
+                                        // 「spent > earned で available を 0 に切り詰め」の警告経路と噛み合わず、
+                                        // 次のリロードまで残高が食い違ったままになる。
+                                        if (skillTreePerkPruner != null) {
+                                            try {
+                                                var pruned = skillTreePerkPruner.pruneAll();
+                                                if (!pruned.isEmpty()) {
+                                                    ctx.getSource().getSender().sendMessage(Component.text(
+                                                            "スキルツリーから消えたノードの解放 " + pruned.perks()
+                                                                    + " 件を取り消し、スキルポイント "
+                                                                    + pruned.refundedPoints() + " 点を "
+                                                                    + pruned.players() + " 人へ返却しました。",
+                                                            NamedTextColor.AQUA));
+                                                }
+                                            } catch (RuntimeException ex) {
+                                                issues++;
+                                                getLogger().log(java.util.logging.Level.WARNING,
+                                                        "[progression] 孤児perkの掃除に失敗しました(SPの返却は次回へ持ち越し)",
+                                                        ex);
+                                            }
+                                        }
                                         if (progressionCatalog != null
                                                 && !progressionCatalog.reload(getDataFolder(), getClassLoader())) {
                                             issues++;

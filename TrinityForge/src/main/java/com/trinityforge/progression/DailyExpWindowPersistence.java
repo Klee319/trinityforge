@@ -47,6 +47,15 @@ public final class DailyExpWindowPersistence {
             return;
         }
         DailyExpDiminishing.Settings current = currentSettings();
+        // 期限切れ(W-154)の行を先に物理削除する。restore は読み飛ばすだけで消さないので、
+        // 残したままだと次の save が max() と「早い方の発動時刻」で古い蓄積を蘇らせ、
+        // 以後そのスキルは入り直すたびに等倍へ戻り続ける(2026-08-22 実サーバ報告の真因)。
+        // 削除に失敗しても復元自体は続ける ── 片方の障害でもう片方まで落とさない。
+        try {
+            store.purgeReleased(playerId, current.lockReleaseMillis());
+        } catch (SQLException | RuntimeException ex) {
+            warn.accept("[daily-exp] 期限切れの逓減を掃除できませんでした: " + playerId + " / " + ex);
+        }
         try {
             List<DailyExpDiminishing.WindowSnapshot> rows = store.load(playerId);
             if (!rows.isEmpty()) {
@@ -66,8 +75,11 @@ public final class DailyExpWindowPersistence {
         if (rows.isEmpty()) {
             return;
         }
+        DailyExpDiminishing.Settings current = currentSettings();
         try {
-            store.save(playerId, rows, currentSettings().windowMillis());
+            // 解除時間も渡す。渡さないと期限切れの行が「大きい方」として生き残り、
+            // 新しい発動時刻がそこへ引き戻されて逓減が二度と掛からなくなる。
+            store.save(playerId, rows, current.windowMillis(), current.lockReleaseMillis());
         } catch (SQLException | RuntimeException ex) {
             warn.accept("[daily-exp] 逓減の蓄積を保存できませんでした: " + playerId + " / " + ex);
         }
@@ -80,6 +92,32 @@ public final class DailyExpWindowPersistence {
     public void saveAndForget(UUID playerId) {
         save(playerId);
         diminishing.forget(playerId);
+    }
+
+    /**
+     * 保存済みの蓄積を「倍率が {@code targetMultiplier} 以上へ戻る水準」まで切り下げる
+     * （2026-08-24 / EXP解呪の良薬）。<b>SQLite を触るので非同期スレッドから呼ぶこと。</b>
+     *
+     * <p>メモリ側（{@link DailyExpDiminishing#relieve}）と<b>必ず対で</b>呼ぶ。
+     * メモリだけ削っても {@code DailyExpWindowStore#save} が「大きい方」を残すので、
+     * 次の保存で保存済みの大きな値が勝ち、再ログインやサーバ移動で効果が消える。
+     * 順序は<b>メモリが先、DBが後</b> —— 逆にすると、間に定期保存が挟まったときに
+     * 削る前のメモリ値が DB へ書き戻される。
+     *
+     * @return 実際に切り下げた行数（失敗時も 0 を返し、ログにだけ残す）
+     */
+    public int capStored(UUID playerId, double targetMultiplier) {
+        if (playerId == null) {
+            return 0;
+        }
+        DailyExpDiminishing.Settings current = currentSettings();
+        double cap = DailyExpDiminishing.maxAmountFor(current, targetMultiplier);
+        try {
+            return store.capAmounts(playerId, cap, current.windowMillis());
+        } catch (SQLException | RuntimeException ex) {
+            warn.accept("[daily-exp] 逓減の切り下げを保存できませんでした: " + playerId + " / " + ex);
+            return 0;
+        }
     }
 
     /** 追跡中の全プレイヤーを書き出す（{@code onDisable} の最終フラッシュ）。 */

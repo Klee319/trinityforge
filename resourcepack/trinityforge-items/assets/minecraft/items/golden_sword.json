@@ -36,10 +36,17 @@
         }
       },
       {
+        "threshold": 54,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/golad_scythe"
+        }
+      },
+      {
         "threshold": 66,
         "model": {
-          "model": "minecraft:item/golden_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/golden_grate_sword"
         }
       },
       {

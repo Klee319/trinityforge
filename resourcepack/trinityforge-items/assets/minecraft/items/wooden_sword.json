@@ -43,10 +43,17 @@
         }
       },
       {
+        "threshold": 58,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/wooden_scythe"
+        }
+      },
+      {
         "threshold": 62,
         "model": {
-          "model": "minecraft:item/wooden_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/wooden_grate_sword"
         }
       },
       {

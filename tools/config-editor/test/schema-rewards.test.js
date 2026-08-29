@@ -30,6 +30,87 @@ test("tf-special-rewards: shape不正・型不正はエラー", () => {
   assert.ok(errors.some((e) => /particles\.bad\.shape/.test(e)));
 });
 
+// 形状と発生パラメータ (2026-08-25 / W-242・W-243・W-244)
+// ★ ここが緩いと「editor では保存できるのに、起動時に warning でそのエントリごと捨てられる」になる。
+//   Java 側 SpecialRewardsConfig.Shape / Emission の範囲と一字一句そろえること。
+test("tf-special-rewards: 形状すべてが particles / particle-seeds の両方で通る", () => {
+  const shapes = ["aura", "circle", "sphere", "burst", "helix", "pillar", "arc", "trail", "point"];
+  for (const shape of shapes) {
+    const particleErrors = validate("tf-special-rewards", {
+      particles: { s: { particle: "FLAME", "interval-ticks": 10, shape } }
+    });
+    assert.deepStrictEqual(particleErrors, [], `particles の ${shape}: ${particleErrors.join(" / ")}`);
+    const seedErrors = validate("tf-special-rewards", {
+      "particle-seeds": { s: { "seed-item": "BLAZE_POWDER", particle: "FLAME", shape } }
+    });
+    assert.deepStrictEqual(seedErrors, [], `particle-seeds の ${shape}: ${seedErrors.join(" / ")}`);
+  }
+});
+
+test("tf-special-rewards: 発生パラメータは particles と particle-seeds で同じ語彙", () => {
+  const emission = {
+    shape: "helix", count: 30, radius: 0.9, speed: 0.2, height: 3.5, turns: 4, "y-offset": -0.5
+  };
+  assert.deepStrictEqual(
+    validate("tf-special-rewards", { particles: { p: Object.assign({ particle: "FLAME" }, emission) } }), []);
+  assert.deepStrictEqual(
+    validate("tf-special-rewards", {
+      "particle-seeds": { s: Object.assign({ "seed-item": "BLAZE_POWDER", particle: "FLAME" }, emission) }
+    }), []);
+});
+
+test("tf-special-rewards: 発生パラメータの範囲外はエラー (Java 側は黙って丸めるので editor で止める)", () => {
+  const errors = validate("tf-special-rewards", {
+    particles: {
+      bad: {
+        particle: "FLAME", shape: "arc",
+        count: 1000, radius: 99, speed: -1, height: 99, turns: 0, "arc-degrees": 400, "y-offset": 99
+      }
+    }
+  });
+  for (const key of ["count", "radius", "speed", "height", "turns", "arc-degrees", "y-offset"]) {
+    assert.ok(errors.some((e) => e.includes(`particles.bad.${key}`)), `${key} が検査されていない: ${errors.join(" / ")}`);
+  }
+});
+
+test("tf-special-rewards: シードの origin は impact / player だけ", () => {
+  assert.deepStrictEqual(validate("tf-special-rewards", {
+    "particle-seeds": { s: { "seed-item": "BLAZE_POWDER", particle: "FLAME", origin: "impact" } }
+  }), []);
+  assert.deepStrictEqual(validate("tf-special-rewards", {
+    "particle-seeds": { s: { "seed-item": "BLAZE_POWDER", particle: "FLAME", origin: "player" } }
+  }), []);
+  const errors = validate("tf-special-rewards", {
+    "particle-seeds": { s: { "seed-item": "BLAZE_POWDER", particle: "FLAME", origin: "cursor" } }
+  });
+  assert.ok(errors.some((e) => /particle-seeds\.s\.origin/.test(e)), errors.join(" / "));
+});
+
+// 刻印を消すシード / 表示名 (2026-08-25 / W-221)
+test("tf-special-rewards: clears:true のシードは particle 無しで通る", () => {
+  const errors = validate("tf-special-rewards", {
+    "particle-seeds": { seed_clear: { "seed-item": "INK_SAC", display: "消去", clears: true } }
+  });
+  assert.deepStrictEqual(errors, []);
+});
+
+test("tf-special-rewards: clears でないシードの particle 欠落はエラー", () => {
+  // Java 側は particle を解決できないとそのシードごと捨てる(警告1行だけ)。
+  // 保存前に止めないと「config に書いたのに金床に出ない」で終わる。
+  const errors = validate("tf-special-rewards", {
+    "particle-seeds": { seed_broken: { "seed-item": "BLAZE_POWDER", display: "焔" } }
+  });
+  assert.ok(errors.some((e) => /particle-seeds\.seed_broken\.particle/.test(e)), errors.join(" / "));
+});
+
+test("tf-special-rewards: display/clears の型不正はエラー", () => {
+  const errors = validate("tf-special-rewards", {
+    "particle-seeds": { bad: { "seed-item": "INK_SAC", display: 1, clears: "yes" } }
+  });
+  assert.ok(errors.some((e) => /particle-seeds\.bad\.display/.test(e)));
+  assert.ok(errors.some((e) => /particle-seeds\.bad\.clears/.test(e)));
+});
+
 test("tf-special-rewards: titles.display は文字列必須", () => {
   const errors = validate("tf-special-rewards", { titles: { x: { display: 123 } } });
   assert.ok(errors.some((e) => /titles\.x\.display/.test(e)));
@@ -292,4 +373,55 @@ test("tf-collection: reward-tiers.job-exp の skill不正はエラー", () => {
     "reward-tiers": { bronze: { "job-exp": [{ skill: "BOGUS", amount: 1 }] } }
   });
   assert.ok(errors.some((e) => /reward-tiers\.bronze\.job-exp\[0\]\.skill/.test(e)));
+});
+
+// ---------------------------------------------------------------------------
+// 形状の語彙は【3箇所】に散っている: Java の enum / lib/schema.js(保存時の検査) /
+// public/js の画面定義。2026-08-25 に「Java と出荷 yml は新しい形状を知っているのに
+// 起動中の editor が古い語彙で弾く」を実際に踏んだので、ずれを機械的に見つけられるようにする。
+// ⚠ このテストが通っても【起動中の editor プロセス】は直らない ―― Node は require したモジュールを
+//   キャッシュするので、lib/schema.js を書き替えたら editor の再起動が必要。
+// ---------------------------------------------------------------------------
+const fs = require("node:fs");
+const path = require("node:path");
+
+function shapeNamesFromJava() {
+  const javaPath = path.join(__dirname, "..", "..", "..", "TrinityForge", "src", "main", "java",
+    "com", "trinityforge", "config", "domains", "SpecialRewardsConfig.java");
+  const source = fs.readFileSync(javaPath, "utf8");
+  const block = source.slice(source.indexOf("public enum Shape {"));
+  const body = block.slice(0, block.indexOf("\n    }"));
+  // 「行頭のインデント + 大文字の識別子 + , または改行」だけを拾う(javadoc の語は拾わない)
+  return (body.match(/^\s{8}([A-Z][A-Z_]*),?$/gm) || []).map((line) => line.trim().replace(/,$/, "").toLowerCase());
+}
+
+function shapeKeysFromBrowserTable(tableName) {
+  const jsPath = path.join(__dirname, "..", "public", "js", "tf-rewards-forms.js");
+  const source = fs.readFileSync(jsPath, "utf8");
+  const start = source.indexOf(`const ${tableName} = {`);
+  assert.ok(start > 0, `${tableName} が public/js/tf-rewards-forms.js に無い`);
+  const body = source.slice(start, source.indexOf("\n  };", start));
+  return (body.match(/^\s{4}"?([a-z-]+)"?:/gm) || []).map((line) => line.trim().replace(/[":]/g, ""));
+}
+
+test("tf-special-rewards: 形状の語彙が Java / 保存時の検査 / 画面 の3箇所でそろっている", () => {
+  const java = shapeNamesFromJava();
+  assert.ok(java.length >= 9, `Java 側の形状が読めていない: ${java.join(",")}`);
+  const schemaShapes = require("../lib/schema.js").particleShapesForTest;
+  assert.deepStrictEqual([...schemaShapes].sort(), [...java].sort(),
+    "lib/schema.js の PARTICLE_SHAPES が Java の Shape とずれている(保存できない形状が生まれる)");
+  for (const table of ["SHAPE_LABELS", "SHAPE_PARAMS", "SHAPE_DEFAULTS", "SHAPE_HINTS"]) {
+    assert.deepStrictEqual(shapeKeysFromBrowserTable(table).sort(), [...java].sort(),
+      `public/js の ${table} が Java の Shape とずれている`);
+  }
+});
+
+test("tf-special-rewards: count の上限は 64 (境界)", () => {
+  assert.deepStrictEqual(validate("tf-special-rewards", {
+    particles: { p: { particle: "FLAME", "interval-ticks": 10, count: 64 } }
+  }), []);
+  const errors = validate("tf-special-rewards", {
+    particles: { p: { particle: "FLAME", "interval-ticks": 10, count: 65 } }
+  });
+  assert.ok(errors.some((e) => /particles\.p\.count/.test(e)), errors.join(" / "));
 });

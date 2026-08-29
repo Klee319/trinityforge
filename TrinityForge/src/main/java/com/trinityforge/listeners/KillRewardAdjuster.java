@@ -130,18 +130,69 @@ public final class KillRewardAdjuster {
     }
 
     /**
-     * 経験値に掛ける倍率。バニラの経験値オーブとTFの戦闘スキルEXPの両方でこれを使う。
+     * <b>バニラの経験値オーブ</b>に掛ける倍率。基準は<b>戦闘レベル</b>。
+     *
+     * <p>バニラEXPには帰属する職業が無いので、ここだけは戦闘レベルで判定するしかない。
+     * 職業EXPは {@link #skillExpMultiplier} を使うこと(2026-08-22 に分離)。閾値と逓減は
+     * どちらも同じ({@code exp-threshold} / {@code exp-decay-per-level})で、<b>違うのは
+     * 比較に使うレベルだけ</b>。
+     */
+    public double expMultiplier(Player player, LivingEntity mob) {
+        return expMultiplierAt(player, mob, player == null ? 0
+                : combatService.combatLevelOf(player.getUniqueId()));
+    }
+
+    /**
+     * <b>職業(スキル)EXP</b>に掛ける倍率。基準は<b>そのEXPが入る職業のレベル</b>
+     * (2026-08-22 ユーザー指示)。
+     *
+     * <p>以前は戦闘レベルで判定していたが、戦闘レベルは全スキルを pillar 写像で 1 つに畳んだ値で、
+     * <b>畳んだ結果と EXP の帰属先が別物</b>だった ── 軽武器 100 の純特化プレイヤーは戦闘レベルが
+     * 67 (top1 の divisor が 1.5) にしかならないので、軽武器スキルがちょうど 100 でも
+     * Lv100 モブとのレベル差が 33 と判定されて軽武器EXPが 0.68 倍まで削られていた。
+     * 逆向きの穴もあり、伸びている柱に引っ張られて<b>遅れている職業ほど足きりが甘くなる</b>
+     * (軽武器80・魔法1の人が高レベルダンジョンで魔法を振ると戦闘Lv53 で判定される)。
+     * 本来の狙い「低レベルのままハメ殺しで高レベルのモブを狩るのを抑制する」は、職業ごとに見た方が
+     * 直感にも狙いにも合う。
      *
      * <p>スキルEXPは「止めを刺した1人」ではなく<b>ダメージ寄与のあった各プレイヤー</b>へ配られるので、
      * 呼び出し側はキル者ではなくその受取人を {@code player} に渡すこと(各自のレベルで判定される)。
+     *
+     * @param skillId {@link com.trinityforge.progression.core.SkillId} の定数。{@code null}/空なら
+     *                レベル 0 扱い(＝未習得の職業を高レベル帯で一気に育てるのは抑制される側)。
      */
-    public double expMultiplier(Player player, LivingEntity mob) {
+    public double skillExpMultiplier(Player player, LivingEntity mob, String skillId) {
+        return expMultiplierAt(player, mob, player == null ? 0
+                : combatService.skillLevelOf(player.getUniqueId(), skillId));
+    }
+
+    /**
+     * <b>職業(スキル)EXPの足きりだけ</b>を返す版。ダンジョン上乗せは掛けない
+     * (2026-08-22 ユーザー指示「防具の被弾EXPも今回のlevel差調整の該当にする」)。
+     *
+     * <p>防具の被弾EXPは<b>撃破報酬ではない</b>ので、{@code dungeon-level-reward} の上乗せは
+     * これまで一度も掛かっていない。足きりを入れるついでに上乗せまで足すと、指示に無い
+     * 「ダンジョンで防具EXPが増える」という別の変更が黙って混ざる。だから
+     * {@link #skillExpMultiplier} を流用せず、縮小側だけを切り出してある。
+     *
+     * @param mob 被弾させてきた相手。レベル刻印が無ければ {@code 1.0}(素通し)。
+     */
+    public double skillExpLevelCutoff(Player player, LivingEntity mob, String skillId) {
         MobData data = MobData.of(mob);
         if (player == null || !data.hasProfile()) {
             return 1.0;
         }
-        double rate = cutoff().expMultiplier(combatService.combatLevelOf(player.getUniqueId()), data.level());
-        return rate * dungeonBonus(mob, false);
+        return cutoff().expMultiplier(
+                combatService.skillLevelOf(player.getUniqueId(), skillId), data.level());
+    }
+
+    /** 経験値側の足きり本体。基準レベルだけを呼び出し側が決める。 */
+    private double expMultiplierAt(Player player, LivingEntity mob, int playerLevel) {
+        MobData data = MobData.of(mob);
+        if (player == null || !data.hasProfile()) {
+            return 1.0;
+        }
+        return cutoff().expMultiplier(playerLevel, data.level()) * dungeonBonus(mob, false);
     }
 
     /**

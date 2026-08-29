@@ -32,6 +32,7 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Enemy;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.EventHandler;
@@ -41,6 +42,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDropItemEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityBreedEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
@@ -51,6 +53,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.player.PlayerFishEvent;
+import org.bukkit.event.player.PlayerHarvestBlockEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerShearEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
@@ -431,22 +434,47 @@ public final class NativeSkillExperienceListener implements Listener {
     }
 
     /**
-     * Valhalla {@code woodcutting_strip}: right-clicking a natural log/wood with an axe rewards the
-     * configured value of the resulting {@code STRIPPED_*} material. The source-to-result mapping is
-     * derived from the Bukkit material name; every numeric value remains in the progression YAML.
+     * Valhalla {@code woodcutting_strip}: 斧で原木の皮を剥ぐと、剥いだ結果の {@code STRIPPED_*}
+     * 材質に設定された値を配る。source→result の対応は Bukkit の材質名から導き、数値は
+     * progression YAML に置いたままにする。
+     *
+     * <h2>⚠ なぜ {@link PlayerInteractEvent} ではなく {@link EntityChangeBlockEvent} なのか
+     * (2026-08-24 / W-210)</h2>
+     * 旧実装は {@code PlayerInteractEvent}(MONITOR)で<b>「斧を持って原木を右クリックした」だけ</b>を
+     * 見て配っていた。ところが<b>右クリックが通っても皮が剥がれないことがある</b>。その場合
+     * ブロックは原木のまま残るので、<b>同じ原木を連打するだけで無限に経験値が入る</b>
+     * (実サーバ報告「盾を持っていると皮を剥ぐ動作がキャンセルされ、放置連打で経験値が稼げる」)。
+     *
+     * <p>筆頭の原因は<b>バニラの仕様</b>で、{@code AxeItem#useOn} は
+     * <b>「オフハンドに {@code blocks_attacks} を持つ品(＝盾)があり、かつスニークしていない」なら
+     * 何もせず {@code PASS} を返す</b>(盾を構えようとして原木の皮を剥いでしまう事故を防ぐため。
+     * Paper 1.21.11 のサーバソースで確認済み)。このとき {@code PlayerInteractEvent} は
+     * <b>キャンセルされない</b>ので {@code ignoreCancelled = true} では素通りする。
+     * 同じ形の穴は他にもある —— 他プラグインが {@code setUseItemInHand(DENY)} だけを立てた場合
+     * ({@code PlayerInteractEvent#isCancelled()} は {@code useInteractedBlock()} と等価なので
+     * false のまま) や、{@code EntityChangeBlockEvent} を別プラグインがキャンセルした場合など。
+     *
+     * <p>そこで<b>「実際に皮が剥がれる瞬間」だけ</b>を見る。{@code EntityChangeBlockEvent} は
+     * {@code AxeItem#useOn} が変換先を確定して {@code setBlock} を呼ぶ<b>直前</b>に発火するので、
+     * MONITOR かつ {@code ignoreCancelled = true} まで届いた時点で<b>変換は必ず起きる</b>。
+     * バニラ側の門を TF で真似する必要も無くなる(真似ると次のバージョンで静かにズレる)。
+     *
+     * <p>斧が通る他の変換(銅の酸化落とし・蝋落とし)も同じイベントを通るが、
+     * {@code getTo()} が {@code STRIPPED_<元の材質>} と一致しないので自然に外れる。
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onWoodStrip(PlayerInteractEvent event) {
-        if (event.getAction() != Action.RIGHT_CLICK_BLOCK || event.getHand() != EquipmentSlot.HAND
-                || event.getClickedBlock() == null) {
+    public void onWoodStrip(EntityChangeBlockEvent event) {
+        if (!(event.getEntity() instanceof Player player) || excluded(player)) {
             return;
         }
-        Player player = event.getPlayer();
-        if (excluded(player)) return;
-        ItemStack tool = event.getItem();
-        if (tool == null || !tool.getType().name().endsWith("_AXE")) return;
-        Block source = event.getClickedBlock();
+        Block source = event.getBlock();
+        Material stripped = Material.matchMaterial("STRIPPED_" + source.getType().name());
+        if (stripped == null || event.getTo() != stripped) {
+            return;
+        }
         if (placedBlockTracker.isPlaced(source)) return;
+        ItemStack tool = strippingAxe(player);
+        if (tool == null) return;
 
         double exp = woodStripExp(catalog.get(SkillId.WOODCUTTING), source.getType());
         if (exp <= 0.0) return;
@@ -455,9 +483,60 @@ public final class NativeSkillExperienceListener implements Listener {
     }
 
     /**
-     * Valhalla {@code farming.block_interact}: mature berry/vine harvests and full-honey hive
-     * harvests use the configured block value. Eligibility is gameplay state; the EXP amount itself
-     * is always read from the editable action table.
+     * 皮剥ぎに使われた斧。{@link EntityChangeBlockEvent} は<b>どちらの手で使ったかを教えてくれない</b>
+     * ので、メインハンドを優先して探す(バニラはオフハンドの斧でも皮を剥げる)。
+     * どちらの手も斧でなければ、この変換は斧によるものではないので対象外。
+     */
+    private static ItemStack strippingAxe(Player player) {
+        ItemStack main = player.getInventory().getItemInMainHand();
+        if (isAxe(main)) {
+            return main;
+        }
+        ItemStack off = player.getInventory().getItemInOffHand();
+        return isAxe(off) ? off : null;
+    }
+
+    private static boolean isAxe(ItemStack stack) {
+        return stack != null && stack.getType().name().endsWith("_AXE");
+    }
+
+    /**
+     * Valhalla {@code farming.block_interact} のうち<b>実際に収穫が起きた</b>ぶん
+     * (甘いベリー / 洞窟のツタの光る果実)。
+     *
+     * <h2>⚠ なぜ {@link PlayerInteractEvent} ではなく {@link PlayerHarvestBlockEvent} なのか
+     * (2026-08-25 / W-245)</h2>
+     * 旧実装は「熟した実を右クリックした」だけを見て配っていた。ところが<b>右クリックが通っても
+     * 収穫が起きないことがある</b> ── バニラは
+     * <b>「スニーク中で、かつ手が空でない」ならブロックへの操作を丸ごと飛ばす</b>
+     * (これはブロックを設置するための仕様。{@code isSecondaryUseActive()} の分岐)。
+     * このとき {@link PlayerInteractEvent} は<b>キャンセルされない</b>ので
+     * {@code ignoreCancelled = true} でも素通りし、実は減らないまま経験値だけが入る
+     * ＝ <b>スニークしたまま連打すれば無限に農業EXPが入った</b>。
+     *
+     * <p>これは W-210(盾を持つと皮剥ぎが {@code PASS} になり、原木が残るので連打でEXP)と
+     * <b>同じ形の穴</b>で、根っこは「<em>意図</em>(クリックした)ではなく<em>結果</em>(実際に変わった)を
+     * 見ていないこと」。バニラ側の門を TF で真似すると次のバージョンで静かにズレるので、
+     * 収穫が確定した瞬間に発火するイベントへ寄せる。
+     *
+     * <p>骨粉での右クリック除外も自然に不要になる(骨粉は収穫ではないのでこのイベントを通らない)。
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onFarmingHarvest(PlayerHarvestBlockEvent event) {
+        Player player = event.getPlayer();
+        if (excluded(player)) return;
+        grantFarmingBlockInteract(player, event.getHarvestedBlock().getType());
+    }
+
+    /**
+     * Valhalla {@code farming.block_interact} の蜂の巣ぶん(満タンの蜜をガラス瓶/ハサミで採る)。
+     *
+     * <h2>⚠ ここだけ {@link PlayerInteractEvent} に残る理由</h2>
+     * 蜜の採取には「採れた」を教えてくれるイベントが無い({@link PlayerHarvestBlockEvent} は
+     * ベリー/ツタ専用)。そこで<b>次のtickに巣の蜜量を読み直し、実際に減っていたときだけ配る</b>。
+     * 上の {@link #onFarmingHarvest} と同じ「意図ではなく結果を見る」規則を、イベントが無い場所でも
+     * 守るための形 ── <b>スニーク中は手が空でない限りブロック操作自体が起きない</b>ので、
+     * クリックだけを根拠にすると蜜が満タンのまま経験値が入り続ける(W-245)。
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onFarmingInteract(PlayerInteractEvent event) {
@@ -469,9 +548,45 @@ public final class NativeSkillExperienceListener implements Listener {
         if (excluded(player)) return;
         Block block = event.getClickedBlock();
         if (!isHarvestableFarmingInteraction(block, event.getItem())) return;
+        if (!(block.getBlockData() instanceof Beehive)) {
+            // ベリー/ツタは onFarmingHarvest が「収穫できた瞬間」に配る。ここで配ると二重になる。
+            return;
+        }
+        int before = honeyLevelOf(block);
+        if (before <= 0) return;
+        honeyHarvestVerifier.accept(() -> {
+            if (honeyLevelOf(block) < before) {
+                grantFarmingBlockInteract(player, block.getType());
+            }
+        });
+    }
+
+    /**
+     * 蜜が実際に減ったかの確認を「次のtick」へ回す実行口。差し替え可能にしているのは
+     * <b>MockBukkit のスケジューラを回さないテストでも結果検証の分岐を検証できるようにするため</b>
+     * (ここを直に {@code runTask} で書くと、テストは「例外が飛ばないこと」しか言えなくなる)。
+     */
+    private java.util.function.Consumer<Runnable> honeyHarvestVerifier = this::runNextTick;
+
+    /** 既定の実行: 次のtick。{@code plugin} は空白finalなのでフィールド初期化子から直接は読めない。 */
+    private void runNextTick(Runnable task) {
+        org.bukkit.Bukkit.getScheduler().runTask(plugin, task);
+    }
+
+    /** テスト専用: 次tick確認の実行を差し替える(理由は {@link #honeyHarvestVerifier})。 */
+    void honeyHarvestVerifierForTest(java.util.function.Consumer<Runnable> verifier) {
+        this.honeyHarvestVerifier = java.util.Objects.requireNonNull(verifier, "verifier");
+    }
+
+    /** 巣の蜜量。巣でなければ {@code -1}。 */
+    private static int honeyLevelOf(Block block) {
+        return block.getBlockData() instanceof Beehive hive ? hive.getHoneyLevel() : -1;
+    }
+
+    /** {@code farming.block_interact} の付与。EXP量は常に編集可能な表から引く。 */
+    private void grantFarmingBlockInteract(Player player, Material blockType) {
         SkillCatalogEntry farming = catalog.get(SkillId.FARMING);
-        double exp = farming == null ? 0.0
-                : farming.expFor("block_interact", block.getType().name());
+        double exp = farming == null ? 0.0 : farming.expFor("block_interact", blockType.name());
         if (exp > 0.0) {
             grant(player, SkillId.FARMING, exp);
         }
@@ -1049,6 +1164,25 @@ public final class NativeSkillExperienceListener implements Listener {
     private final AttackerTargetCooldown heavyArmorExpCooldown = new AttackerTargetCooldown();
     private final AttackerTargetCooldown lightArmorExpCooldown = new AttackerTargetCooldown();
 
+    /**
+     * レベル差の足きり(2026-08-22 ユーザー指示「防具の被弾EXPも今回のlevel差調整の該当にする。
+     * (被弾した敵のlevelと比較)」)。
+     *
+     * <p>撃破EXP側(武器/弓術/魔法)は {@code CombatListener} と {@code ArsMagicExperienceListener} が
+     * 同じ足きりを掛けているのに、<b>防具の被弾EXPだけが素通りしていた</b>。格上モブに殴られるだけで
+     * 防具EXPが満額入るので、「低レベルのまま高レベル帯へ連れて行ってもらう」抑制が防具側で
+     * 完全に無効だった。
+     *
+     * <p>{@code null} のままでも動く(足きり無し = 従来どおり)。テストと、配線前に発火する
+     * 起動直後のイベントで落ちないようにするため。
+     */
+    private KillRewardAdjuster killRewardAdjuster;
+
+    /** 足きりを注入する。実配線は {@code TrinityForge} の起動時だけ。 */
+    public void setKillRewardAdjuster(KillRewardAdjuster killRewardAdjuster) {
+        this.killRewardAdjuster = killRewardAdjuster;
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onArmorDamage(EntityDamageByEntityEvent event) {
         if (!(event.getEntity() instanceof Player player) || event.getFinalDamage() <= 0.0) return;
@@ -1137,6 +1271,18 @@ public final class NativeSkillExperienceListener implements Listener {
         if (entityMultiplier <= 0.0) {
             return;
         }
+        // レベル差の足きり(2026-08-22)。比較するのは【被弾した敵のレベル】と
+        // 【その防具スキル自身のレベル】── 撃破EXPを職業レベル基準へ寄せたのと同じ規則
+        // (戦闘レベルは全スキルを畳んだ値なので、伸びている柱に守られて防具だけ素通りする)。
+        // ダンジョンの報酬上乗せは掛けない(被弾EXPは撃破報酬ではないため。
+        // KillRewardAdjuster#skillExpLevelCutoff の javadoc 参照)。
+        double levelCutoff = 1.0;
+        if (killRewardAdjuster != null && attacker instanceof LivingEntity livingAttacker) {
+            levelCutoff = killRewardAdjuster.skillExpLevelCutoff(player, livingAttacker, skill);
+        }
+        if (levelCutoff <= 0.0) {
+            return;
+        }
         double pvpMultiplier = pvp
                 ? Math.max(0.0, entry.rate("armor.pvp_multiplier", 0.1))
                 : 1.0;
@@ -1159,7 +1305,7 @@ public final class NativeSkillExperienceListener implements Listener {
             double spot = entry.rate("armor.location_diminishing_enabled", 1.0) > 0.0
                     ? locationMultiplier
                     : 1.0;
-            grant(player, skill, total * worldMultiplier * spot);
+            grant(player, skill, total * worldMultiplier * spot * levelCutoff);
         }
     }
 

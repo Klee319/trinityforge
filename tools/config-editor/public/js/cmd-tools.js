@@ -40,9 +40,13 @@
   }
 
   // revision付き楽観ロックPUT (app.js の putConfig / respack-view.js の同名関数と同じ契約)。
+  // ⚠ 2026-08-25: expectedRevision は (undefinedでない限り) null でもそのまま送る。
+  // 「!= null の時だけ送る」と、GET時点でファイル未作成(revision:null)だったケースで
+  // 楽観ロックが一切効かなくなる(外部プロセスの新規作成を無条件で上書きしてしまう)。
+  // expectedRevision が呼び出し元から渡されない(undefined)場合は JSON.stringify が
+  // キーごと省く自然な挙動に任せる。
   async function putConfigRevision(configId, data, expectedRevision) {
-    const body = { data };
-    if (expectedRevision != null) body.expectedRevision = expectedRevision;
+    const body = { data, expectedRevision };
     try {
       const r = await apiCall("PUT", `/api/config/${configId}`, body);
       return { ok: true, revision: r.revision };

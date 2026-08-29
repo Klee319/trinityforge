@@ -95,6 +95,14 @@ public final class DailyExpWindowStore implements AutoCloseable {
             "DELETE FROM daily_exp_window WHERE player_uuid = ?";
 
     /**
+     * 期限切れ(W-154)の行を消す。{@code ?2 - locked_at >= ?3} が「発動から解除時間が経った」。
+     * {@code locked_at = 0} は未発動なので対象外。
+     */
+    private static final String DELETE_RELEASED =
+            "DELETE FROM daily_exp_window WHERE player_uuid = ? AND locked_at > 0 "
+            + "AND (? - locked_at) >= ?";
+
+    /**
      * これ未満の蓄積は行ごと捨てる。逓減の刻み（既定 100,000 EXP）に対して 1 EXP は
      * 倍率に一切影響しないので、減衰しきった行を残し続けて表を太らせる意味が無い。
      */
@@ -165,16 +173,43 @@ public final class DailyExpWindowStore implements AutoCloseable {
     }
 
     /**
-     * 蓄積を書き込む。既存行があれば<b>両方を現在時刻へ減衰させた上で大きい方</b>を残す
-     * （理由はクラス javadoc の「後退させない」）。減衰しきった行は消す。
-     *
-     * @param playerId     プレイヤー UUID
-     * @param entries      {@link DailyExpDiminishing#snapshot(UUID)} の結果。空なら何もしない
-     * @param windowMillis 指数減衰の時定数（{@code daily-diminishing.window-hours}）
+     * 期限を持たない保存（{@code lockReleaseMillis = 0}）。古い呼び出しとテスト用。
+     * <b>実運用からは呼ばない</b> —— 期限を渡さないと期限切れの行を解除できず、
+     * {@link #save(UUID, Collection, double, double)} の javadoc にある事故が起きる。
      */
     public synchronized void save(UUID playerId,
                                   Collection<DailyExpDiminishing.WindowSnapshot> entries,
                                   double windowMillis) throws SQLException {
+        save(playerId, entries, windowMillis, 0.0);
+    }
+
+    /**
+     * 蓄積を書き込む。既存行があれば<b>両方を現在時刻へ減衰させた上で大きい方</b>を残す
+     * （理由はクラス javadoc の「後退させない」）。減衰しきった行は消す。
+     *
+     * <p><b>期限切れ(W-154)の行は「無かったこと」にしてから比べる</b>（2026-08-22 実サーバ報告
+     * 「職業EXPの低下がサーバー入り直すだけで24時間経過していなくても消える」の真因）。
+     * これが無いと、一度でも期限切れの行が残ったプレイヤーは<b>二度と逓減が掛からなくなる</b>:
+     * <ol>
+     *   <li>{@code restore} は期限切れの行を読み飛ばすだけで<b>消さない</b>ので、
+     *       古い {@code locked_at} と大きい {@code amount} が表に残り続ける。</li>
+     *   <li>次に逓減が発動して保存すると、{@link #earlierLock} が「早い方」＝<b>期限切れの
+     *       古い発動時刻</b>を採る。新しい発動時刻が毎回そこへ引き戻される。</li>
+     *   <li>次のログインでその行はまた期限切れと判定されて読み飛ばされ、等倍に戻る。</li>
+     * </ol>
+     * 実サーバのDBには {@code locked_at} が 53〜65 時間前のまま {@code updated_at} だけ現在という
+     * 行が並んでいた（解除時間は24時間）。これがその状態の指紋。
+     *
+     * @param playerId          プレイヤー UUID
+     * @param entries           {@link DailyExpDiminishing#snapshot(UUID)} の結果。空なら何もしない
+     * @param windowMillis      指数減衰の時定数（{@code daily-diminishing.window-hours}）
+     * @param lockReleaseMillis 強制解除までの時間（{@code daily-diminishing.lock-release-hours}）。
+     *                          0 なら期限なし（従来どおり指数減衰だけで戻る）
+     */
+    public synchronized void save(UUID playerId,
+                                  Collection<DailyExpDiminishing.WindowSnapshot> entries,
+                                  double windowMillis,
+                                  double lockReleaseMillis) throws SQLException {
         Objects.requireNonNull(playerId, "playerId");
         if (entries == null || entries.isEmpty()) {
             return;
@@ -192,12 +227,16 @@ public final class DailyExpWindowStore implements AutoCloseable {
                 if (entry == null || entry.skillId() == null || entry.skillId().isBlank()) {
                     continue;
                 }
-                double incoming = decayTo(now, entry, window);
-                DailyExpDiminishing.WindowSnapshot stored = existing.get(entry.skillId());
-                double current = stored == null ? 0.0 : decayTo(now, stored, window);
-                double keep = Math.max(incoming, current);
+                // 期限切れは両側とも「解除済み＝蓄積ゼロ」として扱う。メモリ側の
+                // DailyExpDiminishing#releaseIfExpired と同じ意味にしておかないと、
+                // 片方だけが解除されて表の値がゾンビとして残る。
+                DailyExpDiminishing.WindowSnapshot live = live(entry, now, lockReleaseMillis);
+                DailyExpDiminishing.WindowSnapshot stored =
+                        live(existing.get(entry.skillId()), now, lockReleaseMillis);
+                double keep = Math.max(decayTo(now, live, window), decayTo(now, stored, window));
                 if (!Double.isFinite(keep) || keep < NEGLIGIBLE_AMOUNT) {
-                    if (stored != null) {
+                    // 物理的に行があるなら消す。期限切れで null にした分もここで片付く。
+                    if (existing.containsKey(entry.skillId())) {
                         stmtDeleteRow.setString(1, playerId.toString());
                         stmtDeleteRow.setString(2, entry.skillId());
                         stmtDeleteRow.executeUpdate();
@@ -208,7 +247,7 @@ public final class DailyExpWindowStore implements AutoCloseable {
                 stmtUpsert.setString(2, entry.skillId());
                 stmtUpsert.setDouble(3, keep);
                 stmtUpsert.setLong(4, now);
-                stmtUpsert.setLong(5, earlierLock(entry, stored));
+                stmtUpsert.setLong(5, earlierLock(live, stored));
                 stmtUpsert.executeUpdate();
             }
             conn.commit();
@@ -218,6 +257,105 @@ public final class DailyExpWindowStore implements AutoCloseable {
         } finally {
             conn.setAutoCommit(autoCommit);
         }
+    }
+
+    /**
+     * そのプレイヤーの保存済み蓄積を {@code maxAmount} まで<b>切り下げる</b>
+     * （2026-08-24 / EXP解呪の良薬）。既にそれ以下の行は触らない。
+     *
+     * <p><b>{@link #save} 経由では絶対に下げられない</b>のでこの入口が要る。save は
+     * 「メモリと保存済みの大きい方」を残す（サーバ移動で後退させないための仕様）ので、
+     * メモリだけ削って save すると<b>保存済みの大きい値がそのまま勝つ</b>。
+     * つまり良薬は飲んだサーバでは効いたように見えて、再ログインやサーバ移動で元へ戻る。
+     *
+     * <p>切り下げは「現在時刻まで減衰させた値」に対して行い、{@code updated_at} を現在時刻へ進める。
+     * 減衰前の値を切り下げると、保存時刻からの経過ぶんが二重に効く。
+     * {@code locked_at}（強制解除の期限）は<b>触らない</b> —— 期限を打ち直すと良薬を飲むたびに
+     * 24時間の解除期限が後ろへずれて、飲んだ人ほど損をする。
+     *
+     * @param maxAmount    切り下げ先。{@link com.trinityforge.progression.DailyExpDiminishing#maxAmountFor}
+     *                     の結果を渡す。{@link Double#MAX_VALUE} なら何もしない
+     * @param windowMillis 指数減衰の時定数
+     * @return 実際に書き換えた（または消した）行数
+     */
+    public synchronized int capAmounts(UUID playerId, double maxAmount, double windowMillis)
+            throws SQLException {
+        Objects.requireNonNull(playerId, "playerId");
+        if (!Double.isFinite(maxAmount) || maxAmount < 0.0 || maxAmount == Double.MAX_VALUE) {
+            return 0;
+        }
+        double window = windowMillis > 0.0 && Double.isFinite(windowMillis) ? windowMillis : 1.0;
+        long now = clockMillis.getAsLong();
+        boolean autoCommit = conn.getAutoCommit();
+        conn.setAutoCommit(false);
+        int changed = 0;
+        try {
+            for (DailyExpDiminishing.WindowSnapshot row : load(playerId)) {
+                double decayed = decayTo(now, row, window);
+                if (decayed <= maxAmount) {
+                    continue;
+                }
+                if (maxAmount < NEGLIGIBLE_AMOUNT) {
+                    stmtDeleteRow.setString(1, playerId.toString());
+                    stmtDeleteRow.setString(2, row.skillId());
+                    stmtDeleteRow.executeUpdate();
+                } else {
+                    stmtUpsert.setString(1, playerId.toString());
+                    stmtUpsert.setString(2, row.skillId());
+                    stmtUpsert.setDouble(3, maxAmount);
+                    stmtUpsert.setLong(4, now);
+                    stmtUpsert.setLong(5, row.lockedAtMillis());
+                    stmtUpsert.executeUpdate();
+                }
+                changed++;
+            }
+            conn.commit();
+        } catch (SQLException | RuntimeException e) {
+            try { conn.rollback(); } catch (SQLException ignored) { /* 元の例外を潰さない */ }
+            throw e;
+        } finally {
+            conn.setAutoCommit(autoCommit);
+        }
+        return changed;
+    }
+
+    /**
+     * 期限切れ(W-154)の行を<b>物理的に消す</b>。ログイン時の復元から呼ぶ。
+     *
+     * <p>{@code restore} 側で読み飛ばすだけだと行が残り続け、あとの {@link #save} が
+     * {@code max()} と {@link #earlierLock} で古い蓄積と古い発動時刻を蘇らせる。
+     *
+     * @param lockReleaseMillis 0 以下なら何もしない（期限なし設定）
+     * @return 消した行数
+     */
+    public synchronized int purgeReleased(UUID playerId, double lockReleaseMillis)
+            throws SQLException {
+        Objects.requireNonNull(playerId, "playerId");
+        if (!(lockReleaseMillis > 0.0) || !Double.isFinite(lockReleaseMillis)) {
+            return 0;
+        }
+        try (PreparedStatement delete = conn.prepareStatement(DELETE_RELEASED)) {
+            delete.setString(1, playerId.toString());
+            delete.setLong(2, clockMillis.getAsLong());
+            delete.setLong(3, (long) lockReleaseMillis);
+            return delete.executeUpdate();
+        }
+    }
+
+    /**
+     * 期限切れなら {@code null}（＝蓄積は解除済み）、そうでなければそのまま返す。
+     * {@link DailyExpDiminishing#restore} の読み飛ばし条件と<b>同じ式</b>にしてある。
+     */
+    private static DailyExpDiminishing.WindowSnapshot live(
+            DailyExpDiminishing.WindowSnapshot row, long now, double lockReleaseMillis) {
+        if (row == null) {
+            return null;
+        }
+        if (lockReleaseMillis > 0.0 && row.lockedAtMillis() > 0L
+                && now - row.lockedAtMillis() >= lockReleaseMillis) {
+            return null;
+        }
+        return row;
     }
 
     /** そのプレイヤーの行を全部消す（進行リセット用。呼ばないと古い蓄積が残り続ける）。 */

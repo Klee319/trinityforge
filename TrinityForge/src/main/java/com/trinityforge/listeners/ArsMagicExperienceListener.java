@@ -8,6 +8,7 @@ import com.trinityforge.integration.ars.ArsMagicExperiencePolicy;
 import com.trinityforge.integration.ars.ArsProgressionBridge;
 import com.trinityforge.pdc.MobData;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
+import com.trinityforge.progression.core.SkillId;
 import org.bukkit.GameMode;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
@@ -106,10 +107,13 @@ public final class ArsMagicExperienceListener implements Listener {
         double spot = tf == null ? 1.0
                 : tf.locationExpDiminishing().multiplierForKillSpot(killer, dead, skillExp,
                         tf.dungeonWorldRegistry().isDungeonWorld(dead.getWorld().getUID()));
-        // レベル差の足きり。武器・弓術({@code CombatListener#onCombatKill})と同じ倍率を同じ引数で掛ける
-        // (受取人＝止めを刺した本人なので、そのプレイヤー自身の戦闘レベルで判定される)。
+        // レベル差の足きり。武器・弓術({@code CombatListener#onCombatKill})と同じ式で、
+        // 基準レベルは【そのEXPが入る職業＝ARS_MAGIC】のレベル(2026-08-22)。
+        // 戦闘レベル基準だった頃は、武器を伸ばした人が魔法1のまま高レベル帯で魔法を振っても
+        // 武器由来の戦闘レベルで判定されて素通りしていた(抑制の一番大きな穴)。
         KillRewardAdjuster adjuster = this.killRewardAdjuster;
-        double cutoff = adjuster == null ? 1.0 : adjuster.expMultiplier(killer, dead);
+        double cutoff = adjuster == null ? 1.0
+                : adjuster.skillExpMultiplier(killer, dead, SkillId.ARS_MAGIC);
         if (cutoff <= 0.0) return;
         ArsProgressionBridge.grantMagicExp(plugin, killer, amount * spot * cutoff);
     }

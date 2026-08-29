@@ -59,6 +59,29 @@ function statRows() {
   return rows;
 }
 
+// 関数宣言の開始位置から、波括弧の対応を数えて本体だけを切り出す。
+// 文字列・コメント内の波括弧は数えない(このファイル群は素の JS で、そこまで凝った
+// リテラルは出てこないが、`"{"` のような1文字リテラルは実在するので除外する)。
+function functionBody(src, startIdx) {
+  const open = src.indexOf("{", startIdx);
+  if (open < 0) return src.slice(startIdx);
+  let depth = 0;
+  for (let i = open; i < src.length; i++) {
+    const c = src[i];
+    if (c === '"' || c === "'" || c === "`") {
+      const quote = c;
+      i++;
+      while (i < src.length && src[i] !== quote) i += src[i] === "\\" ? 2 : 1;
+      continue;
+    }
+    if (c === "/" && src[i + 1] === "/") { i = src.indexOf("\n", i); if (i < 0) break; continue; }
+    if (c === "/" && src[i + 1] === "*") { i = src.indexOf("*/", i) + 1; if (i < 1) break; continue; }
+    if (c === "{") depth++;
+    else if (c === "}" && --depth === 0) return src.slice(startIdx, i + 1);
+  }
+  return src.slice(startIdx);
+}
+
 test("ステ選択を持つ行の値入力は statValueControl を通している(素の numberInput は %表示を壊す)", () => {
   const offenders = statRows()
     .filter((row) => /\bnumberInput\s*\(/.test(row.body))
@@ -85,7 +108,11 @@ test("セット効果 (thread-sets.yml) の行が %入力になっている", ()
   const src = fs.readFileSync(path.join(JS_DIR, "forms.js"), "utf8");
   const idx = src.indexOf("function renderThreadSetEffects");
   assert.ok(idx > 0, "renderThreadSetEffects が見つからない(画面構成が変わったらこのテストも直すこと)");
-  const body = src.slice(idx, idx + 4000);
+  // 2026-08-21: 固定長(4000文字)で切っていたが、乗算モードの追加で関数が伸びて
+  // statValueControl の呼び出しが窓の外へ出た = 実装は正しいのにテストだけ落ちた。
+  // 窓は【波括弧の対応を数えて関数の終わりまで】にして、関数が伸びても空振りしない
+  // かつ隣の関数を巻き込まないようにする。
+  const body = functionBody(src, idx);
   assert.ok(body.includes("window.statValueControl("),
     "セット効果のステ行が statValueControl を通っていない。"
     + "回避率3%が 0.03 と表示された 2026-08-12 のバグに戻っている");

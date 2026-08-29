@@ -168,6 +168,11 @@ magic-flat-defense
 
 ### GENERAL チャネル (totalOf 経由 — 採集/経済/クラフト/Ars 等の総合ステ)
 
+`coating-charges-bonus`(武器コーティングの実効上限スタック数への加算、`WeaponCoatingListener`が
+`PlayerCombatAggregate#totalOf` 経由で消費)は実装済みで実際にクランプが効くのに、2026-08-25まで
+このキー一覧にも config-editor の `STAT_CAPS_SECTIONS` にも載っていなかった(出荷 `StatVocabulary.java`
+に `coating_charges_bonus` として登録済みなことと突き合わせて発見)。両方に追記済み。
+
 ```
 mining-fortune
 fishing-luck
@@ -240,6 +245,7 @@ potion-quality-bonus
 brew-speed-bonus
 enchant-cost-reduction
 glyph-damage-multiplier-bonus
+coating-charges-bonus
 ```
 
 ### ATTRIBUTE チャネル (PerkAttributeApplier が直接クランプ — 2026-07-27 実装)
@@ -314,10 +320,26 @@ restore は「クランプ後の最終 MAX_HEALTH」を見ることになり整�
   `stats/gathering-efficiency.yml` は editor に UI が無い（サイドバー非表示）ので、
   上限を変えるときは yml を直接編集する。
 
-## 出荷初期値 (2026-08-01) — 攻撃側8キーの導出根拠
+## ⚠️ 現在の出荷値は再び空(`stat-caps: {}`) — 下の初期値は過去の記録
+
+**2026-08-14 のコミット `b969faa`(ダンジョン難易度再設計とスレッド曲線是正)で、下記「出荷した値」の
+8キーは撤去され、出荷 `combat/stat-caps.yml` は再び `stat-caps: {}`(上限なし)に戻っている。**
+`git show b969faa -- TrinityForge/src/main/resources/combat/stat-caps.yml` で確認済み。
+
+理由(同コミットのコミットメッセージより): 同コミットで「実数ダメージ系ステ(`attack-power` /
+`flat-bonus-damage` / `bleed-damage`)をスレッド枠から全廃し割合系へ振替」たため、下記キャップの
+導出根拠だった「厳選19枠の理論最大」計算(`thread-rolls.yml` の主ステ `max` × レア度倍率 × 19枠)が
+実数系ステでは成立しなくなった。キャップを再較正せず、いったん空へ戻した状態。
+
+このファイルはあくまで「キャップという機構の仕様(適用点・意味論・書き方)」の説明であり、
+以下の「出荷初期値」節は**当時の導出過程の記録として残しているだけ**で、現在の出荷値ではない。
+実際の値は必ず出荷 `combat/stat-caps.yml` を見ること(現在は空)。
+
+## 出荷初期値 (2026-08-01、2026-08-14 に撤去済み) — 攻撃側8キーの導出根拠(過去の記録)
 
 2026-08-01 まで出荷 yml は `stat-caps: {}` で、攻撃側は完全に青天井だった(K-19)。
 そこへ初期値を入れたときの計算過程を、後から数値だけを見ても再現できるように残す。
+**2026-08-14 に撤去され、現在は再び空。**
 
 ### ⚠ 最重要 — ここは「厳選の寄与分」ではなく「最終合算値」の上限
 
@@ -339,9 +361,9 @@ restore は「クランプ後の最終 MAX_HEALTH」を見ることになり整�
 `9` は `stats/quality.yml` の `max-quality`。防具4部位は攻撃側8キーを1つも持たないので、
 攻撃側の装備寄与は「手に持つ1本」だけで決まる(`offhand-stats-apply: true` の出荷品は0件)。
 
-### 出荷した値
+### 出荷した値(2026-08-14 に撤去済み。現在の出荷 yml は `stat-caps: {}`)
 
-| キー | 装備の単品最大 | base-stats | 厳選19枠の理論最大 | **出荷 cap** | 上限が許す装備外の上積み |
+| キー | 装備の単品最大 | base-stats | 厳選19枠の理論最大 | **出荷 cap(過去)** | 上限が許す装備外の上積み |
 |---|---|---|---|---|---|
 | `attack-power` | 96,279.8 | 0 | 20,520 | **110,000** | +13,720 |
 | `crit-chance` | 0.478 | 0.05 | 1.71 | **0.85** | +0.32 |
@@ -379,6 +401,9 @@ restore は「クランプ後の最終 MAX_HEALTH」を見ることになり整�
   > 下げ、単品最大は 111,395.9 になった。cap は同じ余裕率(約1.145倍)を保って `127500`。
   > **軽武器(`LIGHT_WEAPONS`)は据え置き**なので、この上限に触れるのは重武器だけ。
 
-**すべて初期値。**実機で「特化ビルドが cap に当たって伸びない」と感じたら上げる方向で調整する。
-値を上げ下げするときは `ShippedStatCapsDriftTest` が
-「出荷 item-stats.yml の単品最大を下回る cap」を落とすので、装備を潰す事故は再発しない。
+**この8キーは2026-08-14(`b969faa`)に撤去され、現在の出荷 `stat-caps.yml` は `stat-caps: {}`(無キャップ)。**
+再導入する場合は、実数系ステ(`attack-power` / `flat-bonus-damage` / `bleed-damage`)がスレッド枠から
+割合系へ振り替わった後の実態(`thread-rolls.yml` の現行主ステ構成)で「厳選19枠の理論最大」を計算し直す
+必要がある — 上表の値をそのまま復元しても導出根拠が現行仕様と食い違う。
+値を書くときは `ShippedStatCapsDriftTest` が「出荷 item-stats.yml の単品最大を下回る cap」を落とすので、
+装備を潰す事故は再発しない。

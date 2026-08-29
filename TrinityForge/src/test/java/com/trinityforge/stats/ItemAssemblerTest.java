@@ -100,7 +100,8 @@ class ItemAssemblerTest {
                 new TableGeneration(),
                 catalog,
                 new SkillTreeConfig(),
-                new CraftingFeaturesConfig());
+                new CraftingFeaturesConfig(),
+                new com.trinityforge.config.domains.SpecialRewardsConfig());
     }
 
     /**
@@ -120,7 +121,8 @@ class ItemAssemblerTest {
                 new TableGeneration(),
                 catalog,
                 new SkillTreeConfig(),
-                new CraftingFeaturesConfig());
+                new CraftingFeaturesConfig(),
+                new com.trinityforge.config.domains.SpecialRewardsConfig());
     }
 
     private ItemMeta freshMeta() {
@@ -340,7 +342,8 @@ class ItemAssemblerTest {
                 new TableGeneration(),
                 new ItemCatalogConfig(),
                 new SkillTreeConfig(),
-                new CraftingFeaturesConfig());
+                new CraftingFeaturesConfig(),
+                new com.trinityforge.config.domains.SpecialRewardsConfig());
     }
 
     /**
@@ -491,7 +494,8 @@ class ItemAssemblerTest {
                 new TableGeneration(),
                 new ItemCatalogConfig(),
                 new SkillTreeConfig(),
-                new CraftingFeaturesConfig());
+                new CraftingFeaturesConfig(),
+                new com.trinityforge.config.domains.SpecialRewardsConfig());
     }
 
     @Test

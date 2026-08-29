@@ -196,6 +196,30 @@ class WoodcuttingGimmickConfigTest {
         assertFalse(config.treeFellLeavesDecayOnly());
     }
 
+    // --- 2026-08-24 実サーバ報告「一括伐採でリンゴなどの追加ドロップが出ない」 ---
+
+    @Test
+    void chainDropRollsMaxDefaultsAndKeepsZeroAsAnOptOut(@TempDir File tempDir) throws IOException {
+        // キーが1つも無い古い配備ymlでも Java 既定で抽選が走ること(=yml を配備しないと直らない
+        // 種類の修正にしない)。
+        assertEquals(WoodcuttingGimmickConfig.DEFAULT_CHAIN_DROP_ROLLS_MAX,
+                loaded(tempDir, "tree-fell:\n  max-extra-logs: 8\n").treeFellChainDropRollsMax());
+
+        assertEquals(3, loaded(tempDir, """
+                tree-fell:
+                  max-extra-logs: 8
+                  chain-drop-rolls-max: 3
+                """).treeFellChainDropRollsMax(), "明示値がそのまま効くこと");
+
+        // 他の tick 系キーと違い 0 は「この経路の抽選を行わない」という意味を持つので、
+        // 既定へ戻してはいけない(戻すと無効化できなくなる)。
+        assertEquals(0, loaded(tempDir, """
+                tree-fell:
+                  max-extra-logs: 8
+                  chain-drop-rolls-max: 0
+                """).treeFellChainDropRollsMax(), "0は「抽選しない」の意味なので保つこと");
+    }
+
     @Test
     void shippedYamlCarriesTheTierLeafCapsAndPerTickBudget(@TempDir File tempDir) throws IOException {
         // ハードコードした既定値ではなく出荷ymlの実バイトを読む(既定値を検証するテストは
@@ -212,6 +236,9 @@ class WoodcuttingGimmickConfigTest {
         assertEquals(512, config.treeFellMaxLeaves(3, 0), "tier3 = 512枚");
         assertEquals(1024, config.treeFellMaxLeaves(4, 0), "tier4 = 1024枚");
         assertEquals(48, config.treeFellLeavesPerTick(), "1tickあたり48枚");
+        assertEquals(WoodcuttingGimmickConfig.DEFAULT_CHAIN_DROP_ROLLS_MAX,
+                config.treeFellChainDropRollsMax(),
+                "出荷値の chain-drop-rolls-max(0だと一括伐採の追加ドロップが元の不具合へ戻る)");
         assertTrue(config.treeFellLeavesDecayOnly(), "既定でバニラの崩壊判定に従うこと");
         assertTrue(config.treeFellBreakLeaves());
         assertEquals(512, config.treeFellScanLimit(), "出荷値の scan-limit");

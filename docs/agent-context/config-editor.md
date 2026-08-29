@@ -23,6 +23,31 @@ curl -s http://127.0.0.1:8000/api/constants | python -c "import sys,json;d=json.
 古いプロセスのまま保存しても未知キーは `yaml-merge` がロスレスに温存するので、
 設定が消える事故にはならない。
 
+### ⚠ 同じ原因のもう1つの症状: **「保存できませんでした: スキーマ検証に失敗しました」**
+
+`lib/schema.js` も**起動時に `require` された1本**が使われる（Node のモジュールキャッシュ）。
+つまり検証の語彙を増やしても、**走りっぱなしのプロセスは古い語彙で弾き続ける**。
+新しい値を出荷 yml に書いた直後は、editor から見ると
+
+> ・particles.particle_void_aura.shape: circle / aura のいずれかである必要があります
+
+のように「**自分が読み込んだ yml の値を、自分が保存拒否する**」状態になる（2026-08-25 実例。
+Java と出荷 yml は 9 形状を知っているのに、8/21 から走っていたプロセスは 2 形状のままだった）。
+
+切り分け: **エラー文に出ている選択肢がリポジトリの `lib/schema.js` と食い違っていれば確定**
+（メッセージは配列から組み立てているので、古い配列がそのまま文面に出る）。
+
+```bash
+# プロセスの起動時刻 vs 変更のコミット時刻を比べる
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Select-Object ProcessId,CreationDate,CommandLine | Format-List"
+```
+
+**対処は再起動だけ。**「Java 側と yml と `lib/schema.js` の 3 点が合っているか」は
+`test/schema-rewards.test.js` の「形状の語彙が Java / 保存時の検査 / 画面 の3箇所でそろっている」が
+機械的に見ているので、**テストが緑でも実機が直っているとは限らない**ことに注意。
+併せて `public/js/*` を変えたときは**ブラウザ側のリロードも要る**（静的ファイルは取り直されるが、
+開いたままのページは古い JS のまま動く）。
+
 ## データの真源と保存の仕組み
 
 ### yml 本文コメントは保存で消える → **2026-08-16 に解消済み**
@@ -77,6 +102,27 @@ config-editor 経由で1回保存しただけで消えていた。現在は `lib
 config-editor 保存経路（`mirrorToDeploy` 等）を通さない自作の生成・書き込みスクリプトを新設するときは、
 **ソース→デプロイ先の同期が本当に行われるか**を必ず確認する。過去に、生成スクリプトがソースにしか書かず
 デプロイ先（実サーバ config）を素通りしたため、「値を変えたのに反映されない」を実装バグと誤認した事例がある。
+
+### `scripts/generate-item-stats.js` は出荷 item-stats.yml へ二度と書き込まない（2026-08-25）
+
+※かつては `--force` を付けると出荷 `stats/item-stats.yml` を丸ごと `YAML.stringify` で
+上書きする設計だった（`--force` はただの確認ゲートで、実行経路自体は残っていた）。
+「editor を絶対優先＝出荷ymlが真源で生成スクリプトはそれを壊せない」という方針のもと、
+**上書き経路そのものを撤去した**。現在の挙動:
+- 出荷 `TrinityForge/src/main/resources/stats/item-stats.yml` は**読み込みすらしない**
+  （ヘッダ流用のために読んでいた旧コードも削除済み）。
+- 生成結果は常に `tmp/generated/item-stats.generated-preview.yml`（git管理外）へ書く。
+  出荷側を更新したいときは、このプレビューと出荷ymlを diff で見比べながら**手で反映する**か、
+  設定エディタから保存する（どちらの経路でも `lib/yaml-merge.js` がコメント・
+  generator が知らない孤児CMD等のエントリを保持する）。
+- generator の `tiers` 表は手で調整した値（重武器 attack-power の引き下げ倍率、遠隔武器の
+  attack-speed 等）や孤児CMDを持っていないので、**プレビューと出荷ymlは恒常的に差分が出る。
+  これは仕様**（diffレビュー時に驚かないこと）。
+回帰テストは `test/generate-item-stats-no-shipped-write-2026-08-25.test.js`
+（実行しても出荷ymlが1バイトも変わらないことを動的に固定 + ソースの静的ガード）。
+似た性質の `scripts/retune-item-stats.js`（出荷ymlを直接・部分的に書き換える「surgical」スクリプト）
+は今回のタスク範囲外で未調査。出荷ymlへ書き込むスクリプトを新設・変更するときは、
+まずこのファイルと同じ「巻き戻りが原理的に起きないか」を先に検討すること。
 
 ### 語彙・定義ファイルはサーバ側（`lib/`）とブラウザ側（`public/js/`）で分かれている
 `lib/gate-vocabulary.js` / `lib/tier-vocabulary.js` のように、検証・API 側（Node, `lib/`）に語彙定義が
@@ -175,6 +221,42 @@ weapon/armor/tool/other/catalyst/spellbook/thread の7値）は `idsInCategory` 
 3. 識別不能な配列 → 従来通り衝突として記録し local を優先する
 マージロジックを変更するときは `test/merge.test.js` を必ず通す。ブラウザは `merge.js` を再読込するために
 ハードリロード（Ctrl+F5 / Ctrl+Shift+R）が要る。
+
+### 楽観ロック(revision)はサーバがファイルの中身ハッシュしか見ないので「エージェントの直接編集」も自動的に守られる（2026-08-25 確認+穴を1つ修正）
+
+「エディタを開いたまま別プロセス(エージェントの Edit/Write 等)が yml を直接書き換えると、
+保存した瞬間にその編集が黙って上書きされるのでは」という懸念は、**調査の結果、既存の
+`server.js` の `PUT /api/config/:id` が持つ楽観ロックで構造的に防がれている**ことを確認した。
+`fileRevision(abs)`（sha256、`server.js`）はファイルの**中身**をハッシュするだけで、
+誰がその中身を書いたか（config-editor の保存経路か、エージェントの直接編集か）は一切区別しない。
+そのため:
+- エディタが GET でロードした時点の revision と、保存(PUT)時点の実ファイルの revision が
+  食い違えば、書いた主体に関わらず 409 で拒否される。
+- クライアント側(`public/js/app.js` の `putConfig`)は 409 を受けると
+  `window.threeWayMerge`(`public/js/merge.js`)で「読み込み時点のbase / 自分の編集 / 相手の最新」
+  の3-wayマージを行い、ユーザーに確認モーダルを出す。**無言の上書きは起きない。**
+- この仕組みは「エディタ経由の同時編集」用に作られたものだが、比較対象が常にディスクの実体
+  なので**エージェントによる直接編集にも自動的に同じ保護が効く**。専用の実装は不要だった。
+
+**ただし1点、実際に穴があった（2026-08-25 に発見・修正）**: `expectedRevision` が `null`
+（＝エディタが「未作成」としてロードした config）のときだけ、サーバが revision チェックを
+一律スキップしていた。そのため「エディタが未作成として開いた config を、開いている間に
+エージェントが新規作成し、そのまま保存する」経路だけ**サイレントに上書きされていた**。
+修正は `server.js` を `expected !== undefined && expected !== null && ...` から
+`Object.prototype.hasOwnProperty.call(req.body, "expectedRevision") && expected !== currentRev`
+へ変更し、`null` も比較対象にした。**この修正はクライアント側とペアでないと効かない**——
+クライアントが `revision != null` のときだけ `expectedRevision` を送る書き方をしていると、
+そもそも `null` が送られてこないので上のサーバ修正が意味を持たない。
+`public/js/app.js`(`putConfig`)・`public/js/respack-view.js`(`putConfigRevision`)・
+`public/js/cmd-tools.js`(`putConfigRevision`) の3箇所を「一度もロードしていない
+(stateに記録が無い)ときだけ省略し、`null` を含めロード済みなら必ず送る」へ揃えた
+(`public/js/material-lists.js` は元から正しく実装されていた。参考実装として残す)。
+**新しく `PUT /api/config/:id` を呼ぶ独自ヘルパーを追加するときは、この3ファイルと同じ契約
+（`expectedRevision` は「一度もロードしていない」ときだけ省略し、`null` も含めて送る）を守ること。**
+`!= null` で省略条件を書くと、この穴が個別に再発する。
+回帰テストは `test/server-optimistic-lock-agent-edit-2026-08-25.test.js`
+（実際に外部プロセスがファイルを直接書き換える/新規作成するケースをHTTPレベルで再現し、
+409で拒否されディスクが1バイトも変わらないことを固定）。
 
 ### companion（連動オプション）マージの一般化に注意する
 複数 yml にまたがる「companion」設定（例: `stat-caps` / `alchemy-quality` / `enchant-luck` /
@@ -987,6 +1069,78 @@ yml を直接編集するときはここが効かないことを忘れないこ�
 418 欄ある画面を 18 欄しか見ないまま「問題なし」と報告する。`textContent` を使い、
 走査母数（数値入力とステ選択の件数）を必ず一緒に出して空振りを検知する。
 
+## ステ行の値は `valueCell` で包む ── 包まないと列の縦線が行ごとにずれる（2026-08-22 修正）
+
+**症状**: 「ランダムロールステ (random)」などの表で、`max` / 加算乗算 / `×` の縦位置が行ごとにずれる。
+
+**真因は単位ではなく「セルの幅が中身で決まっていた」こと。** 値入力の直後に来るものが行によって違う:
+
+| 行 | 値入力の直後 | 値まわりの幅 |
+|---|---|---|
+| %ステ（貫通率など） | `.pct-input` の中に `%` | 123px |
+| 単位なしステ（開運など） | 何も無い | 110px |
+| 単位ありステ（物理守備力＝`ダメ`、マナ上限＝`MP`） | 行末に単位スロット1つ | 110px + 単位 |
+
+flex 行なのでこの差が**そのまま後続へ伝わる**。実測で `max` が 13px、`乗算` と `×` が **26px** ずれていた。
+単位スロット（`.unit-slot`）は `min-width: 2em` を持っていたが、**`min-width` は下限であって固定幅ではない**ので
+`ダメ`（3文字）の行だけ広がっていた。
+
+**対処**: `forms.js` の **`valueCell(control, unitEl)`**（`window.valueCell` で公開）に値と単位をまとめ、
+CSS の `.stat-row > .value-cell { flex: 0 0 160px }` と `.value-cell .field-input.num { width: 110px }` で
+**セルの総幅と入力枠の幅を両方 px 固定**する。中身が `%` でも `ダメ` でも `(整数)` でも外側の列は動かない。
+
+- ランダムロール行は **min/max の両方**にセルを置く（単位も両方に出る）。行末に1つだけ置くと
+  「max だけ単位が付く」非対称になり、%ステ（元から両方に `%` が付く）と揃わない。
+- 倍率行の `x` プレフィックスも**セルの中**へ入れる。外に出すと加算行とセル開始位置がずれる。
+- 適用先は `statSelect` を持つ**全て**のステ行: `forms.js`(item-stats 固定/品質別/ランダム・
+  フォールバック・セット効果)、`ars-spellbooks.js`、`tf-skilltree.js`、`tf-lifestyle-forms.js`、`p5-forms.js`。
+
+## セット効果の乗算には「レイヤ選択」が要る（2026-08-22、W-186）
+
+「セット効果で乗算をONにした時にレイヤ指定ができない」という指摘。原因は UI ではなく、
+**レイヤという概念が editor / ArsPaper フォーク / TF 本体のどこにも無かった**こと
+（乗算は全部 `"addon"` という専用レイヤ1本へ固定で入っていた）。
+TF は「レイヤ内は Σ(v-1) を足し、レイヤ同士は掛ける」ので、装備側にも同じステの倍率があると
+**掛け算で二重に乗る**。詳細は `combat.md` の「乗算レイヤは…」節。
+
+editor 側で足したものは3つ:
+
+- `lib/schema.js` の `validateArsThreadSets` が `layer:` を受ける。
+  **空文字は弾く／加算モードに付いていたら弾く**（黙って無視されるキーを保存させない）。
+- `forms.js` の `renderThreadSetEffects` に `setEffectLayerSelect`。行の並びは item-stats と同じ
+  **`[ステ選択][値セル][加算/乗算][乗算レイヤ][×]`**。
+- 既定レイヤ定数 `SET_EFFECT_DEFAULT_LAYER = "addon"`。
+  **フォークの `ThreadSetConfig#DEFAULT_LAYER` / TF の `AddonCombatStats#MULTIPLIER_LAYER_ID` と
+  同じ文字列でなければならない**（ずれると「layer 未指定」の解釈だけが食い違う）。
+
+item-stats の `multLayerSelect` と違い、**未選択状態（`__unset__`）を作らない**。
+セット効果はレイヤ未定義のステでも乗算にできる（「セット効果専用」＝ `addon` へ落ちる）ので、
+行き止まりが存在しない ── item-stats 側は「このステ用のレイヤが無いと乗算ON自体を拒否」する alert があるが、
+こちらにその門は要らない。
+
+⚠️ **乗算の値を書き換えるコードは必ず `multiplyValue(delta, layer)` を通す。**
+`{ mode: "multiply", value }` を直書きすると `layer` が落ち、黙って専用レイヤ（＝装備側と掛け算）へ戻る。
+回帰は `test/thread-set-multiplier-layer-2026-08-22.test.js`（直書きが残っていないことを走査で固定）。
+
+## 加算/乗算の切替は `modeToggleButton` に統一する（2026-08-22）
+
+同じ「加算か乗算か」が**3画面で3通り**に出ていた（item-stats とスキルツリーは**チェックボックス**、
+スレッドのセット効果は**プルダウン**）。K指示で**ボタン**へ統一した。
+
+`forms.js` の `modeToggleButton(isMultiply, onToggle, title)`（`window.modeToggleButton`）が唯一の部品。
+表示しているのは**今どちらのモードか**で、押すともう一方へ切り替わる（`onToggle(次の状態)`）。
+乗算中は `.is-multiply` が付いてアクセント色になる。
+
+- 新しい画面で加算/乗算を出すときは**必ずこれを使う**。チェックボックスやプルダウンを足すと
+  「同じ意味のものが画面ごとに違う」に逆戻りする。
+- 行の並びも揃える: **`[ステ選択] [値セル] [加算/乗算] [(乗算レイヤ)] [×]`**。
+  セット効果だけモード→値の順だったのを 2026-08-22 に揃えた。
+
+回帰は `test/stat-row-unified-controls-2026-08-22.test.js`:
+値入力が `valueCell` を通っているか / `.value-cell` と入力欄の幅が px 固定か /
+`mode-select` と「乗算ラベル付き `inline-check`」が残っていないか / `modeToggleButton` が実際に4箇所以上で
+呼ばれているか を見る。**4本とも修正前のソースへ戻すと落ちることを確認済み。**
+
 ## `dropTableEditor`(fishing/mining/woodcutting/digging 共通)は path を渡した瞬間に丸ごと実体化する（2026-08-15）
 
 `tf-lifestyle-forms.js` の `dropTableEditor(working, path, opts)` は内部の
@@ -1087,6 +1241,48 @@ texture が存在するか）しか見ておらず、上記のどれも検出で
 （宣言したのに実は配線済み / 実はもう存在しない / `reason` が空）。
 理由の書いていない宣言は許可リストと同じで書いた本人以外に検証できないため、`reason` は必須。
 該当 0 件のときはファイルを置かない（存在しなければ宣言 0 件として扱う）。
+
+## ⚠️ material を差し替えた行は台帳の突合せキーごと変わる ── 2026-08-22 に修正、原理は残る
+
+`cmd-registry.json` の突合せは長く **`(material, cmd)` をキー**にしていた
+（`lib/cmd-registry.js#reconcileWithUsage`）。この形は「editor で material だけ差し替える」操作を
+表現できない ── キーが変わるので**同じアイテムの行が「別の行が消えて別の行が増えた」ように見える**。
+結果、`assetName` / `parent` が黙って落ち、`regenerateItemDefinitions` が未配線と判断して
+**バニラモデルを指す entry** を書く。ユーザーからは「テクスチャ割り当てが外れた」にしか見えない
+（鎌 11 品を `*_HOE` → `*_SWORD` へ移して実際に踏んだ）。
+
+2026-08-22 に `reconcileWithUsageDetailed` を入れ、**キーが変わっただけの行を `id` で引き継ぐ**
+ようにした。引き継ぎを**しない**条件が3つある。ここを緩めると「黙って別物へ結び付ける」方向に壊れる:
+
+- 元の `(material,cmd)` が今回の usage に**残っている** → 移動ではない（別アイテムがそこに居る）
+- 同じ id の引き継ぎ候補が**複数ある** → どちらか決められないので、どこへも引き継がない
+- 引き継ぎ先の `assetName` を**他行が既に持っている** → 同じ assetName を2行で共有させない
+
+### 生成モデルの `parent` は「登録時の material」を焼き込んでいる
+
+`models/item/<assetName>.json` は `{"parent": "minecraft:item/wooden_hoe", "textures": {...}}` の形で、
+**parent がその時の material のバニラモデル**を指す。material を移したら貼り直しが要る
+（`respack.js#rewriteMovedModels`）。貼り直さないと:
+
+- 構え方・大きさ（display 変換）が**旧 material のまま**残る。剣↔鍬はどちらも handheld なので
+  気づきにくいが、剣↔弓では明確に壊れる。
+- **BOW / TRIDENT / *_SPEAR のようにリーフを複数持つ material へ移すと描画ごと落ちる。**
+  `entryModelFor` は新しい material のリーフ構成から `<assetName>__pulling_0.json` 等を参照するが、
+  そのファイルは旧 material 時代に生成されていないので存在しない。
+
+`customModel: true`（bbmodel / 手書き JSON）の行は**絶対に上書きしない**。
+
+### 「threshold entry がある」は「絵が出ている」の証拠にならない
+
+`resourcepack/build_item_pack.py` の D-2 検査は、この事故を**1件も検出できなかった**。
+理由は respack.js の H-3 修正（range_dispatch のフォールスルー対策）で
+**未配線の割当にも threshold entry を必ず生成するようになった**から。
+entry は出るがモデルはバニラを指す、という状態が正常系に入ったので、
+「threshold に居るか」だけを見る検査は意味を失っていた。
+
+現在は `drawn_thresholds()` で **entry が `trinityforge:` の自前モデルを指しているか**まで見る。
+同種の検査を書くときは必ずここを踏襲する（`model_ids()` で入れ子も辿ること。
+引き絞りの `condition` / `range_dispatch` はモデルを入れ子に持つ）。
 
 ## 防具の着用時テクスチャはエディタの管轄外（2026-08-16）
 

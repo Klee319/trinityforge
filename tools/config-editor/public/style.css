@@ -1281,6 +1281,41 @@ select.field-input option {
 /* 単位スロット: 単位が無い行でも常に2文字分の幅を確保し、後続の乗算チェック等の開始位置を揃える */
 .unit-slot { display: inline-flex; align-items: center; min-width: 2em; flex: 0 0 auto; }
 
+/* 値入力セル (2026-08-22): [値入力] + [単位] の総幅を固定する。
+   ここを可変にすると、同じ表の中で単位の有無・文字数のぶんだけ後続の列が動き、
+   「max」「乗算」「×」の縦線が行ごとにずれる (%行と ダメ行で最大 26px ずれていた)。
+   入力欄そのものの幅 (110px) は据え置き、余った幅を単位スロットが吸う。 */
+.stat-row > .value-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 160px;
+  min-width: 0;
+  overflow: hidden;
+}
+/* セル内の入力欄は 110px 固定。ここを可変にすると入力枠の左右の線が行ごとにずれる。 */
+.value-cell .field-input.num { flex: 0 0 110px; width: 110px; }
+.value-cell > .pct-input,
+.value-cell > .int-input,
+.value-cell > .mult-input { flex: 0 1 auto; min-width: 0; }
+/* 単位・整数注記は余り幅ぶんだけ出す (長い注記は省略。全文は title で読める)。 */
+.value-cell > .unit-slot,
+.value-cell .int-suffix {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.int-input, .mult-input { display: inline-flex; align-items: center; gap: 3px; min-width: 0; }
+.int-suffix { font-size: 11px; color: var(--muted, #888); }
+
+/* 加算/乗算 の切替ボタン (2026-08-22)。item-stats / スキルツリーのチェックボックスと
+   セット効果のプルダウンで3通りに割れていたのを、この1つへ統一した。
+   表示しているのは「今どちらのモードか」で、押すともう一方へ切り替わる。 */
+.mode-toggle { flex: 0 0 auto; min-width: 3.8em; text-align: center; }
+.mode-toggle.is-multiply { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+
 .mult-prefix { font-size: 12px; color: var(--muted); font-weight: 700; }
 .mult-layer-select { min-width: 130px; max-width: 170px; }
 .stat-row .inline-check .mini-label { white-space: nowrap; }

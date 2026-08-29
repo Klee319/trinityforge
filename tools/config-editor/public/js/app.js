@@ -949,7 +949,14 @@
   async function putConfig(configId, data, opts) {
     const options = opts && typeof opts === "object" ? opts : {};
     const body = { data };
-    if (state.revisions[configId] != null) body.expectedRevision = state.revisions[configId];
+    // 読み込み時点の revision を送る。null (=読み込み時にファイルがまだ存在しなかった) も
+    // 有効な情報として送る (2026-08-25)。ここを "!= null" にすると「未作成として読み込んだ config を、
+    // 開いている間に別プロセスが新規作成し、そのまま保存する」経路が楽観ロックを素通りして
+    // サイレントロールバックする (server.js 側の hasExpectedRevision 判定と対にすること)。
+    // 一度も読み込んでいない(state.revisions に configId の記録が無い)場合だけ省略する。
+    if (Object.prototype.hasOwnProperty.call(state.revisions, configId)) {
+      body.expectedRevision = state.revisions[configId];
+    }
     try {
       const r = await api("PUT", `/api/config/${configId}`, body);
       rememberRevision(configId, r.revision);

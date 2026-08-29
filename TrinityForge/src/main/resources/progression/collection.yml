@@ -79,35 +79,39 @@ categories:
     dungeon:
       display-name: 踏破の証
       order: 2
+      # 2026-08-25(W-229): 印 27 種をダンジョン難易度(mob-overrides.yml の「難易度 N/10」、
+      # 同着は id 昇順)の昇順に並べ替えた(理由は achievements.yml の seal_27 と同じ)。
+      # dungeon_seal_binder(束縛者、難易度10)より後ろの2件(binder_fragment/reality_thread_core)
+      # は「踏破の証」そのものではない別素材なので順序整理の対象外、末尾のまま動かさない。
       entries:
-        - dungeon_seal_mines
-        - dungeon_seal_deep_mines
-        - dungeon_seal_quarry
-        - dungeon_seal_cave
-        - dungeon_seal_bridge
-        - dungeon_seal_city
-        - dungeon_seal_climb
-        - dungeon_seal_palace
-        - dungeon_seal_knight_castle
-        - dungeon_seal_sewer_maze
-        - dungeon_seal_steamworks
-        - dungeon_seal_nether_bell
-        - dungeon_seal_nether_wastes
-        - dungeon_seal_dark_cathedral
-        - dungeon_seal_enchant_trial_1
-        - dungeon_seal_enchant_trial_2
-        - dungeon_seal_enchant_trial_3
-        - dungeon_seal_enchant_trial_4
-        - dungeon_seal_enchant_trial_5
-        - dungeon_seal_enchant_trial_6
-        - dungeon_seal_enchant_trial_7
-        - dungeon_seal_enchant_trial_8
-        - dungeon_seal_enchant_trial_9
-        - dungeon_seal_enchant_trial_10
-        - dungeon_seal_fireworks
-        - dungeon_seal_hallosseum
-        - dungeon_seal_north_pole
-        - dungeon_seal_binder
+        - dungeon_seal_dark_cathedral       # 難易度1
+        - dungeon_seal_enchant_trial_1       # 難易度1
+        - dungeon_seal_deep_mines            # 難易度2
+        - dungeon_seal_enchant_trial_2        # 難易度2
+        - dungeon_seal_hallosseum            # 難易度2
+        - dungeon_seal_bridge                # 難易度3
+        - dungeon_seal_enchant_trial_3        # 難易度3
+        - dungeon_seal_knight_castle          # 難易度3
+        - dungeon_seal_enchant_trial_4        # 難易度4
+        - dungeon_seal_palace                # 難易度4
+        - dungeon_seal_steamworks            # 難易度4
+        - dungeon_seal_enchant_trial_5        # 難易度5
+        - dungeon_seal_mines                 # 難易度5
+        - dungeon_seal_nether_bell            # 難易度5
+        - dungeon_seal_city                  # 難易度6
+        - dungeon_seal_enchant_trial_6        # 難易度6
+        - dungeon_seal_fireworks             # 難易度6
+        - dungeon_seal_nether_wastes          # 難易度6
+        - dungeon_seal_enchant_trial_7        # 難易度7
+        - dungeon_seal_north_pole            # 難易度7
+        - dungeon_seal_sewer_maze            # 難易度7
+        - dungeon_seal_climb                 # 難易度8
+        - dungeon_seal_enchant_trial_8        # 難易度8
+        - dungeon_seal_quarry                # 難易度8
+        - dungeon_seal_cave                  # 難易度9
+        - dungeon_seal_enchant_trial_9        # 難易度9
+        - dungeon_seal_enchant_trial_10       # 難易度10
+        - dungeon_seal_binder                # 難易度10(束縛者本人)
         - binder_fragment
         - reality_thread_core
         - abyssal_ingot
@@ -117,13 +121,18 @@ categories:
       entries:
         - source_shard
         - source_jar_ii
+        # 2026-08-23 追加。触媒ごとに「同じ触媒で届く2段目」を1つずつ挟んで10段にした段。
+        - source_amphora
         - source_crystal
         - source_jar_iii
+        - source_cistern
         - source_condenser
         - source_reservoir
+        - source_basin
         - source_engine
         # 2026-08-16 追加。貯水槽(200万)と特異点の壺(5,000万)の間が25倍で空いていたので挟んだ段。
         - source_vault
+        - source_abyssal_urn
         - source_singularity_jar
         - infinity_source_core
         - source_jar
@@ -459,6 +468,7 @@ categories:
         - thread_scholar
         - thread_slow_falling
         - thread_source_thrift
+        - thread_stealth
         - thread_speed
         - thread_spell_cost_down
         - thread_spoils
@@ -467,6 +477,43 @@ categories:
         - thread_thrift
         - thread_timber
         - thread_translate
+        - thread_swordsman
+        - thread_berserker
+        - thread_lancer
+        - thread_reaper
+        - thread_crusher
+        - thread_assassin
+        - thread_duelist
+        - thread_titan
+        - thread_greatsword
+        - thread_longshot
+        - thread_tidecaller
+        - thread_earthshaker
+        - thread_bolter
+        - thread_spellblade
+        - thread_onslaught
+        - thread_precision
+        - thread_execution
+        - thread_piercer
+        - thread_hemorrhage
+        - thread_bulwark
+        - thread_aegis
+        - thread_ironhide
+        - thread_evasion
+        - thread_resilience
+        # 2026-08-23 (W-187): トレジャーチェスト専用10種。
+        # レシピが無く構造物のルートチェストからしか出ないので、
+        # 図鑑としては「そのティアを漁ったか」の記録になる。
+        - thread_maelstrom
+        - thread_exsanguinate
+        - thread_skyfall
+        - thread_farsight
+        - thread_truesight
+        - thread_swiftarrow
+        - thread_piercingshot
+        - thread_rampart
+        - thread_bastion
+        - thread_wardstone
     material_tf:
       display-name: TF素材
       # 2026-08-18: thread_* 51件がここと thread カテゴリの両方に入っていて図鑑で二重に
@@ -556,6 +603,8 @@ categories:
         - amethyst_block_1x
         - amethyst_block_2x
         - amethyst_block_3x
+        # 2026-08-23 追加。ソースの欠片/結晶の一括儀式に使う9倍圧縮。
+        - amethyst_shard_1x
         - andesite_1x
         - andesite_2x
         - andesite_3x
@@ -708,6 +757,8 @@ categories:
         - shulker_shell_2x
         - source_gem_block_1x
         - source_gem_block_2x
+        # 2026-08-23 追加。ソース結晶の一括儀式に使う9倍圧縮。
+        - source_shard_1x
         - spruce_wood_1x
         - spruce_wood_2x
         - spruce_wood_3x
@@ -746,29 +797,49 @@ categories:
       entries:
         - alchemical_sourcelink
         - alchemical_sourcelink_ii
+        - alchemical_sourcelink_ii_b
         - alchemical_sourcelink_iii
+        - alchemical_sourcelink_iii_b
         - alchemical_sourcelink_iv
+        - alchemical_sourcelink_iv_b
         - alchemical_sourcelink_v
+        - alchemical_sourcelink_vi
         - botanical_sourcelink
         - botanical_sourcelink_ii
+        - botanical_sourcelink_ii_b
         - botanical_sourcelink_iii
+        - botanical_sourcelink_iii_b
         - botanical_sourcelink_iv
+        - botanical_sourcelink_iv_b
         - botanical_sourcelink_v
+        - botanical_sourcelink_vi
         - mycelial_sourcelink
         - mycelial_sourcelink_ii
+        - mycelial_sourcelink_ii_b
         - mycelial_sourcelink_iii
+        - mycelial_sourcelink_iii_b
         - mycelial_sourcelink_iv
+        - mycelial_sourcelink_iv_b
         - mycelial_sourcelink_v
+        - mycelial_sourcelink_vi
         - vitalic_sourcelink
         - vitalic_sourcelink_ii
+        - vitalic_sourcelink_ii_b
         - vitalic_sourcelink_iii
+        - vitalic_sourcelink_iii_b
         - vitalic_sourcelink_iv
+        - vitalic_sourcelink_iv_b
         - vitalic_sourcelink_v
+        - vitalic_sourcelink_vi
         - volcanic_sourcelink
         - volcanic_sourcelink_ii
+        - volcanic_sourcelink_ii_b
         - volcanic_sourcelink_iii
+        - volcanic_sourcelink_iii_b
         - volcanic_sourcelink_iv
+        - volcanic_sourcelink_iv_b
         - volcanic_sourcelink_v
+        - volcanic_sourcelink_vi
     ore:
       display-name: 鉱石と地下資源
       order: 19

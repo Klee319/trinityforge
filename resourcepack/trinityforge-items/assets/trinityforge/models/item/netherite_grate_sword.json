@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/netherite_sword",
+  "textures": {
+    "layer0": "trinityforge:item/netherite_grate_sword"
+  }
+}
