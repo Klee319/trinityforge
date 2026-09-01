@@ -132,7 +132,35 @@ Floodgate のプレイヤーは名前が `.` で始まり、UUID が `00000000-0
 `whitelist add <名前>` は Mojang に照会するので**必ず失敗する**。
 Paper の照合は UUID で行われるため、**ファイル（`whitelist.json`）へ直接書くのが唯一の経路**。
 あとから統合版の人を足すときは `apply-whitelist.ps1` を再実行する
-（その人が一度接続していれば `usercache.json` から拾える）。まだ一度も来ていない人は `-ExtraEntry`。
+（その人が一度接続していれば `usercache.json` から拾える）。
+
+#### 統合版の人は「一度アクセスさせる」必要が無い（2026-09-01）
+
+Floodgate が配る UUID は XUID から一意に決まるので、**本人が一度も来ていなくても正しい行を書ける**。
+
+```
+UUID = 00000000-0000-0000-<XUID を 16 桁の 16 進にしたもの>
+例) XUID 2535400000000001 -> 00000000-0000-0000-0009-01eed05d1001
+```
+
+XUID は Xbox が発番するので計算では出せない。ゲーマータグからの変換は GeyserMC の公開 API
+（`https://api.geysermc.org/v2/xbox/xuid/<ゲーマータグ>`）を使う。キャッシュに無いタグは
+Xbox Live へ問い合わせに行くので、**一度も Geyser サーバへ来ていない人でも引ける**。
+
+```powershell
+# 相手からはゲーマータグを聞くだけでよい
+.pply-whitelist.ps1 -BedrockGamertag "Steve Alex","BedrockFriend01" -DryRun
+```
+
+Java 側の名前（`.` 付き・空白は `_`・16 文字で切る）は Floodgate の `config.yml` から
+読んだ規則で組み立てる。**照合は UUID だけなので名前は表示用**で、多少ずれても許可の判定には効かない。
+
+検算: 2026-09-01 に配備先 `usercache.json` の統合版 27 エントリすべてで、
+UUID と名前の両方がこの式から完全に再現できることを確認した。
+API 経由の実測でも 既に接続実績のある 2 件で、API から引いた XUID が実データと一致した。
+
+API が 503（Xbox Live 側のレート制限）を返すときは `-BedrockXuid "ゲーマータグ=XUID"` で
+直接渡せる（外部への問い合わせをしない経路）。Java 版のプレイヤーを手で足すのは従来どおり `-ExtraEntry`。
 
 ---
 
