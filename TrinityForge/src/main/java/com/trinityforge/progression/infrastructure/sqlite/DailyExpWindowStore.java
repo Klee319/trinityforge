@@ -330,12 +330,16 @@ public final class DailyExpWindowStore implements AutoCloseable {
     /**
      * スキルごとに切り下げ先が違うとき（減衰量の割合削減）用。
      * {@code caps} の各スキルについて、保存済み（現在時刻へ減衰済み）がそれより大きければ切り下げる。
+     *
+     * <p>期限切れの行は切り下げずに消す。残して {@code locked_at} を書き戻すと、
+     * あとの {@link #save} が「早い方の発動時刻」で古いロックを蘇らせる。
      */
     public synchronized int capToSnapshots(UUID playerId,
                                            Collection<DailyExpDiminishing.WindowSnapshot> caps,
-                                           double windowMillis) throws SQLException {
+                                           double windowMillis,
+                                           double lockReleaseMillis) throws SQLException {
         Objects.requireNonNull(playerId, "playerId");
-        if (caps == null || caps.isEmpty()) {
+        if (caps == null) {
             return 0;
         }
         Map<String, Double> bySkill = new HashMap<>();
@@ -345,9 +349,6 @@ public final class DailyExpWindowStore implements AutoCloseable {
             }
             bySkill.put(cap.skillId(), cap.amount());
         }
-        if (bySkill.isEmpty()) {
-            return 0;
-        }
         double window = windowMillis > 0.0 && Double.isFinite(windowMillis) ? windowMillis : 1.0;
         long now = clockMillis.getAsLong();
         boolean autoCommit = conn.getAutoCommit();
@@ -355,11 +356,19 @@ public final class DailyExpWindowStore implements AutoCloseable {
         int changed = 0;
         try {
             for (DailyExpDiminishing.WindowSnapshot row : load(playerId)) {
+                DailyExpDiminishing.WindowSnapshot stored = live(row, now, lockReleaseMillis);
+                if (stored == null) {
+                    stmtDeleteRow.setString(1, playerId.toString());
+                    stmtDeleteRow.setString(2, row.skillId());
+                    stmtDeleteRow.executeUpdate();
+                    changed++;
+                    continue;
+                }
                 Double maxAmount = bySkill.get(row.skillId());
                 if (maxAmount == null) {
                     continue;
                 }
-                double decayed = decayTo(now, row, window);
+                double decayed = decayTo(now, stored, window);
                 if (decayed <= maxAmount) {
                     continue;
                 }
@@ -372,7 +381,7 @@ public final class DailyExpWindowStore implements AutoCloseable {
                     stmtUpsert.setString(2, row.skillId());
                     stmtUpsert.setDouble(3, maxAmount);
                     stmtUpsert.setLong(4, now);
-                    stmtUpsert.setLong(5, row.lockedAtMillis());
+                    stmtUpsert.setLong(5, stored.lockedAtMillis());
                     stmtUpsert.executeUpdate();
                 }
                 changed++;

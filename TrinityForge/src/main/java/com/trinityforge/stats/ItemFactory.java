@@ -8,6 +8,7 @@ import com.trinityforge.pdc.ItemData;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.papermc.paper.datacomponent.item.Equippable;
 import net.kyori.adventure.key.Key;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Color;
@@ -102,6 +103,14 @@ public final class ItemFactory {
     /** {@link ItemAssembler#appendOwnerLoreIfMissing(ItemStack)} への委譲。 */
     public boolean appendOwnerLoreIfMissing(ItemStack stack) {
         return assembler.appendOwnerLoreIfMissing(stack);
+    }
+
+    /**
+     * フォークが専用 lore を組む途中で所有者行を足すための委譲。
+     * {@link ItemStack} 全体を再組み立てず、渡された lore リストだけを更新する。
+     */
+    public boolean appendOwnerLoreIfMissing(ItemMeta meta, java.util.List<Component> lore) {
+        return assembler.appendOwnerLoreIfMissing(meta, lore);
     }
 
     /**

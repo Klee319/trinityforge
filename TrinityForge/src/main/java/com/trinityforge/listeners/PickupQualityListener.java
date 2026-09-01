@@ -565,6 +565,11 @@ public final class PickupQualityListener implements Listener {
         stack.setItemMeta(meta);
         if (hasArsThreadMarker(meta)) {
             // スレッド lore は ThreadItem#fullLore。ItemFactory#stamp に通すと上書きされる(W-53)。
+            // ただし PDC だけを書いて戻ると、Ars のスレッド枠返却／表更新が lore を組み直した直後に
+            // 「所有者は内部にいるのに表示だけ無い」個体を作る。専用経路で組み直してから、TF の
+            // owner 行を追記する（汎用 stamp には絶対に落とさない）。
+            defaultArsThreadLoreRefresh(stack);
+            itemFactory.appendOwnerLoreIfMissing(stack);
             return true;
         }
         itemFactory.stamp(stack, rollSeed.get(), data.quality());

@@ -76,7 +76,7 @@ public final class ExpDecayAdminCommand {
         diminishing.clearPlayer(target.getUniqueId());
         if (persistence != null) {
             plugin.getServer().getScheduler().runTaskAsynchronously(plugin,
-                    () -> persistence.resetPlayer(target.getUniqueId()));
+                    () -> persistence.wipeStored(target.getUniqueId()));
         }
         sender.sendMessage(Component.text(
                 "EXP取得量の減衰をリセットしました: " + target.getName(), NamedTextColor.GREEN));

@@ -1,5 +1,6 @@
 package com.trinityforge.items;
 
+import com.trinityforge.listeners.PickupQualityListener;
 import com.trinityforge.pdc.BindType;
 import com.trinityforge.pdc.ItemData;
 import com.trinityforge.stats.ItemFactory;
@@ -29,6 +30,14 @@ public final class OwnerUnbindTicketEffect implements EquipmentTicketEffect {
 
     private static final NamespacedKey ARS_THREAD_ITEM_TYPE =
             new NamespacedKey("arspaper", "thread_item_type");
+
+    /**
+     * Ars が持つ魂縛所有者の<b>控え</b>。真実は TF の {@link ItemData} 側だが、Ars の
+     * スレッド専用 lore と枠からの返却はこちらを読んで「魂縛: 名前」を書き戻す。
+     * ここを消さずに TF 側だけ解くと、表示は残り、枠へ入れて出すと再び縛られる。
+     */
+    private static final NamespacedKey ARS_THREAD_SOULBOUND_OWNER =
+            new NamespacedKey("arspaper", "thread_soulbound_owner");
 
     private final ItemFactory itemFactory;
 
@@ -89,6 +98,11 @@ public final class OwnerUnbindTicketEffect implements EquipmentTicketEffect {
         stack.setItemMeta(meta);
         ItemMeta written = stack.getItemMeta();
         if (written != null && isArsThread(written)) {
+            // 汎用 stamp はスレッド専用 lore を壊すので通さない(W-53)。代わりに Ars 側の
+            // 控えを消し、Ars 自身の lore 組み直しを呼ぶ。これをやらないと「解いたのに
+            // 魂縛の行が残る」= 使っても何も起きていないように見える。
+            clearArsSoulboundOwner(stack);
+            PickupQualityListener.defaultArsThreadLoreRefresh(stack);
             return Optional.of(stack);
         }
         Optional<Long> seed = ItemData.of(written != null ? written : meta).rollSeed();
@@ -101,6 +115,18 @@ public final class OwnerUnbindTicketEffect implements EquipmentTicketEffect {
     @Override
     public String appliedMessage() {
         return "所有者を解き、取引可能な品にしました。";
+    }
+
+    /** Ars 側の魂縛控えを消す。TF だけ解いても Ars が書き戻すので、2本まとめて解く。 */
+    private static void clearArsSoulboundOwner(ItemStack stack) {
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null
+                || !meta.getPersistentDataContainer().has(
+                        ARS_THREAD_SOULBOUND_OWNER, PersistentDataType.STRING)) {
+            return;
+        }
+        meta.getPersistentDataContainer().remove(ARS_THREAD_SOULBOUND_OWNER);
+        stack.setItemMeta(meta);
     }
 
     private static boolean isArsThread(ItemMeta meta) {

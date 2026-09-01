@@ -2,8 +2,10 @@ package com.trinityforge.listeners;
 
 import com.trinityforge.config.domains.CraftingFeaturesConfig;
 import com.trinityforge.config.domains.CraftingFeaturesConfig.DisassemblyRule;
+import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.stats.MaterialLists;
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,6 +14,7 @@ import org.mockbukkit.mockbukkit.MockBukkit;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalDouble;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -131,6 +134,20 @@ class DisassemblyListenerTest {
         assertTrue(DisassemblyListener.isVanillaRecipeForUnstampedItem(vanilla, vanillaRecipe));
         assertTrue(!DisassemblyListener.isVanillaRecipeForUnstampedItem(vanilla, catalog),
                 "trinityforge 名前空間＋CMD 付き成果物はバニラ革チェストのレシピではない");
+    }
+
+    @Test
+    void dismantleLevelUsesHighestUnlockedTierInsteadOfSummingCumulativeNodes() {
+        DedicatedEffectsConfig effects = org.mockito.Mockito.mock(DedicatedEffectsConfig.class);
+        Player player = org.mockito.Mockito.mock(Player.class);
+        org.mockito.Mockito.when(effects.valueMax(player, "dismantle-unlock"))
+                .thenReturn(OptionalDouble.of(3.0));
+        org.mockito.Mockito.when(effects.valueSum(player, "dismantle-unlock")).thenReturn(6.0);
+
+        assertEquals(3, DisassemblyListener.dismantleLevel(effects, player),
+                "C/D/E の絶対tier 1/2/3を足すと6になり、未定義tierの150%へフォールバックしてしまう");
+        org.mockito.Mockito.verify(effects, org.mockito.Mockito.never())
+                .valueSum(player, "dismantle-unlock");
     }
 
     @Test

@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalDouble;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -96,7 +97,7 @@ public final class DisassemblyListener implements Listener {
         AnvilPlacement placement = fallingAnvilOwners.remove(falling.getUniqueId());
         if (placement == null) return; // dispenser/world-generated anvils have no accountable unlock owner.
         Player owner = falling.getServer().getPlayer(placement.owner());
-        int level = owner == null ? 0 : dismantleLevel(owner);
+        int level = owner == null ? 0 : dismantleLevel(dedicatedEffects, owner);
         if (level <= 0) return;
 
         Location impact = event.getBlock().getLocation().add(0.5, -0.25, 0.5);
@@ -443,8 +444,14 @@ public final class DisassemblyListener implements Listener {
         return stacks;
     }
 
-    private int dismantleLevel(Player player) {
-        int value = (int) Math.floor(dedicatedEffects.valueSum(player, UNLOCK));
+    /**
+     * C/D/E ノードの value は加算量ではなく絶対tier (1/2/3)。
+     * 直列取得した3ノードを合算すると6になり、未定義tierの線形フォールバック(150%)へ入るため、
+     * 段階効果の契約どおり最大値だけを採用する。
+     */
+    static int dismantleLevel(DedicatedEffectsConfig dedicatedEffects, Player player) {
+        OptionalDouble highest = dedicatedEffects.valueMax(player, UNLOCK);
+        int value = highest.isPresent() ? (int) Math.floor(highest.getAsDouble()) : 0;
         return value > 0 ? value : (dedicatedEffects.isActive(player, UNLOCK) ? 1 : 0);
     }
 

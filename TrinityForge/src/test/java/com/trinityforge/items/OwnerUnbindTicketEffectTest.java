@@ -150,4 +150,33 @@ class OwnerUnbindTicketEffectTest {
         assertTrue(unbound.owner().isEmpty());
         assertEquals(BindType.TRADEABLE, unbound.bindType().orElseThrow());
     }
+
+    /**
+     * 魂縛の台帳は TF と Ars の2本ある。TF 側だけ解くと Ars のスレッド専用 lore と
+     * 枠からの返却が控えを読んで「魂縛: 名前」を書き戻すので、符が効いていないように見える。
+     */
+    @Test
+    void applyAlsoClearsArsSoulboundOwnerLedger() {
+        ItemStack thread = new ItemStack(Material.STRING);
+        ItemMeta meta = thread.getItemMeta();
+        ItemData data = ItemData.of(meta);
+        data.setRollSeed(ORIGINAL_ROLL_SEED);
+        data.setCatalogId("thread_bastion");
+        data.setBindType(BindType.SOULBOUND);
+        data.setOwner(OWNER);
+        meta.getPersistentDataContainer().set(
+                new NamespacedKey("arspaper", "thread_item_type"),
+                PersistentDataType.STRING, "bastion");
+        meta.getPersistentDataContainer().set(
+                new NamespacedKey("arspaper", "thread_soulbound_owner"),
+                PersistentDataType.STRING, OWNER.toString());
+        thread.setItemMeta(meta);
+
+        ItemStack unbound = effect.apply(thread).orElseThrow();
+
+        assertFalse(unbound.getItemMeta().getPersistentDataContainer().has(
+                        new NamespacedKey("arspaper", "thread_soulbound_owner"),
+                        PersistentDataType.STRING),
+                "Ars 側の控えが残ると、枠へ入れて出したときに再び縛られる");
+    }
 }

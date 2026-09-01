@@ -154,7 +154,8 @@ public final class DailyExpWindowPersistence {
         }
         DailyExpDiminishing.Settings current = currentSettings();
         try {
-            return store.capToSnapshots(playerId, diminishing.snapshot(playerId), current.windowMillis());
+            return store.capToSnapshots(playerId, diminishing.snapshot(playerId),
+                    current.windowMillis(), current.lockReleaseMillis());
         } catch (SQLException | RuntimeException ex) {
             warn.accept("[daily-exp] 逓減の切り下げを保存できませんでした: " + playerId + " / " + ex);
             return 0;
@@ -177,16 +178,30 @@ public final class DailyExpWindowPersistence {
         }
     }
 
-    /** 運営リセット。メモリと DB の蓄積・無効化を全部消す。 */
-    public void resetPlayer(UUID playerId) {
+    /**
+     * 運営リセットの非同期側。DB だけ消す。メモリは触らない。
+     *
+     * <p>{@link #resetPlayer} はメモリも消すので、コマンドがメインスレッドで
+     * {@link DailyExpDiminishing#clearPlayer} したあとにこれを非同期で呼ぶこと。
+     * 非同期側でも clear すると、完了までの間に稼いだ分まで消える。
+     */
+    public void wipeStored(UUID playerId) {
         if (playerId == null) {
             return;
         }
-        diminishing.clearPlayer(playerId);
         try {
             store.delete(playerId);
         } catch (SQLException | RuntimeException ex) {
             warn.accept("[daily-exp] 逓減のリセットを保存できませんでした: " + playerId + " / " + ex);
         }
+    }
+
+    /** 運営リセット。メモリと DB の蓄積・無効化を全部消す（同期呼び出し用）。 */
+    public void resetPlayer(UUID playerId) {
+        if (playerId == null) {
+            return;
+        }
+        diminishing.clearPlayer(playerId);
+        wipeStored(playerId);
     }
 }

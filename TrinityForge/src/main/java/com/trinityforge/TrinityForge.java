@@ -851,7 +851,7 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.items.RoleTicketItemListener(roleSelectGui), this);
         com.trinityforge.items.EquipmentTicketGui equipmentTicketGui =
-                new com.trinityforge.items.EquipmentTicketGui(this);
+                new com.trinityforge.items.EquipmentTicketGui(this, perkAttributeApplier::apply);
         getServer().getPluginManager().registerEvents(equipmentTicketGui, this);
         java.util.List<com.trinityforge.items.EquipmentTicketEffect> equipmentTicketEffects = java.util.List.of(
                 new com.trinityforge.items.StatRerollTicketEffect(itemFactory, () -> this.craftQualityService),
@@ -1420,6 +1420,13 @@ public final class TrinityForge extends JavaPlugin {
 
         // Block player-facing /em /ag while TF owns progression (ops can bypass).
         getServer().getPluginManager().registerEvents(new EliteMobsCommandGateListener(), this);
+        // EliteMobs keeps completed DungeonInstance objects in a static registry. The optional,
+        // reflection-based guard releases them after EliteMobs finishes its own teardown, so dungeon
+        // content with large transitive block states cannot accumulate for the JVM lifetime.
+        com.trinityforge.mobs.EliteMobsInstanceLeakGuard eliteMobsInstanceLeakGuard =
+                new com.trinityforge.mobs.EliteMobsInstanceLeakGuard(this);
+        getServer().getPluginManager().registerEvents(eliteMobsInstanceLeakGuard, this);
+        eliteMobsInstanceLeakGuard.installIfAvailable();
 
         registerCommands();
         // Publish the singleton only after every field is initialized and registration is complete,

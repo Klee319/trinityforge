@@ -291,7 +291,7 @@ public final class NativeSkillTreeMenu implements Listener {
             case "jump-perk" -> jumpToPerk(player, session, value, event.getRawSlot());
             case "node" -> handleNode(player, session, value, event.getRawSlot());
             case "prestige" -> handlePrestige(player, session, value, event.getRawSlot());
-            case "prestige-confirm" -> confirmPrestige(player, session, value);
+            case "prestige-confirm" -> confirmPrestige(player, session);
             case "prestige-cancel", "function-cancel" -> reopenNextTick(
                     player, session.skillId, session.center, null, Mode.DETAIL, 0);
             case "function-confirm" -> confirmFunction(player, session, value);
@@ -591,11 +591,13 @@ public final class NativeSkillTreeMenu implements Listener {
      * (ツリー本体には {@code prestige-confirm} のボタンを一切描かないが、
      * 将来どこかへ紛れ込んでも実行されないよう、モードと対象IDの両方を突き合わせる)。
      */
-    private void confirmPrestige(Player player, Session session, String perkId) {
-        if (session.mode != Mode.PRESTIGE_CONFIRM
-                || perkId == null || !perkId.equals(session.pendingPerkId)) {
+    private void confirmPrestige(Player player, Session session) {
+        if (session.mode != Mode.PRESTIGE_CONFIRM || session.pendingPerkId == null) {
             return;
         }
+        // 確認対象はモーダル Session が保持する。ボタンの value は表示用の複製であり、
+        // クライアント／他プラグイン経由で欠けても「はい」だけ無言で止めてはいけない。
+        String perkId = session.pendingPerkId;
         SkillTree tree = perks.tree(session.skillId);
         if (tree == null || tree.prestige() == null) return;
         var skill = progression.snapshot(player.getUniqueId())

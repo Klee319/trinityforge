@@ -536,6 +536,23 @@ public final class ItemAssembler {
             return false;
         }
         ItemMeta meta = stack.getItemMeta();
+        List<Component> lore = meta.lore() == null ? new ArrayList<>() : new ArrayList<>(meta.lore());
+        if (!appendOwnerLoreIfMissing(meta, lore)) {
+            return false;
+        }
+        meta.lore(lore);
+        stack.setItemMeta(meta);
+        return true;
+    }
+
+    /**
+     * 所有者行を専用 lore リストへ追記する。Ars スレッドのように汎用 {@link #assemble} を
+     * 呼べないフォーク向けの入口で、表示書式と重複判定は通常アイテムと完全に共有する。
+     */
+    public boolean appendOwnerLoreIfMissing(ItemMeta meta, List<Component> lore) {
+        if (meta == null || lore == null) {
+            return false;
+        }
         ItemData data = ItemData.of(meta);
         var owner = data.owner();
         if (owner.isEmpty()) {
@@ -546,7 +563,6 @@ public final class ItemAssembler {
             return false;
         }
         String ownerDisplay = ownerName(owner.get());
-        List<Component> lore = meta.lore() == null ? new ArrayList<>() : new ArrayList<>(meta.lore());
         for (Component line : lore) {
             String plain = PLAIN.serialize(line);
             if (plain.contains(ownerDisplay) || plain.contains("所有者")) {
@@ -555,8 +571,6 @@ public final class ItemAssembler {
         }
         lore.add(noItalic(miniMessage.deserialize(
                 bind.ownerLine(), Placeholder.unparsed("owner", ownerDisplay))));
-        meta.lore(lore);
-        stack.setItemMeta(meta);
         return true;
     }
 
