@@ -251,8 +251,6 @@ nodes:
     group: B-greek
     icon: QUARTZ
     cost: 1
-    effects:
-      - ランダムステータスの品質で下振れが減少
     buffs:
       workbench-downswing-reduction: 0.4
     effect-text: "作業台品質運: 下振れ幅-0.4"
