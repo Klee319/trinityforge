@@ -534,7 +534,7 @@ stats:
       applies-to:
         - PLAYER
   mana-bonus:
-    name: マナ上限
+    name: 最大マナ
     icon: ""
     format: FLAT
     decimals: 0

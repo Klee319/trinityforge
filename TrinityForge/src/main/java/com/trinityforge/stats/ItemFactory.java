@@ -135,8 +135,9 @@ public final class ItemFactory {
 
     /**
      * Builds ONLY the template's identity (display name, model, bind type, use requirement, catalog
-     * id) with NO rollSeed/quality/stats/lore stamp — deliberately leaves the item without a
-     * TrinityForge roll so it reads as a "fresh, unstamped" item to any downstream stamping hook.
+     * id) with NO rollSeed/quality/stats stamp — deliberately leaves the item without a TrinityForge
+     * roll so it reads as a "fresh, unstamped" item to any downstream stamping hook. Stable flavor
+     * lore is copied so identity-only recipe results remain similar to fixed gacha rewards.
      *
      * <p>Used as the registered RESULT item of a catalog {@code recipe:} ({@link
      * com.trinityforge.stats.CatalogRecipeRegistrar}): {@code CraftQualityListener} only re-stamps a
@@ -150,9 +151,36 @@ public final class ItemFactory {
     public ItemStack createIdentityOnly(ItemTemplate template) {
         ItemStack stack = new ItemStack(template.material());
         ItemMeta meta = buildIdentity(template, stack);
+        applyFlavorLore(meta, template);
         stack.setItemMeta(meta);
         stampEquipmentAsset(stack, template);
         return stack;
+    }
+
+    /**
+     * Builds a catalog item with only stable identity and flavor lore. No roll/quality PDC is written,
+     * so fixed-identity rewards such as dungeon keys remain stack-compatible with one another and with
+     * recipe results. Quality-bearing equipment must continue to use {@link #create}.
+     */
+    @SuppressWarnings("deprecation")
+    public ItemStack createStackable(ItemTemplate template) {
+        ItemStack stack = new ItemStack(template.material());
+        ItemMeta meta = buildIdentity(template, stack);
+        applyFlavorLore(meta, template);
+        stack.setItemMeta(meta);
+        stampEquipmentAsset(stack, template);
+        return stack;
+    }
+
+    private void applyFlavorLore(ItemMeta meta, ItemTemplate template) {
+        if (meta == null || template == null || template.lore().isEmpty()) {
+            return;
+        }
+        java.util.List<Component> lore = template.lore().stream()
+                .map(line -> miniMessage.deserialize(line)
+                        .decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE))
+                .toList();
+        meta.lore(lore);
     }
 
     /**
@@ -377,6 +405,21 @@ public final class ItemFactory {
     }
 
     /**
+     * Stamps a quality-only promotion while retaining the existing deterministic random-roll score.
+     * Ordinary {@link #stamp(ItemStack, long, int)} calls intentionally recalculate the score so table
+     * reloads and lore refreshes are not pinned to stale values.
+     */
+    public void stampPreservingQualityScore(ItemStack stack, long rollSeed, int quality) {
+        Objects.requireNonNull(stack, "stack");
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null) {
+            return;
+        }
+        assembler.assemble(meta, stack.getType(), rollSeed, quality, true);
+        stack.setItemMeta(meta);
+    }
+
+    /**
      * 「スレッド枠拡張」儀式(ArsPaper {@code ThreadSlotExpandRitualEffect})用: 既存装備の seed/quality
      * はそのまま維持し、儀式由来の累計付与カウンタ ({@code ritual_thread_slot_bonus})
      * のみ +1 して再組み立てする。呼び出し側(儀式)は結果を元コアへ書き戻す。
@@ -451,10 +494,14 @@ public final class ItemFactory {
         if (itemStats == null) {
             return true;
         }
-        if (stack == null || stack.getType().isAir() || !stack.hasItemMeta()) {
+        if (stack == null || stack.getType().isAir()) {
             return false;
         }
-        Integer cmd = DerivedItemStats.customModelDataOf(stack.getItemMeta());
+        // Vanilla-material drops are born as a bare ItemStack with no custom meta. They still need
+        // the item-stats profile lookup so death-time mob quality can be stamped before pickup; treat
+        // absent meta as an unset CustomModelData rather than silently declaring the item ineligible.
+        Integer cmd = stack.hasItemMeta()
+                ? DerivedItemStats.customModelDataOf(stack.getItemMeta()) : null;
         return itemStats.profileFor(stack.getType(), cmd)
                 .map(ItemStatProfile::qualityApplies)
                 .orElse(false);

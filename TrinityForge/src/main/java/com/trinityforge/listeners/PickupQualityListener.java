@@ -219,6 +219,39 @@ public final class PickupQualityListener implements Listener {
     }
 
     /**
+     * 品質昇華の結晶など、既存スレッドの品質だけを変更する経路向けの専用更新。
+     * 汎用 {@code ItemFactory#stamp} は Ars のセット効果・効果説明を含む専用 lore を
+     * 全置換してしまうため、スレッドでは PDC を更新してから Ars の
+     * {@code refreshLoreKeepingIdentity} へ委譲する。ArsPaper が未ロード/不整合なら
+     * 呼び出し側がアイテムを消費しないよう {@code false} を返し、変更した品質も元へ戻す。
+     */
+    public static boolean promoteArsThreadKeepingIdentity(ItemStack stack, int quality) {
+        if (stack == null || !stack.hasItemMeta()) {
+            return false;
+        }
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null || !hasArsThreadMarker(meta)) {
+            return false;
+        }
+        ItemData data = ItemData.of(meta);
+        if (!data.hasRollSeed()) {
+            return false;
+        }
+        int previousQuality = data.quality();
+        data.setQuality(quality);
+        stack.setItemMeta(meta);
+        if (defaultArsThreadLoreRefresh(stack)) {
+            return true;
+        }
+        ItemMeta restore = stack.getItemMeta();
+        if (restore != null) {
+            ItemData.of(restore).setQuality(previousQuality);
+            stack.setItemMeta(restore);
+        }
+        return false;
+    }
+
+    /**
      * {@link ArsThreadQualityRestamper} 本体。{@code stack} が ArsPaper のスレッド(ThreadItem)なら
      * {@code quality} で再刻印して {@code true}、そうでなければ {@code false}
      * (呼び出し側は通常の {@code itemStats} ゲートへフォールバックする)。

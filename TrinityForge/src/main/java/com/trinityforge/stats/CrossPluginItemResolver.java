@@ -149,6 +149,32 @@ public final class CrossPluginItemResolver {
     }
 
     /**
+     * Resolves a fixed-identity catalog reward without individual roll metadata. This is deliberately
+     * separate from {@link #create(String, long, int)}: a random roll seed on keys makes otherwise
+     * identical stacks fail Minecraft's similarity check.
+     */
+    public Optional<ItemStack> createStackable(String id) {
+        if (id == null || id.isBlank()) {
+            return Optional.empty();
+        }
+        String bare = stripCustomPrefix(id);
+        if (bare == null || bare.isBlank() || itemCatalog.isDraft(bare)) {
+            return Optional.empty();
+        }
+        Optional<ItemTemplate> template = itemCatalog.template(bare);
+        if (template.isPresent()) {
+            try {
+                return Optional.of(itemFactory.createStackable(template.get()));
+            } catch (RuntimeException ex) {
+                LOG.log(Level.WARNING, "[cross-plugin-item] stackable catalog build failed for '" + bare + "'", ex);
+                return Optional.empty();
+            }
+        }
+        // External Ars items and vanilla materials do not have a TF identity-only representation.
+        return create(bare, 0L, 0);
+    }
+
+    /**
      * このIDが catalog.yml で {@code draft: true}(準備中)と宣言されているか。{@code custom:} 接頭辞は
      * 他の解決系メソッドと同じ規約で剥がしてから判定する。カタログに存在しないIDは当然 false。
      *

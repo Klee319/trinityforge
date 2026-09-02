@@ -228,7 +228,9 @@ public final class MobOverrideDropListener implements Listener {
     private ItemStack buildDropStack(MobOverrideDropEntry drop, int count, String mobLabel,
                                      int mobLevel, int bonusMode) {
         if (!drop.isCustom()) {
-            return new ItemStack(drop.material(), count);
+            ItemStack stack = new ItemStack(drop.material(), count);
+            return qualityResolver == null ? stack
+                    : qualityResolver.stampPlainDrop(stack, mobLevel, bonusMode, random);
         }
         long seed = random.nextLong();
         Optional<ItemStack> resolved = itemResolver.create(drop.catalogId(), seed, 0);

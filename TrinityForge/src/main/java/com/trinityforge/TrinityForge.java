@@ -1293,6 +1293,7 @@ public final class TrinityForge extends JavaPlugin {
         com.trinityforge.mobs.MobDropQualityResolver mobDropQualityResolver =
                 new com.trinityforge.mobs.MobDropQualityResolver(configManager.craftQuality(),
                         configManager.quality(), configManager.itemStats(), mobDropBonusSource);
+        mobDropQualityResolver.setItemFactory(itemFactory);
         mobLevelTableListener.setQualityResolver(mobDropQualityResolver);
         getServer().getPluginManager().registerEvents(mobLevelTableListener, this);
 

@@ -4,6 +4,7 @@ import com.trinityforge.config.domains.CraftQualityConfig;
 import com.trinityforge.config.domains.ItemStatsConfig;
 import com.trinityforge.config.domains.QualityConfig;
 import com.trinityforge.stats.CraftQualityPolicy;
+import com.trinityforge.stats.ItemFactory;
 import com.trinityforge.stats.PlayerMobDropBonusSource;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -45,6 +46,8 @@ public final class MobDropQualityResolver {
     private final ItemStatsConfig itemStats;
     /** 未配線可。{@code null} なら {@code mob_drop_quality} による底上げ無し。 */
     private final PlayerMobDropBonusSource mobDropBonus;
+    /** Optional builder used to stamp plain-material equipment drops at death time. */
+    private volatile ItemFactory itemFactory;
 
     public MobDropQualityResolver(CraftQualityConfig craftQuality, QualityConfig quality,
                                   ItemStatsConfig itemStats, PlayerMobDropBonusSource mobDropBonus) {
@@ -52,6 +55,11 @@ public final class MobDropQualityResolver {
         this.quality = Objects.requireNonNull(quality, "quality");
         this.itemStats = itemStats;
         this.mobDropBonus = mobDropBonus;
+    }
+
+    /** Supplies the shared item builder for non-custom equipment drops. */
+    public void setItemFactory(ItemFactory itemFactory) {
+        this.itemFactory = itemFactory;
     }
 
     /**
@@ -86,6 +94,21 @@ public final class MobDropQualityResolver {
                 craftQuality.dropBaseQuality()) + Math.max(0, bonusMode) + offset;
         return CraftQualityPolicy.resolveDropQuality(mode, rng.nextGaussian(),
                 quality.spreadUp(), quality.spreadDown(), maxQuality);
+    }
+
+    /**
+     * Stamps a plain-material drop while the killer and mob level are still known. This closes the
+     * path where an unmarked stack reached {@code PickupQualityListener} and was rolled using the
+     * pickup player's 開運 instead of the defeated mob's level/drop-quality values.
+     */
+    public ItemStack stampPlainDrop(ItemStack stack, int mobLevel, int bonusMode,
+                                    RandomGenerator rng) {
+        if (stack == null || rng == null || itemFactory == null || !itemFactory.qualityVaries(stack)) {
+            return stack;
+        }
+        int quality = resolve(mobLevel, bonusMode, stack.getType(), null, rng);
+        itemFactory.stamp(stack, rng.nextLong(), quality);
+        return stack;
     }
 
     /**

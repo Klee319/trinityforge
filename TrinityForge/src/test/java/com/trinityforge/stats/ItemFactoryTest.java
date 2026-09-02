@@ -2,6 +2,7 @@ package com.trinityforge.stats;
 
 import com.trinityforge.pdc.BindType;
 import com.trinityforge.pdc.ItemData;
+import com.trinityforge.config.domains.ItemStatsConfig;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
@@ -14,6 +15,8 @@ import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -91,6 +94,38 @@ class ItemFactoryTest {
         assertTrue(data.rollSeed().isEmpty(),
                 "createIdentityOnly must leave the item WITHOUT a rollSeed so a downstream craft-quality"
                         + " stamp (CraftQualityListener's hasRollSeed() guard) still applies a per-crafter quality");
+    }
+
+    @Test
+    void createStackableLeavesRollMetadataOutAndKeepsFlavorLore() {
+        ItemTemplate template = new ItemTemplate("key_x", Material.TRIAL_KEY,
+                "<gold>Key</gold>", 5501, BindType.TRADEABLE, 0, null,
+                List.of("", "<gray>fixed lore</gray>"));
+
+        ItemFactory factory = factoryWithMockAssembler();
+        ItemStack first = factory.createStackable(template);
+        ItemStack second = factory.createStackable(template);
+        ItemStack recipeResult = factory.createIdentityOnly(template);
+
+        ItemData data = ItemData.of(first.getItemMeta());
+        assertTrue(data.rollSeed().isEmpty(), "fixed rewards must not carry per-draw roll identity");
+        assertTrue(first.isSimilar(second), "same fixed catalog reward must be stack-compatible");
+        assertTrue(first.isSimilar(recipeResult), "gacha and recipe rewards of one key must stack together");
+        assertEquals("fixed lore", net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
+                .plainText().serialize(first.getItemMeta().lore().get(1)));
+    }
+
+    @Test
+    void qualityVariesRecognizesBareMaterialDropWithoutItemMeta() {
+        ItemStatsConfig stats = mock(ItemStatsConfig.class);
+        ItemStatProfile profile = new ItemStatProfile(
+                Map.of("attack-damage", 5.0), Map.of("attack-damage", 0.5), Map.of());
+        when(stats.profileFor(Material.DIAMOND_SWORD, null)).thenReturn(Optional.of(profile));
+
+        ItemFactory factory = new ItemFactory(mock(ItemAssembler.class), stats);
+
+        assertTrue(factory.qualityVaries(new ItemStack(Material.DIAMOND_SWORD)),
+                "死亡時に生成された未刻印の素 ItemStack も品質プロファイルを参照できること");
     }
 
     @Test

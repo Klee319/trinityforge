@@ -1,15 +1,28 @@
 package com.trinityforge.mobs;
 
 import com.trinityforge.config.domains.CraftQualityConfig;
+import com.trinityforge.config.domains.ItemStatsConfig;
 import com.trinityforge.config.domains.QualityConfig;
+import com.trinityforge.stats.ItemAssembler;
+import com.trinityforge.stats.ItemFactory;
+import com.trinityforge.stats.ItemStatProfile;
+import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockbukkit.mockbukkit.MockBukkit;
 
 import java.util.SplittableRandom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 
 /**
  * {@link MobDropQualityResolver}: 討伐ドロップの品質がモブレベルに追随することの回帰テスト
@@ -35,6 +48,16 @@ class MobDropQualityResolverTest {
         when(config.spreadUp()).thenReturn(0.5);
         when(config.spreadDown()).thenReturn(0.5);
         return config;
+    }
+
+    @BeforeEach
+    void setUp() {
+        MockBukkit.mock();
+    }
+
+    @AfterEach
+    void tearDown() {
+        MockBukkit.unmock();
     }
 
     private static double meanQuality(MobDropQualityResolver resolver, int mobLevel, int samples) {
@@ -116,5 +139,49 @@ class MobDropQualityResolverTest {
                 new MobDropQualityResolver(craftQuality(true), quality(), null, null);
 
         assertEquals(0, resolver.bonusMode(null, new SplittableRandom(0)));
+    }
+
+    @Test
+    void plainEquipmentDropIsStampedAtDeathUsingMobLevel() {
+        CraftQualityConfig craft = mock(CraftQualityConfig.class);
+        when(craft.dropEnabled()).thenReturn(true);
+        when(craft.dropStrengthPerQuality()).thenReturn(10);
+        when(craft.dropBaseQuality()).thenReturn(0);
+        when(craft.skillLevelsPerQuality()).thenReturn(10);
+        when(craft.baseQuality()).thenReturn(0);
+        QualityConfig quality = mock(QualityConfig.class);
+        when(quality.maxQuality()).thenReturn(MAX_QUALITY);
+        when(quality.spreadUp()).thenReturn(0.0);
+        when(quality.spreadDown()).thenReturn(0.0);
+        ItemFactory factory = mock(ItemFactory.class);
+        when(factory.qualityVaries(any(ItemStack.class))).thenReturn(true);
+
+        MobDropQualityResolver resolver = new MobDropQualityResolver(craft, quality, null, null);
+        resolver.setItemFactory(factory);
+        ItemStack stack = new ItemStack(Material.DIAMOND_SWORD);
+
+        resolver.stampPlainDrop(stack, 30, 0, new SplittableRandom(42L));
+
+        // modeFromLevel(30, 10, 0) = 3. The random draw is zero-spread, so this is deterministic.
+        verify(factory).stamp(eq(stack), anyLong(), eq(3));
+    }
+
+    @Test
+    void barePlainEquipmentDropReachesTheRealFactoryStampPath() {
+        ItemStatsConfig itemStats = mock(ItemStatsConfig.class);
+        ItemStatProfile profile = new ItemStatProfile(
+                java.util.Map.of("attack-damage", 5.0),
+                java.util.Map.of("attack-damage", 0.5), java.util.Map.of());
+        when(itemStats.profileFor(Material.DIAMOND_SWORD, null)).thenReturn(java.util.Optional.of(profile));
+        ItemAssembler assembler = mock(ItemAssembler.class);
+        ItemFactory factory = new ItemFactory(assembler, itemStats);
+        MobDropQualityResolver resolver = new MobDropQualityResolver(
+                craftQuality(true), quality(), itemStats, null);
+        resolver.setItemFactory(factory);
+
+        ItemStack bare = new ItemStack(Material.DIAMOND_SWORD);
+        resolver.stampPlainDrop(bare, 30, 0, new SplittableRandom(42L));
+
+        verify(assembler).assemble(any(), eq(Material.DIAMOND_SWORD), anyLong(), eq(3));
     }
 }

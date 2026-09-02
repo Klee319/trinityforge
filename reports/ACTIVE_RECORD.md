@@ -413,6 +413,7 @@ git 系:
 **全文は `reports/ACTIVE_RECORD_ARCHIVE.md` の §B。** ここは直近だけを 1 行で残す索引。
 
 | 2026-09-02 | **品質+15なのに儀式エンドラ一式が劣悪。** エンドラは儀式なので `ritual_quality_bonus` だけを読む。鍛冶/Ars鍛冶の品質表示が作業台・儀式・品質運を混同しており、鍛冶の「全ての品質+3」は実値 `workbench_quality_bonus:+2` とも不一致だった。表示を実効値と経路へ統一し、両プレステージの適用先を固定する回帰テストを追加。品質昇華の結晶自体は対象装備の品質を必ず+1するだけ |
+| 2026-09-02 | **`/tf status`の最大マナ/マナ効率表示、敵ドロップ品質、ガチャ鍵、品質昇華、儀式品質の6件を修正。** Ars最終マナ値を表示へ投影し、敵ドロップは死亡時にモブLv/専用`mob_drop_quality`で刻印（拾得者の開運を参照しない）。固定鍵はroll/不可解情報を持たない同一identityで生成。通常装備の品質昇華は品質だけを上げてpt/ロールを保持し、スレッドは専用lore更新へ委譲。儀式成果物の`quality-mode-offset`（+15−8=7）を回帰テストで固定
 | 2026-08-29 | **拘束の空飛び／革チェスト解体6。** snare の JUMP_BOOST 128 は 1.21 で打ち上げ。属性で jump/move を 0 に（フォーク、commit しない）。革6は unique-key＋カタログ混入で素材数5。shape を歩き `minecraft:` だけ数える |
 | 2026-08-29 | **解体24／一括葉ドロップ既定32／カタログ魂縛lore／魂縛解きの符を PAPER。** 金属チェスト24は防具装飾の鍛冶を素材数に足していた。`chain-drop-rolls-max` を editor 化して既定32。`/tf catalog` の Ars 先取りは catalog の bind/owner を焼き、join で所有者loreを足す。符の素材はリードとして使える LEAD から PAPER。TF 特殊アイテムタブで material/表示名/aura/lore を編集可 |
 | 2026-08-29 | **editor: ポーション品質換算 GUI を外した／タブ切替の偽未保存。** 係数は本体が `alchemy-quality.yml` を直接読む。切替は GET 待ちに古い editor が残ると「次タブの id × 前画面の getData」を比較していた。navToken 再確認と保存後 `syncBaseFromEditor` |
