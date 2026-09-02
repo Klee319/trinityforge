@@ -100,6 +100,17 @@ public final class ItemFactory {
         return assembler.statLoreBlock(material, cmd, quality, rollSeed);
     }
 
+    /**
+     * Builds the equipment-style lore block with an optional cached quality score.  ArsPaper uses the
+     * override when refreshing a thread after a quality-only promotion so its displayed pt remains the
+     * original random-roll result.
+     */
+    public java.util.List<net.kyori.adventure.text.Component> statLoreBlock(
+            org.bukkit.Material material, Integer cmd, int quality, long rollSeed,
+            Integer qualityScoreOverride) {
+        return assembler.statLoreBlock(material, cmd, quality, rollSeed, qualityScoreOverride);
+    }
+
     /** {@link ItemAssembler#appendOwnerLoreIfMissing(ItemStack)} への委譲。 */
     public boolean appendOwnerLoreIfMissing(ItemStack stack) {
         return assembler.appendOwnerLoreIfMissing(stack);
@@ -417,6 +428,27 @@ public final class ItemFactory {
         }
         assembler.assemble(meta, stack.getType(), rollSeed, quality, true);
         stack.setItemMeta(meta);
+    }
+
+    /**
+     * Caches an existing item's random-roll score without changing its lore or quality.  This is used
+     * by the ArsPaper thread promotion path before it changes the quality PDC and asks ArsPaper to
+     * rebuild the thread-specific lore.
+     */
+    public boolean cacheQualityScore(ItemStack stack) {
+        Objects.requireNonNull(stack, "stack");
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null) {
+            return false;
+        }
+        ItemData data = ItemData.of(meta);
+        java.util.Optional<Long> seed = data.rollSeed();
+        if (seed.isEmpty()) {
+            return false;
+        }
+        assembler.cacheQualityScore(meta, stack.getType(), seed.get(), data.quality());
+        stack.setItemMeta(meta);
+        return true;
     }
 
     /**

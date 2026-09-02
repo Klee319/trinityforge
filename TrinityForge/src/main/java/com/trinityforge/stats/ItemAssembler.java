@@ -339,6 +339,17 @@ public final class ItemAssembler {
      * @param rollSeed そのアイテム個体の rollSeed
      */
     public List<Component> statLoreBlock(Material material, Integer cmd, int quality, long rollSeed) {
+        return statLoreBlock(material, cmd, quality, rollSeed, null);
+    }
+
+    /**
+     * Builds the equipment-style lore block, optionally using a cached quality score.  The override is
+     * used by ArsPaper threads after a quality-only promotion: their lore is rebuilt by the fork, while
+     * the original random-roll score must remain stable.  A {@code null} override keeps the historical
+     * live calculation for ordinary previews and newly rolled items.
+     */
+    public List<Component> statLoreBlock(Material material, Integer cmd, int quality, long rollSeed,
+                                         Integer qualityScoreOverride) {
         Objects.requireNonNull(material, "material");
         ItemStatProfile profile = itemStats.profileFor(material, cmd)
                 .orElseGet(() -> itemStats.fallback().orElse(null));
@@ -353,8 +364,9 @@ public final class ItemAssembler {
         java.util.Set<String> granted = DerivedItemStats.resolveGrantedKeys(profile, rollSeed);
         Map<String, StatSource> statSources = StatSourceResolver.resolve(
                 profile, effectiveQuality, rollSeed, effModel, granted);
-        int qualityScore = QualityScoreCalculator.score(
-                profile, effectiveQuality, rollSeed, effModel, granted);
+        int qualityScore = qualityScoreOverride == null
+                ? QualityScoreCalculator.score(profile, effectiveQuality, rollSeed, effModel, granted)
+                : Math.max(0, Math.min(100, qualityScoreOverride));
         java.util.Optional<QualityTier> tier = qualityApplies
                 ? qualityTiers.tierFor(effectiveQuality) : java.util.Optional.empty();
         java.util.Set<String> forceShow = itemStats.loreDefaultKeysFor(material, cmd);
@@ -387,6 +399,28 @@ public final class ItemAssembler {
                         null, null, skillDisplay, useLevel, forceShow,
                         chanceKeys, loreMultipliers, tier.map(QualityTier::color).orElse("")),
                 loreSnapshot.displayTable(), loreSnapshot.layout(), loreSnapshot.bind());
+    }
+
+    /**
+     * Caches the current random-roll score without rebuilding lore.  This is used immediately before
+     * a quality-only promotion of an ArsPaper thread, whose subsequent lore refresh is performed by the
+     * fork rather than by this assembler.
+     */
+    public int cacheQualityScore(ItemMeta meta, Material material, long rollSeed, int quality) {
+        Objects.requireNonNull(meta, "meta");
+        Objects.requireNonNull(material, "material");
+        Integer cmd = DerivedItemStats.customModelDataOf(meta);
+        ItemStatProfile profile = itemStats.profileFor(material, cmd)
+                .orElseGet(() -> itemStats.fallback().orElse(null));
+        boolean qualityApplies = profile != null && profile.qualityApplies();
+        int effectiveQuality = qualityApplies ? quality : 0;
+        ItemData data = ItemData.of(meta);
+        QualityRollModel effModel = itemStats.rollModel() == null
+                ? null : itemStats.rollModel().withCraftMods(data.craftRollMods());
+        java.util.Set<String> granted = DerivedItemStats.resolveGrantedKeys(profile, rollSeed);
+        int score = QualityScoreCalculator.score(profile, effectiveQuality, rollSeed, effModel, granted);
+        data.setQualityScore(score);
+        return score;
     }
 
     /** Canonical key for the physical weapon CT stat ({@code item-cooldown}, lore表示名: CT). */

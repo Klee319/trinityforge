@@ -115,7 +115,7 @@ public final class QualityUpgradeTicketEffect implements EquipmentTicketEffect {
         // ArsPaper のスレッドは専用 lore にセット効果・スロット案内を持つ。
         // 汎用 stamp はそれらを消してしまうため、既存 identity を保つ専用更新へ委譲する。
         if (PickupQualityListener.hasArsThreadMarker(meta)) {
-            return PickupQualityListener.promoteArsThreadKeepingIdentity(stack, quality + 1)
+            return PickupQualityListener.promoteArsThreadKeepingIdentity(stack, quality + 1, itemFactory)
                     ? Optional.of(stack) : Optional.empty();
         }
         itemFactory.stampPreservingQualityScore(stack, seed, quality + 1);

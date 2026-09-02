@@ -226,6 +226,15 @@ public final class PickupQualityListener implements Listener {
      * 呼び出し側がアイテムを消費しないよう {@code false} を返し、変更した品質も元へ戻す。
      */
     public static boolean promoteArsThreadKeepingIdentity(ItemStack stack, int quality) {
+        return promoteArsThreadKeepingIdentity(stack, quality, null);
+    }
+
+    /**
+     * Same as {@link #promoteArsThreadKeepingIdentity(ItemStack, int)}, with the shared item factory
+     * supplied so a thread created before the quality-score cache existed can preserve its old pt.
+     */
+    public static boolean promoteArsThreadKeepingIdentity(ItemStack stack, int quality,
+                                                            ItemFactory itemFactory) {
         if (stack == null || !stack.hasItemMeta()) {
             return false;
         }
@@ -236,6 +245,14 @@ public final class PickupQualityListener implements Listener {
         ItemData data = ItemData.of(meta);
         if (!data.hasRollSeed()) {
             return false;
+        }
+        if (itemFactory != null && data.qualityScore().isEmpty()) {
+            itemFactory.cacheQualityScore(stack);
+            meta = stack.getItemMeta();
+            if (meta == null) {
+                return false;
+            }
+            data = ItemData.of(meta);
         }
         int previousQuality = data.quality();
         data.setQuality(quality);
