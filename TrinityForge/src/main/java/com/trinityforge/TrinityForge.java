@@ -2148,10 +2148,13 @@ public final class TrinityForge extends JavaPlugin {
      *   <li>{@code collection_mobs} — 図鑑（モブ）登録数</li>
      *   <li>{@code glyphs_unlocked} — 解放済みグリフ数</li>
      *   <li>{@code mob_kills} — 討伐数</li>
-     *   <li>{@code skill_<id>_level} — 個別スキルのレベル（例 {@code skill_mining_level}）</li>
-     *   <li>{@code skill_total_level} — 全スキルのレベル合計（POWER は含まない）</li>
+     *   <li>{@code skill_<id>_level} — 個別スキルの<b>実効レベル</b>（例 {@code skill_mining_level}）</li>
+     *   <li>{@code skill_total_level} — 全スキルの実効レベル合計（POWER は含まない）</li>
      * </ul>
-     * 値が 0（スキルなら Lv0）の行は返さない。未知の {@code stat}・{@code limit <= 0}・
+     * <b>スキル系の値は「上限レベル × プレステージ段 + 現在レベル」の実効レベル</b>であり、
+     * 生のレベルではない。プレステージはレベルを 0 へ戻すので、生のレベルを返すと
+     * 最も育っているプレイヤーが順位表から消える（例: 上限 100 で 2 段目の Lv5 なら 205）。
+     * 値が 0（スキルなら未プレステージの Lv0）の行は返さない。未知の {@code stat}・{@code limit <= 0}・
      * DB 未初期化・DB エラーは<b>いずれも空リスト</b>（例外を投げない ── 順位表のために
      * 呼び出し側プラグインを落とさない）。件数は 1000 件で頭打ち。
      *
