@@ -329,7 +329,9 @@ public final class MobLevelTableListener implements Listener {
     private ItemStack buildDropStack(LevelTierDropEntry drop, int count, String mobLabel,
                                      int mobLevel, int bonusMode) {
         if (!drop.isCustom()) {
-            return new ItemStack(drop.material(), count);
+            ItemStack stack = new ItemStack(drop.material(), count);
+            return qualityResolver == null ? stack
+                    : qualityResolver.stampPlainDrop(stack, mobLevel, bonusMode, random);
         }
         // 2026-08-19 W-130: 品質を決めずに 1 引数版 create(id) を呼んでいたため、スレッドのような
         // 品質付きカスタム品が【必ず品質0(劣悪)】で落ちていた。ここで実際に決める。

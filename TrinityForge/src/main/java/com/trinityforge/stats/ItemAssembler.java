@@ -37,15 +37,17 @@ import java.util.UUID;
  * ({@code com.trinityforge.listeners.ItemRefreshListener}) call this so item creation/re-sync has
  * one consistent path (SELECTION_SPEC 5, ADDON_INTEGRATION_SPEC 6).
  *
- * <p>Only rollSeed + quality are persisted to PDC as the derivation inputs — rollSeed is purely the
- * TF-stamp identity marker (ItemRefreshPolicy) and plays no role in stats. Every visible stat is
- * derived live from {@code stats/item-stats.yml} ({@link DerivedItemStats#profileStats}, the SOLE
- * per-item stat source: fixed + per-quality, fully deterministic) and the attribute-mapped subset is
- * mirrored onto the item's vanilla attributes ({@link AttributeProjection} + {@link AttributeApplier},
- * slot-scoped by {@code material}). Nothing is baked: a table edit + {@code /trinityforge reload}
- * re-derives existing items once the refresh listener revisits them, and {@link #assemble} is
- * idempotent/replace-based so calling it again on an already-current item is safe (see
- * {@link TableGeneration} for the generation stamp that lets the listener skip that case).
+ * <p>Only rollSeed + quality are used as the live stat derivation inputs. A cached quality score is
+ * also persisted solely so a quality-only promotion can keep its original random-roll presentation;
+ * it never feeds combat/stat calculations. rollSeed is purely the TF-stamp identity marker
+ * (ItemRefreshPolicy) and plays no role in stats. Every visible stat is derived live from
+ * {@code stats/item-stats.yml} ({@link DerivedItemStats#profileStats}, the SOLE per-item stat source:
+ * fixed + per-quality, fully deterministic) and the attribute-mapped subset is mirrored onto the
+ * item's vanilla attributes ({@link AttributeProjection} + {@link AttributeApplier}, slot-scoped by
+ * {@code material}). Nothing is baked: a table edit + {@code /trinityforge reload} re-derives existing
+ * items once the refresh listener revisits them, and {@link #assemble} is idempotent/replace-based so
+ * calling it again on an already-current item is safe (see {@link TableGeneration} for the generation
+ * stamp that lets the listener skip that case).
  *
  * @apiNote The constructor takes {@code (ItemStatsConfig, AttributeMappingConfig, AttributeApplier,
  * LoreConfig, LoreComposer, QualityTiersConfig, TableGeneration, ItemCatalogConfig)}.
@@ -125,9 +127,28 @@ public final class ItemAssembler {
      * @return the number of attribute modifiers applied (PDC-only stats are not counted)
      */
     public int assemble(ItemMeta meta, Material material, long rollSeed, int quality) {
+        return assemble(meta, material, rollSeed, quality, false);
+    }
+
+    /**
+     * Assembles an item, optionally preserving the existing random-roll score when the same
+     * {@code rollSeed} is re-used. The preservation flag is intentionally explicit: ordinary
+     * refreshes must recompute the score from the current tables, while a quality-only promotion
+     * (品質昇華の結晶) must not change the random-roll result shown as pt.
+     */
+    public int assemble(ItemMeta meta, Material material, long rollSeed, int quality,
+                        boolean preserveQualityScore) {
         Objects.requireNonNull(meta, "meta");
         Objects.requireNonNull(material, "material");
         ItemData data = ItemData.of(meta);
+        java.util.Optional<Long> previousRollSeed = preserveQualityScore ? data.rollSeed()
+                : java.util.Optional.empty();
+        // ItemData#quality() defaults to 0 for pre-cache items that have a rollSeed but no explicit
+        // quality key. Treat that legacy state as the previous quality instead of falling through to
+        // the newly promoted quality and inflating the migrated score.
+        java.util.Optional<Integer> previousQuality = preserveQualityScore && data.hasRollSeed()
+                ? java.util.Optional.of(data.quality()) : java.util.Optional.empty();
+        java.util.Optional<Integer> previousQualityScore = data.qualityScore();
         // Glow は耐久力ボーナス計算より前に合わせる。旧ダミー耐久力 I が残っていると
         // EnchantmentStatBridge が「本物の耐久力」として最大耐久を水増しする。
         syncEnchantGlow(meta, data);
@@ -202,8 +223,18 @@ public final class ItemAssembler {
         java.util.Set<String> granted = DerivedItemStats.resolveGrantedKeys(profile, rollSeed);
         Map<String, StatSource> statSources = StatSourceResolver.resolve(
                 profile, data.quality(), rollSeed, effModel, granted);
-        int qualityScore = QualityScoreCalculator.score(
+        int computedQualityScore = QualityScoreCalculator.score(
                 profile, data.quality(), rollSeed, effModel, granted);
+        // Quality promotion keeps the item's deterministic random roll. Preserve the displayed score
+        // when the same rollSeed is reassembled (e.g. 品質昇華の結晶); a new seed, such as 厳選の護符,
+        // receives a freshly computed score. Existing items without the cache are migrated on touch.
+        int qualityScore = previousRollSeed.filter(seed -> seed == rollSeed)
+                .flatMap(ignored -> previousQualityScore.isPresent()
+                        ? previousQualityScore
+                        : previousQuality.map(oldQuality -> QualityScoreCalculator.score(
+                                profile, oldQuality, rollSeed, effModel, granted)))
+                .orElse(computedQualityScore);
+        data.setQualityScore(qualityScore);
         // タスクB優先: 品質が付かないアイテムは(タスクAの「プレビューは品質0でも行を出す」より優先して)
         // 品質ティア名を空にする — LoreComposer.compose の !qualityTierName().isBlank() ゲートを再利用して
         // 品質ティア名+スコアの行そのものを出さない(既存の仕組みの再利用、新規フラグ追加なし)。
@@ -308,6 +339,17 @@ public final class ItemAssembler {
      * @param rollSeed そのアイテム個体の rollSeed
      */
     public List<Component> statLoreBlock(Material material, Integer cmd, int quality, long rollSeed) {
+        return statLoreBlock(material, cmd, quality, rollSeed, null);
+    }
+
+    /**
+     * Builds the equipment-style lore block, optionally using a cached quality score.  The override is
+     * used by ArsPaper threads after a quality-only promotion: their lore is rebuilt by the fork, while
+     * the original random-roll score must remain stable.  A {@code null} override keeps the historical
+     * live calculation for ordinary previews and newly rolled items.
+     */
+    public List<Component> statLoreBlock(Material material, Integer cmd, int quality, long rollSeed,
+                                         Integer qualityScoreOverride) {
         Objects.requireNonNull(material, "material");
         ItemStatProfile profile = itemStats.profileFor(material, cmd)
                 .orElseGet(() -> itemStats.fallback().orElse(null));
@@ -322,8 +364,9 @@ public final class ItemAssembler {
         java.util.Set<String> granted = DerivedItemStats.resolveGrantedKeys(profile, rollSeed);
         Map<String, StatSource> statSources = StatSourceResolver.resolve(
                 profile, effectiveQuality, rollSeed, effModel, granted);
-        int qualityScore = QualityScoreCalculator.score(
-                profile, effectiveQuality, rollSeed, effModel, granted);
+        int qualityScore = qualityScoreOverride == null
+                ? QualityScoreCalculator.score(profile, effectiveQuality, rollSeed, effModel, granted)
+                : Math.max(0, Math.min(100, qualityScoreOverride));
         java.util.Optional<QualityTier> tier = qualityApplies
                 ? qualityTiers.tierFor(effectiveQuality) : java.util.Optional.empty();
         java.util.Set<String> forceShow = itemStats.loreDefaultKeysFor(material, cmd);
@@ -356,6 +399,28 @@ public final class ItemAssembler {
                         null, null, skillDisplay, useLevel, forceShow,
                         chanceKeys, loreMultipliers, tier.map(QualityTier::color).orElse("")),
                 loreSnapshot.displayTable(), loreSnapshot.layout(), loreSnapshot.bind());
+    }
+
+    /**
+     * Caches the current random-roll score without rebuilding lore.  This is used immediately before
+     * a quality-only promotion of an ArsPaper thread, whose subsequent lore refresh is performed by the
+     * fork rather than by this assembler.
+     */
+    public int cacheQualityScore(ItemMeta meta, Material material, long rollSeed, int quality) {
+        Objects.requireNonNull(meta, "meta");
+        Objects.requireNonNull(material, "material");
+        Integer cmd = DerivedItemStats.customModelDataOf(meta);
+        ItemStatProfile profile = itemStats.profileFor(material, cmd)
+                .orElseGet(() -> itemStats.fallback().orElse(null));
+        boolean qualityApplies = profile != null && profile.qualityApplies();
+        int effectiveQuality = qualityApplies ? quality : 0;
+        ItemData data = ItemData.of(meta);
+        QualityRollModel effModel = itemStats.rollModel() == null
+                ? null : itemStats.rollModel().withCraftMods(data.craftRollMods());
+        java.util.Set<String> granted = DerivedItemStats.resolveGrantedKeys(profile, rollSeed);
+        int score = QualityScoreCalculator.score(profile, effectiveQuality, rollSeed, effModel, granted);
+        data.setQualityScore(score);
+        return score;
     }
 
     /** Canonical key for the physical weapon CT stat ({@code item-cooldown}, lore表示名: CT). */

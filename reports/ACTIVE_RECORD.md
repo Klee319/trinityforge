@@ -180,10 +180,11 @@
 | ~~**W-272**~~ | ~~Ars グリフ解放でエンチャント付きアイテムが吸われる~~ → 2026-08-29 `ItemCostRef.matches` がバニラ素材のエンチャント付きを除外。`countIn`/`removeFrom` は `getStorageContents` のみ（装着中の防具を吸わない）。`ItemCostRefPlainIngredientTest` | 筆記台の素材判定が Material 一致だけ。フォーク側 |
 | ~~**W-273**~~ | ~~ポーション飲用後、EXPフリーザーが空瓶に経験値を入れる~~ → 2026-08-29 同tickの空瓶操作を無視。`XpBottleListenerTest.drinkingAPotionDoesNotStoreExpIntoTheEmptyBottleTheSameTick` | W-220 と同型の1クリック2パケット。飲用で手がガラス瓶に変わった2発目が格納経路へ入る |
 | ~~**W-258**~~ | ~~ソースベリーが満腹でないと使えない~~（再報告） → 2026-08-25 実装済みを再確認。`SourceBerryConsumePolicy` / `SourceBerryListener.onInteract`。未配備なら jar 更新で直る | 2026-08-25 実装済み。未配備の可能性を実コードで確認してから閉じる |
-| **W-274** | **スレッド魂縛の仕様変更で既存個体がどうなるか**（調査） | W-259 実装済み。**移行コードも join 走査も無い。** 刻印は `EntityPickupItemEvent` のみ。導入前インベントリ個体は捨てて拾うまで無主。**チェストから取り出した個体も pickup が飛ばない**ので W-259 後も未刻印になりうる。装着済みで `THREAD_SLOT_OWNERS` 空なら効果は出る（`mayUse(null)`）。儀式産は対象外。ローカル Ars jar（08-25）に `ThreadSoulbindListener` が無い＝未配備の可能性 |
+| ~~**W-274**~~ | ~~スレッド魂縛の仕様変更で既存個体がどうなるか~~ → 2026-08-29 join 即刻印＋40tick 再走査、スロット変化、エンダーチェスト。`TreasureThreadSoulbindPolicyTest`。**フォーク側。TF の commit には含まれない。Ars jar 再配備が要る** | 拾得と close だけでは導入前個体と HuskSync の後書きが届かない。未刻印は `mayUse(null)` で誰でも装着できた |
 | ~~**W-275**~~ | ~~エンチャント試練2のうさぎ（影渡り）のダメージが大きすぎる~~ → 2026-08-29 当初は推奨Lv20で死ぬのは仕様としてクローズ。同日 **W-304** で技を 0.70 倍し、試練の振れ型を外した | 台帳の 4.7 発は **Lv100 HP94**。推奨Lv20 では影渡り1発死。試練 `attack-power` は絶対値 |
 | ~~**W-304**~~ | ~~エンチャント試練が Lv100 装備でも耐えられない／技がダイナミックLv100より痛い~~ → 2026-08-29 攻撃力は Lv100 固定のまま。`ability-damage-scale: 0.70` で技だけ弱める。試練 2/5/6/10 の `damage-modifier: 1.4` を外し AP を中央値同等へ戻した。`MobAbilityDamageScaleTest` / `ShippedBossStrengthDriftTest#enchantmentTrialsScaleAbilitiesAndDropDamageModifierVariance` | 共有テンプレの `damage-percent` は触らない。振れ型は技にも乗る |
-| ~~**W-278**~~ | ~~emMob のテキストディスプレイに EM 由来名札が残る~~ → 2026-08-29 MEG/FMM 生成を抑止。同日再報告: 実機に FMM/MEG 無し。`customNameVisible=false` でも視線合わせで CustomName が出る。`NativeDisplayPolicy#applyLivingNametag` が抑止中は文字列も消す。**EliteMobs uberjar の再配備が要る** | TF FocusHp の下に `【100】エナジャイズドバニー`。可視フラグだけでは足りない |
+| ~~**W-278**~~ | ~~emMob のテキストディスプレイに EM 由来名札が残る~~ → 2026-08-29 MEG/FMM 生成を抑止。同日再報告: 実機に FMM/MEG 無し。`customNameVisible=false` でも視線合わせで CustomName が出る。`NativeDisplayPolicy#applyLivingNametag` が抑止中は文字列も消す。**同日 W-309**: そのクリアが `EliteEntity.name` を消していた | TF FocusHp の下に `【100】エナジャイズドバニー`。可視フラグだけでは足りない |
+| ~~**W-309**~~ | ~~EM 戦闘で `String.replace` NPE（`$bossName` / `$entity`）~~ → 2026-08-29 W-278 が CustomName を消した直後、`setLivingEntity` が `getCustomName()=null` を `EliteEntity#name` へコピーしていた。`retainStoredName`。**EliteMobs uberjar の再配備が要る**（フォーク、TF の commit には含まれない） | Java 21 は replacement=null を拒否。スクリプトと死亡メッセージ |
 | ~~**W-279**~~ | ~~儀式リザルトが複数なのに editor の amount が null(1)~~ → 2026-08-29 儀式UIを `result-amount` に接続。`ritual-result-amount-2026-08-29.test.js` | Ars は `result-amount`。共通UIが作業台用 `amount` だけを出していた |
 | ~~**W-280**~~ | ~~アイテムステータス補助にスレッドが出る~~ → 2026-08-29 `getItemDisplayTab` が `thread_*` / `STRING#` 帯を thread 扱い。`thread-tab-not-other-2026-08-29.test.js` | STRING の Material 推論が other。ピン退化で補助へ |
 | ~~**W-281**~~ | ~~儀式で装備をアップするとエンチャント等がはがれる~~ → 2026-08-29 `ItemUpgradeCarryOver`。品質／ロールは実行者で新規。`ItemUpgradeCarryOverTest` / `RitualUpgradeCarryOverWiringTest` | 成果物が新規スタック。転写が `mage_`/`spell_book_` 接頭辞だけ |
@@ -412,7 +413,10 @@ git 系:
 
 **全文は `reports/ACTIVE_RECORD_ARCHIVE.md` の §B。** ここは直近だけを 1 行で残す索引。
 
+| 2026-09-04 | **個別ランキングにプレステージが反映されず、プレステージ直後は順位表から行ごと消えていた。** `RankingMirrorStore#topSkillLevel/topTotalSkillLevel` が `s.level` だけで並べ、`level > 0` で絞っていた。プレステージはレベルと累計 EXP を 0 へ戻して段だけを上げる仕様なので、最も育っているプレイヤーが最下位へ落ちるどころか表から消える。値を実効レベル（上限レベル×段+現在レベル）へ変え、同値は段の多い方を上にした。合計（スキル合計）も同じ式で足す。`RankingMirrorStoreTopTest` に 4 件（**RED 証明済み**）。**外部の順位表プラグイン側の変更は不要**（値は TF の `rankingTop` から来る）。**TF jar の再ビルド・配備が要る** |
 | 2026-09-02 | **品質+15なのに儀式エンドラ一式が劣悪。** エンドラは儀式なので `ritual_quality_bonus` だけを読む。鍛冶/Ars鍛冶の品質表示が作業台・儀式・品質運を混同しており、鍛冶の「全ての品質+3」は実値 `workbench_quality_bonus:+2` とも不一致だった。表示を実効値と経路へ統一し、両プレステージの適用先を固定する回帰テストを追加。品質昇華の結晶自体は対象装備の品質を必ず+1するだけ |
+| 2026-09-02 | **`/tf status`の最大マナ/マナ効率表示、敵ドロップ品質、ガチャ鍵、品質昇華、儀式品質の6件を修正。** Ars最終マナ値を表示へ投影し、敵ドロップは死亡時にモブLv/専用`mob_drop_quality`で刻印（拾得者の開運を参照しない）。固定鍵はroll/不可解情報を持たない同一identityで生成。通常装備の品質昇華は品質だけを上げてpt/ロールを保持し、スレッドは専用lore更新へ委譲。儀式成果物の`quality-mode-offset`（+15−8=7）を回帰テストで固定
+| 2026-08-29 | **減衰リセットの二重 clear／良薬切り下げのゾンビ行／既存スレッド魂縛の join 走査。** `/tf decay reset` の非同期は `wipeStored`（DB だけ）。`capToSnapshots` は期限切れを消す。Ars `ThreadSoulbindListener` が join+40tick・スロット変化・エンダー。フォーク側は TF commit に含まれない |
 | 2026-08-29 | **拘束の空飛び／革チェスト解体6。** snare の JUMP_BOOST 128 は 1.21 で打ち上げ。属性で jump/move を 0 に（フォーク、commit しない）。革6は unique-key＋カタログ混入で素材数5。shape を歩き `minecraft:` だけ数える |
 | 2026-08-29 | **解体24／一括葉ドロップ既定32／カタログ魂縛lore／魂縛解きの符を PAPER。** 金属チェスト24は防具装飾の鍛冶を素材数に足していた。`chain-drop-rolls-max` を editor 化して既定32。`/tf catalog` の Ars 先取りは catalog の bind/owner を焼き、join で所有者loreを足す。符の素材はリードとして使える LEAD から PAPER。TF 特殊アイテムタブで material/表示名/aura/lore を編集可 |
 | 2026-08-29 | **editor: ポーション品質換算 GUI を外した／タブ切替の偽未保存。** 係数は本体が `alchemy-quality.yml` を直接読む。切替は GET 待ちに古い editor が残ると「次タブの id × 前画面の getData」を比較していた。navToken 再確認と保存後 `syncBaseFromEditor` |
@@ -439,6 +443,7 @@ git 系:
 | 2026-08-29 | **W-282 エンチャントオーラがテーブル／金床を塞ぎ、砥石後にエンチャント表示が消える**。真因はダミー耐久力I+`HIDE_ENCHANTS`。`setEnchantmentGlintOverride` へ移行。Ars は 08-14 に同じ穴を踏んで直済み |
 | 2026-08-29 | **W-281 儀式アップグレードでエンチャント等がはがれる**。品質／ロールは実行者で新規ロールのまま、コアのエンチャント・スレッド・バックパック・個体 PDC を `ItemUpgradeCarryOver` で写す。接頭辞 `mage_` 限定を外した |
 | 2026-08-29 | **`deploy.cmd` は EliteMobs の成果物が実機と違うときコピーする。** ビルド SKIP（ソースが jar より古くても手ビルド済み）でも SHA256 が違えば main / dev へ配る。同じ中身は触らない。配置先 `launch\` は `deploy-launch.cmd` で配り直す |
+| 2026-08-29 | **W-309 EM 戦闘の `String.replace` NPE。** W-278 が CustomName を消した直後、`setLivingEntity` が null を `EliteEntity#name` へコピーしていた。スクリプト `$bossName` と死亡メッセージ `$entity` が落ちる。`retainStoredName`。**EliteMobs uberjar の再配備が要る** |
 | 2026-08-29 | **W-278 再発: 視線合わせのバニラ名札。** 実機 jar には MEG/FMM 生成修正が入っていたが、Main/Dev に FMM/MEG が無い。`customNameVisible=false` でも CustomName は視線合わせで出る。抑止中は `applyLivingNametag` が文字列も消す。**サーバ停止後に EliteMobs uberjar を差し替え** |
 | 2026-08-29 | **W-275 想定内クローズ / W-278 EM名札 / W-279 儀式 result-amount / W-280 スレッドが補助タブ**。うさぎは非ダイナミックなので推奨20で死ぬのは仕様。EM は MEG 生成の `setName(..., true)` と FMM の visible 無視。editor は儀式個数を `result-amount` に接続し、STRING スレッドを補助へ落とさない |
 | 2026-08-29 | **実サーバ報告バッチ（W-260〜W-277）**。楔はメインハンド＋クリックで確認GUI。スレッドは max stack 1＋ホッパー刻印。うさぎは推奨Lv20 で全装備1発死（試練の攻撃力絶対値）。数値は未変更 |

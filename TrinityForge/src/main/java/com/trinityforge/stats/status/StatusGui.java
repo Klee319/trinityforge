@@ -5,6 +5,7 @@ import com.trinityforge.combat.SymmetricCombatService;
 import com.trinityforge.command.StatsCategory;
 import com.trinityforge.config.domains.LoreConfig;
 import com.trinityforge.integration.ars.ArsArmorStatRefreshBridge;
+import com.trinityforge.integration.ars.ArsStatusDisplayBridge;
 import com.trinityforge.config.domains.RoleBuffsConfig.CombatRoleSpec;
 import com.trinityforge.config.domains.RoleBuffsConfig.SupportRoleSpec;
 import com.trinityforge.pdc.PlayerData;
@@ -376,7 +377,8 @@ public final class StatusGui implements Listener {
         // 同期的に再計算を促す(ArsPaper未導入/失敗はfail-softで無害、既存のプッシュ型経路は不変)。
         ArsArmorStatRefreshBridge.refresh(player);
         return StatusGuiModel.sections(
-                aggregator.aggregate(player).combined(), loreConfig.displayTable());
+                ArsStatusDisplayBridge.project(player, aggregator.aggregate(player).combined()),
+                loreConfig.displayTable());
     }
 
     private static StatDisplaySpec lookup(Map<String, StatDisplaySpec> table, String canonicalKey) {

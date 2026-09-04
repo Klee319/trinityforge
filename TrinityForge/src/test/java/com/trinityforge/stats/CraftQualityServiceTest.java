@@ -3,10 +3,16 @@ package com.trinityforge.stats;
 import com.trinityforge.combat.PlayerCombatAggregate;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.CraftQualityConfig;
+import com.trinityforge.config.domains.ItemStatsConfig;
 import com.trinityforge.config.domains.QualityConfig;
 import com.trinityforge.progression.SkillLevelSource;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockbukkit.mockbukkit.MockBukkit;
 
 import java.util.Map;
 import java.util.Set;
@@ -22,6 +28,16 @@ import static org.mockito.Mockito.when;
  * (装備+perk合算、{@link PlayerStatAggregator}) へ切替済み。
  */
 class CraftQualityServiceTest {
+
+    @BeforeEach
+    void setUp() {
+        MockBukkit.mock();
+    }
+
+    @AfterEach
+    void tearDown() {
+        MockBukkit.unmock();
+    }
 
     private static PlayerStatAggregator aggregatorReturning(Player player, Map<String, Double> stats) {
         PlayerStatAggregator aggregator = mock(PlayerStatAggregator.class);
@@ -118,5 +134,24 @@ class CraftQualityServiceTest {
 
         assertEquals(0, service.qualityMode(player, Set.of()));
         assertTrue(service.minimumQuality(player, Set.of()) <= 0);
+    }
+
+    @Test
+    void ritualQualityAppliesTheResultItemsQualityModeOffset() {
+        Player player = mock(Player.class);
+        ItemStatsConfig itemStats = mock(ItemStatsConfig.class);
+        when(itemStats.qualityModeOffsetFor(Material.DIAMOND_CHESTPLATE, null)).thenReturn(-8);
+        QualityConfig quality = mock(QualityConfig.class);
+        when(quality.maxQuality()).thenReturn(15);
+        when(quality.spreadUp()).thenReturn(0.0);
+        when(quality.spreadDown()).thenReturn(0.0);
+
+        CraftQualityService service = new CraftQualityService(
+                SkillLevelSource.EMPTY, new CraftQualityConfig(), quality,
+                aggregatorReturning(player, Map.of("ritual_quality_bonus", 15.0)), itemStats);
+
+        assertEquals(7, service.rollArsSmithingQuality(player,
+                        new ItemStack(Material.DIAMOND_CHESTPLATE)),
+                "儀式品質+15と成果物の-8を合算した実効値は7");
     }
 }

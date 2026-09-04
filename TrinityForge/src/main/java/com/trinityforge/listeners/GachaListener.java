@@ -209,6 +209,14 @@ public final class GachaListener implements Listener {
      */
     private Optional<ItemStack> resolvePrize(GachaEntry entry) {
         try {
+            // Dungeon keys are fixed-identity items. Building them through the random-roll path adds a
+            // fresh roll_seed on every draw, so identical keys cannot stack (and do not match recipe
+            // results). Other prizes retain their existing quality/random-roll behaviour.
+            if (isStackableCatalogPrize(entry.itemId())) {
+                Optional<ItemStack> stackable = itemResolver.createStackable(entry.itemId());
+                stackable.ifPresent(stack -> stack.setAmount(entry.amount()));
+                return stackable;
+            }
             int rolledQuality = entry.qualityRandom()
                     ? ThreadLocalRandom.current().nextInt(quality.maxQuality() + 1)
                     : 0;
@@ -221,6 +229,20 @@ public final class GachaListener implements Listener {
                     "[gacha] failed to build prize '" + entry.itemId() + "'", ex);
             return Optional.empty();
         }
+    }
+
+    /** Catalog ids may be written as {@code custom:<id>} by the config editor. */
+    private boolean isStackableCatalogPrize(String id) {
+        if (id == null || id.isBlank()) {
+            return false;
+        }
+        String bare = id.trim();
+        if (bare.regionMatches(true, 0, "custom:", 0, "custom:".length())) {
+            bare = bare.substring("custom:".length()).trim();
+        }
+        return itemCatalog.template(bare)
+                .map(template -> template.material() == org.bukkit.Material.TRIAL_KEY)
+                .orElse(false);
     }
 
     /**
