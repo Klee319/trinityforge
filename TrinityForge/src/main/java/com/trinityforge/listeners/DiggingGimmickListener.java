@@ -2,6 +2,7 @@ package com.trinityforge.listeners;
 
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.config.domains.DiggingGimmickConfig;
+import com.trinityforge.items.ItemStackDrops;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
 import com.trinityforge.progression.catalog.SkillCatalogEntry;
 import com.trinityforge.progression.core.SkillId;
@@ -107,6 +108,8 @@ public final class DiggingGimmickListener implements Listener {
         }
         ItemStack prize = built.get();
         prize.setAmount(Math.max(1, entry.amount()));
-        block.getWorld().dropItemNaturally(block.getLocation(), prize);
+        // 2026-09-04 W-312: entry.amount() が99を超える設定でも、アイテムエンティティの
+        // コーデック上限(99)以下へ分割してから落とす(ItemStackDrops 参照)。
+        ItemStackDrops.dropSplit(block.getWorld(), block.getLocation(), prize);
     }
 }

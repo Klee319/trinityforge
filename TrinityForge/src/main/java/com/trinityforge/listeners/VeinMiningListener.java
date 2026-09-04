@@ -6,6 +6,7 @@ import com.trinityforge.config.domains.MiningGimmickConfig;
 import com.trinityforge.gathering.ChainBreakExpGrant;
 import com.trinityforge.gathering.ChainBreakSupport;
 import com.trinityforge.gathering.GatheringToolMatcher;
+import com.trinityforge.items.ItemStackDrops;
 import com.trinityforge.mining.VeinMiningAlgorithm;
 import com.trinityforge.mining.VeinMiningAlgorithm.BlockPos;
 import com.trinityforge.pdc.PlayerData;
@@ -331,6 +332,8 @@ public final class VeinMiningListener implements Listener {
         }
         ItemStack prize = built.get();
         prize.setAmount(Math.max(1, entry.amount()));
-        block.getWorld().dropItemNaturally(block.getLocation(), prize);
+        // 2026-09-04 W-312: entry.amount() が99を超える設定でも、アイテムエンティティの
+        // コーデック上限(99)以下へ分割してから落とす(ItemStackDrops 参照)。
+        ItemStackDrops.dropSplit(block.getWorld(), block.getLocation(), prize);
     }
 }

@@ -438,9 +438,15 @@ public final class TrinityForge extends JavaPlugin {
         // 節目レベルアップの全体アナウンス(progression/level-broadcast.yml, 2026-08-16)。
         // 旧 ValhallaMMO アドオン ValTopBoard の level-up-broadcast を TF 本体へ移したもの。
         // TrinitySkillLevelUpEvent を購読するだけなので、上の Dispatcher 配線より後であればよい。
+        // プレステージ(NG+)段の登り直しで節目アナウンスが氾濫する不具合の対策(2026-09-04, W-313)。
+        // 供給関数は progressionService.progress(UUID, skillId) をそのまま渡すだけ(NativeProgressionService
+        // は編集対象外なので、公開APIをここで束ねる)。読めない場合は null を返し、リスナー側が段0扱いへ倒す。
+        java.util.function.BiFunction<java.util.UUID, String,
+                com.trinityforge.progression.core.SkillProgress> skillProgressLookup =
+                (playerId, skillId) -> progressionService.progress(playerId, skillId).orElse(null);
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.progression.SkillLevelBroadcastListener(
-                        this, configManager.levelBroadcast(), skillDisplayName), this);
+                        this, configManager.levelBroadcast(), skillDisplayName, skillProgressLookup), this);
         // B3(2026-07-25 バグ報告): ログアウト時に当該プレイヤーのスキル別ボスバー/タイマーを確実に
         // 破棄するため PlayerQuitEvent を購読する(以前は Listener 未実装で未登録だった)。
         getServer().getPluginManager().registerEvents(skillExpFeedbackService, this);
@@ -1675,6 +1681,11 @@ public final class TrinityForge extends JavaPlugin {
                                             try {
                                                 int rewritten = new com.trinityforge.progression.ProgressionCurveReconciler(
                                                         progressionRepository, progressionCatalog,
+                                                        // W-314 タスク2: NativeProgressionService と同じ共有ロックを渡す。
+                                                        // ここを新規インスタンスにすると、reload中の再計算と
+                                                        // プレイ中のEXP付与/perk解放が互いに排他されず、
+                                                        // どちらかの書き込みが後勝ちで消える(ロストアップデート)。
+                                                        progressionService.playerLocks(),
                                                         // reload 直後に読み直した値を渡す。ここを既定(1)のままにすると
                                                         // power.levels-per-skill-point を変えた直後の reload が
                                                         // 全員のポイント残高を旧式で書き戻してしまう。

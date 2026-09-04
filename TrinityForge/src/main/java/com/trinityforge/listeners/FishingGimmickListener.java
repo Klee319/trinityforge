@@ -6,6 +6,7 @@ import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.config.domains.FishingGimmickConfig;
 import com.trinityforge.fishing.FishingGimmickPolicy;
+import com.trinityforge.items.ItemStackDrops;
 import com.trinityforge.progression.SkillLevelSource;
 import com.trinityforge.stats.CrossPluginItemResolver;
 import com.trinityforge.stats.DropTableConfig;
@@ -27,6 +28,7 @@ import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -194,7 +196,14 @@ public final class FishingGimmickListener implements Listener {
         if (replacement == null) {
             return;
         }
-        caught.setItemStack(replacement);
+        // 2026-09-04 W-312: entry.amount() が99を超える設定だと、既存の Item エンティティ
+        // (caught)へそのまま積むとアイテムエンティティのコーデック上限(99)を超えて消滅する。
+        // 分割し、先頭の1本だけを既存エンティティへ載せ、残りは同じ位置へ新規に落とす。
+        List<ItemStack> parts = ItemStackDrops.split(replacement);
+        caught.setItemStack(parts.get(0));
+        for (int i = 1; i < parts.size(); i++) {
+            caught.getWorld().dropItemNaturally(caught.getLocation(), parts.get(i));
+        }
         caught.getPersistentDataContainer().set(treasureFlagKey, PersistentDataType.BOOLEAN, treasureFlag);
     }
 

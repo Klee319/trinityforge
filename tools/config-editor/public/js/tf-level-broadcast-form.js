@@ -128,7 +128,10 @@
         boolField(working, "include-power", "総合(POWER)の到達も流す",
           "既定はオフ。POWER は各スキルのレベルアップから派生して積み上がる導出値で、"
           + "直接稼ぐ経路がありません。オンにすると「採掘 Lv30 到達」と「総合 Lv30 到達」が"
-          + "同じ行動で連続して流れることがあります。")
+          + "同じ行動で連続して流れることがあります。"),
+        intField(working, "min-interval-seconds", "同一プレイヤーの放送間隔(秒)",
+          "同じプレイヤーの全体放送を、この秒数の間に1行までへ絞ります。0で無効、範囲は0〜3600。"
+          + "プレステージ(NG+)の登り直しで同じ節目が何度も流れるのを止める最後の砦です。", 30)
       ]),
       field("アナウンス本文 (MiniMessage)",
         window.richTextInput(working.message == null ? "" : String(working.message), "minimessage",
@@ -136,7 +139,13 @@
         "差し込みは %player%（プレイヤー名） / %skill%（スキルの表示名） / %level%（到達レベルの数値）。"
         + "%player% と %level% は必須で、どちらかを欠くと警告を出して既定の書式で表示されます"
         + "（設定ミスで「誰が何レベルになったのか分からない行」が流れるのを防ぐため）。"
-        + "レガシーの & カラーコードは解釈されません。")
+        + "レガシーの & カラーコードは解釈されません。"),
+      field("プレステージ時の本文 (MiniMessage)",
+        window.richTextInput(working["message-prestige"] == null ? "" : String(working["message-prestige"]), "minimessage",
+          (v) => { working["message-prestige"] = v; }),
+        "プレステージ(NG+)段が1以上のスキルへはこちらを使います。上のプレースホルダに加えて"
+        + "%prestige%（現在の周回数）が使えます。%player% と %level% は必須で、欠くと"
+        + "既定の書式にフォールバックします。空欄でも既定の書式へフォールバックします。")
     ]));
 
     // --- 効果音 -----------------------------------------------------------

@@ -1028,6 +1028,11 @@ function validateTfSkillExp(data, errors) {
     // 0以上の数値。専用分岐は作らず、他スキルに同名キーが増えても同じ検証で構わない汎用扱いにする。
     const expPerSource = section["exp-per-source"];
     validateNonNegativeExpNumber(expPerSource, `${skill}.exp-per-source`, errors);
+    // 2026-09-04: 儀式1回のソース由来EXPの天井 (ars-smithing.max-source-exp-per-craft)。
+    // 0以上の数値。0 = 天井なし(Java SkillExpConfig#arsSmithingMaxSourceExp と同義)。
+    // exp-per-source と隣り合わせのキーなので同じ汎用検証を使う(スキル別分岐は作らない)。
+    const maxSourceExp = section["max-source-exp-per-craft"];
+    validateNonNegativeExpNumber(maxSourceExp, `${skill}.max-source-exp-per-craft`, errors);
     // 2026-07-30: 素材別クラフトEXP。キーは Material 名 または custom:<カタログID>、値は 0 以上の数値。
     // ⚠️ 2026-08-17: 表は2本ある(作業台の smithing.exp-per-material と儀式/Ars専用の
     // ars-smithing.exp-per-material)。それまで共用だったので editor で通常鍛冶の素材リストを
@@ -2982,6 +2987,24 @@ function validateTfLevelBroadcast(data, errors) {
       // %player% と %level% は必須。欠けると「誰が何レベルか分からない行」になる。
       if (!data.message.includes("%player%")) errors.push("message: %player% が含まれていません");
       if (!data.message.includes("%level%")) errors.push("message: %level% が含まれていません");
+    }
+  }
+  // 2026-09-04 (W-313): プレステージ(NG+)段が1以上のときに使う書式。Java 側 LevelBroadcastFormat は
+  // message/message-prestige のどちらでも同じ toTemplate() を通すので、必須プレースホルダは message と同じ。
+  if (data["message-prestige"] !== undefined && data["message-prestige"] !== null) {
+    if (typeof data["message-prestige"] !== "string") {
+      errors.push("message-prestige: 文字列(MiniMessage)である必要があります");
+    } else {
+      if (!data["message-prestige"].includes("%player%")) errors.push("message-prestige: %player% が含まれていません");
+      if (!data["message-prestige"].includes("%level%")) errors.push("message-prestige: %level% が含まれていません");
+    }
+  }
+  // 2026-09-04 (W-313): 同一プレイヤーの全体放送を絞る間隔。0〜3600、0=無効。
+  // Java 側は範囲外を警告なしで丸めるが、エディタ側では明示的に弾く(他の範囲キーと同じ方針)。
+  if (data["min-interval-seconds"] !== undefined && data["min-interval-seconds"] !== null) {
+    const mis = data["min-interval-seconds"];
+    if (!isNonNegInteger(mis) || mis > 3600) {
+      errors.push("min-interval-seconds: 0以上3600以下の整数である必要があります");
     }
   }
 
