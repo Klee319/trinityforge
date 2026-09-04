@@ -2235,6 +2235,14 @@ function validateTfMobOverrides(data, errors) {
       validateMobOverrideDrops(entry.drops, prefix, errors);
       validateMobOverrideVanillaExp(entry["vanilla-exp"], prefix, errors);
       validateMobAbilityRefs(entry.abilities, prefix, errors);
+      // 2026-09-04 予告機構「次段階」: ability-sequence(発動順・重複可)/ability-interval-seconds
+      validateMobAbilityRefs(entry["ability-sequence"], prefix, errors, "ability-sequence");
+      if (entry["ability-interval-seconds"] !== undefined && entry["ability-interval-seconds"] !== null) {
+        const v = entry["ability-interval-seconds"];
+        if (typeof v !== "number" || !Number.isFinite(v) || v < 0.5 || v > 120) {
+          errors.push(`${prefix}.ability-interval-seconds: 0.5〜120 の数値である必要があります`);
+        }
+      }
     }
   }
 }
@@ -2244,18 +2252,20 @@ function validateTfMobOverrides(data, errors) {
  * ここでは「文字列の配列で、IDの形が正しいか」だけを見る -- 実在チェックをしないのは、
  * Java 側もロード順に依存しない作りにしてあり(未定義IDは発動時に読み飛ばす)、
  * editor が別ファイルの内容に依存すると片方だけ保存したときに保存できなくなるため。
+ * ability-sequence(2026-09-04追加、発動順)も同じ形なので流用する。同じIDの重複は許す
+ * (順番に同じ技を複数回撃たせる書き方が正当なため、重複を弾いてはならない)。
  */
-function validateMobAbilityRefs(abilities, prefix, errors) {
+function validateMobAbilityRefs(abilities, prefix, errors, fieldName = "abilities") {
   if (abilities === undefined || abilities === null) return;
   if (!Array.isArray(abilities)) {
-    errors.push(`${prefix}.abilities: 配列である必要があります`);
+    errors.push(`${prefix}.${fieldName}: 配列である必要があります`);
     return;
   }
   abilities.forEach((v, i) => {
     if (typeof v !== "string" || !v.trim()) {
-      errors.push(`${prefix}.abilities[${i}]: 特殊攻撃テンプレートID(文字列)である必要があります`);
+      errors.push(`${prefix}.${fieldName}[${i}]: 特殊攻撃テンプレートID(文字列)である必要があります`);
     } else if (!/^[a-z0-9_]+$/.test(v.trim().toLowerCase())) {
-      errors.push(`${prefix}.abilities[${i}]: '${v}' はIDとして不正です (半角英小文字・数字・アンダースコアのみ)`);
+      errors.push(`${prefix}.${fieldName}[${i}]: '${v}' はIDとして不正です (半角英小文字・数字・アンダースコアのみ)`);
     }
   });
 }
@@ -2268,7 +2278,9 @@ const MOB_ABILITY_TYPES = ["ground_slam", "projectile_volley", "charge", "aura",
   // 2026-08-16 追加
   "repulse", "vortex_pull", "delayed_zone",
   // 2026-08-17 に Java 側へ追加されていたが editor の型一覧から漏れていた(出荷 yml の ember_spray が保存不能だった)
-  "projectile_rain"];
+  "projectile_rain",
+  // 2026-09-04 追加。fixed_zone は術者を追従しない床固定の持続領域(aura とは別物)
+  "fixed_zone"];
 
 /**
  * Java の MobAbility が clamp する範囲。editor だけ広いと「保存できたのに実挙動が違う」になる。
@@ -2289,7 +2301,11 @@ const MOB_ABILITY_RANGES = {
   "cast-seconds": [0, 2.5],
   "vertical-radius": [0.5, 8],
   "health-below": [0, 1],
-  "health-above": [0, 1]
+  "health-above": [0, 1],
+  // 2026-09-04 予告機構「次段階」追加
+  "interrupt-damage-fraction": [0.005, 0.5],
+  "interrupt-lockout-seconds": [0, 60],
+  "whiff-stagger-seconds": [0, 5]
 };
 
 function validateTfMobAbilities(data, errors) {
@@ -2297,6 +2313,14 @@ function validateTfMobAbilities(data, errors) {
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
   if (data.enabled !== undefined && typeof data.enabled !== "boolean") {
     errors.push("enabled: 真偽値である必要があります");
+  }
+  // 2026-09-04 予告機構「次段階」のグローバルキー
+  if (data["telegraph-lethal-atomic"] !== undefined && typeof data["telegraph-lethal-atomic"] !== "boolean") {
+    errors.push("telegraph-lethal-atomic: 真偽値である必要があります");
+  }
+  if (data["telegraph-bar-style"] !== undefined
+      && !["block", "ascii"].includes(String(data["telegraph-bar-style"]))) {
+    errors.push("telegraph-bar-style: block / ascii のいずれかである必要があります");
   }
   if (data["check-interval-ticks"] !== undefined) {
     const interval = data["check-interval-ticks"];
@@ -2322,6 +2346,9 @@ function validateTfMobAbilities(data, errors) {
     }
     if (entry.lethal !== undefined && typeof entry.lethal !== "boolean") {
       errors.push(`${prefix}.lethal: 真偽値である必要があります`);
+    }
+    if (entry.interruptible !== undefined && typeof entry.interruptible !== "boolean") {
+      errors.push(`${prefix}.interruptible: 真偽値である必要があります`);
     }
     for (const [key, bounds] of Object.entries(MOB_ABILITY_RANGES)) {
       const value = entry[key];

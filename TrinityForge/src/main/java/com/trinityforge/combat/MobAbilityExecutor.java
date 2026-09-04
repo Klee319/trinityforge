@@ -20,16 +20,21 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 import java.util.function.ToDoubleFunction;
 
 /**
@@ -108,9 +113,48 @@ public final class MobAbilityExecutor {
     private final ToDoubleFunction<String> abilityDamageScaleOfWorld;
     private final ActionBarRouter actionBar;
     private final TelegraphBudget budget;
+    /** {@code telegraph-lethal-atomic}（機構10）を毎回読み直す供給元。 */
+    private final BooleanSupplier telegraphLethalAtomic;
+    /** {@code telegraph-bar-style}（機構3）を毎回読み直す供給元。 */
+    private final Supplier<ActionBarRouter.BarStyle> barStyle;
 
     /** 詠唱ループの例外ログ間引き（技IDごと・全インスタンス共通でよい静的表）。 */
     private static final java.util.Map<String, Long> lastErrorLogMillis = new ConcurrentHashMap<>();
+
+    /** 同じモブが空振り硬直を再び受けるまでの最短間隔（機構7）。 */
+    private static final long WHIFF_STAGGER_LOCKOUT_MILLIS = 8_000L;
+    /** {@code FIXED_ZONE} の {@code duration-seconds} 未指定（0）時の既定（展開後の持続秒数）。 */
+    private static final double FIXED_ZONE_DEFAULT_DURATION_SECONDS = 6.0;
+
+    /** モブUUID → 直近の空振り硬直を課した時刻（機構7、間引き用）。 */
+    private final Map<UUID, Long> lastStaggerMillis = new HashMap<>();
+
+    /**
+     * {@link #resolve} 呼び出し1回ぶんの同期的な命中数（機構7「空振り硬直」の判定用）。
+     * 呼び手が呼び出し直前に 0 へリセットし、直後に読む。{@code CHARGE}/{@code AURA} は命中が
+     * 非同期（遅延タスク）で起きるためこの数え方が成立せず、呼び手側で判定自体をスキップする。
+     */
+    private int syncHitCounter;
+
+    /**
+     * 進行中の詠唱台帳（機構8「中断」）。{@link MobAbilityInterrupts} から
+     * {@link #onCasterDamaged} / {@link #onCasterStunned} 経由で書き込まれる。
+     */
+    private final Map<UUID, ActiveCast> activeCasts = new HashMap<>();
+
+    /** 1件の進行中詠唱。{@code damageTaken} だけ可変（中断判定のため蓄積する）。 */
+    private static final class ActiveCast {
+        private final MobAbility ability;
+        private final Consumer<String> finish;
+        private final double maxHealthAtStart;
+        private double damageTaken;
+
+        private ActiveCast(MobAbility ability, Consumer<String> finish, double maxHealthAtStart) {
+            this.ability = ability;
+            this.finish = finish;
+            this.maxHealthAtStart = maxHealthAtStart;
+        }
+    }
 
     /**
      * 候補収集のラッパー（機構1・仕様書「候補収集のラッパーは差し替え可能にしておく」）。既定は
@@ -192,6 +236,23 @@ public final class MobAbilityExecutor {
                               java.util.function.DoubleSupplier elementBias,
                               ToDoubleFunction<String> abilityDamageScaleOfWorld,
                               ActionBarRouter actionBar, TelegraphBudget budget) {
+        this(plugin, combat, elementBias, abilityDamageScaleOfWorld, actionBar, budget,
+                () -> true, () -> ActionBarRouter.BarStyle.BLOCK);
+    }
+
+    /**
+     * 機構10（致命予約の原子化）・機構3（バー表記切替）込みの正準コンストラクタ（2026-09-04）。
+     *
+     * @param telegraphLethalAtomic {@code combat/mob-abilities.yml} の {@code telegraph-lethal-atomic}
+     *                              を毎回読み直す供給元。
+     * @param barStyle              同 {@code telegraph-bar-style} を毎回読み直す供給元。
+     */
+    public MobAbilityExecutor(Plugin plugin, SymmetricCombatService combat,
+                              java.util.function.DoubleSupplier elementBias,
+                              ToDoubleFunction<String> abilityDamageScaleOfWorld,
+                              ActionBarRouter actionBar, TelegraphBudget budget,
+                              BooleanSupplier telegraphLethalAtomic,
+                              Supplier<ActionBarRouter.BarStyle> barStyle) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.combat = Objects.requireNonNull(combat, "combat");
         this.elementBias = Objects.requireNonNull(elementBias, "elementBias");
@@ -199,6 +260,8 @@ public final class MobAbilityExecutor {
                 "abilityDamageScaleOfWorld");
         this.actionBar = Objects.requireNonNull(actionBar, "actionBar");
         this.budget = Objects.requireNonNull(budget, "budget");
+        this.telegraphLethalAtomic = Objects.requireNonNull(telegraphLethalAtomic, "telegraphLethalAtomic");
+        this.barStyle = Objects.requireNonNull(barStyle, "barStyle");
     }
 
     /** {@link MobAbilityTask} が抽選段階で予告予算を照会するために公開する。 */
@@ -207,8 +270,74 @@ public final class MobAbilityExecutor {
     }
 
     /** {@code TrinityForge.java} が {@code SkillExpFeedbackService} と同じインスタンスを配るために公開する。 */
+    /**
+     * 抽選側のクールダウン台帳を受け取る（2026-09-04、機構8「中断」/機構7「空振り硬直」の準備）。
+     * 中断された技の再詠唱ロックや空振り硬直の間合いは、抽選を止める側＝この台帳へ書くしかないため。
+     * {@code MobAbilityTask} のコンストラクタが呼ぶ。未接続のときは null で、ロック系は黙って何もしない。
+     */
+    private MobAbilityCooldowns cooldowns;
+
+    public void attachCooldowns(MobAbilityCooldowns cooldowns) {
+        this.cooldowns = cooldowns;
+    }
+
     public ActionBarRouter actionBar() {
         return actionBar;
+    }
+
+    // ------------------------------------------------------------------
+    // 機構8: 中断（MobAbilityInterrupts から呼ばれる）
+    // ------------------------------------------------------------------
+
+    /** 進行中の詠唱があるか（{@link MobAbilityInterrupts} が毎回のダメージ通知を早期リターンするため）。 */
+    boolean hasActiveCasts() {
+        return !activeCasts.isEmpty();
+    }
+
+    /**
+     * 術者がダメージを受けた（{@code MobAbilityCastDamageListener} 経由）。中断可能な詠唱を持つ
+     * 術者だけを見て、自身の最大HPに対する累積被ダメージ割合が {@code interruptDamageFraction} を
+     * 超えたら中断する。最大HPを読めない個体は判定できないので中断させない。
+     */
+    void onCasterDamaged(LivingEntity mob, double finalDamage) {
+        if (mob == null || activeCasts.isEmpty()) {
+            return;
+        }
+        ActiveCast cast = activeCasts.get(mob.getUniqueId());
+        if (cast == null || !cast.ability.interruptible() || cast.maxHealthAtStart <= 0.0) {
+            return;
+        }
+        cast.damageTaken += Math.max(0.0, finalDamage);
+        if (cast.damageTaken >= cast.maxHealthAtStart * cast.ability.interruptDamageFraction()) {
+            interruptCast(mob, cast);
+        }
+    }
+
+    /** 術者がスタン（{@code stun_chance}）を受けた。中断可能な詠唱があれば即中断する。 */
+    void onCasterStunned(LivingEntity mob) {
+        if (mob == null || activeCasts.isEmpty()) {
+            return;
+        }
+        ActiveCast cast = activeCasts.get(mob.getUniqueId());
+        if (cast == null || !cast.ability.interruptible()) {
+            return;
+        }
+        interruptCast(mob, cast);
+    }
+
+    private void interruptCast(LivingEntity mob, ActiveCast cast) {
+        activeCasts.remove(mob.getUniqueId());
+        cast.finish.accept("interrupted");
+    }
+
+    /** その術者の最大HP。読めない個体（属性なし・MockBukkit等）は -1 を返す。 */
+    private static double readMaxHealth(LivingEntity mob) {
+        try {
+            org.bukkit.attribute.AttributeInstance max = mob.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+            return max == null ? -1.0 : max.getValue();
+        } catch (Throwable ignored) {
+            return -1.0;
+        }
     }
 
     // ------------------------------------------------------------------
@@ -238,7 +367,7 @@ public final class MobAbilityExecutor {
     public static String responseWordOf(MobAbility.Type type) {
         return switch (type) {
             case GROUND_SLAM, CHARGE, AURA -> "離れろ";
-            case DELAYED_ZONE -> "床から退け";
+            case DELAYED_ZONE, FIXED_ZONE -> "床から退け";
             case BEAM, TELEPORT_STRIKE, PROJECTILE_VOLLEY, PROJECTILE_RAIN -> "横へ";
             case REPULSE, VORTEX_PULL -> "遮蔽へ";
             case SUMMON -> "止めろ";
@@ -293,6 +422,9 @@ public final class MobAbilityExecutor {
             if (ability.type() == MobAbility.Type.DELAYED_ZONE) {
                 return delayedZone(mob, target, ability);
             }
+            if (ability.type() == MobAbility.Type.FIXED_ZONE) {
+                return fixedZone(mob, target, ability);
+            }
             int ticks = ability.telegraphTicks();
             if (ticks <= 0) {
                 announce(mob, ability);
@@ -323,6 +455,8 @@ public final class MobAbilityExecutor {
             case VORTEX_PULL -> vortexPull(mob, ability, anchor, telegraphed);
             case DELAYED_ZONE -> throw new IllegalStateException(
                     "DELAYED_ZONE is handled by #delayedZone, not #resolve");
+            case FIXED_ZONE -> throw new IllegalStateException(
+                    "FIXED_ZONE is handled by #fixedZone, not #resolve");
         };
     }
 
@@ -354,7 +488,7 @@ public final class MobAbilityExecutor {
                 Location origin = mob.getLocation().clone();
                 yield new CastSnapshot(origin, null, behindLocation(target), 0.0);
             }
-            case DELAYED_ZONE -> {
+            case DELAYED_ZONE, FIXED_ZONE -> {
                 Location origin = mob.getLocation().clone();
                 yield new CastSnapshot(origin, null, target.getLocation().clone(), 0.0);
             }
@@ -370,8 +504,43 @@ public final class MobAbilityExecutor {
     // ------------------------------------------------------------------
 
     /**
-     * 予告付きの技（{@code DELAYED_ZONE} 以外）を開始する。予約が取れなければ何もせず false。
-     * 予約が取れたら1tick間隔のループを開始し、その時点で true を返す（クールダウンを消費させる）。
+     * 予約の一括確保（機構10「致命予約の原子化」、2026-09-04）。主対象は必須。それ以外の脅威圏内の
+     * viewer は、致命技かつ {@code telegraph-lethal-atomic} が true のときだけ<b>全員ぶん取れなければ
+     * 撃たない</b>（取れた分は release して空を返す）。非致命はベスト・エフォート（取れた分だけ使う）。
+     */
+    private Optional<List<TelegraphBudget.Reservation>> reserveAll(LivingEntity mob, Player target,
+                                                                    MobAbility ability, long resolveAtMillis,
+                                                                    CastSnapshot snapshot) {
+        List<Player> viewers = threatZoneViewers(mob, target, ability, snapshot);
+        boolean atomic = ability.lethal() && telegraphLethalAtomic.getAsBoolean();
+        List<TelegraphBudget.Reservation> reservations = new ArrayList<>();
+        Optional<TelegraphBudget.Reservation> primary = budget.tryReserve(
+                target.getUniqueId(), mob.getUniqueId(), ability.id(), ability.lethal(), resolveAtMillis);
+        if (primary.isEmpty()) {
+            return Optional.empty();
+        }
+        reservations.add(primary.get());
+        for (Player viewer : viewers) {
+            if (viewer.equals(target)) {
+                continue;
+            }
+            Optional<TelegraphBudget.Reservation> r = budget.tryReserve(viewer.getUniqueId(), mob.getUniqueId(),
+                    ability.id(), ability.lethal(), resolveAtMillis);
+            if (r.isPresent()) {
+                reservations.add(r.get());
+            } else if (atomic) {
+                for (TelegraphBudget.Reservation done : reservations) {
+                    budget.release(done);
+                }
+                return Optional.empty();
+            }
+        }
+        return Optional.of(reservations);
+    }
+
+    /**
+     * 予告付きの技（{@code DELAYED_ZONE} / {@code FIXED_ZONE} 以外）を開始する。予約が取れなければ
+     * 何もせず false。予約が取れたら1tick間隔のループを開始し、その時点で true を返す（クールダウンを消費させる）。
      */
     private boolean startCast(LivingEntity mob, Player target, MobAbility ability, int ticks) {
         CastSnapshot snapshot = buildSnapshot(mob, target, ability);
@@ -380,22 +549,13 @@ public final class MobAbilityExecutor {
         }
         long totalMillis = ticks * MILLIS_PER_TICK;
         long resolveAtMillis = clock.getAsLong() + totalMillis;
-        Optional<TelegraphBudget.Reservation> primary = budget.tryReserve(
-                target.getUniqueId(), mob.getUniqueId(), ability.id(), ability.lethal(), resolveAtMillis);
-        if (primary.isEmpty()) {
+        Optional<List<TelegraphBudget.Reservation>> reserved =
+                reserveAll(mob, target, ability, resolveAtMillis, snapshot);
+        if (reserved.isEmpty()) {
             return false;
         }
+        List<TelegraphBudget.Reservation> reservations = reserved.get();
         String key = mob.getUniqueId() + ":" + ability.id();
-        List<TelegraphBudget.Reservation> reservations = new ArrayList<>();
-        reservations.add(primary.get());
-        // 主対象以外はベスト・エフォート予約(追加指示10): 取れなくても表示だけは出す。
-        for (Player viewer : threatZoneViewers(mob, target, ability, snapshot)) {
-            if (viewer.equals(target)) {
-                continue;
-            }
-            budget.tryReserve(viewer.getUniqueId(), mob.getUniqueId(), ability.id(), ability.lethal(),
-                    resolveAtMillis).ifPresent(reservations::add);
-        }
         float startYaw = mob.getLocation().getYaw();
         float startPitch = mob.getLocation().getPitch();
         java.util.Set<java.util.UUID> notified = new java.util.HashSet<>();
@@ -404,6 +564,7 @@ public final class MobAbilityExecutor {
             if (!finished.compareAndSet(false, true)) {
                 return;
             }
+            activeCasts.remove(mob.getUniqueId());
             for (TelegraphBudget.Reservation r : reservations) {
                 budget.release(r);
             }
@@ -423,8 +584,11 @@ public final class MobAbilityExecutor {
             if (("misfire".equals(reason) || "error".equals(reason))
                     && target.isValid() && target.isOnline() && !target.isDead()) {
                 actionBar.notice(target, misfireNotice());
+            } else if ("interrupted".equals(reason)) {
+                notifyInterrupted(mob, ability, endTargets);
             }
         };
+        activeCasts.put(mob.getUniqueId(), new ActiveCast(ability, finish, readMaxHealth(mob)));
         playSound(mob.getLocation(), ability); // 詠唱開始音(1回だけ)
         new BukkitRunnable() {
             private int elapsed = 0;
@@ -459,7 +623,11 @@ public final class MobAbilityExecutor {
                         }
                         finish.accept("resolved");
                         playEffects(snapshot.anchor(), ability);
+                        syncHitCounter = 0;
                         resolve(mob, target, ability, true, snapshot);
+                        if (ability.type() != MobAbility.Type.CHARGE && ability.type() != MobAbility.Type.AURA) {
+                            maybeWhiffStagger(mob, ability, snapshot, target, syncHitCounter > 0);
+                        }
                     }
                 } catch (RuntimeException ex) {
                     cancel();
@@ -469,6 +637,55 @@ public final class MobAbilityExecutor {
             }
         }.runTaskTimer(plugin, 1L, 1L);
         return true;
+    }
+
+    /**
+     * 中断（機構8）の通知: viewer 全員へ「詠唱中断」とその場での不発音を出し、
+     * 同じ技に {@code interruptLockoutSeconds} のロックを掛ける。
+     */
+    private void notifyInterrupted(LivingEntity mob, MobAbility ability, java.util.Set<java.util.UUID> viewerIds) {
+        Component notice = MiniMessage.miniMessage().deserialize("<green>詠唱中断</green>");
+        for (java.util.UUID id : viewerIds) {
+            Player viewer = org.bukkit.Bukkit.getPlayer(id);
+            if (viewer != null) {
+                actionBar.notice(viewer, notice);
+                viewer.playSound(viewer.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 1.2f);
+            }
+        }
+        if (cooldowns != null) {
+            cooldowns.arm(mob.getUniqueId(), ability.id(), Math.round(ability.interruptLockoutSeconds() * 1000.0));
+        }
+    }
+
+    /**
+     * 空振り硬直（機構7、2026-09-04）。詠唱付きの技が誰にも当たらなかったとき、術者へ短い硬直を課す。
+     * 同じモブには {@value #WHIFF_STAGGER_LOCKOUT_MILLIS}ms に1回まで（連発防止）。
+     * 雑魚に付けない規約は yml 側（{@code whiff-stagger-seconds} を書かない）の責務で、ここでは課さない。
+     */
+    private void maybeWhiffStagger(LivingEntity mob, MobAbility ability, CastSnapshot snapshot, Player target,
+                                   boolean hitAnyone) {
+        if (hitAnyone || ability.whiffStaggerSeconds() <= 0.0) {
+            return;
+        }
+        long now = clock.getAsLong();
+        Long last = lastStaggerMillis.get(mob.getUniqueId());
+        if (last != null && now - last < WHIFF_STAGGER_LOCKOUT_MILLIS) {
+            return;
+        }
+        lastStaggerMillis.put(mob.getUniqueId(), now);
+        int ticks = (int) Math.round(ability.whiffStaggerSeconds() * 20.0);
+        if (mob.isValid()) {
+            // amplifier 255 で実質的に移動停止させる(鈍足そのものではなく「体勢を崩した」演出)。
+            mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, ticks, 255, false, true, true));
+        }
+        if (cooldowns != null && cooldowns.ready(mob.getUniqueId(), MobAbilityTask.GLOBAL_GAP_KEY)) {
+            cooldowns.arm(mob.getUniqueId(), MobAbilityTask.GLOBAL_GAP_KEY, (long) ticks * MILLIS_PER_TICK);
+        }
+        Component notice = MiniMessage.miniMessage().deserialize("<yellow>体勢を崩した</yellow>");
+        for (Player viewer : threatZoneViewers(mob, target, ability, snapshot)) {
+            actionBar.notice(viewer, notice);
+            viewer.playSound(viewer.getLocation(), Sound.ENTITY_IRON_GOLEM_DAMAGE, 1.0f, 0.8f);
+        }
     }
 
     /**
@@ -494,7 +711,7 @@ public final class MobAbilityExecutor {
                                                           CastSnapshot snapshot, String key, long resolveAtMillis,
                                                           long remainingMillis, long totalMillis) {
         Component line = ActionBarRouter.telegraphLine(responseWordOf(ability.type()), ability.displayName(),
-                ability.id(), remainingMillis, totalMillis);
+                ability.id(), remainingMillis, totalMillis, barStyle.get());
         List<java.util.UUID> sent = new ArrayList<>();
         for (Player viewer : threatZoneViewers(mob, target, ability, snapshot)) {
             actionBar.telegraphUpdate(viewer, key, ability.lethal(), resolveAtMillis, line);
@@ -764,8 +981,15 @@ public final class MobAbilityExecutor {
         return true;
     }
 
+    /**
+     * 複数人技の被害者ごとの視線（設計正本「複数人技の視線」、2026-09-04）。壁の向こうにいる味方まで
+     * 巻き込まないよう、各被害者について {@link #lineOfSightCheck} が通らない相手は外す。
+     */
     private boolean repulse(LivingEntity mob, MobAbility ability, Location anchor, boolean telegraphed) {
         for (Player victim : playersNear(anchor, ability.radius(), ability.verticalRadius())) {
+            if (!lineOfSightCheck.test(mob, victim)) {
+                continue;
+            }
             applyHit(mob, victim, ability, telegraphed);
             if (ability.knockback() > 0.0) {
                 // ダメージのあとに置くこと。victim.damage() 由来のバニラノックバックを上書きするため。
@@ -776,9 +1000,14 @@ public final class MobAbilityExecutor {
         return true;
     }
 
-    /** 周囲のプレイヤーを自分の方へ引きずり込む（{@link #repulse} の逆向き）。 */
+    /**
+     * 周囲のプレイヤーを自分の方へ引きずり込む（{@link #repulse} の逆向き）。被害者ごとの視線判定も同様。
+     */
     private boolean vortexPull(LivingEntity mob, MobAbility ability, Location anchor, boolean telegraphed) {
         for (Player victim : playersNear(anchor, ability.radius(), ability.verticalRadius())) {
+            if (!lineOfSightCheck.test(mob, victim)) {
+                continue;
+            }
             applyHit(mob, victim, ability, telegraphed);
             if (ability.knockback() > 0.0) {
                 victim.setVelocity(pullVelocity(anchor.toVector(),
@@ -800,21 +1029,13 @@ public final class MobAbilityExecutor {
         int delay = ability.delayTicks();
         long totalMillis = delay * MILLIS_PER_TICK;
         long resolveAtMillis = clock.getAsLong() + totalMillis;
-        Optional<TelegraphBudget.Reservation> primary = budget.tryReserve(
-                target.getUniqueId(), mob.getUniqueId(), ability.id(), ability.lethal(), resolveAtMillis);
-        if (primary.isEmpty()) {
+        Optional<List<TelegraphBudget.Reservation>> reserved =
+                reserveAll(mob, target, ability, resolveAtMillis, snapshot);
+        if (reserved.isEmpty()) {
             return false;
         }
+        List<TelegraphBudget.Reservation> reservations = reserved.get();
         String key = mob.getUniqueId() + ":" + ability.id();
-        List<TelegraphBudget.Reservation> reservations = new ArrayList<>();
-        reservations.add(primary.get());
-        for (Player viewer : threatZoneViewers(mob, target, ability, snapshot)) {
-            if (viewer.equals(target)) {
-                continue;
-            }
-            budget.tryReserve(viewer.getUniqueId(), mob.getUniqueId(), ability.id(), ability.lethal(),
-                    resolveAtMillis).ifPresent(reservations::add);
-        }
         double radius = Math.max(1.0, ability.radius());
         java.util.Set<java.util.UUID> notified = new java.util.HashSet<>();
         AtomicBoolean finished = new AtomicBoolean(false);
@@ -822,6 +1043,7 @@ public final class MobAbilityExecutor {
             if (!finished.compareAndSet(false, true)) {
                 return;
             }
+            activeCasts.remove(mob.getUniqueId());
             for (TelegraphBudget.Reservation r : reservations) {
                 budget.release(r);
             }
@@ -841,8 +1063,11 @@ public final class MobAbilityExecutor {
             if (("misfire".equals(reason) || "error".equals(reason))
                     && target.isValid() && target.isOnline() && !target.isDead()) {
                 actionBar.notice(target, misfireNotice());
+            } else if ("interrupted".equals(reason)) {
+                notifyInterrupted(mob, ability, endTargets);
             }
         };
+        activeCasts.put(mob.getUniqueId(), new ActiveCast(ability, finish, readMaxHealth(mob)));
         playSound(mob.getLocation(), ability);
         new BukkitRunnable() {
             private int elapsed = 0;
@@ -860,13 +1085,15 @@ public final class MobAbilityExecutor {
                         cancel();
                         finish.accept("resolved");
                         playEffects(snapshot.anchor(), ability);
-                        for (Player victim : playersNear(snapshot.anchor(), radius, ability.verticalRadius())) {
+                        List<Player> victims = playersNear(snapshot.anchor(), radius, ability.verticalRadius());
+                        for (Player victim : victims) {
                             applyHit(mob, victim, ability, true);
                             if (ability.knockback() > 0.0) {
                                 victim.setVelocity(repulseVelocity(snapshot.anchor().toVector(),
                                         victim.getLocation().toVector(), ability.knockback()));
                             }
                         }
+                        maybeWhiffStagger(mob, ability, snapshot, target, !victims.isEmpty());
                         return;
                     }
                     elapsed += TELEGRAPH_INTERVAL_TICKS;
@@ -887,6 +1114,131 @@ public final class MobAbilityExecutor {
             }
         }.runTaskTimer(plugin, 0L, TELEGRAPH_INTERVAL_TICKS);
         return true;
+    }
+
+    /**
+     * 床に固定された持続領域（機構「固定領域」、2026-09-04）。詠唱は {@code DELAYED_ZONE} と同じ形
+     * （対象の足元に固定した anchor へ輪の予告）だが、展開後は術者が死んでも領域自体が残り、
+     * {@code duration-seconds}（既定 {@value #FIXED_ZONE_DEFAULT_DURATION_SECONDS} 秒）の間
+     * 1 秒ごとに判定を刻む。予告予算は<b>展開までを予告として数え、展開時に解放する</b>。
+     */
+    private boolean fixedZone(LivingEntity mob, Player target, MobAbility ability) {
+        CastSnapshot snapshot = buildSnapshot(mob, target, ability);
+        int ticks = ability.telegraphTicks();
+        long totalMillis = ticks * MILLIS_PER_TICK;
+        long resolveAtMillis = clock.getAsLong() + totalMillis;
+        Optional<List<TelegraphBudget.Reservation>> reserved =
+                reserveAll(mob, target, ability, resolveAtMillis, snapshot);
+        if (reserved.isEmpty()) {
+            return false;
+        }
+        List<TelegraphBudget.Reservation> reservations = reserved.get();
+        String key = mob.getUniqueId() + ":" + ability.id();
+        java.util.Set<java.util.UUID> notified = new java.util.HashSet<>();
+        AtomicBoolean finished = new AtomicBoolean(false);
+        Consumer<String> finish = reason -> {
+            if (!finished.compareAndSet(false, true)) {
+                return;
+            }
+            activeCasts.remove(mob.getUniqueId());
+            for (TelegraphBudget.Reservation r : reservations) {
+                budget.release(r);
+            }
+            java.util.Set<java.util.UUID> endTargets = new java.util.HashSet<>(notified);
+            for (Player viewer : threatZoneViewers(mob, target, ability, snapshot)) {
+                endTargets.add(viewer.getUniqueId());
+            }
+            for (java.util.UUID id : endTargets) {
+                Player viewer = org.bukkit.Bukkit.getPlayer(id);
+                if (viewer != null) {
+                    actionBar.telegraphEnd(viewer, key);
+                }
+            }
+            if (("misfire".equals(reason) || "error".equals(reason))
+                    && target.isValid() && target.isOnline() && !target.isDead()) {
+                actionBar.notice(target, misfireNotice());
+            } else if ("interrupted".equals(reason)) {
+                notifyInterrupted(mob, ability, endTargets);
+            }
+        };
+        activeCasts.put(mob.getUniqueId(), new ActiveCast(ability, finish, readMaxHealth(mob)));
+        playSound(mob.getLocation(), ability);
+        new BukkitRunnable() {
+            private int elapsed = 0;
+            private boolean pingPlayed = false;
+
+            @Override
+            public void run() {
+                try {
+                    if (castInterrupted(mob, target)) {
+                        cancel();
+                        finish.accept("misfire");
+                        return;
+                    }
+                    elapsed++;
+                    if (elapsed % TELEGRAPH_INTERVAL_TICKS == 0) {
+                        renderTelegraph(mob, target, ability, snapshot, elapsed);
+                        long remaining = Math.max(0L, totalMillis - elapsed * MILLIS_PER_TICK);
+                        notified.addAll(updateTelegraphActionBar(mob, target, ability, snapshot, key,
+                                resolveAtMillis, remaining, totalMillis));
+                    }
+                    if (!pingPlayed && ticks - elapsed == PING_LEAD_TICKS) {
+                        pingPlayed = true;
+                        playPing(threatZoneViewers(mob, target, ability, snapshot));
+                    }
+                    if (elapsed >= ticks) {
+                        cancel();
+                        // 展開: ここで予告予算を解放する(finish="resolved")。展開後の領域そのものは
+                        // 予告済みの一撃ではなく、床に固定された持続効果として別枠で扱う。
+                        finish.accept("resolved");
+                        playEffects(snapshot.anchor(), ability);
+                        expandFixedZone(mob, target, ability, snapshot);
+                    }
+                } catch (RuntimeException ex) {
+                    cancel();
+                    finish.accept("error");
+                    logCastError(ability.id(), ex);
+                }
+            }
+        }.runTaskTimer(plugin, 1L, 1L);
+        return true;
+    }
+
+    /**
+     * {@code FIXED_ZONE} の展開後。1秒(20tick)ごとに判定・輪の再描画を行う。<b>術者が死んでも続ける</b>
+     * ——床に固定された領域であることが本質なので、術者の生死をチェックしない（ワールドの有無だけ見る）。
+     */
+    private void expandFixedZone(LivingEntity mob, Player target, MobAbility ability, CastSnapshot snapshot) {
+        double durationSeconds = ability.durationSeconds() <= 0.0
+                ? FIXED_ZONE_DEFAULT_DURATION_SECONDS : ability.durationSeconds();
+        int totalTicks = (int) Math.round(durationSeconds * 20.0);
+        Location anchor = snapshot.anchor();
+        double radius = Math.max(1.0, ability.radius());
+        new BukkitRunnable() {
+            private int elapsed = 0;
+            private boolean firstTick = true;
+
+            @Override
+            public void run() {
+                World world = anchor.getWorld();
+                if (world == null || elapsed >= totalTicks) {
+                    cancel();
+                    return;
+                }
+                elapsed += 20;
+                Particle particle = particle(ability.particle());
+                List<Player> viewers = playersNear(anchor, THREAT_ZONE_HORIZONTAL, THREAT_ZONE_HORIZONTAL);
+                drawRingTo(viewers, anchor, radius, particle == null ? Particle.END_ROD : particle);
+                List<Player> victims = playersNear(anchor, radius, ability.verticalRadius());
+                for (Player victim : victims) {
+                    applyHit(mob, victim, ability, true);
+                }
+                if (firstTick) {
+                    firstTick = false;
+                    maybeWhiffStagger(mob, ability, snapshot, target, !victims.isEmpty());
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 20L);
     }
 
     // ------------------------------------------------------------------
@@ -940,6 +1292,8 @@ public final class MobAbilityExecutor {
                     }
                 }
             }
+            // FIXED_ZONE は輪のみ(中心の点滅は不要)。AURA と違い術者を追従しないので中心への線も引かない。
+            case FIXED_ZONE -> drawRingTo(viewers, anchor, Math.max(1.0, ability.radius()), particle);
             default -> drawRingTo(viewers, anchor, ability.radius(), particle);
         }
     }
@@ -1040,7 +1394,7 @@ public final class MobAbilityExecutor {
         }
         double radius = switch (ability.type()) {
             case PROJECTILE_VOLLEY, PROJECTILE_RAIN, SUMMON -> Math.max(1.5, ability.radius());
-            case DELAYED_ZONE -> Math.max(1.0, ability.radius());
+            case DELAYED_ZONE, FIXED_ZONE -> Math.max(1.0, ability.radius());
             default -> ability.radius();
         };
         return AbilityShapes.hitsCircle(snapshot.anchor(), radius, ability.verticalRadius(), player.getLocation());
@@ -1064,6 +1418,7 @@ public final class MobAbilityExecutor {
 
     /** その技の最終ダメージを TF のパイプラインで出して適用する。 */
     private void applyHit(LivingEntity mob, Player victim, MobAbility ability, boolean telegraphed) {
+        syncHitCounter++;
         hitObserver.accept(victim, telegraphed);
         if (ability.damagePercent() <= 0.0) {
             applyEffects(victim, ability);

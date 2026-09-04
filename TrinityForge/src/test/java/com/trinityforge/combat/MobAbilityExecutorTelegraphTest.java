@@ -406,4 +406,145 @@ class MobAbilityExecutorTelegraphTest {
         boolean resumed = router.send(target, ActionBarRouter.Priority.SKILL_EXP, Component.text("+1 EXP"));
         assertTrue(resumed, "詠唱終了後もSKILL_EXP表示が予告に阻まれている");
     }
+
+    // ------------------------------------------------------------------
+    // 複数人技の被害者ごとの視線（設計正本「複数人技の視線」）
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("VORTEX_PULLは視線が通らない被害者を巻き込まない(壁の向こうの味方を引かない)")
+    void vortexPullSkipsVictimsWithoutLineOfSight(@TempDir File dir) throws Exception {
+        SymmetricCombatService combat = combatService(dir, 0.0);
+        MobAbilityExecutor executor = new MobAbilityExecutor(plugin, combat, () -> 0.35, w -> 1.0,
+                new ActionBarRouter(), new TelegraphBudget());
+
+        Location center = new Location(world, 1500, 64, 1500);
+        Zombie mob = world.spawn(center, Zombie.class);
+        PlayerMock visible = server.addPlayer();
+        visible.teleport(center.clone().add(3, 0, 0));
+        PlayerMock hidden = server.addPlayer();
+        hidden.teleport(center.clone().add(-3, 0, 0));
+        executor.setLineOfSightCheck((m, p) -> !p.equals(hidden));
+        List<Player> hitPlayers = new ArrayList<>();
+        executor.setHitObserver((player, telegraphed) -> hitPlayers.add(player));
+
+        MobAbility pull = ability("vortex_test", """
+                type: vortex_pull
+                damage-percent: 50.0
+                radius: 16
+                range: 20
+                cooldown-seconds: 0
+                """);
+
+        assertTrue(executor.execute(mob, visible, pull));
+        assertTrue(hitPlayers.contains(visible), "視線が通る被害者が外れている");
+        assertFalse(hitPlayers.contains(hidden), "視線が通らない被害者(壁の向こう)まで引き寄せてしまった");
+    }
+
+    @Test
+    @DisplayName("REPULSEも被害者ごとの視線を見る")
+    void repulseSkipsVictimsWithoutLineOfSight(@TempDir File dir) throws Exception {
+        SymmetricCombatService combat = combatService(dir, 0.0);
+        MobAbilityExecutor executor = new MobAbilityExecutor(plugin, combat, () -> 0.35, w -> 1.0,
+                new ActionBarRouter(), new TelegraphBudget());
+
+        Location center = new Location(world, 1600, 64, 1600);
+        Zombie mob = world.spawn(center, Zombie.class);
+        PlayerMock visible = server.addPlayer();
+        visible.teleport(center.clone().add(3, 0, 0));
+        PlayerMock hidden = server.addPlayer();
+        hidden.teleport(center.clone().add(-3, 0, 0));
+        executor.setLineOfSightCheck((m, p) -> !p.equals(hidden));
+        List<Player> hitPlayers = new ArrayList<>();
+        executor.setHitObserver((player, telegraphed) -> hitPlayers.add(player));
+
+        MobAbility repulse = ability("repulse_test", """
+                type: repulse
+                damage-percent: 50.0
+                radius: 6
+                range: 20
+                cooldown-seconds: 0
+                """);
+
+        assertTrue(executor.execute(mob, visible, repulse));
+        assertTrue(hitPlayers.contains(visible));
+        assertFalse(hitPlayers.contains(hidden), "視線が通らない被害者まで吹き飛ばしてしまった");
+    }
+
+    // ------------------------------------------------------------------
+    // 機構10: 致命予約の原子化
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("致命かつ原子化ONで脅威圏内2人のうち1人の枠が埋まっていればexecuteはfalseになり、取った予約は残らない")
+    void atomicLethalReservationRollsBackWhenAnyoneCannotReserve(@TempDir File dir) throws Exception {
+        SymmetricCombatService combat = combatService(dir, 0.0);
+        TelegraphBudget budget = new TelegraphBudget();
+        MobAbilityExecutor executor = new MobAbilityExecutor(plugin, combat, () -> 0.35, w -> 1.0,
+                new ActionBarRouter(), budget, () -> true, () -> ActionBarRouter.BarStyle.BLOCK);
+
+        Location center = new Location(world, 1700, 64, 1700);
+        Zombie mob = world.spawn(center, Zombie.class);
+        PlayerMock target = server.addPlayer();
+        target.teleport(center);
+        PlayerMock bystander = server.addPlayer();
+        bystander.teleport(center.clone().add(3, 0, 0)); // 脅威圏内(GROUND_SLAM radius 6)
+
+        // bystander の予告予算を先に埋めておく(TOTAL_LIMIT=2)。
+        budget.tryReserve(bystander.getUniqueId(), java.util.UUID.randomUUID(), "other-1", false,
+                System.currentTimeMillis() + 10_000_000L);
+        budget.tryReserve(bystander.getUniqueId(), java.util.UUID.randomUUID(), "other-2", false,
+                System.currentTimeMillis() + 10_000_000L);
+
+        MobAbility lethalSlam = ability("atomic_lethal_slam", """
+                type: ground_slam
+                cast-seconds: 1.0
+                lethal: true
+                damage-percent: 50.0
+                radius: 6.0
+                range: 24
+                cooldown-seconds: 0
+                """);
+
+        boolean started = executor.execute(mob, target, lethalSlam);
+
+        assertFalse(started, "bystanderの枠が埋まっているのに致命原子化がexecuteをtrueにした");
+        assertTrue(budget.active(target.getUniqueId()).isEmpty(),
+                "原子化で失敗したのに主対象の予約が残っている(releaseされていない)");
+    }
+
+    @Test
+    @DisplayName("致命でも telegraph-lethal-atomic=false ならベスト・エフォートで開始できる")
+    void nonAtomicLethalReservationIsBestEffort(@TempDir File dir) throws Exception {
+        SymmetricCombatService combat = combatService(dir, 0.0);
+        TelegraphBudget budget = new TelegraphBudget();
+        MobAbilityExecutor executor = new MobAbilityExecutor(plugin, combat, () -> 0.35, w -> 1.0,
+                new ActionBarRouter(), budget, () -> false, () -> ActionBarRouter.BarStyle.BLOCK);
+
+        Location center = new Location(world, 1800, 64, 1800);
+        Zombie mob = world.spawn(center, Zombie.class);
+        PlayerMock target = server.addPlayer();
+        target.teleport(center);
+        PlayerMock bystander = server.addPlayer();
+        bystander.teleport(center.clone().add(3, 0, 0));
+
+        budget.tryReserve(bystander.getUniqueId(), java.util.UUID.randomUUID(), "other-1", false,
+                System.currentTimeMillis() + 10_000_000L);
+        budget.tryReserve(bystander.getUniqueId(), java.util.UUID.randomUUID(), "other-2", false,
+                System.currentTimeMillis() + 10_000_000L);
+
+        MobAbility lethalSlam = ability("nonatomic_lethal_slam", """
+                type: ground_slam
+                cast-seconds: 1.0
+                lethal: true
+                damage-percent: 50.0
+                radius: 6.0
+                range: 24
+                cooldown-seconds: 0
+                """);
+
+        boolean started = executor.execute(mob, target, lethalSlam);
+
+        assertTrue(started, "atomic=falseならbystanderの枠が埋まっていても開始できるはず");
+    }
 }

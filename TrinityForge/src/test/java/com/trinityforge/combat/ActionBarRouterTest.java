@@ -195,6 +195,33 @@ class ActionBarRouterTest {
                 () -> router.send(viewer, ActionBarRouter.Priority.TELEGRAPH_LETHAL, Component.text("x")));
     }
 
+    @Test
+    @DisplayName("telegraphLine(ASCII指定): [###--] 形式で角括弧付きの表記になる(Codex UXレビュー#3)")
+    void telegraphLineAsciiStyleUsesHashAndDash() {
+        Component line = ActionBarRouter.telegraphLine("<red>震脚</red>", "shin", 500L, 1000L,
+                ActionBarRouter.BarStyle.ASCII);
+        String text = plain(line);
+        assertTrue(text.contains("[###--]"), text);
+        assertFalse(text.contains("▮"), text);
+        assertFalse(text.contains("▯"), text);
+    }
+
+    @Test
+    @DisplayName("telegraphLine(行動語+ASCII指定)も表記が切り替わる")
+    void telegraphLineWithResponseWordAndAsciiStyle() {
+        Component line = ActionBarRouter.telegraphLine("横へ", "<red>震脚</red>", "shin", 1000L, 1000L,
+                ActionBarRouter.BarStyle.ASCII);
+        String text = plain(line);
+        assertTrue(text.contains("[#####]"), text);
+    }
+
+    @Test
+    @DisplayName("バー表記省略版はBLOCK固定のまま(既存互換)")
+    void barStyleOmittedDefaultsToBlock() {
+        Component line = ActionBarRouter.telegraphLine("<red>震脚</red>", "shin", 1000L, 1000L);
+        assertTrue(plain(line).contains("▮"));
+    }
+
     private static int countFilled(Component line) {
         String plain = PlainTextComponentSerializer.plainText().serialize(line);
         int count = 0;

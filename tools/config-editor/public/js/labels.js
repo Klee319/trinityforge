@@ -703,7 +703,8 @@
       // 2026-08-16 追加(Java の MobAbility.Type と 1:1)
       "repulse": "強ノックバック (repulse)",
       "vortex_pull": "引き寄せ (vortex_pull)",
-      "delayed_zone": "予告設置 (delayed_zone)"
+      "delayed_zone": "予告設置 (delayed_zone)",
+      "fixed_zone": "固定領域 (fixed_zone)"
     },
     "mob-ability-damage-type": { "physical": "物理", "magical": "魔法" }
     // "rarity-color"(スレッド厳選専用のレア度カラー辞書)は 2026-08-02 に専用UI(p5-forms.js の

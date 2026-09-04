@@ -60,7 +60,9 @@
     // 2026-08-16 追加
     "repulse", "vortex_pull", "delayed_zone",
     // 2026-08-17 に Java 側へ追加されていたが editor の型一覧から漏れていた
-    "projectile_rain"];
+    "projectile_rain",
+    // 2026-09-04 追加。床固定の持続領域(aura は術者追従なので別物)
+    "fixed_zone"];
 
   // 型の日本語名は labels.js の ENUM_LABELS["mob-ability-type"] が正 (辞書を二重に持たない)。
   // 2026-08-01 まではここだけに辞書があり、セレクト本体
@@ -94,7 +96,10 @@
     // delayed_zone の duration-seconds は「印を置いてから着弾までの予告秒」で、aura の持続とは意味が違う。
     repulse: ["radius", "knockback", "vertical-radius"],
     vortex_pull: ["radius", "knockback", "vertical-radius"],
-    delayed_zone: ["radius", "duration-seconds", "knockback", "vertical-radius"]
+    delayed_zone: ["radius", "duration-seconds", "knockback", "vertical-radius"],
+    // 2026-09-04 追加。cast-seconds=展開までの予告、duration-seconds=展開後の持続(既定6秒)。
+    // knockback は fixed_zone では使わない(踏んだ相手を吹き飛ばす挙動を持たないため)。
+    fixed_zone: ["radius", "duration-seconds", "vertical-radius"]
   };
 
   // [min, max, step] — Java 側の clamp と同じ範囲。
@@ -112,7 +117,11 @@
     "cast-seconds": [0, 2.5, 0.1],
     "vertical-radius": [0.5, 8, 0.5],
     "health-below": [0, 1, 0.05],
-    "health-above": [0, 1, 0.05]
+    "health-above": [0, 1, 0.05],
+    // 2026-09-04 予告機構「次段階」追加
+    "interrupt-damage-fraction": [0.005, 0.5, 0.005],
+    "interrupt-lockout-seconds": [0, 60, 1],
+    "whiff-stagger-seconds": [0, 5, 0.1]
   };
 
   const FIELD_LABELS = {
@@ -130,7 +139,11 @@
     "vertical-radius": "上下の届き (vertical-radius)",
     "lethal": "致命予告 (lethal)",
     "health-below": "残HP上限 (health-below)",
-    "health-above": "残HP下限 (health-above)"
+    "health-above": "残HP下限 (health-above)",
+    "interruptible": "中断可 (interruptible)",
+    "interrupt-damage-fraction": "中断ダメージ割合 (interrupt-damage-fraction)",
+    "interrupt-lockout-seconds": "中断後の再詠唱禁止秒 (interrupt-lockout-seconds)",
+    "whiff-stagger-seconds": "空振り硬直秒 (whiff-stagger-seconds)"
   };
 
   const FIELD_DESCS = {
@@ -146,7 +159,14 @@
     "lethal": "致命的な予告かどうか。最終ダメージの判定には使いません。プレイヤー1人に同時に向けられる"
       + "予告の本数の上限(致命1本・合計2本まで)を決める枠として使われます。",
     "health-below": "自分の残HP割合がこの値以下のときだけ発動します(既定1.0=制限なし)。",
-    "health-above": "自分の残HP割合がこの値以上のときだけ発動します(既定0.0=制限なし)。両方指定すると中盤だけ出る技も作れます。"
+    "health-above": "自分の残HP割合がこの値以上のときだけ発動します(既定0.0=制限なし)。両方指定すると中盤だけ出る技も作れます。",
+    "interruptible": "詠唱を中断できる技かどうか。中断してよいのは止めなくても即死しないが放置すると悪化する技"
+      + "(増援・召喚・自己強化・領域展開・回復)だけです。火力技は false のままにしてください。",
+    "interrupt-damage-fraction": "interruptible が true のときだけ効きます。詠唱中にこの割合(最大HP比)の"
+      + "ダメージを受けると中断します(スタンでも中断)。既定 0.03。",
+    "interrupt-lockout-seconds": "interruptible が true のときだけ効きます。中断された技を再詠唱しない秒数。既定 8。",
+    "whiff-stagger-seconds": "予告した技が誰にも当たらなかったときの空振り硬直の秒数。0 は無し。"
+      + "雑魚には付けないでください。同じモブで8秒に1回までしか発生しません。"
   };
 
   /**
@@ -295,11 +315,27 @@
         working["check-interval-ticks"] = clamped;
         interval.value = String(clamped);
       });
+      // 2026-09-04 追加のグローバルキー。
+      const lethalAtomic = window.checkboxInput(working["telegraph-lethal-atomic"] !== false, (v) => {
+        working["telegraph-lethal-atomic"] = v;
+      });
+      const barStyleSel = h("select", { class: "field-input" });
+      for (const opt of ["block", "ascii"]) {
+        barStyleSel.appendChild(h("option", {
+          value: opt, text: opt === "block" ? "▮▯ (block)" : "[###--] (ascii)",
+          selected: String(working["telegraph-bar-style"] || "block") === opt
+        }));
+      }
+      barStyleSel.addEventListener("change", () => { working["telegraph-bar-style"] = barStyleSel.value; });
       return card([subTitle("全体設定")], [
         fieldRow("有効化 (enabled)", enabled,
           { desc: "false にすると周期タスクそのものを回しません(全モブの特殊攻撃が止まります)。" }),
         fieldRow("判定間隔tick (check-interval-ticks)", interval,
-          { desc: "短くすると負荷が直線的に増えます。5〜200。実際の発動頻度は各技のクールダウンと発動率で決まります。" })
+          { desc: "短くすると負荷が直線的に増えます。5〜200。実際の発動頻度は各技のクールダウンと発動率で決まります。" }),
+        fieldRow("致命予告を全員分確保 (telegraph-lethal-atomic)", lethalAtomic,
+          { desc: "true(既定)だと、脅威圏内の全員ぶんの予告枠が取れないと致命予告そのものを撃ちません。" }),
+        fieldRow("予告バーの見た目 (telegraph-bar-style)", barStyleSel,
+          { desc: "アクションバーの残り時間バー。block は ▮▯、ascii は [###--](統合版でフォントが潰れる場合の逃げ道)。" })
       ]);
     }
 
@@ -384,6 +420,16 @@
             if (v) entry.lethal = true; else delete entry.lethal;
           }),
           { desc: FIELD_DESCS.lethal }));
+        // 2026-09-04 追加。中断可否と、中断・空振りに関わる数値は全型共通(interrupt-* は
+        // interruptible が true のときだけ Java 側で効くが、フォーム構造上は常時表示する)。
+        body.appendChild(fieldRow(FIELD_LABELS.interruptible,
+          window.checkboxInput(entry.interruptible === true, (v) => {
+            if (v) entry.interruptible = true; else delete entry.interruptible;
+          }),
+          { desc: FIELD_DESCS.interruptible }));
+        for (const key of ["interrupt-damage-fraction", "interrupt-lockout-seconds", "whiff-stagger-seconds"]) {
+          body.appendChild(numberField(entry, key));
+        }
         // 型ごとの数値/文字列
         for (const key of FIELDS_BY_TYPE[entry.type] || []) {
           if (key === "projectile") {

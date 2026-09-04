@@ -48,6 +48,23 @@ public final class ActionBarRouter {
     private static final char BAR_FILLED = '▮'; // ▮
     private static final char BAR_EMPTY = '▯';  // ▯
 
+    /**
+     * 予告バーの文字表記（2026-09-04、Codex UXレビュー #3）。統合版の一部フォント／解像度では
+     * {@code ▮}/{@code ▯} が欠落表示になることがあるため、ASCII 表記へ切り替えられるようにする。
+     */
+    public enum BarStyle {
+        BLOCK('▮', '▯'),
+        ASCII('#', '-');
+
+        private final char filled;
+        private final char empty;
+
+        BarStyle(char filled, char empty) {
+            this.filled = filled;
+            this.empty = empty;
+        }
+    }
+
     private final LongSupplier nowMillis;
     private final BiConsumer<Player, Component> sink;
     private final Map<UUID, PlayerState> states = new HashMap<>();
@@ -196,6 +213,15 @@ public final class ActionBarRouter {
      */
     public static Component telegraphLine(String displayNameMiniMessage, String fallbackId,
                                           long remainingMillis, long totalMillis) {
+        return telegraphLine(displayNameMiniMessage, fallbackId, remainingMillis, totalMillis, BarStyle.BLOCK);
+    }
+
+    /**
+     * バー表記（機構2026-09-04 Codex UXレビュー #3）を選べる版。既存の4引数版は {@link BarStyle#BLOCK}
+     * 固定でこれへ委譲する。
+     */
+    public static Component telegraphLine(String displayNameMiniMessage, String fallbackId,
+                                          long remainingMillis, long totalMillis, BarStyle style) {
         Component nameComponent = (displayNameMiniMessage == null || displayNameMiniMessage.isBlank())
                 ? Component.text(fallbackId)
                 : MiniMessage.miniMessage().deserialize(displayNameMiniMessage);
@@ -203,10 +229,17 @@ public final class ActionBarRouter {
         if (color == null) {
             color = NamedTextColor.WHITE;
         }
+        BarStyle effectiveStyle = style == null ? BarStyle.BLOCK : style;
         int filled = filledSegments(remainingMillis, totalMillis);
         StringBuilder bar = new StringBuilder(BAR_SEGMENTS);
+        if (effectiveStyle == BarStyle.ASCII) {
+            bar.append('[');
+        }
         for (int i = 0; i < BAR_SEGMENTS; i++) {
-            bar.append(i < filled ? BAR_FILLED : BAR_EMPTY);
+            bar.append(i < filled ? effectiveStyle.filled : effectiveStyle.empty);
+        }
+        if (effectiveStyle == BarStyle.ASCII) {
+            bar.append(']');
         }
         return nameComponent.append(Component.text(" " + bar, color));
     }
@@ -217,7 +250,14 @@ public final class ActionBarRouter {
      */
     public static Component telegraphLine(String responseWord, String displayNameMiniMessage, String fallbackId,
                                           long remainingMillis, long totalMillis) {
-        Component inner = telegraphLine(displayNameMiniMessage, fallbackId, remainingMillis, totalMillis);
+        return telegraphLine(responseWord, displayNameMiniMessage, fallbackId, remainingMillis, totalMillis,
+                BarStyle.BLOCK);
+    }
+
+    /** {@link #telegraphLine(String, String, String, long, long)} のバー表記選択版。 */
+    public static Component telegraphLine(String responseWord, String displayNameMiniMessage, String fallbackId,
+                                          long remainingMillis, long totalMillis, BarStyle style) {
+        Component inner = telegraphLine(displayNameMiniMessage, fallbackId, remainingMillis, totalMillis, style);
         double seconds = Math.max(0L, remainingMillis) / 1000.0;
         String secondsText = String.format(java.util.Locale.ROOT, "%.1fs", seconds);
         return Component.text("[" + responseWord + "] ").append(inner).append(Component.text(" " + secondsText));

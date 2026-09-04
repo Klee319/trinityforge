@@ -1425,13 +1425,21 @@ public final class TrinityForge extends JavaPlugin {
                 this, combatService,
                 () -> configManager.mobAbilities().elementBias(),
                 world -> configManager.mobOverrides().abilityDamageScale(world),
-                this.actionBarRouter, new com.trinityforge.combat.TelegraphBudget());
+                this.actionBarRouter, new com.trinityforge.combat.TelegraphBudget(),
+                () -> configManager.mobAbilities().telegraphLethalAtomic(),
+                () -> "ascii".equalsIgnoreCase(configManager.mobAbilities().telegraphBarStyle())
+                        ? com.trinityforge.combat.ActionBarRouter.BarStyle.ASCII
+                        : com.trinityforge.combat.ActionBarRouter.BarStyle.BLOCK);
         this.mobAbilityTask = new com.trinityforge.combat.MobAbilityTask(this,
                 configManager.mobAbilities(), configManager.mobOverrides(),
                 mobAbilityExecutor,
                 new com.trinityforge.combat.MobAbilityCooldowns(),
                 new java.util.Random());
         mobAbilityTask.start();
+        // 機構8「中断」(2026-09-04): 殴る/スタンで詠唱を止める配線。中断可(interruptible)な技だけが対象。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.MobAbilityCastDamageListener(), this);
+        com.trinityforge.combat.MobAbilityInterrupts.register(mobAbilityExecutor);
 
         // Block player-facing /em /ag while TF owns progression (ops can bypass).
         getServer().getPluginManager().registerEvents(new EliteMobsCommandGateListener(), this);
