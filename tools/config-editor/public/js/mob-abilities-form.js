@@ -58,7 +58,9 @@
   const TYPES = ["ground_slam", "projectile_volley", "charge", "aura",
     "teleport_strike", "beam", "summon",
     // 2026-08-16 追加
-    "repulse", "vortex_pull", "delayed_zone"];
+    "repulse", "vortex_pull", "delayed_zone",
+    // 2026-08-17 に Java 側へ追加されていたが editor の型一覧から漏れていた
+    "projectile_rain"];
 
   // 型の日本語名は labels.js の ENUM_LABELS["mob-ability-type"] が正 (辞書を二重に持たない)。
   // 2026-08-01 まではここだけに辞書があり、セレクト本体
@@ -76,19 +78,23 @@
 
   // 型ごとに「意味を持つ」パラメータ。意味の無い欄を出すと、書いても効かない設定を
   // 書かせてしまう(このリポジトリで何度も起きている「静かに無効」の作り方そのもの)。
+  // 2026-09-04 追加。vertical-radius は円判定(hitsCircle)の上下方向の届き(「同じ床にいる」の判定)。
+  // 円判定を使わない projectile_volley / summon には意味が無いので出さない。
   const FIELDS_BY_TYPE = {
-    ground_slam: ["radius", "knockback"],
+    ground_slam: ["radius", "knockback", "vertical-radius"],
     projectile_volley: ["count", "spread-degrees", "projectile"],
-    charge: ["radius", "knockback"],
-    aura: ["radius", "duration-seconds"],
-    teleport_strike: ["radius", "knockback"],
-    beam: ["radius", "count"],
+    // 頭上から降らせる。radius=ばら撒く円の半径 / count=本数 / projectile=降らせる EntityType
+    projectile_rain: ["radius", "count", "projectile"],
+    charge: ["radius", "knockback", "vertical-radius"],
+    aura: ["radius", "duration-seconds", "vertical-radius"],
+    teleport_strike: ["radius", "knockback", "vertical-radius"],
+    beam: ["radius", "count", "vertical-radius"],
     summon: ["radius", "count", "summon-type"],
     // 2026-08-16 追加。knockback は repulse=吹き飛ばし / vortex_pull=引き寄せ の強さ(向きが逆になるだけ)。
     // delayed_zone の duration-seconds は「印を置いてから着弾までの予告秒」で、aura の持続とは意味が違う。
-    repulse: ["radius", "knockback"],
-    vortex_pull: ["radius", "knockback"],
-    delayed_zone: ["radius", "duration-seconds", "knockback"]
+    repulse: ["radius", "knockback", "vertical-radius"],
+    vortex_pull: ["radius", "knockback", "vertical-radius"],
+    delayed_zone: ["radius", "duration-seconds", "knockback", "vertical-radius"]
   };
 
   // [min, max, step] — Java 側の clamp と同じ範囲。
@@ -102,7 +108,11 @@
     "spread-degrees": [0, 360, 5],
     "duration-seconds": [0, 60, 0.5],
     "knockback": [0, 5, 0.1],
-    "particle-count": [0, 500, 1]
+    "particle-count": [0, 500, 1],
+    "cast-seconds": [0, 2.5, 0.1],
+    "vertical-radius": [0.5, 8, 0.5],
+    "health-below": [0, 1, 0.05],
+    "health-above": [0, 1, 0.05]
   };
 
   const FIELD_LABELS = {
@@ -115,7 +125,12 @@
     "spread-degrees": "扇の開き角 (spread-degrees)",
     "duration-seconds": "持続秒 (duration-seconds)",
     "knockback": "吹き飛ばし (knockback)",
-    "particle-count": "パーティクル個数 (particle-count)"
+    "particle-count": "パーティクル個数 (particle-count)",
+    "cast-seconds": "予告秒 (cast-seconds)",
+    "vertical-radius": "上下の届き (vertical-radius)",
+    "lethal": "致命予告 (lethal)",
+    "health-below": "残HP上限 (health-below)",
+    "health-above": "残HP下限 (health-above)"
   };
 
   const FIELD_DESCS = {
@@ -124,7 +139,14 @@
     "range": "この距離より遠い相手には撃ちません。",
     "count": "投射数 / 召喚数 / beam の刻み数(ほぼ射程m)。",
     "duration-seconds": "aura は1秒ごとにダメージ倍率ぶんを刻むので、伸ばすほど総ダメージが増えます。",
-    "particle-count": "1未満にすると演出そのものが出ません(0 は「消える」ではありません)。"
+    "particle-count": "1未満にすると演出そのものが出ません(0 は「消える」ではありません)。",
+    "cast-seconds": "予告（詠唱）秒。0 は予告なし＝即時発動(従来どおり)。0 より大きく0.5未満は"
+      + "Java側が0.5へ切り上げます。delayed_zone で未指定なら duration-seconds が予告時間として使われます。",
+    "vertical-radius": "円判定の上下方向の届き(「同じ床にいる」の判定)。既定 3.0。radius へはフォールバックしません。",
+    "lethal": "致命的な予告かどうか。最終ダメージの判定には使いません。プレイヤー1人に同時に向けられる"
+      + "予告の本数の上限(致命1本・合計2本まで)を決める枠として使われます。",
+    "health-below": "自分の残HP割合がこの値以下のときだけ発動します(既定1.0=制限なし)。",
+    "health-above": "自分の残HP割合がこの値以上のときだけ発動します(既定0.0=制限なし)。両方指定すると中盤だけ出る技も作れます。"
   };
 
   /**
@@ -351,9 +373,17 @@
           { desc: "magical は魔法防御で受けます。物理/魔法の防具を作り分ける意味がここで生まれます。" }));
 
         // 全型に共通の数値
-        for (const key of ["damage-percent", "cooldown-seconds", "chance", "range"]) {
+        for (const key of ["damage-percent", "cooldown-seconds", "chance", "range", "cast-seconds",
+          "health-below", "health-above"]) {
           body.appendChild(numberField(entry, key));
         }
+        // 全型に共通の予告フラグ (2026-09-04 追加)。数値ではないので numberField を使わず
+        // enabled 欄と同じ checkboxInput で描画する。
+        body.appendChild(fieldRow(FIELD_LABELS.lethal,
+          window.checkboxInput(entry.lethal === true, (v) => {
+            if (v) entry.lethal = true; else delete entry.lethal;
+          }),
+          { desc: FIELD_DESCS.lethal }));
         // 型ごとの数値/文字列
         for (const key of FIELDS_BY_TYPE[entry.type] || []) {
           if (key === "projectile") {

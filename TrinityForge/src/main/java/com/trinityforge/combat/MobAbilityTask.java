@@ -82,6 +82,18 @@ public final class MobAbilityTask implements Runnable {
         }
     }
 
+    /**
+     * ログアウト・死亡時の予告予算/アクションバー掃除について（機構5設計判断、2026-09-04）。
+     *
+     * <p>このタスクにはイベントリスナーが無く、{@link #run()} のループもオンラインのプレイヤーしか
+     * 見ないので、退出・死亡した瞬間を捕まえて {@code TelegraphBudget#releasePlayer} /
+     * {@code ActionBarRouter#forget} を呼ぶ専用の掃除経路をここには作らない。代わりに、
+     * <b>詠唱ループ・{@code delayedZone} 自身が毎tick対象の生存/オンライン状態を確認しており</b>
+     * （{@code MobAbilityExecutor#castInterrupted}）、退出・死亡を検知した瞬間に
+     * {@code finish("misfire")} が予約解放とアクションバー終了を行う。つまり
+     * 「進行中の予告」は撃った側が自分で片付ける。{@link TelegraphBudget#purgeExpired()} の
+     * 定期呼び出し（{@link #PURGE_EVERY}）は、それでも取りこぼした場合の保険に過ぎない。
+     */
     @Override
     public void run() {
         if (!abilitiesConfig.enabled() || abilitiesConfig.abilities().isEmpty()) {
@@ -111,6 +123,9 @@ public final class MobAbilityTask implements Runnable {
         }
         if (runCount % PURGE_EVERY == 0) {
             cooldowns.purge(seen);
+            // 予告予算の期限切れ掃除(機構5)。詠唱ループ・delayedZone側のfinish()が毎回release()を
+            // 呼ぶので通常は空だが、ワールドのアンロード等でrelease漏れが起きた場合の保険。
+            executor.budget().purgeExpired();
         }
     }
 
@@ -220,6 +235,13 @@ public final class MobAbilityTask implements Runnable {
                 continue;
             }
             if (!cooldowns.ready(mob.getUniqueId(), ability.id())) {
+                continue;
+            }
+            // 予告予算(機構5)。予約が取れない予告付き技は候補から外す。ここで「候補が全部落ちたら
+            // 別の技へ振り替える」実装をしないこと ―― candidatesFor が空を返せば呼び出し元の
+            // tryFire はそのまま空振りになる(振り替え先を探しにいかない)。予算が埋まっているときほど
+            // 身軽な技が飛ぶのは、予告予算を設けた目的(致命の同時発生を抑える)と正反対の挙動になる。
+            if (ability.telegraphed() && !executor.budget().canReserve(target.getUniqueId(), ability.lethal())) {
                 continue;
             }
             out.add(ability);

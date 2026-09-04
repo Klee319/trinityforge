@@ -2266,9 +2266,15 @@ function validateMobAbilityRefs(abilities, prefix, errors) {
 const MOB_ABILITY_TYPES = ["ground_slam", "projectile_volley", "charge", "aura",
   "teleport_strike", "beam", "summon",
   // 2026-08-16 追加
-  "repulse", "vortex_pull", "delayed_zone"];
+  "repulse", "vortex_pull", "delayed_zone",
+  // 2026-08-17 に Java 側へ追加されていたが editor の型一覧から漏れていた(出荷 yml の ember_spray が保存不能だった)
+  "projectile_rain"];
 
-/** Java の MobAbility が clamp する範囲。editor だけ広いと「保存できたのに実挙動が違う」になる。 */
+/**
+ * Java の MobAbility が clamp する範囲。editor だけ広いと「保存できたのに実挙動が違う」になる。
+ * cast-seconds / vertical-radius は combat/MobAbility.java のコンストラクタ(clamp呼び出し、
+ * castSeconds は 0 または [0.5, 2.5]、verticalRadius は [0.5, 8.0])を参照。
+ */
 const MOB_ABILITY_RANGES = {
   "damage-percent": [0, 100],
   "cooldown-seconds": [0.5, 600],
@@ -2279,7 +2285,11 @@ const MOB_ABILITY_RANGES = {
   "spread-degrees": [0, 360],
   "duration-seconds": [0, 60],
   "knockback": [0, 5],
-  "particle-count": [0, 500]
+  "particle-count": [0, 500],
+  "cast-seconds": [0, 2.5],
+  "vertical-radius": [0.5, 8],
+  "health-below": [0, 1],
+  "health-above": [0, 1]
 };
 
 function validateTfMobAbilities(data, errors) {
@@ -2310,6 +2320,9 @@ function validateTfMobAbilities(data, errors) {
         && !["physical", "magical"].includes(String(entry["damage-type"]).toLowerCase())) {
       errors.push(`${prefix}.damage-type: physical / magical のいずれかである必要があります`);
     }
+    if (entry.lethal !== undefined && typeof entry.lethal !== "boolean") {
+      errors.push(`${prefix}.lethal: 真偽値である必要があります`);
+    }
     for (const [key, bounds] of Object.entries(MOB_ABILITY_RANGES)) {
       const value = entry[key];
       if (value === undefined || value === null) continue;
@@ -2323,8 +2336,9 @@ function validateTfMobAbilities(data, errors) {
       }
     }
     // 型ごとの必須項目。空欄のまま保存すると Java 側は「発動しなかった」扱いで黙って何もしない。
-    if (entry.type === "projectile_volley" && !String(entry.projectile || "").trim()) {
-      errors.push(`${prefix}.projectile: projectile_volley では投射物(EntityType)の指定が必須です`);
+    if ((entry.type === "projectile_volley" || entry.type === "projectile_rain")
+        && !String(entry.projectile || "").trim()) {
+      errors.push(`${prefix}.projectile: ${entry.type} では投射物(EntityType)の指定が必須です`);
     }
     if (entry.type === "summon" && !String(entry["summon-type"] || "").trim()) {
       errors.push(`${prefix}.summon-type: summon では召喚するモブ(EntityType)の指定が必須です`);

@@ -1,5 +1,6 @@
 package com.trinityforge.config.domains;
 
+import com.trinityforge.combat.AbilityShapes;
 import com.trinityforge.combat.DamageType;
 import com.trinityforge.combat.MobAbility;
 import com.trinityforge.config.LoadableConfig;
@@ -237,7 +238,16 @@ public final class MobAbilitiesConfig implements LoadableConfig {
                         entry.getString("sound", ""),
                         // 残HP割合の門。既定は「制限なし」＝ 2026-08-21 以前の挙動。
                         entry.getDouble("health-below", 1.0),
-                        entry.getDouble("health-above", 0.0)));
+                        entry.getDouble("health-above", 0.0),
+                        entry.getDouble("cast-seconds", 0.0),
+                        entry.getBoolean("lethal", false),
+                        entry.getDouble("vertical-radius", AbilityShapes.DEFAULT_VERTICAL_RADIUS)));
+                if (type == MobAbility.Type.DELAYED_ZONE
+                        && entry.getDouble("cast-seconds", 0.0) > 0.0
+                        && entry.getDouble("duration-seconds", 0.0) > 0.0) {
+                    log.warning("[" + PATH + "] ability '" + rawId
+                            + "' has both cast-seconds and duration-seconds; cast-seconds takes precedence");
+                }
             }
         }
         return new ParseResult(Map.copyOf(parsed), skipped);

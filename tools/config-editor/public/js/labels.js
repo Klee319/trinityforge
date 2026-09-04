@@ -694,6 +694,7 @@
     "mob-ability-type": {
       "ground_slam": "全方位AoE (ground_slam)",
       "projectile_volley": "扇状の投射 (projectile_volley)",
+      "projectile_rain": "頭上からの投射 (projectile_rain)",
       "charge": "突進 (charge)",
       "aura": "持続オーラ (aura)",
       "teleport_strike": "背後へ転移して斬る (teleport_strike)",

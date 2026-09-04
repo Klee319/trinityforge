@@ -254,6 +254,12 @@ public final class TrinityForge extends JavaPlugin {
     private org.bukkit.scheduler.BukkitTask achievementPollTask;
     /** 敵の特殊攻撃(2026-07-31)。config が無効なら start() が何も開始しない。 */
     private com.trinityforge.combat.MobAbilityTask mobAbilityTask;
+    /**
+     * アクションバーの調停役(2026-09機構4)。{@code SkillExpFeedbackService} と
+     * {@code MobAbilityExecutor} の予告表示が同じインスタンスを共有する必要があるため、
+     * 生成順が早い {@code SkillExpFeedbackService} 側より前にフィールドとして持つ。
+     */
+    private com.trinityforge.combat.ActionBarRouter actionBarRouter;
     private UseRequirementService useRequirementService;
     private PlayerLootLuckSource lootLuckSource;
     private com.trinityforge.stats.PlayerMobDropBonusSource mobDropBonusSource;
@@ -421,10 +427,13 @@ public final class TrinityForge extends JavaPlugin {
                 new com.trinityforge.progression.event.BukkitDailyExpRateNotifier(
                         this, skillDisplayName, dailyExpRateLookup));
         // EXP獲得ボスバー/アクションバー表示 + レベルアップ通知 (S5/S6)。スキル表示名はスキルツリー定義から解決。
+        this.actionBarRouter = new com.trinityforge.combat.ActionBarRouter();
         com.trinityforge.progression.SkillExpFeedbackService skillExpFeedbackService =
                 new com.trinityforge.progression.SkillExpFeedbackService(
                 this, configManager.skillExp(), progressionCatalog, skillDisplayName,
                 dailyExpRateLookup);
+        // 敵の技の予告(機構4)とEXP表示を同じルータで調停する。予告が走っている間はEXP表示を捨てる。
+        skillExpFeedbackService.setActionBarRouter(this.actionBarRouter);
         this.experienceDispatcher.setFeedback(skillExpFeedbackService);
         // 節目レベルアップの全体アナウンス(progression/level-broadcast.yml, 2026-08-16)。
         // 旧 ValhallaMMO アドオン ValTopBoard の level-up-broadcast を TF 本体へ移したもの。
@@ -1409,11 +1418,16 @@ public final class TrinityForge extends JavaPlugin {
 
         // 敵の特殊攻撃(2026-07-31): combat/mob-abilities.yml のテンプレートを
         // combat/mob-overrides.yml の abilities: に従って撃つ。プレイヤー周囲だけを走査する。
+        // 予告機構(2026-09-04): actionBarRouter は SkillExpFeedbackService と共有し、
+        // TelegraphBudget は MobAbilityTask の抽選ゲートと MobAbilityExecutor の詠唱ループで共有する。
+        com.trinityforge.combat.MobAbilityExecutor mobAbilityExecutor = new com.trinityforge.combat.MobAbilityExecutor(
+                this, combatService,
+                () -> configManager.mobAbilities().elementBias(),
+                world -> configManager.mobOverrides().abilityDamageScale(world),
+                this.actionBarRouter, new com.trinityforge.combat.TelegraphBudget());
         this.mobAbilityTask = new com.trinityforge.combat.MobAbilityTask(this,
                 configManager.mobAbilities(), configManager.mobOverrides(),
-                new com.trinityforge.combat.MobAbilityExecutor(this, combatService,
-                        () -> configManager.mobAbilities().elementBias(),
-                        world -> configManager.mobOverrides().abilityDamageScale(world)),
+                mobAbilityExecutor,
                 new com.trinityforge.combat.MobAbilityCooldowns(),
                 new java.util.Random());
         mobAbilityTask.start();

@@ -1,10 +1,12 @@
 package com.trinityforge.progression;
 
+import com.trinityforge.combat.ActionBarRouter;
 import com.trinityforge.config.domains.SkillExpConfig;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
 import com.trinityforge.progression.catalog.SkillCatalogEntry;
 import com.trinityforge.progression.core.SkillProgress;
 import net.kyori.adventure.bossbar.BossBar;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
@@ -18,7 +20,9 @@ import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -348,6 +352,42 @@ class SkillExpFeedbackServiceTest {
 
         assertNull(player.nextMessage(), "no level up -> no chat message");
         assertTrue(player.getHeardSounds().isEmpty(), "no level up -> no sound");
+    }
+
+    // --- ActionBarRouter 連携（2026-09 機構4） -----------------------------------------------------------
+
+    @Test
+    @DisplayName("ルータ設定時: expDisplayActionBarOnly=true でルータ経由に送られる（sinkに届く）")
+    void routesThroughActionBarRouterWhenSet() {
+        stubConfig(true, 4.0, false, false, "ENTITY_PLAYER_LEVELUP", 10);
+        SkillExpFeedbackService service = newService();
+        List<Component> sunk = new ArrayList<>();
+        ActionBarRouter router = new ActionBarRouter(() -> 0L, (p, c) -> sunk.add(c));
+        service.setActionBarRouter(router);
+
+        service.onExpGranted(player.getUniqueId(), SKILL_ID, 5.0, unchangedResult());
+        server.getScheduler().performOneTick();
+
+        assertEquals(1, sunk.size(), "expected the EXP line to reach the router's sink");
+        assertNull(player.nextActionBar(), "must not also call sendActionBar directly when routed");
+    }
+
+    @Test
+    @DisplayName("ルータ設定時: 予告が走っている viewer には届かない")
+    void routerSuppressesExpWhileTelegraphIsActive() {
+        stubConfig(true, 4.0, false, false, "ENTITY_PLAYER_LEVELUP", 10);
+        SkillExpFeedbackService service = newService();
+        List<Component> sunk = new ArrayList<>();
+        ActionBarRouter router = new ActionBarRouter(() -> 0L, (p, c) -> sunk.add(c));
+        router.telegraphUpdate(player, "boss:slam", false, 1000L, Component.text("予告"));
+        sunk.clear();
+        service.setActionBarRouter(router);
+
+        service.onExpGranted(player.getUniqueId(), SKILL_ID, 5.0, unchangedResult());
+        server.getScheduler().performOneTick();
+
+        assertTrue(sunk.isEmpty(), "EXP line must be dropped while a telegraph is active for that viewer");
+        assertNull(player.nextActionBar());
     }
 
     // --- helpers ---------------------------------------------------------------------------------------

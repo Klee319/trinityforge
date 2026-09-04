@@ -42,6 +42,11 @@ import java.util.Locale;
  *                        戦闘の最後だけ緊張が跳ね上がり、盾・回復・退避といった<b>対策の出番</b>ができる
  * @param healthAbove     自分の残HP割合がこの値<u>以上</u>のときだけ撃つ（0.0 = 制限なし）。
  *                        {@code healthBelow} と組み合わせると「HP 40〜70% の中盤だけ出る技」も書ける
+ * @param castSeconds     予告（詠唱）時間。0 は「予告なし＝現行どおり即時」。
+ *                        {@code 0 < x < 0.5} は 0.5 へ、{@code x > 2.5} は 2.5 へ丸める
+ *                        （予告付きのつもりの回避不能技に化けるのを防ぐ）
+ * @param lethal          致命予告かどうか。<b>予告予算の枠を決めるだけ</b>で、最終ダメージでは判定しない
+ * @param verticalRadius  {@link AbilityShapes} の垂直判定半径。既定 3.0（[0.5, 8.0] に丸める）
  */
 public record MobAbility(String id, String displayName, Type type, DamageType damageType,
                          double damagePercent, double cooldownSeconds, double chance,
@@ -49,7 +54,8 @@ public record MobAbility(String id, String displayName, Type type, DamageType da
                          String projectile, String summonType, double durationSeconds,
                          double knockback, List<EffectSpec> effects,
                          String particle, int particleCount, String sound,
-                         double healthBelow, double healthAbove) {
+                         double healthBelow, double healthAbove,
+                         double castSeconds, boolean lethal, double verticalRadius) {
 
     /** 攻撃の型。<b>enum を増やすと {@code MobAbilityExecutor} の switch がコンパイルエラーで教えてくれる。</b> */
     public enum Type {
@@ -142,10 +148,40 @@ public record MobAbility(String id, String displayName, Type type, DamageType da
         // 黙って直すと「書いたのに出ない」原因が消えるので、そのまま発動しない方が気づける。
         healthBelow = clamp(healthBelow, 0.0, 1.0);
         healthAbove = clamp(healthAbove, 0.0, 1.0);
+        // 予告（詠唱）時間。0 は「予告なし」。書き間違いで短すぎる値が「予告付きのつもりの
+        // 回避不能技」に化けるのを防ぐため、0.5 未満は 0.5 へ切り上げる（0 は例外で素通り）。
+        if (!Double.isFinite(castSeconds) || castSeconds <= 0.0) {
+            castSeconds = 0.0;
+        } else if (castSeconds < 0.5) {
+            castSeconds = 0.5;
+        } else if (castSeconds > 2.5) {
+            castSeconds = 2.5;
+        }
+        verticalRadius = Double.isFinite(verticalRadius)
+                ? clamp(verticalRadius, 0.5, 8.0)
+                : AbilityShapes.DEFAULT_VERTICAL_RADIUS;
     }
 
     /**
-     * 残HPの門を持たない従来書式のコンストラクタ（{@code healthBelow = 1.0} /
+     * 予告フィールド（{@code cast-seconds} / {@code lethal} / {@code vertical-radius}）を持たない
+     * 従来書式のコンストラクタ（{@code castSeconds = 0.0} / {@code lethal = false} /
+     * {@code verticalRadius = }{@link AbilityShapes#DEFAULT_VERTICAL_RADIUS} ＝ 予告なし）。
+     */
+    public MobAbility(String id, String displayName, Type type, DamageType damageType,
+                      double damagePercent, double cooldownSeconds, double chance,
+                      double range, double radius, int count, double spreadDegrees,
+                      String projectile, String summonType, double durationSeconds,
+                      double knockback, List<EffectSpec> effects,
+                      String particle, int particleCount, String sound,
+                      double healthBelow, double healthAbove) {
+        this(id, displayName, type, damageType, damagePercent, cooldownSeconds, chance,
+                range, radius, count, spreadDegrees, projectile, summonType, durationSeconds,
+                knockback, effects, particle, particleCount, sound, healthBelow, healthAbove,
+                0.0, false, AbilityShapes.DEFAULT_VERTICAL_RADIUS);
+    }
+
+    /**
+     * 残HPの門も予告フィールドも持たない従来書式のコンストラクタ（{@code healthBelow = 1.0} /
      * {@code healthAbove = 0.0} ＝ 制限なし）。
      */
     public MobAbility(String id, String displayName, Type type, DamageType damageType,
@@ -210,5 +246,34 @@ public record MobAbility(String id, String displayName, Type type, DamageType da
         }
         long ticks = Math.round(durationSeconds * 20.0);
         return (int) Math.max(MIN_DELAY_TICKS, Math.min(MAX_DELAY_TICKS, ticks));
+    }
+
+    /** {@code cast-seconds} を tick で。未設定（0）ならそのまま 0。 */
+    public int castTicks() {
+        if (castSeconds <= 0.0) {
+            return 0;
+        }
+        return (int) Math.round(castSeconds * 20.0);
+    }
+
+    /**
+     * 予告そのものの tick 数。{@link #castTicks()} が正ならそれ、そうでなく
+     * {@code type == DELAYED_ZONE} なら {@link #delayTicks()}（後方互換 — {@code duration-seconds}
+     * を予告時間として読む従来の挙動）、それ以外は 0（予告なし）。
+     */
+    public int telegraphTicks() {
+        int cast = castTicks();
+        if (cast > 0) {
+            return cast;
+        }
+        if (type == Type.DELAYED_ZONE) {
+            return delayTicks();
+        }
+        return 0;
+    }
+
+    /** 予告付きの技かどうか（{@link #telegraphTicks()} が正）。 */
+    public boolean telegraphed() {
+        return telegraphTicks() > 0;
     }
 }

@@ -1,5 +1,6 @@
 package com.trinityforge.progression;
 
+import com.trinityforge.combat.ActionBarRouter;
 import com.trinityforge.config.domains.SkillExpConfig;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
 import com.trinityforge.progression.catalog.SkillCatalogEntry;
@@ -66,6 +67,11 @@ public final class SkillExpFeedbackService implements SkillExpFeedback, Listener
     private final BiFunction<UUID, String, DailyExpDiminishing.Status> dailyRateLookup;
     /** プレイヤーごとのスキル別ボスバー管理。挿入順を保つ({@link LinkedHashMap})のでFIFO失効に使える。 */
     private final Map<UUID, PlayerBossBars> playerBossBars = new ConcurrentHashMap<>();
+    /**
+     * アクションバーの調停役（2026-09機構4）。{@code null} なら従来どおり {@link Player#sendActionBar}
+     * を直接呼ぶ。敵の技の予告表示と衝突しないよう、設定時はここ経由に切り替える。
+     */
+    private ActionBarRouter actionBarRouter;
 
     /** 1プレイヤー分のスキル別ボスバー/非表示タイマー。挿入順=表示を開始した順(FIFO失効の基準)。 */
     private static final class PlayerBossBars {
@@ -96,6 +102,15 @@ public final class SkillExpFeedbackService implements SkillExpFeedback, Listener
         this.dailyRateLookup = dailyRateLookup;
     }
 
+    /**
+     * アクションバー調停役を差し込む（2026-09機構4）。{@code null} を渡すと従来どおり
+     * {@link Player#sendActionBar} 直呼びへ戻る。既存コンストラクタは変えず、呼び出し元・既存テストの
+     * 互換を保つ。
+     */
+    public void setActionBarRouter(ActionBarRouter router) {
+        this.actionBarRouter = router;
+    }
+
     @Override
     public void onExpGranted(UUID playerId, String skillId, double amount,
                              NativeProgressionService.GrantResult result) {
@@ -120,7 +135,11 @@ public final class SkillExpFeedbackService implements SkillExpFeedback, Listener
             if (rateBadge != null) {
                 line = line.append(Component.text("  " + rateBadge, NamedTextColor.RED));
             }
-            player.sendActionBar(line);
+            if (actionBarRouter != null) {
+                actionBarRouter.send(player, ActionBarRouter.Priority.SKILL_EXP, line);
+            } else {
+                player.sendActionBar(line);
+            }
         } else {
             showBossBar(player, skillId, name, result.after(), gain, rateBadge);
         }
