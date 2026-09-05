@@ -254,6 +254,12 @@ public final class TrinityForge extends JavaPlugin {
     private org.bukkit.scheduler.BukkitTask achievementPollTask;
     /** 敵の特殊攻撃(2026-07-31)。config が無効なら start() が何も開始しない。 */
     private com.trinityforge.combat.MobAbilityTask mobAbilityTask;
+    /**
+     * アクションバーの調停役(2026-09機構4)。{@code SkillExpFeedbackService} と
+     * {@code MobAbilityExecutor} の予告表示が同じインスタンスを共有する必要があるため、
+     * 生成順が早い {@code SkillExpFeedbackService} 側より前にフィールドとして持つ。
+     */
+    private com.trinityforge.combat.ActionBarRouter actionBarRouter;
     private UseRequirementService useRequirementService;
     private PlayerLootLuckSource lootLuckSource;
     private com.trinityforge.stats.PlayerMobDropBonusSource mobDropBonusSource;
@@ -421,17 +427,26 @@ public final class TrinityForge extends JavaPlugin {
                 new com.trinityforge.progression.event.BukkitDailyExpRateNotifier(
                         this, skillDisplayName, dailyExpRateLookup));
         // EXP獲得ボスバー/アクションバー表示 + レベルアップ通知 (S5/S6)。スキル表示名はスキルツリー定義から解決。
+        this.actionBarRouter = new com.trinityforge.combat.ActionBarRouter();
         com.trinityforge.progression.SkillExpFeedbackService skillExpFeedbackService =
                 new com.trinityforge.progression.SkillExpFeedbackService(
                 this, configManager.skillExp(), progressionCatalog, skillDisplayName,
                 dailyExpRateLookup);
+        // 敵の技の予告(機構4)とEXP表示を同じルータで調停する。予告が走っている間はEXP表示を捨てる。
+        skillExpFeedbackService.setActionBarRouter(this.actionBarRouter);
         this.experienceDispatcher.setFeedback(skillExpFeedbackService);
         // 節目レベルアップの全体アナウンス(progression/level-broadcast.yml, 2026-08-16)。
         // 旧 ValhallaMMO アドオン ValTopBoard の level-up-broadcast を TF 本体へ移したもの。
         // TrinitySkillLevelUpEvent を購読するだけなので、上の Dispatcher 配線より後であればよい。
+        // プレステージ(NG+)段の登り直しで節目アナウンスが氾濫する不具合の対策(2026-09-04, W-313)。
+        // 供給関数は progressionService.progress(UUID, skillId) をそのまま渡すだけ(NativeProgressionService
+        // は編集対象外なので、公開APIをここで束ねる)。読めない場合は null を返し、リスナー側が段0扱いへ倒す。
+        java.util.function.BiFunction<java.util.UUID, String,
+                com.trinityforge.progression.core.SkillProgress> skillProgressLookup =
+                (playerId, skillId) -> progressionService.progress(playerId, skillId).orElse(null);
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.progression.SkillLevelBroadcastListener(
-                        this, configManager.levelBroadcast(), skillDisplayName), this);
+                        this, configManager.levelBroadcast(), skillDisplayName, skillProgressLookup), this);
         // B3(2026-07-25 バグ報告): ログアウト時に当該プレイヤーのスキル別ボスバー/タイマーを確実に
         // 破棄するため PlayerQuitEvent を購読する(以前は Listener 未実装で未登録だった)。
         getServer().getPluginManager().registerEvents(skillExpFeedbackService, this);
@@ -1410,14 +1425,27 @@ public final class TrinityForge extends JavaPlugin {
 
         // 敵の特殊攻撃(2026-07-31): combat/mob-abilities.yml のテンプレートを
         // combat/mob-overrides.yml の abilities: に従って撃つ。プレイヤー周囲だけを走査する。
+        // 予告機構(2026-09-04): actionBarRouter は SkillExpFeedbackService と共有し、
+        // TelegraphBudget は MobAbilityTask の抽選ゲートと MobAbilityExecutor の詠唱ループで共有する。
+        com.trinityforge.combat.MobAbilityExecutor mobAbilityExecutor = new com.trinityforge.combat.MobAbilityExecutor(
+                this, combatService,
+                () -> configManager.mobAbilities().elementBias(),
+                world -> configManager.mobOverrides().abilityDamageScale(world),
+                this.actionBarRouter, new com.trinityforge.combat.TelegraphBudget(),
+                () -> configManager.mobAbilities().telegraphLethalAtomic(),
+                () -> "ascii".equalsIgnoreCase(configManager.mobAbilities().telegraphBarStyle())
+                        ? com.trinityforge.combat.ActionBarRouter.BarStyle.ASCII
+                        : com.trinityforge.combat.ActionBarRouter.BarStyle.BLOCK);
         this.mobAbilityTask = new com.trinityforge.combat.MobAbilityTask(this,
                 configManager.mobAbilities(), configManager.mobOverrides(),
-                new com.trinityforge.combat.MobAbilityExecutor(this, combatService,
-                        () -> configManager.mobAbilities().elementBias(),
-                        world -> configManager.mobOverrides().abilityDamageScale(world)),
+                mobAbilityExecutor,
                 new com.trinityforge.combat.MobAbilityCooldowns(),
                 new java.util.Random());
         mobAbilityTask.start();
+        // 機構8「中断」(2026-09-04): 殴る/スタンで詠唱を止める配線。中断可(interruptible)な技だけが対象。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.MobAbilityCastDamageListener(), this);
+        com.trinityforge.combat.MobAbilityInterrupts.register(mobAbilityExecutor);
 
         // Block player-facing /em /ag while TF owns progression (ops can bypass).
         getServer().getPluginManager().registerEvents(new EliteMobsCommandGateListener(), this);
@@ -1653,6 +1681,11 @@ public final class TrinityForge extends JavaPlugin {
                                             try {
                                                 int rewritten = new com.trinityforge.progression.ProgressionCurveReconciler(
                                                         progressionRepository, progressionCatalog,
+                                                        // W-314 タスク2: NativeProgressionService と同じ共有ロックを渡す。
+                                                        // ここを新規インスタンスにすると、reload中の再計算と
+                                                        // プレイ中のEXP付与/perk解放が互いに排他されず、
+                                                        // どちらかの書き込みが後勝ちで消える(ロストアップデート)。
+                                                        progressionService.playerLocks(),
                                                         // reload 直後に読み直した値を渡す。ここを既定(1)のままにすると
                                                         // power.levels-per-skill-point を変えた直後の reload が
                                                         // 全員のポイント残高を旧式で書き戻してしまう。

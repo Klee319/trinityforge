@@ -375,3 +375,131 @@ MCP ツールに足すのは 3 本（`minecraft_spawn_mob` / `minecraft_fire_abi
 正本の三段構えでいうと、これは**一次（机上検査）を実測版へ格上げする**ものであって、
 **二次（人間の 20 回試験）を消すものではない。**
 ここを混同して「ボットが 18/20 通ったから合格」で出荷すると、実機で誰も避けられない技が出る。
+
+---
+
+## 2026-09-04 追記 — 第三者 UX レビューの反映
+
+実装着手時に Codex による UX クロスレビューを受けた（原文と反映表は
+`docs/design/2026-09-04-telegraph-ux-review-codex.md`）。本文の記述と食い違う場合は**この節が優先**する。
+
+- **機構 2 の不発条件は型別**にする。主対象の視線再確認は「狙う技」（`beam` / `teleport_strike` /
+  `projectile_volley` / `projectile_rain`）だけ。自分中心の技（`ground_slam` / `aura` / `repulse` /
+  `vortex_pull`）と床印（`delayed_zone`）は視線を見ない（床印を「柱に隠れて消す」第2解を作らないため）。
+- **幾何はスナップショット**。詠唱開始時に origin / dir / anchor / 壁で止めた終点を固定し、描画と解決の両方が
+  同じスナップショットから出る。向きの書き戻しは残すが、実機でガクつきが不快なら外してよい（幾何には影響しない）。
+- **直線の判定はプレイヤーの BoundingBox 中心**（足元ではない）。描画は中心線ではなく **±thickness の左右 2 レール**。
+- **音は 3 段に分離**: 詠唱開始 1 回／着弾 5tick 前の共通合図音／着弾で従来の `playEffects`。予告フレームは無音。
+- **アクションバーは行動語を先頭に置く**: `[横へ] 貫通光 ▮▮▮▯▯ 1.3s`。行動語は型から導出
+  （離れろ／床から退け／横へ／遮蔽へ／止めろ）。予告が 0 本になったら空表示を 1 回送って残像を消す。
+- **受信者**は主対象＋脅威圏内（判定関数で当たる位置にいる）＋anchor から水平 12m。半径 32 の一律告知は詠唱経路では使わない。
+- **予算**は主対象を必須予約、脅威圏内の他プレイヤーはベスト・エフォート予約。
+- **終端処理は 1 箇所**（`finish`）。二重呼び出しガード付きで、タスク停止・予約解放・全 viewer の表示終了・不発通知をまとめる。
+- **見送り（設計側の残課題）**: 机上式の遅延補正（D95 実測後）、空振り硬直と技選択のリズム（後段の機構）、
+  統合版の実機可読性検証（出荷前の必須項目。JUnit では測れない）。
+
+---
+
+## 機構 7〜10（次段階、2026-09-04 実装）
+
+正本 `docs/design/2026-08-31-dungeon-concept-rework.md` の「機構を増やしすぎないための線引き」表で
+「次（入門帯を越えるのに要る）」段としていた 4 つと、「後」段の空振り硬直を、この波で実装した。
+必須 6 機構と同じ粒度で契約を書く。**設計の意図・数値は正本が正本のままで、ここは実装契約だけを持つ。**
+
+### 機構 7 — 固定領域 `FIXED_ZONE`
+
+- 追加するキー／既定／丸め: `MobAbility.Type` に `FIXED_ZONE` を追加。`cast-seconds`（展開までの予告、
+  機構 2 と同じ丸め）と `duration-seconds`（展開後の持続、既存 `delayed_zone` と同じ 0.5〜5 秒丸め）を
+  **別の秒数として両方使う**（統合しない）。半径・垂直半径は機構 1 の `AbilityShapes` をそのまま使う。
+- 変更するクラス: `MobAbility.Type`、`MobAbilityExecutor`（`FIXED_ZONE` の解決分岐を追加）。
+  展開時に発動地点の座標を複製して保持し、以後はその座標で刻む（術者の現在位置を追わない）。
+- 予算: 展開までを予告として予約し、**展開が終わった時点で `TelegraphBudget` の枠を解放する**
+  （機構 5 の `resolveAtTick` を展開完了 tick に合わせる）。展開後の持続ダメージは予算を持たない。
+- 術者の生死: 詠唱完了後に術者が死んでも、展開済みの領域は独立して持続する
+  （領域のライフサイクルを術者の生存へ結びつけない）。
+- テストの当て先: `MobAbilityExecutorTest` に「展開後は予算が解放されること」「術者死亡後も領域が
+  持続すること」「同時に存在できる領域数の上限」を追加。幾何は機構 1 のテストを再利用する。
+
+### 機構 8 — 中断
+
+- 追加するキー／既定／丸め: `interruptible`（boolean、既定 false）、`interrupt-damage-fraction`
+  （double、既定 0.03、0.01〜0.20 に丸め）、`interrupt-lockout-seconds`（double、既定 8、3〜20 に丸め）。
+  `interruptible: false` の技にこれらを設定しても無視する（読み込み時に警告）。
+- 変更するクラス: `MobAbilityInterrupts`（新設、static ブリッジ）。詠唱中の被ダメージ・被スタンを
+  ここへ通知する窓口にする。呼び出し元は 2 箇所:
+  - `MobAbilityCastDamageListener`（新設、`EventPriority.MONITOR`）— そのモブへの被ダメージを見て
+    `interrupt-damage-fraction` を超えたら中断を通知する。MONITOR にするのはダメージ計算そのものへ
+    介入しないため。
+  - `NativeCombatPerkListener` の**スタン適用箇所**から `MobAbilityInterrupts.notifyStun(mob)` を呼ぶ
+    （既存の `stun_chance` / `stun_duration_bonus` の適用点に 1 行追加するだけで済む）。
+- ロックアウトは `MobAbilityCooldowns` へ `attachCooldowns` 経由で書き込む（新しい台帳を作らない。
+  既存のモブ単位クールダウン台帳を延長で使う）。
+- 表示: 中断成功は全 viewer のアクションバーへ「詠唱中断」＋不発音（機構 4 の `ActionBarRouter`
+  優先度 3「中断成功・不発・空振り硬直の通知」を経由）。
+- テストの当て先: `MobAbilityInterruptsTest`（新設）で、しきい値未満のダメージでは中断しないこと、
+  スタン単体で中断すること、中断後 `interrupt-lockout-seconds` の間は同じ技が再詠唱されないこと、
+  `interruptible: false` の技は中断条件を満たしても中断されないことを固定する。
+
+### 機構 9 — 空振り硬直
+
+- 追加するキー／既定／丸め: `whiff-stagger-seconds`（double、既定 0＝無し、1.0〜4.0 に丸め）。
+  中ボス・ボスのテンプレートにだけ設定する想定だが、キー自体は型を問わない（雑魚に設定しないのは
+  運用規約であり、コード側の強制はしない）。
+- 判定: 詠唱の `finish`（機構 2 の終端処理）で、解決結果が「1 人にも当たらなかった」場合に
+  `whiff-stagger-seconds` を適用する。固定領域のような多段技は展開後の最初の刻みで判定する。
+- 同一モブへの再入禁止: `GLOBAL_GAP_KEY` を硬直秒数ぶん `arm` する（8 秒に 1 回、という間引きは
+  `MobAbilityCooldowns` の全体ゲートキーを流用する。技ごとのクールダウンとは別枠）。
+- 硬直中の挙動: 移動と技の発動を止める。既存の `setAI(false)` 相当ではなく、`MobAbilityTask` 側の
+  抽選を止める＋ナビゲーションを止めるだけに留める（機構 2 と同じく AI を完全停止しない）。
+- 演出: アクションバーへ「体勢を崩した」（機構 4 の優先度 3 経由）＋専用音。
+- テストの当て先: `MobAbilityExecutorTest` に「全員が回避した解決は硬直を入れること」「8 秒以内の
+  再発動では硬直が入らないこと」「雑魚テンプレートには `whiff-stagger-seconds` の既定 0 が効くこと
+  （実質無効）」を追加。
+
+### 機構 10 — 行動順
+
+- 追加するキー／既定／丸め: `mob-overrides.yml` の per-mob 設定に `ability-sequence:`（技 ID の配列）
+  と `ability-interval-seconds:`（double、既定なし＝共通 12 秒間隔を使う、下限 3 秒に丸め）を追加。
+- 変更するクラス: `MobOverridesConfig#abilitySequenceFor(mobId)` / `#abilityIntervalSecondsFor(mobId)`
+  を新設。`MobAbilityTask` に `cursor`（次に撃つ技の添字）を持たせ、`ability-sequence:` が設定された
+  モブは**共通 12 秒間隔と技ごとの発動率・クールダウンを使わず**、順番と間隔だけで撃つ。
+- 空振りでも次の技へは進む（空振りを理由に同じ技を繰り返さない。`cursor` は解決結果に関わらず進む）。
+- `chance`（発動率）は `ability-sequence:` のモブでは無視する（順番で撃つ以上、確率で撃たないことが
+  「周期」を成立させる前提のため）。
+- ランダム抽選側（`ability-sequence:` を持たないモブ）には、正本「攻めへの見返り」節の技選択の
+  リズムを実装する: 直近 3 回の行動語（離れろ／床から退け／横へ／遮蔽へ／止めろ）の出現数に応じて
+  `1 / (1 + 直近3回の同語数)` の重みを候補へ掛ける。行動語は技の型から導出する
+  （機構 4 のアクションバー先頭表示と同じ導出関数を再利用する）。
+- テストの当て先: `MobAbilityTaskTest` に「`ability-sequence:` を持つモブは順番どおりに撃つこと」
+  「間隔が 3 秒未満に丸められること」「他 396 体（`ability-sequence:` 未設定）の抽選挙動が変わらない
+  こと（回帰）」「重み付き抽選で同じ行動語が 4 回連続しにくいこと（統計的検査）」を追加。
+
+### 補助 — 被害者ごとの視線・致命の原子化・バー表記切替・机上検査の純関数
+
+- **被害者ごとの視線**（`repulse` / `vortex_pull`）: 解決時に各被害者を個別に視線判定する。
+  `delayed_zone` / `FIXED_ZONE` / 自分中心の技（`ground_slam` / `aura` 系）は視線を見ない
+  （床印を柱の陰へ隠れて消す第 2 解を作らないため。正本「固定領域と追従領域は別の技である」節を参照）。
+- **`telegraph-lethal-atomic`**（boolean、既定 true）: `lethal: true` の予告は、脅威圏内の全対象ぶんの
+  `TelegraphBudget` 枠が同時に取れない限り撃たない。`lethal: false` はベスト・エフォート予約のまま。
+- **`telegraph-bar-style`**（enum: `unicode`（既定）／`ascii`）: アクションバーの残り時間バーの表記を
+  切り替える。`unicode` は `▮▯`、`ascii` は `[###--]`。ダンジョン単位または全体設定で切り替え可能にし、
+  統合版で `▮▯` が潰れると判明した場合の退避経路にする。
+- **`TelegraphFeasibility`**（新設、純関数・Bukkit 非依存）: 正本の新しい寸法式
+  `許容半径 ≤ 状態別速度 × max(0, 詠唱秒 − D95) − 安全余白` を実装する机上検査。
+  定数は `WALK = 4.317`、`SPRINT = 5.612`、`D95 = 0.35`（仮置き、実測で差し替える定数として
+  1 箇所にまとめる）、`SAFETY_MARGIN = 0.5`。単一解型は呼び出し側で右辺を 0.8 倍する。
+  機構 1〜10 の全テンプレートに対して一括で当てる自動テストをここへ追加する（正本の「一次（机上・
+  全技）」試験の実装先）。
+
+### editor ミラーの当て先
+
+機構 7〜10 で増えるフィールドも、機構 2 と同じ 2 本の範囲表がズレると「エディタで開いて保存しただけで
+yml の意味が変わる」事故になる。当て先は共通:
+
+- `tools/config-editor/lib/schema.js` の `MOB_ABILITY_RANGES`（`vertical-radius` に続けて
+  `whiff-stagger-seconds` / `interrupt-damage-fraction` / `interrupt-lockout-seconds` の丸めを追加）。
+- `public/js/mob-abilities-form.js` の `NUMERIC_BOUNDS`（同じ表の 2 本目）、`FIELD_LABELS` /
+  `FIELD_DESCS`、型限定で出す場合の `FIELDS_BY_TYPE`（`FIXED_ZONE` を追加した型一覧に反映する）。
+- `mob-forms.js` 側は `ability-sequence:` / `ability-interval-seconds:` の per-mob 設定
+  （`mob-overrides.yml` 側のフォーム）を担当する。機構 2 の網羅テスト（yml → schema → form の 3 層照合）
+  と同じ枠組みへ、機構 7〜10 で増えたキーも含める。

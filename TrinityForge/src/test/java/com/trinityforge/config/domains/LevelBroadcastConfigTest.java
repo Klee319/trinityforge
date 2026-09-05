@@ -147,6 +147,32 @@ class LevelBroadcastConfigTest {
     }
 
     @Test
+    @DisplayName("min-interval-seconds は 0〜3600 へ丸め、既定は30")
+    void minIntervalSecondsIsClampedAndDefaults() throws IOException {
+        LevelBroadcastConfig defaults = loaded(tempDir, "enabled: true\n");
+        assertEquals(30, defaults.minIntervalSeconds());
+
+        LevelBroadcastConfig negative = loaded(tempDir, "min-interval-seconds: -5\n");
+        assertEquals(0, negative.minIntervalSeconds());
+
+        LevelBroadcastConfig huge = loaded(tempDir, "min-interval-seconds: 999999\n");
+        assertEquals(3600, huge.minIntervalSeconds());
+
+        LevelBroadcastConfig disabled = loaded(tempDir, "min-interval-seconds: 0\n");
+        assertEquals(0, disabled.minIntervalSeconds(), "0 は無効を意味する正当な設定値");
+    }
+
+    @Test
+    @DisplayName("message-prestige を空にしても既定の書式(%prestige%入り)へ戻す")
+    void blankMessagePrestigeFallsBackToDefault() throws IOException {
+        LevelBroadcastConfig config = loaded(tempDir, "message-prestige: \"\"\n");
+
+        assertTrue(config.messagePrestige().contains("%prestige%"), config.messagePrestige());
+        assertTrue(config.messagePrestige().contains("%player%"), config.messagePrestige());
+        assertTrue(config.messagePrestige().contains("%level%"), config.messagePrestige());
+    }
+
+    @Test
     @DisplayName("出荷 yml がそのまま読めて、既定値が意図どおりである")
     void shippedFileParsesWithIntendedDefaults() throws IOException {
         String shipped;

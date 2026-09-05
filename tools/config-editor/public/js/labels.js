@@ -411,6 +411,9 @@
     // 2026-08-04: ars-smithing.exp-per-source (スキルEXP画面ではAr鍛冶カードで
     // tf-forms.js SECTION_FIELD_OVERRIDES による専用説明に上書きされる。ここは中立な説明)。
     "exp-per-source": { label: "消費ソース1あたりの追加EXP", desc: "儀式で実際に消費したソース量に比例して加算する追加EXP。0で無効。" },
+    // 2026-09-04: ars-smithing.max-source-exp-per-craft (スキルEXP画面ではAr鍛冶カードで
+    // tf-forms.js SECTION_FIELD_OVERRIDES による専用説明に上書きされる。ここは中立な説明)。
+    "max-source-exp-per-craft": { label: "消費ソース由来EXPの上限(1回)", desc: "消費ソース1あたりの追加EXPを掛けた結果にだけ効く、儀式1回あたりの上限。0で上限なし。" },
     // power.levels-per-skill-point (スキルEXP画面ではページ上部の専用カードで描画、専用説明あり)。
     "levels-per-skill-point": { label: "1スキルポイントあたりの総合レベル", desc: "総合(POWER)がこの値だけレベルアップするごとにスキルツリーのポイントを1点付与する。" },
     "exp-per-material": { label: "素材別EXP", desc: "クラフト盤面に置いた素材1個あたりの鍛冶EXP。3x3の全マスを合計し、完成品の使用可能レベル倍率を掛ける。ここに無い素材は0。完成品に使用可能レベルが設定されていない場合はEXPを付与しない(解体で素材へ戻せるアイテムの作り直しによる無限EXP対策)。" },
@@ -694,6 +697,7 @@
     "mob-ability-type": {
       "ground_slam": "全方位AoE (ground_slam)",
       "projectile_volley": "扇状の投射 (projectile_volley)",
+      "projectile_rain": "頭上からの投射 (projectile_rain)",
       "charge": "突進 (charge)",
       "aura": "持続オーラ (aura)",
       "teleport_strike": "背後へ転移して斬る (teleport_strike)",
@@ -702,7 +706,8 @@
       // 2026-08-16 追加(Java の MobAbility.Type と 1:1)
       "repulse": "強ノックバック (repulse)",
       "vortex_pull": "引き寄せ (vortex_pull)",
-      "delayed_zone": "予告設置 (delayed_zone)"
+      "delayed_zone": "予告設置 (delayed_zone)",
+      "fixed_zone": "固定領域 (fixed_zone)"
     },
     "mob-ability-damage-type": { "physical": "物理", "magical": "魔法" }
     // "rarity-color"(スレッド厳選専用のレア度カラー辞書)は 2026-08-02 に専用UI(p5-forms.js の

@@ -1,5 +1,6 @@
 package com.trinityforge.config.domains;
 
+import com.trinityforge.combat.AbilityShapes;
 import com.trinityforge.combat.DamageType;
 import com.trinityforge.combat.MobAbility;
 import com.trinityforge.config.LoadableConfig;
@@ -41,6 +42,8 @@ public final class MobAbilitiesConfig implements LoadableConfig {
     private volatile boolean requireTarget = DEFAULT_REQUIRE_TARGET;
     private volatile boolean requireLineOfSight = DEFAULT_REQUIRE_LINE_OF_SIGHT;
     private volatile double elementBias = DEFAULT_ELEMENT_BIAS;
+    private volatile boolean telegraphLethalAtomic = DEFAULT_TELEGRAPH_LETHAL_ATOMIC;
+    private volatile String telegraphBarStyle = DEFAULT_TELEGRAPH_BAR_STYLE;
 
     /** 技と技の間に必ず空ける秒数の既定。 */
     public static final double DEFAULT_GLOBAL_COOLDOWN_SECONDS = 12.0;
@@ -54,6 +57,10 @@ public final class MobAbilitiesConfig implements LoadableConfig {
     public static final double MAX_GLOBAL_COOLDOWN_SECONDS = 600.0;
     /** 技が自分の属性へ引き寄せる強さの既定（2026-08-21 W-181）。{@link #elementBias()} 参照。 */
     public static final double DEFAULT_ELEMENT_BIAS = 0.35;
+    /** 致命予告の予約を原子化するかの既定（true）。{@link #telegraphLethalAtomic()} 参照。 */
+    public static final boolean DEFAULT_TELEGRAPH_LETHAL_ATOMIC = true;
+    /** 予告バーの表記の既定（{@code block}）。{@link #telegraphBarStyle()} 参照。 */
+    public static final String DEFAULT_TELEGRAPH_BAR_STYLE = "block";
 
     /** テンプレートID→定義。未定義IDの参照は {@code null} を返す（呼び出し側が読み飛ばす）。 */
     public MobAbility ability(String id) {
@@ -159,6 +166,23 @@ public final class MobAbilitiesConfig implements LoadableConfig {
         return elementBias;
     }
 
+    /**
+     * <b>致命予告の予約を「脅威圏内の全員ぶん取れなければ撃たない」原子化にするか</b>（2026-09-04、
+     * Codex UXレビュー #10）。既定 true。false にすると従来どおりベスト・エフォート
+     * （主対象だけ取れれば撃ち、他は表示だけ）。
+     */
+    public boolean telegraphLethalAtomic() {
+        return telegraphLethalAtomic;
+    }
+
+    /**
+     * <b>予告バーの文字表記</b>（2026-09-04、Codex UXレビュー #3）。{@code block}（既定、▮▯）か
+     * {@code ascii}（{@code #}/{@code -}、統合版のフォント欠落対策）。未知の値は {@code block} 扱い。
+     */
+    public String telegraphBarStyle() {
+        return telegraphBarStyle;
+    }
+
     @Override
     public boolean load(Plugin plugin) {
         Logger log = plugin.getLogger();
@@ -184,6 +208,10 @@ public final class MobAbilitiesConfig implements LoadableConfig {
                 yaml.getBoolean("require-line-of-sight", DEFAULT_REQUIRE_LINE_OF_SIGHT);
         this.elementBias = Math.max(0.0, Math.min(1.0,
                 yaml.getDouble("ability-element-bias", DEFAULT_ELEMENT_BIAS)));
+        this.telegraphLethalAtomic = yaml.getBoolean("telegraph-lethal-atomic", DEFAULT_TELEGRAPH_LETHAL_ATOMIC);
+        String barStyle = yaml.getString("telegraph-bar-style", DEFAULT_TELEGRAPH_BAR_STYLE);
+        this.telegraphBarStyle = "ascii".equalsIgnoreCase(barStyle == null ? "" : barStyle.trim())
+                ? "ascii" : "block";
 
         ParseResult result = parse(yaml.getConfigurationSection("abilities"), log);
         this.abilities = result.abilities();
@@ -237,7 +265,20 @@ public final class MobAbilitiesConfig implements LoadableConfig {
                         entry.getString("sound", ""),
                         // 残HP割合の門。既定は「制限なし」＝ 2026-08-21 以前の挙動。
                         entry.getDouble("health-below", 1.0),
-                        entry.getDouble("health-above", 0.0)));
+                        entry.getDouble("health-above", 0.0),
+                        entry.getDouble("cast-seconds", 0.0),
+                        entry.getBoolean("lethal", false),
+                        entry.getDouble("vertical-radius", AbilityShapes.DEFAULT_VERTICAL_RADIUS),
+                        entry.getBoolean("interruptible", false),
+                        entry.getDouble("interrupt-damage-fraction", MobAbility.DEFAULT_INTERRUPT_DAMAGE_FRACTION),
+                        entry.getDouble("interrupt-lockout-seconds", MobAbility.DEFAULT_INTERRUPT_LOCKOUT_SECONDS),
+                        entry.getDouble("whiff-stagger-seconds", 0.0)));
+                if (type == MobAbility.Type.DELAYED_ZONE
+                        && entry.getDouble("cast-seconds", 0.0) > 0.0
+                        && entry.getDouble("duration-seconds", 0.0) > 0.0) {
+                    log.warning("[" + PATH + "] ability '" + rawId
+                            + "' has both cast-seconds and duration-seconds; cast-seconds takes precedence");
+                }
             }
         }
         return new ParseResult(Map.copyOf(parsed), skipped);

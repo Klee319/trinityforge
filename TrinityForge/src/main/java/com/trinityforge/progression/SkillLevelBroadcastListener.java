@@ -1,6 +1,7 @@
 package com.trinityforge.progression;
 
 import com.trinityforge.config.domains.LevelBroadcastConfig;
+import com.trinityforge.progression.core.SkillProgress;
 import com.trinityforge.progression.event.TrinitySkillLevelUpEvent;
 import com.trinityforge.text.MiniText;
 import net.kyori.adventure.key.Key;
@@ -10,6 +11,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
@@ -19,7 +21,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.logging.Level;
 
 /**
  * 節目レベルアップの全体アナウンス (2026-08-16, {@code progression/level-broadcast.yml})。
@@ -46,8 +50,25 @@ import java.util.function.Function;
  * {@link SkillExpFeedbackService}（{@code stats/skill-exp.yml} の {@code level-up.*}）で、
  * こちらは全体行のみ。設定も別ファイルに分けてあるので片方だけ有効にできる。
  *
- * <p>状態（{@link #pending}）はメインスレッドからのみ触る。{@link TrinitySkillLevelUpEvent} は
- * ディスパッチャがメインスレッドへ寄せてから発火する契約なので、この前提は満たされる。
+ * <p>状態（{@link #pending}, {@link #lastAnnouncedAtMillis}）はメインスレッドからのみ触る。
+ * {@link TrinitySkillLevelUpEvent} はディスパッチャがメインスレッドへ寄せてから発火する契約なので、
+ * この前提は満たされる。
+ *
+ * <h2>プレステージ(NG+)の登り直しを流量制限する理由（台帳 W-313）</h2>
+ * プレステージは進行を {@code level=0, totalExp=0} へ戻して周回させる機構
+ * （{@code NativePerkService#prestigeUnderLock}）。この畳み込みは<b>同一 tick の連続発火</b>しか
+ * まとめないので、2 周目以降に同じ節目(Lv10/20/...)へ毎回登り直すこと自体は防げない。
+ * そこで 2 段構えで抑える。
+ * <ol>
+ *   <li><b>プレステージ段が 1 以上のスキルは、上限レベル到達だけをアナウンスする。</b>
+ *       2 周目以降は一度通った道なので、途中の節目に価値が無い。段番号は
+ *       {@link #skillProgressLookup} から引く（未配線/例外時は段 0 扱い＝従来どおり全部流す。
+ *       安全側に倒す）。</li>
+ *   <li><b>プレイヤー単位の最小間隔（{@code min-interval-seconds}）。</b> 段の抑制だけでは、
+ *       別問題（累計EXPの桁あふれ）でプレステージ直後に短時間で上限まで戻るケースを塞げない。
+ *       原因が何であれ「チャットが埋まる」こと自体を止める最後の砦として、同一プレイヤーの
+ *       全体放送をこの秒数に 1 行までへ絞る。</li>
+ * </ol>
  */
 public final class SkillLevelBroadcastListener implements Listener {
 
@@ -55,10 +76,19 @@ public final class SkillLevelBroadcastListener implements Listener {
     private final LevelBroadcastConfig config;
     /** スキルID → 表示名（{@code skilltree/*.yml} の display_name）。解決できなければ ID をそのまま返す。 */
     private final Function<String, String> skillDisplayName;
+    /**
+     * (プレイヤー, スキルID) → 現在の進行状況。プレステージ段と上限レベルを読むためだけに使う。
+     * {@code null} は「未配線」を表し、その場合は段 0（従来どおり全部アナウンス）として扱う。
+     * 供給元が例外を投げても本機構は止めない（段 0 扱いへ倒す）。
+     */
+    private final BiFunction<UUID, String, SkillProgress> skillProgressLookup;
 
-    /** (プレイヤー, スキル) → その tick で到達した最高の節目レベル。挿入順＝最初に節目へ届いた順。 */
-    private final Map<PendingKey, Integer> pending = new LinkedHashMap<>();
+    /** (プレイヤー, スキル) → その tick で到達した最高の節目レベルとその時点のプレステージ段。 */
+    private final Map<PendingKey, PendingAnnouncement> pending = new LinkedHashMap<>();
     private boolean flushScheduled;
+
+    /** プレイヤー単位の流量制限用: 直近に全体放送を出した時刻(エポックミリ秒)。メインスレッド専用。 */
+    private final Map<UUID, Long> lastAnnouncedAtMillis = new java.util.HashMap<>();
 
     /** 効果音の解決結果キャッシュ。{@code null} = 未解決 or 解決失敗。 */
     private String resolvedSoundSource;
@@ -67,9 +97,20 @@ public final class SkillLevelBroadcastListener implements Listener {
 
     public SkillLevelBroadcastListener(Plugin plugin, LevelBroadcastConfig config,
                                        Function<String, String> skillDisplayName) {
+        this(plugin, config, skillDisplayName, null);
+    }
+
+    /**
+     * @param skillProgressLookup (プレイヤー, スキルID) → 現在の {@link SkillProgress} の供給元。
+     *                            {@code null} なら段判定を行わず従来どおり全部アナウンスする。
+     */
+    public SkillLevelBroadcastListener(Plugin plugin, LevelBroadcastConfig config,
+                                       Function<String, String> skillDisplayName,
+                                       BiFunction<UUID, String, SkillProgress> skillProgressLookup) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.config = Objects.requireNonNull(config, "config");
         this.skillDisplayName = Objects.requireNonNull(skillDisplayName, "skillDisplayName");
+        this.skillProgressLookup = skillProgressLookup;
     }
 
     /**
@@ -82,12 +123,52 @@ public final class SkillLevelBroadcastListener implements Listener {
         String skillId = event.getSkillId() == null
                 ? ""
                 : event.getSkillId().trim().toUpperCase(Locale.ROOT);
-        if (!config.shouldAnnounce(skillId, event.getNewLevel())) {
+        int newLevel = event.getNewLevel();
+        if (!config.shouldAnnounce(skillId, newLevel)) {
             return;
         }
-        pending.merge(new PendingKey(event.getPlayer().getUniqueId(), skillId),
-                event.getNewLevel(), Math::max);
+        UUID playerId = event.getPlayer().getUniqueId();
+        int prestige = 0;
+        SkillProgress progress = lookupSkillProgress(playerId, skillId);
+        if (progress != null) {
+            prestige = progress.prestige();
+            // プレステージ済みスキルは、登り直しの途中経過(Lv10/20/...)を全体へ流す価値が無い
+            // （台帳 W-313）。上限レベルへ到達したときだけ通す。
+            if (prestige >= 1 && newLevel != progress.maxAllowedLevel()) {
+                return;
+            }
+        }
+        pending.merge(new PendingKey(playerId, skillId),
+                new PendingAnnouncement(newLevel, prestige),
+                (existing, candidate) -> existing.level() >= candidate.level() ? existing : candidate);
         scheduleFlush();
+    }
+
+    /**
+     * (プレイヤー, スキル) の現在の進行状況。供給元が未配線/例外なら {@code null}
+     * （＝呼び出し側は段 0 として扱い、従来どおり全部アナウンスする。安全側）。
+     */
+    private SkillProgress lookupSkillProgress(UUID playerId, String skillId) {
+        if (skillProgressLookup == null) {
+            return null;
+        }
+        try {
+            return skillProgressLookup.apply(playerId, skillId);
+        } catch (RuntimeException ex) {
+            plugin.getLogger().log(Level.WARNING,
+                    "[" + LevelBroadcastConfig.PATH + "] プレステージ段の取得に失敗しました("
+                            + playerId + "/" + skillId + ")。段0として扱います。", ex);
+            return null;
+        }
+    }
+
+    /**
+     * ログアウト時に流量制限の記録を掃除する。放置しても実害は無い（プレイヤー数分のロングだけ）が、
+     * {@link SkillExpFeedbackService#onQuit} と同じ流儀で確実に消す。
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onQuit(PlayerQuitEvent event) {
+        lastAnnouncedAtMillis.remove(event.getPlayer().getUniqueId());
     }
 
     private void scheduleFlush() {
@@ -117,22 +198,37 @@ public final class SkillLevelBroadcastListener implements Listener {
         if (pending.isEmpty()) {
             return;
         }
-        List<Map.Entry<PendingKey, Integer>> batch = new ArrayList<>(pending.entrySet());
+        List<Map.Entry<PendingKey, PendingAnnouncement>> batch = new ArrayList<>(pending.entrySet());
         pending.clear();
 
         int cap = Math.max(1, config.maxAnnouncementsPerBatch());
+        int minIntervalMillis = Math.max(0, config.minIntervalSeconds()) * 1000;
+        long now = System.currentTimeMillis();
         int emitted = 0;
         int dropped = 0;
-        for (Map.Entry<PendingKey, Integer> entry : batch) {
+        int throttled = 0;
+        for (Map.Entry<PendingKey, PendingAnnouncement> entry : batch) {
             if (emitted >= cap) {
                 dropped++;
                 continue;
             }
-            Player player = plugin.getServer().getPlayer(entry.getKey().playerId());
+            UUID playerId = entry.getKey().playerId();
+            if (minIntervalMillis > 0) {
+                Long last = lastAnnouncedAtMillis.get(playerId);
+                if (last != null && now - last < minIntervalMillis) {
+                    throttled++;
+                    continue;
+                }
+            }
+            Player player = plugin.getServer().getPlayer(playerId);
             if (player == null) {
                 continue; // 到達直後にログアウト/サーバ移動した場合は流さない
             }
-            announce(player, entry.getKey().skillId(), entry.getValue());
+            PendingAnnouncement pa = entry.getValue();
+            announce(player, entry.getKey().skillId(), pa.level(), pa.prestige());
+            if (minIntervalMillis > 0) {
+                lastAnnouncedAtMillis.put(playerId, now);
+            }
             emitted++;
         }
         if (emitted > 0) {
@@ -142,6 +238,10 @@ public final class SkillLevelBroadcastListener implements Listener {
         if (dropped > 0) {
             plugin.getLogger().fine("[" + LevelBroadcastConfig.PATH + "] 節目アナウンスが上限("
                     + cap + ")を超えたため " + dropped + " 件を省略しました。");
+        }
+        if (throttled > 0) {
+            plugin.getLogger().fine("[" + LevelBroadcastConfig.PATH + "] min-interval-seconds("
+                    + config.minIntervalSeconds() + ")の間隔内だったため " + throttled + " 件を省略しました。");
         }
     }
 
@@ -155,10 +255,13 @@ public final class SkillLevelBroadcastListener implements Listener {
      * javadoc に実測記録あり）。オンライン全員へ個別に送れば同じ結果になり、しかもテストできる。
      * コンソールにも残したいので、素のテキストだけ INFO ログへ出す。
      */
-    private void announce(Player player, String skillId, int level) {
+    private void announce(Player player, String skillId, int level, int prestige) {
         Component skillDisplay = MiniText.render(skillDisplayName.apply(skillId), null);
-        Component line = LevelBroadcastFormat.render(config.message(), player.getName(),
-                skillDisplay, level, this::warnOnce);
+        // 段1以上は専用テンプレート（%prestige% を持つ）。段0は従来どおりの書式のまま
+        // （既定の message-prestige を使うと出荷既定でも常に「1周目」等と出て冗長になる）。
+        String format = prestige >= 1 ? config.messagePrestige() : config.message();
+        Component line = LevelBroadcastFormat.render(format, player.getName(),
+                skillDisplay, level, prestige, this::warnOnce);
         for (Player online : plugin.getServer().getOnlinePlayers()) {
             online.sendMessage(line);
         }
@@ -285,5 +388,9 @@ public final class SkillLevelBroadcastListener implements Listener {
     }
 
     private record PendingKey(UUID playerId, String skillId) {
+    }
+
+    /** その tick で到達した最高の節目レベルと、その時点で読めたプレステージ段。 */
+    private record PendingAnnouncement(int level, int prestige) {
     }
 }

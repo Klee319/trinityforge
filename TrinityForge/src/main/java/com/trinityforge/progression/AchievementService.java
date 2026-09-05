@@ -3,6 +3,7 @@ package com.trinityforge.progression;
 import com.trinityforge.config.domains.AchievementsConfig;
 import com.trinityforge.config.domains.ExpGrant;
 import com.trinityforge.config.domains.ItemGrant;
+import com.trinityforge.items.ItemStackDrops;
 import com.trinityforge.pdc.PlayerData;
 import com.trinityforge.skilltree.runtime.PerkAttributeApplier;
 import com.trinityforge.stats.CrossPluginItemResolver;
@@ -486,10 +487,9 @@ public final class AchievementService {
             }
             ItemStack stack = built.get();
             stack.setAmount(grant.amount());
-            Map<Integer, ItemStack> leftover = player.getInventory().addItem(stack);
-            for (ItemStack drop : leftover.values()) {
-                player.getWorld().dropItemNaturally(player.getLocation(), drop);
-            }
+            // 2026-09-04 W-312: grant.amount() が99を超える設定でも、アイテムエンティティの
+            // コーデック上限(99)以下へ分割してから付与/床落ちさせる(ItemStackDrops 参照)。
+            ItemStackDrops.giveOrDropSplit(player, stack);
         }
     }
 

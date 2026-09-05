@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.logging.Level;
@@ -116,6 +117,21 @@ public final class MobOverridesConfig implements LoadableConfig {
     private static final String DISPLAY_NAME_KEY = "display-name";
     /** 特殊攻撃テンプレートIDの列(2026-07-31)。値は combat/mob-abilities.yml のキー。 */
     private static final String ABILITIES_KEY = "abilities";
+    /**
+     * モブ単位の技の発動「順番」指定(2026-09-04、UXレビュー #12「技選択のリズム」)。値は
+     * {@code abilities} と同じく combat/mob-abilities.yml のキー。{@code abilities} と違い
+     * <b>重複を許す</b>(同じ技を連続させる振り付けを書けるように)。
+     */
+    private static final String ABILITY_SEQUENCE_KEY = "ability-sequence";
+    /**
+     * モブ単位の共通クールダウン({@code MobAbilityTask#GLOBAL_GAP_KEY})の秒数上書き(2026-09-04)。
+     * 未設定はそのモブに {@code MobAbilitiesConfig#globalCooldownMillis()} を使わせる。
+     */
+    private static final String ABILITY_INTERVAL_SECONDS_KEY = "ability-interval-seconds";
+    /** {@code ability-interval-seconds} の丸め下限。これより短いと「常時発動」に近づく。 */
+    private static final double MIN_ABILITY_INTERVAL_SECONDS = 0.5;
+    /** {@code ability-interval-seconds} の丸め上限。誤って大きい値を書いても技が永久に沈黙しないため。 */
+    private static final double MAX_ABILITY_INTERVAL_SECONDS = 120.0;
     /**
      * scope 直下の技ダメージ倍率(2026-08-29)。通常攻撃には効かない。
      * {@code default} へ書いてもカスケードしない — 書いたワールドだけが対象。
@@ -419,6 +435,64 @@ public final class MobOverridesConfig implements LoadableConfig {
         return scale;
     }
 
+    /**
+     * このモブの技の発動「順番」指定(2026-09-04)。解決規則は {@link #abilitiesFor} と同じ REPLACE ——
+     * ワールドスコープが1件でも書いていればそれが全部で、default 側とは合成しない。
+     */
+    public List<String> abilitySequenceFor(String worldName, String mobId) {
+        if (mobId == null) {
+            return List.of();
+        }
+        String id = MobIdNormalizer.normalize(mobId);
+        String worldScope = worldScopeKey(worldName);
+        if (worldScope != null) {
+            List<String> worldSequence = abilitySequenceInScope(worldScope, id);
+            if (!worldSequence.isEmpty()) {
+                return worldSequence;
+            }
+        }
+        return abilitySequenceInScope(DEFAULT_SCOPE, id);
+    }
+
+    /**
+     * このモブ単位の共通クールダウン(秒)の上書き(2026-09-04)。未設定は {@link OptionalDouble#empty()}
+     * (呼び出し側は {@code MobAbilitiesConfig#globalCooldownMillis()} を使う)。解決規則は
+     * {@link #abilitiesFor} と同じ REPLACE(world scope が設定していればそれ、無ければ default)。
+     */
+    public OptionalDouble abilityIntervalSecondsFor(String worldName, String mobId) {
+        if (mobId == null) {
+            return OptionalDouble.empty();
+        }
+        String id = MobIdNormalizer.normalize(mobId);
+        String worldScope = worldScopeKey(worldName);
+        if (worldScope != null) {
+            Double worldValue = abilityIntervalInScope(worldScope, id);
+            if (worldValue != null) {
+                return OptionalDouble.of(worldValue);
+            }
+        }
+        Double defaultValue = abilityIntervalInScope(DEFAULT_SCOPE, id);
+        return defaultValue == null ? OptionalDouble.empty() : OptionalDouble.of(defaultValue);
+    }
+
+    private List<String> abilitySequenceInScope(String scopeName, String mobId) {
+        Map<String, MobOverrideEntry> mobs = scopes.get(scopeName);
+        if (mobs == null) {
+            return List.of();
+        }
+        MobOverrideEntry entry = mobs.get(mobId);
+        return entry == null ? List.of() : entry.abilitySequence();
+    }
+
+    private Double abilityIntervalInScope(String scopeName, String mobId) {
+        Map<String, MobOverrideEntry> mobs = scopes.get(scopeName);
+        if (mobs == null) {
+            return null;
+        }
+        MobOverrideEntry entry = mobs.get(mobId);
+        return entry == null ? null : entry.abilityIntervalSeconds();
+    }
+
     private List<String> abilitiesInScope(String scopeName, String mobId) {
         Map<String, MobOverrideEntry> mobs = scopes.get(scopeName);
         if (mobs == null) {
@@ -531,8 +605,24 @@ public final class MobOverridesConfig implements LoadableConfig {
                         }
                     }
                 }
+                // 2026-09-04: 発動「順番」指定。abilities と違い重複を許す(同じ技を連続させる振り付け)。
+                // sequence に書いた技は「撃てるのが直感」なので abilities へ自動追加する(警告なし)。
+                List<String> abilitySequence = new ArrayList<>();
+                for (String raw : mobSection.getStringList(ABILITY_SEQUENCE_KEY)) {
+                    if (raw != null && !raw.isBlank()) {
+                        String normalized = raw.trim().toLowerCase(java.util.Locale.ROOT);
+                        abilitySequence.add(normalized);
+                        if (!abilities.contains(normalized)) {
+                            abilities.add(normalized);
+                        }
+                    }
+                }
+                int[] intervalSkipped = {0};
+                Double abilityIntervalSeconds = parseAbilityIntervalSeconds(mobSection, scopeName, rawMobId, log,
+                        intervalSkipped);
+                skipped += intervalSkipped[0];
                 mobs.put(mobId, new MobOverrideEntry(statsResult.stats(), dropsResult.drops(), vanillaExp,
-                        displayName, abilities));
+                        displayName, abilities, abilitySequence, abilityIntervalSeconds));
                 mobCount++;
             }
             if (!mobs.isEmpty()) {
@@ -564,6 +654,22 @@ public final class MobOverridesConfig implements LoadableConfig {
             return null;
         }
         return value;
+    }
+
+    /**
+     * モブ単位 {@code ability-interval-seconds:}(2026-09-04)。未指定は {@code null}(呼び出し側は
+     * {@code MobAbilitiesConfig#globalCooldownMillis()} を使う従来どおりの挙動)。数値として不正な値は
+     * 警告のうえ {@code null}(未指定と同じ扱い)。数値として有効だが範囲外の値は {@code [MIN, MAX]} へ
+     * 丸める(他の秒数系フィールド ―― {@code MobAbility} の {@code cooldownSeconds} 等 ―― と同じ流儀)。
+     */
+    private static Double parseAbilityIntervalSeconds(ConfigurationSection mobSection, String scopeName,
+            String mobId, Logger log, int[] skipped) {
+        Double value = nullableValidatedDouble(mobSection, ABILITY_INTERVAL_SECONDS_KEY, scopeName, mobId,
+                ABILITY_INTERVAL_SECONDS_KEY, log, skipped);
+        if (value == null) {
+            return null;
+        }
+        return Math.max(MIN_ABILITY_INTERVAL_SECONDS, Math.min(MAX_ABILITY_INTERVAL_SECONDS, value));
     }
 
     /** {@code null} for a null/blank string, the trimmed value otherwise. */

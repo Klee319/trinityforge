@@ -109,6 +109,16 @@ public final class MobDropRoller {
     /**
      * ボーナス加算後の個数を安全な範囲へ収める(最低1個、上限は {@code maxStackSize × 8})。
      * 上限と下限は旧 {@code scaleCount} から変えていない。
+     *
+     * <p><b>この上限は「1エンティティに載せてよい個数」ではない。</b> 1回のドロップ抽選で
+     * 出す<b>総個数</b>の設計上限であり、{@code maxStackSize × 8} は素材が64スタックなら
+     * 512 になる ─ これは 1.21 系アイテムエンティティのコーデックが許す個数([1,99]、
+     * {@link com.trinityforge.items.ItemStackDrops} 参照)を軽々超える。
+     * したがって<b>呼び出し側はこの戻り値をそのまま1つの {@link org.bukkit.inventory.ItemStack}
+     * へ積んで地面へ落としてはならず</b>、必ず {@link com.trinityforge.items.ItemStackDrops#dropSplit}
+     * (または {@code split}/{@code giveOrDropSplit})を経由して複数エンティティへ分割すること。
+     * 直接 {@code world.dropItemNaturally(...)} や {@code event.getDrops().add(...)} へ渡すと、
+     * 99 個を超えた分がチャンク保存時に無言でシリアライズ失敗し消滅する(台帳 W-312)。
      */
     public static int cappedCount(int amount, int maxStackSize) {
         int cap = Math.max(1, maxStackSize) * 8;

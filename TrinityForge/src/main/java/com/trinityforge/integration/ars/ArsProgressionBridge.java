@@ -110,7 +110,8 @@ public final class ArsProgressionBridge {
         // 定額が無ければ部分カバーは「その素材ぶんが乗らないだけ」の単調な挙動になるので、
         // 分岐そのものが不要になる。儀式EXPは「消費ソースぶん + 素材ぶん」の2項だけで決まる。
         double base = sumMaterialExp(materialTokens, skillExp.arsSmithingExpPerMaterial());
-        base += sourceExp(consumedSource, skillExp.arsSmithingExpPerSource());
+        base += sourceExp(consumedSource, skillExp.arsSmithingExpPerSource(),
+                skillExp.arsSmithingMaxSourceExp());
         grantSmithingExpForResult(plugin, player, result, base);
     }
 
@@ -119,10 +120,28 @@ public final class ArsProgressionBridge {
      * (儀式側が返す値をそのまま信用せず、EXPが減る向きの寄与を作らない)。
      */
     public static double sourceExp(int consumedSource, double expPerSource) {
+        return sourceExp(consumedSource, expPerSource, 0.0);
+    }
+
+    /**
+     * 天井つきのソース由来EXP（2026-09-04）。{@code maxSourceExp} が正のときだけ頭打ちにする
+     * （{@code 0} 以下・非有限は天井なし）。
+     *
+     * <p><b>なぜ天井が要るか。</b> ソース要求量は階梯とともに桁で増える（ソースの欠片100 →
+     * 無限のソース核45,000,000）ので、係数を常識的な値にしても積が最大レベルぶんを超える。
+     * 実機で ARS_SMITHING の累計EXPが必要量の百万倍規模まで膨らみ、プレステージ直後に
+     * 数秒で最大レベルへ戻る状態になっていた。係数を下げるだけでは下位の儀式が無報酬に
+     * なるので、<b>下位はそのまま・上位だけ頭打ち</b>にする。
+     */
+    public static double sourceExp(int consumedSource, double expPerSource, double maxSourceExp) {
         if (consumedSource <= 0 || !Double.isFinite(expPerSource) || expPerSource <= 0.0) {
             return 0.0;
         }
-        return consumedSource * expPerSource;
+        double raw = consumedSource * expPerSource;
+        if (Double.isFinite(maxSourceExp) && maxSourceExp > 0.0) {
+            return Math.min(raw, maxSourceExp);
+        }
+        return raw;
     }
 
     /**

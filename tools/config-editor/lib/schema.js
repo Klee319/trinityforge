@@ -1028,6 +1028,11 @@ function validateTfSkillExp(data, errors) {
     // 0以上の数値。専用分岐は作らず、他スキルに同名キーが増えても同じ検証で構わない汎用扱いにする。
     const expPerSource = section["exp-per-source"];
     validateNonNegativeExpNumber(expPerSource, `${skill}.exp-per-source`, errors);
+    // 2026-09-04: 儀式1回のソース由来EXPの天井 (ars-smithing.max-source-exp-per-craft)。
+    // 0以上の数値。0 = 天井なし(Java SkillExpConfig#arsSmithingMaxSourceExp と同義)。
+    // exp-per-source と隣り合わせのキーなので同じ汎用検証を使う(スキル別分岐は作らない)。
+    const maxSourceExp = section["max-source-exp-per-craft"];
+    validateNonNegativeExpNumber(maxSourceExp, `${skill}.max-source-exp-per-craft`, errors);
     // 2026-07-30: 素材別クラフトEXP。キーは Material 名 または custom:<カタログID>、値は 0 以上の数値。
     // ⚠️ 2026-08-17: 表は2本ある(作業台の smithing.exp-per-material と儀式/Ars専用の
     // ars-smithing.exp-per-material)。それまで共用だったので editor で通常鍛冶の素材リストを
@@ -2235,6 +2240,14 @@ function validateTfMobOverrides(data, errors) {
       validateMobOverrideDrops(entry.drops, prefix, errors);
       validateMobOverrideVanillaExp(entry["vanilla-exp"], prefix, errors);
       validateMobAbilityRefs(entry.abilities, prefix, errors);
+      // 2026-09-04 予告機構「次段階」: ability-sequence(発動順・重複可)/ability-interval-seconds
+      validateMobAbilityRefs(entry["ability-sequence"], prefix, errors, "ability-sequence");
+      if (entry["ability-interval-seconds"] !== undefined && entry["ability-interval-seconds"] !== null) {
+        const v = entry["ability-interval-seconds"];
+        if (typeof v !== "number" || !Number.isFinite(v) || v < 0.5 || v > 120) {
+          errors.push(`${prefix}.ability-interval-seconds: 0.5〜120 の数値である必要があります`);
+        }
+      }
     }
   }
 }
@@ -2244,18 +2257,20 @@ function validateTfMobOverrides(data, errors) {
  * ここでは「文字列の配列で、IDの形が正しいか」だけを見る -- 実在チェックをしないのは、
  * Java 側もロード順に依存しない作りにしてあり(未定義IDは発動時に読み飛ばす)、
  * editor が別ファイルの内容に依存すると片方だけ保存したときに保存できなくなるため。
+ * ability-sequence(2026-09-04追加、発動順)も同じ形なので流用する。同じIDの重複は許す
+ * (順番に同じ技を複数回撃たせる書き方が正当なため、重複を弾いてはならない)。
  */
-function validateMobAbilityRefs(abilities, prefix, errors) {
+function validateMobAbilityRefs(abilities, prefix, errors, fieldName = "abilities") {
   if (abilities === undefined || abilities === null) return;
   if (!Array.isArray(abilities)) {
-    errors.push(`${prefix}.abilities: 配列である必要があります`);
+    errors.push(`${prefix}.${fieldName}: 配列である必要があります`);
     return;
   }
   abilities.forEach((v, i) => {
     if (typeof v !== "string" || !v.trim()) {
-      errors.push(`${prefix}.abilities[${i}]: 特殊攻撃テンプレートID(文字列)である必要があります`);
+      errors.push(`${prefix}.${fieldName}[${i}]: 特殊攻撃テンプレートID(文字列)である必要があります`);
     } else if (!/^[a-z0-9_]+$/.test(v.trim().toLowerCase())) {
-      errors.push(`${prefix}.abilities[${i}]: '${v}' はIDとして不正です (半角英小文字・数字・アンダースコアのみ)`);
+      errors.push(`${prefix}.${fieldName}[${i}]: '${v}' はIDとして不正です (半角英小文字・数字・アンダースコアのみ)`);
     }
   });
 }
@@ -2266,9 +2281,17 @@ function validateMobAbilityRefs(abilities, prefix, errors) {
 const MOB_ABILITY_TYPES = ["ground_slam", "projectile_volley", "charge", "aura",
   "teleport_strike", "beam", "summon",
   // 2026-08-16 追加
-  "repulse", "vortex_pull", "delayed_zone"];
+  "repulse", "vortex_pull", "delayed_zone",
+  // 2026-08-17 に Java 側へ追加されていたが editor の型一覧から漏れていた(出荷 yml の ember_spray が保存不能だった)
+  "projectile_rain",
+  // 2026-09-04 追加。fixed_zone は術者を追従しない床固定の持続領域(aura とは別物)
+  "fixed_zone"];
 
-/** Java の MobAbility が clamp する範囲。editor だけ広いと「保存できたのに実挙動が違う」になる。 */
+/**
+ * Java の MobAbility が clamp する範囲。editor だけ広いと「保存できたのに実挙動が違う」になる。
+ * cast-seconds / vertical-radius は combat/MobAbility.java のコンストラクタ(clamp呼び出し、
+ * castSeconds は 0 または [0.5, 2.5]、verticalRadius は [0.5, 8.0])を参照。
+ */
 const MOB_ABILITY_RANGES = {
   "damage-percent": [0, 100],
   "cooldown-seconds": [0.5, 600],
@@ -2279,7 +2302,15 @@ const MOB_ABILITY_RANGES = {
   "spread-degrees": [0, 360],
   "duration-seconds": [0, 60],
   "knockback": [0, 5],
-  "particle-count": [0, 500]
+  "particle-count": [0, 500],
+  "cast-seconds": [0, 2.5],
+  "vertical-radius": [0.5, 8],
+  "health-below": [0, 1],
+  "health-above": [0, 1],
+  // 2026-09-04 予告機構「次段階」追加
+  "interrupt-damage-fraction": [0.005, 0.5],
+  "interrupt-lockout-seconds": [0, 60],
+  "whiff-stagger-seconds": [0, 5]
 };
 
 function validateTfMobAbilities(data, errors) {
@@ -2287,6 +2318,14 @@ function validateTfMobAbilities(data, errors) {
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
   if (data.enabled !== undefined && typeof data.enabled !== "boolean") {
     errors.push("enabled: 真偽値である必要があります");
+  }
+  // 2026-09-04 予告機構「次段階」のグローバルキー
+  if (data["telegraph-lethal-atomic"] !== undefined && typeof data["telegraph-lethal-atomic"] !== "boolean") {
+    errors.push("telegraph-lethal-atomic: 真偽値である必要があります");
+  }
+  if (data["telegraph-bar-style"] !== undefined
+      && !["block", "ascii"].includes(String(data["telegraph-bar-style"]))) {
+    errors.push("telegraph-bar-style: block / ascii のいずれかである必要があります");
   }
   if (data["check-interval-ticks"] !== undefined) {
     const interval = data["check-interval-ticks"];
@@ -2310,6 +2349,12 @@ function validateTfMobAbilities(data, errors) {
         && !["physical", "magical"].includes(String(entry["damage-type"]).toLowerCase())) {
       errors.push(`${prefix}.damage-type: physical / magical のいずれかである必要があります`);
     }
+    if (entry.lethal !== undefined && typeof entry.lethal !== "boolean") {
+      errors.push(`${prefix}.lethal: 真偽値である必要があります`);
+    }
+    if (entry.interruptible !== undefined && typeof entry.interruptible !== "boolean") {
+      errors.push(`${prefix}.interruptible: 真偽値である必要があります`);
+    }
     for (const [key, bounds] of Object.entries(MOB_ABILITY_RANGES)) {
       const value = entry[key];
       if (value === undefined || value === null) continue;
@@ -2323,8 +2368,9 @@ function validateTfMobAbilities(data, errors) {
       }
     }
     // 型ごとの必須項目。空欄のまま保存すると Java 側は「発動しなかった」扱いで黙って何もしない。
-    if (entry.type === "projectile_volley" && !String(entry.projectile || "").trim()) {
-      errors.push(`${prefix}.projectile: projectile_volley では投射物(EntityType)の指定が必須です`);
+    if ((entry.type === "projectile_volley" || entry.type === "projectile_rain")
+        && !String(entry.projectile || "").trim()) {
+      errors.push(`${prefix}.projectile: ${entry.type} では投射物(EntityType)の指定が必須です`);
     }
     if (entry.type === "summon" && !String(entry["summon-type"] || "").trim()) {
       errors.push(`${prefix}.summon-type: summon では召喚するモブ(EntityType)の指定が必須です`);
@@ -2941,6 +2987,24 @@ function validateTfLevelBroadcast(data, errors) {
       // %player% と %level% は必須。欠けると「誰が何レベルか分からない行」になる。
       if (!data.message.includes("%player%")) errors.push("message: %player% が含まれていません");
       if (!data.message.includes("%level%")) errors.push("message: %level% が含まれていません");
+    }
+  }
+  // 2026-09-04 (W-313): プレステージ(NG+)段が1以上のときに使う書式。Java 側 LevelBroadcastFormat は
+  // message/message-prestige のどちらでも同じ toTemplate() を通すので、必須プレースホルダは message と同じ。
+  if (data["message-prestige"] !== undefined && data["message-prestige"] !== null) {
+    if (typeof data["message-prestige"] !== "string") {
+      errors.push("message-prestige: 文字列(MiniMessage)である必要があります");
+    } else {
+      if (!data["message-prestige"].includes("%player%")) errors.push("message-prestige: %player% が含まれていません");
+      if (!data["message-prestige"].includes("%level%")) errors.push("message-prestige: %level% が含まれていません");
+    }
+  }
+  // 2026-09-04 (W-313): 同一プレイヤーの全体放送を絞る間隔。0〜3600、0=無効。
+  // Java 側は範囲外を警告なしで丸めるが、エディタ側では明示的に弾く(他の範囲キーと同じ方針)。
+  if (data["min-interval-seconds"] !== undefined && data["min-interval-seconds"] !== null) {
+    const mis = data["min-interval-seconds"];
+    if (!isNonNegInteger(mis) || mis > 3600) {
+      errors.push("min-interval-seconds: 0以上3600以下の整数である必要があります");
     }
   }
 

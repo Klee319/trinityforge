@@ -88,7 +88,11 @@ class SkillLevelBroadcastListenerTest {
     @Test
     @DisplayName("同一tickに多数のスキルが節目へ届いても max-announcements-per-batch で頭打ちになる")
     void batchIsCapped() throws IOException {
-        PlayerMock player = register("multiple-of: 10\nmax-announcements-per-batch: 2\n");
+        // min-interval-seconds は既定30だと同一プレイヤーへの2件目以降を別機構(流量制限)で
+        // 落としてしまい、この上限テストの意図(バッチ上限そのもの)とかぶるため無効化する。
+        // 流量制限自体は SkillLevelBroadcastPrestigeTest で別途固定している。
+        PlayerMock player = register(
+                "multiple-of: 10\nmax-announcements-per-batch: 2\nmin-interval-seconds: 0\n");
 
         BukkitSkillLevelUpDispatcher dispatcher = new BukkitSkillLevelUpDispatcher(plugin);
         for (String skill : List.of("MINING", "FARMING", "FISHING", "DIGGING")) {

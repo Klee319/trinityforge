@@ -279,7 +279,11 @@ public final class MobLevelTableListener implements Listener {
                 // アイテムとみなす規約は combat/mob-overrides.yml(ダンジョンボス表)限定で、こちらの
                 // add-drops は帯ごとのフィールド報酬。実際 dragon_scale は chance 1.0 / min 0 max 2 /
                 // where: field で、「確定＝全員に配ってよいもの」ではない。
-                com.trinityforge.mobs.EliteMobsSharedLootBridge.deliver(event, stack);
+                // 2026-09-04 W-312: cappedCount 後の個数はアイテムエンティティのコーデック上限
+                // (99)を超えうるので、deliver へ渡す前に ItemStackDrops.split で分割する。
+                for (ItemStack part : com.trinityforge.items.ItemStackDrops.split(stack)) {
+                    com.trinityforge.mobs.EliteMobsSharedLootBridge.deliver(event, part);
+                }
             }
         }
 
