@@ -31,6 +31,12 @@
 #   repulse           全方位へ強く吹き飛ばす(上へも飛ぶ)。位置を崩すのが本体
 #   vortex_pull       周囲を自分の方へ引き寄せる(repulse の逆向き)。遠距離の張り付かない立ち回りを崩す
 #   delayed_zone      対象の足元へ印を置き、遅れて着弾する。予告を見て動けば避けられる代わりに高倍率
+#   fixed_zone        （2026-09-04追加）対象の足元へ【床に固定された持続領域】を作る。aura との違いは
+#                     「aura は術者を追従する、fixed_zone は展開後の位置が動かない」。詠唱(cast-seconds、
+#                     未指定なら1.5秒)の間は輪の予告だけで無ダメージ、展開後は duration-seconds(既定6秒)
+#                     の間 1 秒ごとに判定を刻む。予告予算は【展開までを予告として数え、展開時に解放する】
+#                     ── 展開後の領域は「予告済みの一撃」ではなく床の持続効果として別枠で扱うため。
+#                     術者が展開後に死んでも領域自体は残る(床に固定されているのが本質)。
 #
 # 【共通パラメータ】
 #   display-name      発動時に周囲へアクションバーで出す技名（空なら無表示）。MiniMessage 可
@@ -64,6 +70,32 @@
 #                     倍率だけ上げて門を付けないと、開幕から即死技が飛ぶ理不尽になるので必ずセットで書く
 #   health-above      自分の残HP割合がこの値以上のときだけ撃つ (既定 0.0 = 制限なし)。
 #                     health-below と組み合わせると「HP 40〜70% の中盤だけ出る技」も書ける
+#   cast-seconds      予告（詠唱）時間（既定 0.0 = 予告なし＝現行どおり即時発動）。
+#                     0.5 未満を書くと 0.5 へ切り上げる（書き間違いで"予告付きのつもり"が
+#                     回避不能技に化けるのを防ぐため。0 だけは例外で予告なしのまま）。上限 2.5 秒。
+#                     delayed_zone は cast-seconds 未指定なら duration-seconds を予告時間として読む
+#                     （後方互換）。両方書くと cast-seconds を優先し、読み込み時に警告を出す。
+#                     ※ 第1波では yml に実際の値を書かない（挙動変更は次段階。今はフィールドだけ用意）
+#   lethal            致命予告かどうか（既定 false）。予告予算（同時に持てる予告の枠）を
+#                     致命1本・合計2本に絞るための分類でしかなく、最終ダメージの計算には効かない
+#   vertical-radius   AbilityShapes の垂直判定半径（既定 3.0、0.5〜8.0 に丸める）。
+#                     「同じ床にいる」を表す値で、段差1〜2ブロックは拾い上の階へは効かない。
+#                     radius へはフォールバックしない（フォールバックすると垂直判定が
+#                     水平半径と同じ大きさになり、「半径6の技が上下6ブロックにも当たる」理不尽に戻る）
+#   interruptible     （2026-09-04追加）殴る／スタンで詠唱を中断できるか（既定 false）。
+#                     中断されると不発になり、同じ技に interrupt-lockout-seconds のロックがかかる。
+#                     【中断可にしてよいのは放置すると悪化する技だけ】── 増援・召喚・自己強化・
+#                     領域展開(fixed_zone/delayed_zone)・回復。火力技(ground_slam/beam/charge等)は
+#                     中断可にしない。殴れば止まる火力技にすると、その技自体の意味が無くなるため
+#   interrupt-damage-fraction
+#                     中断に必要な累積被ダメージ（自身の最大HPに対する割合。既定 0.03、0.005〜0.5）
+#   interrupt-lockout-seconds
+#                     中断された技が再詠唱できるまでの秒数（既定 8.0、0〜60）
+#   whiff-stagger-seconds
+#                     （2026-09-04追加）詠唱付きの技が誰にも当たらなかった(空振り)ときに、術者自身へ
+#                     掛ける硬直(鈍足255＝実質移動停止)の秒数（既定 0＝無し、0〜5）。同じモブが
+#                     8秒以内に連続で硬直することはない。【雑魚に付けないこと】── 硬直は「大技を外した
+#                     隙」を作る演出で、雑魚に付けると空振りのたびに無力化されて緊張感が消える
 #
 # 【damage-percent の水準】(2026-08-21 W-183 「技ダメの耐発数が通常より多いのは違和感」)
 #   技にはテンプレごとのクールダウン(8〜45秒)とモブ共通クールダウン(12秒)と発動率があり、
@@ -134,6 +166,18 @@ require-line-of-sight: true
 # ウィザーのビームが完全物理に化けることはない。
 ability-element-bias: 0.35
 
+# 【致命予約の原子化】(2026-09-04追加、Codex UXレビュー #10)
+# 致命(lethal: true)の予告は、既定では脅威圏内の主対象【全員ぶん】の予告予算枠が取れないと詠唱を
+# 始めない(取れた分は release して撃たない)。false にすると従来どおりベスト・エフォート
+# (主対象だけ枠が取れれば撃ち、他の人は表示だけ出て予算は消費しない)。
+# 非致命の予告はこのキーに関わらず常にベスト・エフォート。
+telegraph-lethal-atomic: true
+
+# 【予告バーの文字表記】(2026-09-04追加、Codex UXレビュー #3)
+# block: ▮▯ (既定) / ascii: [###--] 形式。統合版の一部フォント／解像度で ▮▯ が欠落表示になる
+# 対策として ascii を選べるようにしてある。
+telegraph-bar-style: block
+
 abilities:
 
   # ---------------------------------------------------------------------------
@@ -155,7 +199,7 @@ abilities:
 
   # 足を止めさせる版。ダメージは軽いが鈍足が乗るので、逃げ足で解決させない。
   crippling_stomp:
-    display-name: "<gold>足砕き</gold>"
+    display-name: "<red>足砕き</red>"
     type: ground_slam
     damage-type: physical
     damage-percent: 1.15
@@ -182,7 +226,7 @@ abilities:
   # 技名どおり頭上から降らせる projectile_rain へ変更する。矢1本あたりのダメージは
   # モブの通常攻撃と同じ(TF のパイプラインを通る)ので、当たる本数がそのまま威力になる。
   arrow_fan:
-    display-name: "<yellow>矢の雨</yellow>"
+    display-name: "<light_purple>矢の雨</light_purple>"
     type: projectile_rain
     damage-type: physical
     damage-percent: 0.0   # 投射物のダメージは矢の着弾側で計算される（ここで二重取りしない）
@@ -197,7 +241,7 @@ abilities:
     sound: ENTITY_SKELETON_SHOOT
 
   ember_spray:
-    display-name: "<red>火の粉</red>"
+    display-name: "<light_purple>火の粉</light_purple>"
     type: projectile_volley
     damage-type: magical
     damage-percent: 0.0
@@ -231,7 +275,7 @@ abilities:
     sound: ENTITY_RAVAGER_ROAR
 
   shadow_step:
-    display-name: "<dark_purple>影渡り</dark_purple>"
+    display-name: "<light_purple>影渡り</light_purple>"
     type: teleport_strike
     damage-type: physical
     damage-percent: 1.55
@@ -248,7 +292,7 @@ abilities:
   # 立ち位置強制型 — 「そこに居続けられない」を作る
   # ---------------------------------------------------------------------------
   withering_aura:
-    display-name: "<dark_gray>枯死の霧</dark_gray>"
+    display-name: "<red>枯死の霧</red>"
     type: aura
     damage-type: magical
     damage-percent: 0.4
@@ -266,7 +310,7 @@ abilities:
     sound: ENTITY_WITHER_AMBIENT
 
   frost_field:
-    display-name: "<aqua>凍気</aqua>"
+    display-name: "<red>凍気</red>"
     type: aura
     damage-type: magical
     damage-percent: 0.42
@@ -304,7 +348,7 @@ abilities:
   # 増援型 — 「単体火力だけでは処理しきれない」を作る
   # ---------------------------------------------------------------------------
   call_the_horde:
-    display-name: "<red>招集</red>"
+    display-name: "<green>招集</green>"
     type: summon
     damage-percent: 0.0
     cooldown-seconds: 40
@@ -318,7 +362,7 @@ abilities:
     sound: ENTITY_ZOMBIE_VILLAGER_CONVERTED
 
   call_the_swarm:
-    display-name: "<dark_purple>群れを呼ぶ</dark_purple>"
+    display-name: "<green>群れを呼ぶ</green>"
     type: summon
     damage-percent: 0.0
     cooldown-seconds: 45
@@ -338,7 +382,7 @@ abilities:
   # 吹き飛ばしそのものが技。ダメージは控えめにして、位置を崩されること自体を脅威にする。
   # 崖・溶岩・奈落のある部屋では、この技が事実上の最大火力になる点に注意。
   gale_smash:
-    display-name: "<red>烈風叩き</red>"
+    display-name: "<aqua>烈風叩き</aqua>"
     type: repulse
     damage-type: physical
     damage-percent: 1.25
@@ -357,7 +401,7 @@ abilities:
   # charge(突進)は敵が動くので遮蔽で切れるが、これは相手を動かすので遮蔽では切れない。
   # ダメージはほぼ無く、引きずり込んだ先の近接技で殺すための布石として使う。
   abyssal_grip:
-    display-name: "<dark_purple>深淵の手</dark_purple>"
+    display-name: "<aqua>深淵の手</aqua>"
     type: vortex_pull
     damage-type: magical
     damage-percent: 1.1
@@ -397,7 +441,7 @@ abilities:
     sound: ENTITY_GENERIC_EXPLODE
 
   quake_spikes:
-    display-name: "<gray>地烈の棘</gray>"
+    display-name: "<gold>地烈の棘</gold>"
     type: delayed_zone
     damage-type: physical
     damage-percent: 2.0   # 予告1.8秒。同上(W-183)
@@ -418,7 +462,7 @@ abilities:
   # ---------------------------------------------------------------------------
 
   flare_slam:
-    display-name: "<gold>灼熱の踏み込み</gold>"
+    display-name: "<red>灼熱踏み込み</red>"
     type: ground_slam
     damage-type: magical      # shockwave の魔法版
     damage-percent: 1.45
@@ -436,7 +480,7 @@ abilities:
     sound: ENTITY_BLAZE_SHOOT
 
   void_lunge:
-    display-name: "<dark_purple>虚無の踏み込み</dark_purple>"
+    display-name: "<red>虚無踏み込み</red>"
     type: charge
     damage-type: magical      # bull_rush の魔法版
     damage-percent: 1.7
@@ -450,7 +494,7 @@ abilities:
     sound: ENTITY_ENDERMAN_TELEPORT
 
   searing_lance:
-    display-name: "<red>貫きの刺突</red>"
+    display-name: "<light_purple>貫きの刺突</light_purple>"
     type: beam
     damage-type: physical     # piercing_beam の物理版
     damage-percent: 1.7
@@ -464,7 +508,7 @@ abilities:
     sound: ENTITY_PLAYER_ATTACK_CRIT
 
   bleeding_aura:
-    display-name: "<dark_red>血の領域</dark_red>"
+    display-name: "<red>血の領域</red>"
     type: aura
     damage-type: physical     # withering_aura / frost_field の物理版
     damage-percent: 0.4
@@ -493,7 +537,7 @@ abilities:
   # ---------------------------------------------------------------------------
 
   desperation_nova:
-    display-name: "<light_purple><bold>崩落の詠唱</bold></light_purple>"
+    display-name: "<gold><bold>崩落の詠唱</bold></gold>"
     type: delayed_zone
     damage-type: magical
     damage-percent: 2.5       # 瀕死技の枠(最大HPの 5/6 まで)
@@ -509,7 +553,7 @@ abilities:
     sound: ENTITY_WITHER_SPAWN
 
   last_stand_quake:
-    display-name: "<gray><bold>断末の震え</bold></gray>"
+    display-name: "<gold><bold>断末の震え</bold></gold>"
     type: delayed_zone
     damage-type: physical
     damage-percent: 2.3

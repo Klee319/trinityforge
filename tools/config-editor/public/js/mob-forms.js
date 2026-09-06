@@ -1734,6 +1734,75 @@
     return box;
   }
 
+  // ability-sequence (発動順、2026-09-04)。abilities: と違い「同じIDの重複を許す」配列で、
+  // 書くとランダム抽選をやめてこの順で回す(発動率chanceは無視される)。書いたIDは abilities: に
+  // 無くても自動で含まれる。ボス・中ボスにだけ書く想定(雑魚に書くと予測可能になりすぎる)。
+  // abilityIdSelect をそのまま流用する(重複IDの選択も普通に選べるので特別扱い不要)。
+  function buildAbilitySequenceBlock(host) {
+    const box = h("div", { class: "card-list-body" });
+    function render() {
+      box.innerHTML = "";
+      box.appendChild(h("div", {
+        class: "field-desc",
+        style: "font-size:11px;color:var(--muted,#6b7280);margin:0 0 4px;",
+        text: "書くと発動率(chance)を無視してこの順番で技を回します(同じIDの重複可)。"
+          + "ここに書いたIDは abilities: に無くても自動的に含まれます。ボス・中ボス専用です"
+          + "(雑魚に書くと行動が読めてしまいます)。"
+      }));
+      const list = Array.isArray(host["ability-sequence"]) ? host["ability-sequence"] : [];
+      if (!list.length) {
+        box.appendChild(h("div", {
+          class: "field-desc",
+          style: "font-size:11px;color:var(--muted,#6b7280);",
+          text: "未設定(ランダム抽選のまま)。"
+        }));
+      }
+      const candidates = Array.isArray(window.MOB_ABILITY_IDS) ? window.MOB_ABILITY_IDS : [];
+      list.forEach((value, index) => {
+        const row = h("div", { class: "stat-row" });
+        row.appendChild(h("span", { class: "range-label", text: String(index + 1) }));
+        row.appendChild(abilityIdSelect(String(value), candidates, (nv) => {
+          host["ability-sequence"][index] = nv;
+        }));
+        row.appendChild(h("button", {
+          class: "btn-small danger", type: "button", text: "×",
+          onclick: () => {
+            host["ability-sequence"].splice(index, 1);
+            if (!host["ability-sequence"].length) delete host["ability-sequence"];
+            render();
+          }
+        }));
+        box.appendChild(row);
+      });
+      box.appendChild(h("button", {
+        class: "btn-small", type: "button", text: "+ 手順に追加",
+        onclick: () => {
+          if (!Array.isArray(host["ability-sequence"])) host["ability-sequence"] = [];
+          host["ability-sequence"].push(candidates.length ? candidates[0] : "");
+          render();
+        }
+      }));
+    }
+    render();
+    return box;
+  }
+
+  // ability-interval-seconds (2026-09-04)。未指定は mob-abilities.yml の
+  // global-cooldown-seconds に従う(空欄=キーを書かない)。
+  function buildAbilityIntervalField(host) {
+    const input = window.numberInput(
+      host["ability-interval-seconds"] == null ? "" : host["ability-interval-seconds"],
+      (v) => {
+        if (v === null || v === "") { delete host["ability-interval-seconds"]; return; }
+        host["ability-interval-seconds"] = Math.max(0.5, Math.min(120, v));
+      }, { int: false });
+    return fieldRow("ability-interval-seconds", input, {
+      label: "技と技の間合い秒 (省略可)",
+      desc: "このモブの技と技の間隔。0.5〜120。空欄なら mob-abilities.yml の"
+        + " global-cooldown-seconds に従います。"
+    });
+  }
+
   // 表示名(display-name)欄。ダンジョン(スコープ)とモブで同じ意味・同じ扱いなので共通化する。
   // 空欄で保存するとキーごと消す(未設定 = EliteMobs側の名前をそのまま使う)。
   function buildDisplayNameField(host, opts) {
@@ -1748,6 +1817,25 @@
       if (typeof opts.onChange === "function") opts.onChange(nv);
     });
     return fieldRow("display-name", input, { label: opts.label, desc: opts.desc });
+  }
+
+  // ダンジョン単位の技ダメージ倍率(2026-08-29)。通常攻撃には効かない。空欄=キーごと削除=1.0。
+  // default スコープには出さない(Java 側が default をカスケードしないので、書いても無意味かつ誤解を招く)。
+  function buildAbilityDamageScaleField(host) {
+    const input = window.numberInput(host["ability-damage-scale"] == null ? "" : host["ability-damage-scale"], (v) => {
+      if (v === null || v === "") {
+        delete host["ability-damage-scale"];
+        return;
+      }
+      host["ability-damage-scale"] = v;
+    }, { int: false });
+    return fieldRow("ability-damage-scale", input, {
+      label: "技ダメージ倍率 (省略可)",
+      desc: "このダンジョンの特殊攻撃だけに掛かる倍率。通常攻撃・HPには効きません。"
+        + "技テンプレは他ダンジョンと共有なので、ここの値で「このダンジョンの技だけ」弱めます。"
+        + "空欄=キーを書かない(等倍)。1.0 を書いて打ち消す用途ではないので、不要なら空欄のままに。"
+        + "default には書けません(書いても全ダンジョンには掛かりません)。"
+    });
   }
 
   // 再描画をまたいで開閉状態を保つ(collapsibleCard の推奨パターン)。
@@ -1841,6 +1929,9 @@
       buildOverrideExpBlock(mobEntry),
       subTitle("特殊攻撃 (abilities)"),
       buildAbilitiesBlock(mobEntry),
+      subTitle("発動順 (ability-sequence)"),
+      buildAbilitySequenceBlock(mobEntry),
+      gridRow([buildAbilityIntervalField(mobEntry)]),
       h("div", { class: "mob-drops-section" }, [
         window.fieldLabelEl("drops"),
         h("div", {
@@ -1961,7 +2052,8 @@
           desc: "GUIやログでこのダンジョンを指す名前。空欄ならワールド名をそのまま使います。",
           placeholder: jaName || scopeName,
           onChange: (nv) => { titleLabel.textContent = nv || jaName || scopeName; }
-        })
+        }),
+        buildAbilityDamageScaleField(scope)
       ]));
     }
     // ダンジョン単位の難易度倍率 (2026-08-14)。scope 直下の stats: は「そのダンジョンの全モブに

@@ -212,7 +212,9 @@ JVM は未ロードのクラスを実行時に jar から読みに行くため�
 - `tools/config-editor/tool-config.json` の `deployPaths` は Dev_Server 向き。TF はジャンクション経由で3台に
   効くが、**ArsPaper（`arspaper` 側）は Dev にしか届かない**ことに注意。
 - ビルドから配備までを 1 本にしたのが `ops/launch/deploy.cmd`（更新のあるものだけビルド →
-  稼働チェック → jar を配る）。詳細と更新判定の限界は `ops/RUNBOOK.md` 手順 13-5。
+  実機 jar と SHA256 が違うものだけコピー）。EliteMobs はビルド SKIP でも
+  `testbed/plugins/EliteMobs.jar` が実機と違えば main / dev へ配る。詳細と更新判定の限界は
+  `ops/RUNBOOK.md` 手順 13-5。
   `launch` フォルダ自体を配置先へコピーするのは別スクリプト `ops/launch/deploy-launch.cmd`。
 - **配備先のファイル名は「今入っている名前」に合わせる。** ステージされる成果物は
   `TrinityForge-all.jar` だが実機は `TrinityForge-0.1.0-SNAPSHOT-all.jar`。成果物名でコピーすると

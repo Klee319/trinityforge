@@ -788,6 +788,34 @@ class ShippedBossStrengthDriftTest {
                         + "生値は型によって 20% 前後ずれる。");
     }
 
+    @Test
+    @DisplayName("エンチャント試練10本は技倍率 0.70 を持ち、振れ型(damage-modifier)を持たない")
+    void enchantmentTrialsScaleAbilitiesAndDropDamageModifierVariance() throws IOException {
+        YamlConfiguration yaml = loadShippedYaml(MobOverridesConfig.PATH);
+        List<String> problems = new ArrayList<>();
+        for (int n = 1; n <= TRIAL_COUNT; n++) {
+            String world = "em_id_enchantment_challenge_" + n;
+            String scalePath = "overrides." + world + ".ability-damage-scale";
+            if (!yaml.isSet(scalePath)) {
+                problems.add(world + ": ability-damage-scale が無い");
+            } else {
+                double scale = yaml.getDouble(scalePath);
+                if (Math.abs(scale - 0.70) > 1e-9) {
+                    problems.add(world + ": ability-damage-scale が " + scale + " (期待 0.70)");
+                }
+            }
+            ConfigurationSection stats = yaml.getConfigurationSection("overrides." + world + ".stats");
+            ConfigurationSection attack = stats == null ? null : stats.getConfigurationSection("attack");
+            if (attack != null && attack.isSet("damage-modifier")) {
+                problems.add(world + ": stats.attack.damage-modifier が残っている(試練は振れ型を使わない)");
+            }
+        }
+        assertEquals(List.of(), problems,
+                "エンチャント試練の技倍率/振れ型が仕様から外れている: " + problems
+                        + "。技テンプレは他ダンジョンと共有なので、試練だけ弱めるレバーは"
+                        + " ability-damage-scale。振れ型は技の上振れと重なるのでこの10本からは外した。");
+    }
+
     /**
      * 「scope 直下の<b>絶対値</b>の上に、個体の<b>倍率</b>が乗る」ことを実装で確かめる。
      *

@@ -6,17 +6,9 @@ config-editor で保存すると本文コメントは復元されないため([t
 
 ## 本文コメント一覧(元のyml内での出現順)
 
-### 直後: `amplifier-per-quality: 0.5`
+### 直後: `duration-percent-per-tenth-point: 1.0`
 
 ```
-品質1ポイントあたりの強度(amplifier)加算。切り捨て(Math.floor)で整数キャストしてから適用する。
+品質 0.1 ポイントあたりの持続時間変化(%)。1.0 なら 0.1pt で +1%、1.0pt で +10%。
+0 を下回った分は同じ割合で持続時間が短くなる。強度(amplifier)は品質では動かさない。
 ```
-
-### 直後: `lingering-splash-duration-ticks-per-quality: 10.0`
-
-```
-スプラッシュ/残留ポーション限定の追加時間加算(tick、品質1ポイントあたり)。
-alchemy.yml B-beta-1「残留時間UP・スプラッシュ強度UP」も potion_quality_bonus と同じ仕組みで
-表現するため、この値は通常ポーションへの duration-ticks-per-quality に上乗せする追加分。
-```
-

@@ -11,10 +11,14 @@ import com.trinityforge.stats.ItemStatProfile;
 import com.trinityforge.stats.PlayerLootLuckSource;
 import com.trinityforge.stats.QualityTier;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -237,6 +241,45 @@ class PickupQualityListenerTest {
     }
 
     @Test
+    void pickupClickDoesNotSweepBecauseItWouldGhostDuringDrag() {
+        configureConfigured(3);
+        PlayerMock player = server.addPlayer();
+        player.getInventory().setItem(0, diamondSword());
+        InventoryClickEvent event = mock(InventoryClickEvent.class);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getAction()).thenReturn(InventoryAction.PICKUP_ALL);
+
+        listener.onClick(event);
+        server.getScheduler().performTicks(2);
+
+        verify(itemFactory, never()).stamp(any(), anyLong(), anyInt());
+    }
+
+    @Test
+    void dragDoesNotSweepBecauseItWouldGhost() {
+        configureConfigured(3);
+        PlayerMock player = server.addPlayer();
+        player.getInventory().setItem(0, diamondSword());
+        InventoryDragEvent event = mock(InventoryDragEvent.class);
+        when(event.getWhoClicked()).thenReturn(player);
+
+        listener.onDrag(event);
+        server.getScheduler().performTicks(2);
+
+        verify(itemFactory, never()).stamp(any(), anyLong(), anyInt());
+    }
+
+    @Test
+    void qualityAlreadySettledWhenARealRollSeedIsPresent() {
+        ItemStack stack = diamondSword();
+        ItemMeta meta = stack.getItemMeta();
+        ItemData.of(meta).setRollSeed(42L);
+        stack.setItemMeta(meta);
+        assertTrue(PickupQualityListener.qualityAlreadySettled(stack));
+        assertFalse(PickupQualityListener.qualityAlreadySettled(diamondSword()));
+    }
+
+    @Test
     void multipleClicksInSameTickCollapseToOneSweep() {
         configureConfigured(3);
         PlayerMock player = server.addPlayer();
@@ -354,6 +397,24 @@ class PickupQualityListenerTest {
         boolean stamped = listener.stampOwnerIfEligible(stack, pickerId);
 
         assertFalse(stamped, "no rollSeed yet means stampIfEligible has not run; owner stamp waits");
+        verify(itemFactory, never()).stamp(any(), anyLong(), anyInt());
+    }
+
+    @Test
+    void stampOwnerIfEligibleDoesNotCallItemFactoryStampForArsThreads() {
+        ItemStack stack = boundStamped(BindType.SOULBOUND);
+        ItemMeta meta = stack.getItemMeta();
+        meta.getPersistentDataContainer().set(
+                new NamespacedKey("arspaper", "thread_item_type"),
+                PersistentDataType.STRING,
+                "backpack");
+        stack.setItemMeta(meta);
+        UUID pickerId = UUID.randomUUID();
+
+        boolean stamped = listener.stampOwnerIfEligible(stack, pickerId);
+
+        assertTrue(stamped, "SOULBOUND Ars thread must still get an owner");
+        assertEquals(Optional.of(pickerId), ItemData.of(stack.getItemMeta()).owner());
         verify(itemFactory, never()).stamp(any(), anyLong(), anyInt());
     }
 

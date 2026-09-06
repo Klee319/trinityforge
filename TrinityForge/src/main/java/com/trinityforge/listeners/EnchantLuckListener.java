@@ -4,6 +4,7 @@ import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.CraftingFeaturesConfig;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.config.domains.EnchantLuckConfig;
+import com.trinityforge.stats.ItemIdentityCopy;
 import com.trinityforge.stats.StatKeys;
 import io.papermc.paper.registry.keys.tags.EnchantmentTagKeys;
 import org.bukkit.Registry;
@@ -13,6 +14,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.enchantment.EnchantItemEvent;
+import org.bukkit.event.enchantment.PrepareItemEnchantEvent;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
@@ -22,6 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * エンチャント運(stat: {@code enchant_luck})による {@link EnchantItemEvent} 結果の補正。
@@ -43,6 +47,9 @@ import java.util.Random;
  * </ol>
  * を行う。重み付けの係数は {@code stats/enchant-luck.yml}(config駆動、ハードコードしない)。
  *
+ * <p>運が {@link EnchantLuckConfig#vanillaParityLuck()} 未満のときは格上げせず、
+ * 確定レベルを下げる(下限1。エンチャントは消さない)。パリティ以上は従来どおり格上げする。
+ *
  * <p>{@link EventPriority#LOW} で動く: {@link OverEnchantListener}(HIGH)より確実に先に走るため、
  * このリスナーがバニラ上限を超えて格上げした値も OverEnchantListener の最終クランプで安全な
  * 範囲(プロファイルの絶対上限以下)に収まる — 二重に上限判定を実装する必要はない。
@@ -57,6 +64,8 @@ public final class EnchantLuckListener implements Listener {
     private final DedicatedEffectsConfig dedicatedEffects;
     private final CraftingFeaturesConfig craftingFeatures;
     private final Random random;
+    /** エンチャント台のプレビュー時点の個体。確定時にバニラが PDC を落とす経路への保険。 */
+    private final Map<UUID, ItemStack> identitySnapshots = new ConcurrentHashMap<>();
 
     public EnchantLuckListener(PlayerStatAggregator aggregator, EnchantLuckConfig config,
                                DedicatedEffectsConfig dedicatedEffects,
@@ -75,15 +84,42 @@ public final class EnchantLuckListener implements Listener {
         this.random = Objects.requireNonNull(random, "random");
     }
 
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPrepareEnchant(PrepareItemEnchantEvent event) {
+        if (event.getEnchanter() == null) {
+            return;
+        }
+        ItemStack item = event.getItem();
+        if (item == null || item.getType().isAir()) {
+            return;
+        }
+        identitySnapshots.put(event.getEnchanter().getUniqueId(), item.clone());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void restoreIdentityAfterEnchant(EnchantItemEvent event) {
+        if (event.getEnchanter() == null) {
+            return;
+        }
+        ItemStack snap = identitySnapshots.remove(event.getEnchanter().getUniqueId());
+        ItemIdentityCopy.copyRollQualityCatalog(snap, event.getItem());
+    }
+
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onEnchant(EnchantItemEvent event) {
         Player enchanter = event.getEnchanter();
         if (enchanter == null) return;
         double luck = Math.max(0.0, aggregator.aggregate(enchanter).totalOf(ENCHANT_LUCK));
-        if (luck <= 0.0) return;
 
         Map<Enchantment, Integer> enchants = event.getEnchantsToAdd();
         if (enchants.isEmpty()) return;
+
+        double parity = config.vanillaParityLuck();
+        if (parity > 0.0 && luck < parity) {
+            applyNerfs(enchants, luck, parity);
+            return;
+        }
+        if (luck <= 0.0) return;
 
         double baseChance = Math.min(1.0, config.levelBoostChancePerLuck() * luck);
         double overChance = Math.min(1.0, config.overenchantBonusChancePerLuck() * luck);
@@ -117,6 +153,36 @@ public final class EnchantLuckListener implements Listener {
                 enchants.put(extra, 1);
             }
         }
+    }
+
+    /**
+     * 運がパリティ未満のときの弱体化。確率 = {@code (1 - luck/parity) * chanceAtZero}。
+     * レベル1未満には下げない(付与そのものは消さない)。
+     */
+    private void applyNerfs(Map<Enchantment, Integer> enchants, double luck, double parity) {
+        double atZero = config.levelNerfChanceAtZero();
+        int maxSteps = config.levelNerfMaxSteps();
+        if (atZero <= 0.0 || maxSteps <= 0) {
+            return;
+        }
+        double chance = Math.min(1.0, atZero * (1.0 - luck / parity));
+        if (chance <= 0.0) {
+            return;
+        }
+        Map<Enchantment, Integer> nerfed = new HashMap<>();
+        for (Map.Entry<Enchantment, Integer> e : enchants.entrySet()) {
+            int level = e.getValue();
+            for (int step = 0; step < maxSteps && level > 1; step++) {
+                if (random.nextDouble() >= chance) {
+                    break;
+                }
+                level--;
+            }
+            if (level != e.getValue()) {
+                nerfed.put(e.getKey(), level);
+            }
+        }
+        nerfed.forEach(enchants::put);
     }
 
     private boolean isOverenchantUnlocked(Player player, Enchantment ench) {

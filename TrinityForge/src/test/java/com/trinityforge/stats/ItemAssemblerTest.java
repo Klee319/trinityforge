@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -148,6 +149,15 @@ class ItemAssemblerTest {
             assembler.assemble(meta, material, rollSeed, quality);
         } catch (TestAbortedException mockBukkitAttributeGap) {
             // Expected: see javadoc above. Anything else propagates and fails the test normally.
+        }
+    }
+
+    private static void assemblePreservingScoreTolerantly(
+            ItemAssembler assembler, ItemMeta meta, Material material, long rollSeed, int quality) {
+        try {
+            assembler.assemble(meta, material, rollSeed, quality, true);
+        } catch (TestAbortedException mockBukkitAttributeGap) {
+            // Expected for the same MockBukkit attribute API gap as assembleTolerantly().
         }
     }
 
@@ -320,6 +330,96 @@ class ItemAssemblerTest {
         List<Component> lore = meta.lore();
         assertTrue(lore == null || lore.stream().noneMatch(c -> plain(c).contains("should never appear")),
                 "an unresolvable catalog id must not throw and must add no flavor lore");
+    }
+
+    @Test
+    void qualityPromotionKeepsTheRandomRollScore(@TempDir File tempDir) throws IOException {
+        ItemStatsConfig itemStats = loadItemStats(tempDir, """
+                items:
+                  DIAMOND_SWORD:
+                    random:
+                      attack-power: { min: 0.0, max: 10.0 }
+                """);
+        itemStats.useRollModel(() -> new QualityRollModel(15, 0.15, 0.15, 0.0));
+        ItemAssembler assembler = assemblerWithStats(itemStats);
+        ItemMeta meta = freshMeta();
+
+        assembleTolerantly(assembler, meta, Material.DIAMOND_SWORD, 9876L, 2);
+        int before = ItemData.of(meta).qualityScore().orElseThrow();
+        assemblePreservingScoreTolerantly(assembler, meta, Material.DIAMOND_SWORD, 9876L, 3);
+        int after = ItemData.of(meta).qualityScore().orElseThrow();
+
+        assertEquals(before, after,
+                "same rollSeed with a quality-only promotion must not inflate the displayed pt score");
+    }
+
+    @Test
+    void qualityPromotionMigratesTheScoreForAnOlderItemWithoutTheCache(@TempDir File tempDir)
+            throws IOException {
+        ItemStatsConfig itemStats = loadItemStats(tempDir, """
+                items:
+                  DIAMOND_SWORD:
+                    random:
+                      attack-power: { min: 0.0, max: 10.0 }
+                """);
+        itemStats.useRollModel(() -> new QualityRollModel(15, 0.15, 0.15, 0.0));
+        ItemAssembler assembler = assemblerWithStats(itemStats);
+        ItemMeta meta = freshMeta();
+
+        assembleTolerantly(assembler, meta, Material.DIAMOND_SWORD, 9876L, 2);
+        int before = ItemData.of(meta).qualityScore().orElseThrow();
+        meta.getPersistentDataContainer().remove(
+                new org.bukkit.NamespacedKey("trinityforge", "quality_score"));
+        assertTrue(ItemData.of(meta).qualityScore().isEmpty());
+
+        assemblePreservingScoreTolerantly(assembler, meta, Material.DIAMOND_SWORD, 9876L, 3);
+
+        assertEquals(before, ItemData.of(meta).qualityScore().orElseThrow(),
+                "既存アイテムも、品質昇華前の品質でptを復元してから再刻印する");
+    }
+
+    @Test
+    void qualityPromotionTreatsMissingLegacyQualityAsZero(@TempDir File tempDir) throws IOException {
+        ItemStatsConfig itemStats = loadItemStats(tempDir, """
+                items:
+                  DIAMOND_SWORD:
+                    random:
+                      attack-power: { min: 0.0, max: 10.0 }
+                """);
+        QualityRollModel rollModel = new QualityRollModel(15, 0.15, 0.15, 0.0);
+        itemStats.useRollModel(() -> rollModel);
+        ItemAssembler assembler = assemblerWithStats(itemStats);
+        ItemMeta meta = freshMeta();
+        ItemData.of(meta).setRollSeed(9876L); // pre-quality-key legacy item
+
+        assemblePreservingScoreTolerantly(assembler, meta, Material.DIAMOND_SWORD, 9876L, 3);
+
+        ItemStatProfile profile = itemStats.profileFor(Material.DIAMOND_SWORD, null).orElseThrow();
+        int expected = QualityScoreCalculator.score(profile, 0, 9876L, rollModel, null);
+        assertEquals(expected, ItemData.of(meta).qualityScore().orElseThrow(),
+                "品質キーが無い旧個体は既定品質0を昇華前品質としてptを移行する");
+    }
+
+    @Test
+    void ordinaryReassemblyRecomputesScoreFromCurrentQuality(@TempDir File tempDir) throws IOException {
+        ItemStatsConfig itemStats = loadItemStats(tempDir, """
+                items:
+                  DIAMOND_SWORD:
+                    random:
+                      attack-power: { min: 0.0, max: 10.0 }
+                """);
+        QualityRollModel rollModel = new QualityRollModel(15, 0.15, 0.15, 0.0);
+        itemStats.useRollModel(() -> rollModel);
+        ItemAssembler assembler = assemblerWithStats(itemStats);
+        ItemMeta meta = freshMeta();
+
+        assembleTolerantly(assembler, meta, Material.DIAMOND_SWORD, 9876L, 2);
+        assembleTolerantly(assembler, meta, Material.DIAMOND_SWORD, 9876L, 3);
+
+        ItemStatProfile profile = itemStats.profileFor(Material.DIAMOND_SWORD, null).orElseThrow();
+        int expected = QualityScoreCalculator.score(profile, 3, 9876L, rollModel, null);
+        assertEquals(expected, ItemData.of(meta).qualityScore().orElseThrow(),
+                "通常の再組み立ては古いptを固定せず、現行品質/テーブルから再計算する");
     }
 
     private static ItemStatsConfig loadItemStats(File tempDir, String yaml) throws IOException {
@@ -598,5 +698,19 @@ class ItemAssemblerTest {
                 "no item-stats profile at all must NOT render a quality-tier header line, got: " + lore);
         assertEquals(0, ItemData.of(meta).quality(),
                 "no item-stats profile at all must have quality pinned to 0 in PDC");
+    }
+
+    @Test
+    void appendOwnerLoreIfMissingAddsOwnerLineOnceAndSkipsWhenPresent() {
+        ItemAssembler assembler = assembler(new ItemCatalogConfig(), new QualityTiersConfig());
+        ItemStack stack = new ItemStack(Material.STRING);
+        java.util.UUID owner = java.util.UUID.fromString("11111111-1111-1111-1111-111111111111");
+        stack.editMeta(meta -> ItemData.of(meta).setOwner(owner));
+
+        assertTrue(assembler.appendOwnerLoreIfMissing(stack), "所有者 PDC だけで lore が空なら行を足す");
+        String first = plain(stack.getItemMeta().lore().getFirst());
+        assertTrue(first.contains("所有者"), first);
+        assertFalse(assembler.appendOwnerLoreIfMissing(stack), "既にある所有者行を二重にしない");
+        assertEquals(1, stack.getItemMeta().lore().size());
     }
 }

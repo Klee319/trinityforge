@@ -65,11 +65,8 @@
     // T4 (2026-07-25): ArsPaper config.yml の mana.source-auto-consume.items をこのタブへ移設。
     // 保存先は ars-config (getExtraSaves)。
     { id: "source-auto-consume", label: "ソース自動消費", hint: "アイテム→マナ自動消費 (ArsPaper config.yml)" }
-    // T7 (2026-07-26): ポーション品質換算(alchemy-quality.yml)は「醸造ギミック」タブ、
-    // エンチャント運(enchant-luck.yml)は「エンチャントギミック」タブへそれぞれ表示移設した
-    // (T5 で一度この画面へ集約したが、ユーザー指示によりエンチャント/醸造関連の切り出し先を
-    // 各専用タブへ揃える形へ変更)。buildCraftingFeaturesPotionQualitySection /
-    // buildCraftingFeaturesEnchantLuckSection を参照。
+    // ポーション品質換算(alchemy-quality.yml)の GUI は 2026-08-29 に外した(yml 直編集)。
+    // エンチャント運は「エンチャントギミック」タブ (buildCraftingFeaturesEnchantLuckSection)。
   ];
 
   // item-stats タブと同一キー (EquipmentSlotResolver が認識するカテゴリ)
@@ -1102,7 +1099,7 @@
       root.appendChild(card(
         [h("span", { class: "entry-key-label", text: "返却の仕組み" })],
         [
-          formHint("解放したプレイヤーが置いた金床を対象アイテムの上に落とすと、下にある複数アイテムを同時に解体します。返却数 = floor(floor(素材数 × 解体Lv × %/100) × 返却倍率)。対象・素材が未設定、または返却数が0の場合は消費されません。素材数は「レシピから数える(input)」か「固定数(base-amount)」のどちらかで決まり、クラフトレシピを持たないアイテム(釣りのゴミ等)は必ず後者を使ってください。"),
+          formHint("解放したプレイヤーが置いた金床を対象アイテムの上に落とすと、下にある複数アイテムを同時に解体します。返却数 = floor(floor(素材数 × 戻り総% / 100) × 返却倍率)。戻り総%は下の tier 表の完全一致（Lv3 なら 60。無いレベルは 解体Lv × percent-per-level）。対象・素材が未設定、または返却数が0の場合は消費されません。素材数は作業台の形のマス（キーの種類数ではない）とネザライト強化だけを数えます。防具装飾の鍛冶と、同じ素材の別アイテム（カタログの革チェスト等）は含みません。クラフトレシピを持たないアイテムは base-amount を使ってください。"),
           field("レベルあたり返却%", window.numberInput(dis["percent-per-level"], (v) => {
             if (v == null) return;
             dis["percent-per-level"] = Math.max(0, Math.floor(v));
@@ -1559,45 +1556,22 @@
     return root;
   };
 
-  // ポーション品質換算 (alchemy-quality.yml)。醸造ギミックタブが呼ぶ。
-  // over-enchant 等と異なり保存先が crafting-features.yml とは別ファイルのため、working は
-  // 呼び出し元(buildBrewGimmickForm)が用意したコンパニオンデータをそのまま渡す。
-  window.buildCraftingFeaturesPotionQualitySection = function buildPotionQualitySection(pq) {
-    if (pq["duration-ticks-per-quality"] == null) pq["duration-ticks-per-quality"] = 20.0;
-    if (pq["amplifier-per-quality"] == null) pq["amplifier-per-quality"] = 0.5;
-    if (pq["lingering-splash-duration-ticks-per-quality"] == null) pq["lingering-splash-duration-ticks-per-quality"] = 10.0;
-    const body = h("div", { class: "const-body" });
-    body.appendChild(field("効果時間 加算(tick/品質1pt)", window.numberInput(pq["duration-ticks-per-quality"], (v) => {
-      if (v == null) return;
-      pq["duration-ticks-per-quality"] = v;
-    }), "20tick=1秒。"));
-    body.appendChild(field("強度(amplifier) 加算(/品質1pt)", window.numberInput(pq["amplifier-per-quality"], (v) => {
-      if (v == null) return;
-      pq["amplifier-per-quality"] = v;
-    }), "切り捨て(Math.floor)で整数キャストしてから適用。"));
-    body.appendChild(field("スプラッシュ/残留 追加時間(tick/品質1pt)", window.numberInput(pq["lingering-splash-duration-ticks-per-quality"], (v) => {
-      if (v == null) return;
-      pq["lingering-splash-duration-ticks-per-quality"] = v;
-    }), "通常の効果時間加算に上乗せする追加分。"));
-    return card(
-      [h("span", { class: "entry-key-label", text: "ポーション品質換算 (stat: potion_quality_bonus)" })],
-      [formHint("スキルツリー(alchemy.yml)の「品質+N」ノードで蓄積するstatを、醸造ポーションの効果時間・強度へ換算する係数。保存先: stats/alchemy-quality.yml。"), body]
-    );
-  };
-
   // エンチャント運 (enchant-luck.yml)。エンチャントギミックタブが呼ぶ。
-  // ポーション品質換算と同様、保存先が crafting-features.yml とは別ファイルのため working は
+  // 保存先が crafting-features.yml とは別ファイルのため working は
   // 呼び出し元(buildEnchantGimmickForm)が用意したコンパニオンデータをそのまま渡す。
   window.buildCraftingFeaturesEnchantLuckSection = function buildEnchantLuckSection(el) {
     if (el["level-boost-chance-per-luck"] == null) el["level-boost-chance-per-luck"] = 0.01;
     if (el["level-boost-max-steps"] == null) el["level-boost-max-steps"] = 2;
     if (el["overenchant-bonus-chance-per-luck"] == null) el["overenchant-bonus-chance-per-luck"] = 0.02;
     if (el["extra-enchant-chance-per-luck"] == null) el["extra-enchant-chance-per-luck"] = 0.005;
+    if (el["vanilla-parity-luck"] == null) el["vanilla-parity-luck"] = 10;
+    if (el["level-nerf-chance-at-zero"] == null) el["level-nerf-chance-at-zero"] = 0.5;
+    if (el["level-nerf-max-steps"] == null) el["level-nerf-max-steps"] = 2;
     const body = h("div", { class: "const-body" });
     body.appendChild(field("格上げ確率(/luck1.0)", window.numberInput(el["level-boost-chance-per-luck"], (v) => {
       if (v == null) return;
       el["level-boost-chance-per-luck"] = v;
-    }), "適用確率 = min(1.0, この値 × enchant_luck)。バニラ上限まで。"));
+    }), "適用確率 = min(1.0, この値 × enchant_luck)。バニラ上限まで。パリティ未満では使わない。"));
     body.appendChild(field("格上げ最大試行回数", window.numberInput(el["level-boost-max-steps"], (v) => {
       if (v == null) return;
       el["level-boost-max-steps"] = Math.max(0, Math.floor(v));
@@ -1610,9 +1584,21 @@
       if (v == null) return;
       el["extra-enchant-chance-per-luck"] = v;
     }), "抽選結果に無い別のエンチャントをレベル1で追加付与する確率(競合するものは付与しない)。"));
+    body.appendChild(field("バニラ同等になる運 (vanilla-parity-luck)", window.numberInput(el["vanilla-parity-luck"], (v) => {
+      if (v == null) return;
+      el["vanilla-parity-luck"] = Math.max(0, v);
+    }), "この値未満の運では格上げせず弱体化する。0 でナーフ無効(旧挙動)。"));
+    body.appendChild(field("運0の弱体化確率", window.numberInput(el["level-nerf-chance-at-zero"], (v) => {
+      if (v == null) return;
+      el["level-nerf-chance-at-zero"] = v;
+    }), "運0のときのレベル-1 試行確率。パリティ直前では 0 に近づく。"));
+    body.appendChild(field("弱体化最大試行回数", window.numberInput(el["level-nerf-max-steps"], (v) => {
+      if (v == null) return;
+      el["level-nerf-max-steps"] = Math.max(0, Math.floor(v));
+    }, { int: true }), "1回の抽選でレベルを-1できる最大回数。下限はレベル1。"));
     return card(
       [h("span", { class: "entry-key-label", text: "エンチャント運 (stat: enchant_luck)" })],
-      [formHint("スキルツリー(enchanting.yml)のbuffsで蓄積するstatを、エンチャントテーブルの格上げ抽選へ反映する重み付け。保存先: stats/enchant-luck.yml。"), body]
+      [formHint("スキルツリー(enchanting.yml)のbuffsで蓄積するstatを、エンチャントテーブルの補正抽選へ反映する重み付け。保存先: stats/enchant-luck.yml。運がパリティ未満なら弱体化、以上なら格上げ。"), body]
     );
   };
 
@@ -1723,17 +1709,9 @@
   // ============================================================
   // progression/crafting-features.yml (醸造ギミックタブ, potion-merge / brew-unlocks を担当)
   // ============================================================
-  window.buildBrewGimmickForm = function buildBrewGimmickForm(data, opts) {
+  window.buildBrewGimmickForm = function buildBrewGimmickForm(data) {
     const working = data && typeof data === "object" ? data : {};
     normalizeCraftingFeaturesWorking(working);
-
-    // T7 (2026-07-26): ポーション品質換算(alchemy-quality.yml)をこのタブへコンパニオン表示する。
-    // 保存先ファイルが crafting-features.yml とは別のため、鍛冶/伐採ギミックの
-    // craftingFeaturesData コンパニオンと同じ形(未指定なら getExtraSaves は空配列)で扱う。
-    const alchemyQualityData = opts && opts.alchemyQualityData && typeof opts.alchemyQualityData === "object"
-      ? opts.alchemyQualityData : undefined;
-    const hasAlchemyQuality = alchemyQualityData !== undefined;
-    const alchemyQualityWorking = hasAlchemyQuality ? alchemyQualityData : {};
 
     const root = h("div", { class: "dedicated-form" });
     root.appendChild(formHint(
@@ -1743,14 +1721,11 @@
     ));
     root.appendChild(window.buildCraftingFeaturesPotionMergeSection(working["potion-merge"]));
     root.appendChild(window.buildCraftingFeaturesBrewSection(working["brew-unlocks"]));
-    if (hasAlchemyQuality) {
-      root.appendChild(window.buildCraftingFeaturesPotionQualitySection(alchemyQualityWorking));
-    }
 
     return {
       element: root,
       getData: () => working,
-      getExtraSaves: () => hasAlchemyQuality ? [{ id: "alchemy-quality", data: alchemyQualityWorking }] : []
+      getExtraSaves: () => []
     };
   };
 

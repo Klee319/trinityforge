@@ -57,6 +57,9 @@ prestige:
   description: |-
     効率強化増幅+1
     幸運(採掘)+15%
+    採掘EXP増加+10%
+  buffs:
+    mining-exp-bonus: 0.1
 nodes:
   A:
     name: はじまりの鉱夫
@@ -161,8 +164,6 @@ nodes:
     dedicated-effects:
       - id: feature:haste-active-mining
         value: 2
-    mainhand-buffs:
-      haste-active-mining-cooldown-reduction: 0.25
     description: |-
       スキル発動で10sの高速破壊(採掘速度上昇IV)
       CT30s
@@ -179,8 +180,6 @@ nodes:
     dedicated-effects:
       - id: feature:haste-active-mining
         value: 3
-    mainhand-buffs:
-      haste-active-mining-cooldown-reduction: 0.25
     description: |-
       スキル発動で15sの高速破壊(採掘速度上昇V)
       CT30s

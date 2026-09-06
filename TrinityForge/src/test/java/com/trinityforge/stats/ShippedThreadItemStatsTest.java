@@ -225,8 +225,8 @@ class ShippedThreadItemStatsTest {
         m.put(300010, Thread.domain("村の英雄", "mob-drop-quality"));            // 襲撃を退けた者への報い
         m.put(300011, Thread.domain("体力増強", "food-restore-bonus"));          // 体力=回復と満腹
         m.put(300015, Thread.domain("飛行", "vanilla-exp-bonus"));              // 行動範囲が広がる=経験が増える
-        m.put(300016, Thread.domain("バックパック", "material-refund-chance"));  // 物を無駄にしない
-        m.put(300039, Thread.domain("浮遊", "woodcutting-extra-drop-chance"));  // 高所=樹上での作業
+        m.put(300016, Thread.domain("バックパック", "food-save-chance"));        // 常用=食料の持ち
+        m.put(300039, Thread.domain("浮遊", "break-vanilla-exp-bonus"));         // 空中での作業=破壊EXP
         // --- 2026-08-21 追加: 戦闘系24種 ---
         // 前半14種は武器アーキタイプとの「デザイナーズコンボ」、後半10種は汎用。
         // 主ステは武器の性格に寄せてある(短剣=会心率、弩=貫通、大剣=被ダメ軽減…)。

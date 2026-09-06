@@ -299,6 +299,44 @@ class DailyExpWindowPersistenceTest {
     }
 
     @Test
+    @DisplayName("良薬の切り下げは期限切れ行を消す（古い locked_at を書き戻さない）")
+    void persistRelievedAmountsDeletesExpiredRowsInsteadOfRewritingTheOldLock() throws SQLException {
+        UUID player = UUID.randomUUID();
+        DailyExpDiminishing.Settings s = settingsWithRelease();
+        DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
+        daily.consume(s, player, "MINING", 50_000.0);
+        persistenceWithRelease(daily).save(player);
+        assertFalse(store.load(player).isEmpty());
+
+        now.addAndGet((long) (25 * HOUR));
+        persistenceWithRelease(daily).persistRelievedAmounts(player);
+
+        assertTrue(store.load(player).isEmpty(),
+                "期限切れ行へ切り下げ量を書くと locked_at が残り、次の save が古い発動時刻へ引き戻す");
+    }
+
+    @Test
+    @DisplayName("wipeStored は DB だけ消し、リセット後に稼いだメモリは残す")
+    void wipeStoredDeletesDbButLeavesMemory() throws SQLException {
+        DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
+        DailyExpWindowPersistence persistence = persistence(daily);
+        UUID player = UUID.randomUUID();
+        daily.consume(settings(), player, "MINING", 3000.0);
+        persistence.save(player);
+
+        daily.clearPlayer(player);
+        daily.consume(settings(), player, "MINING", 200.0);
+        double kept = daily.accumulated(settings(), player, "MINING");
+        assertTrue(kept > 0.0);
+
+        persistence.wipeStored(player);
+
+        assertEquals(kept, daily.accumulated(settings(), player, "MINING"), 1e-9,
+                "非同期側が clearPlayer すると、リセット直後に稼いだ分まで消える");
+        assertTrue(store.load(player).isEmpty());
+    }
+
+    @Test
     @DisplayName("期限内の行はログインで消さない（掃除しすぎない）")
     void loadKeepsRowsThatAreStillWithinTheDeadline() throws SQLException {
         UUID player = UUID.randomUUID();

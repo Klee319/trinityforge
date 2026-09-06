@@ -10,6 +10,7 @@ import com.trinityforge.config.domains.WoodcuttingGimmickConfig;
 import com.trinityforge.gathering.ChainBreakExpGrant;
 import com.trinityforge.gathering.ChainBreakSupport;
 import com.trinityforge.gathering.GatheringToolMatcher;
+import com.trinityforge.items.ItemStackDrops;
 import com.trinityforge.mining.VeinMiningAlgorithm;
 import com.trinityforge.mining.VeinMiningAlgorithm.BlockPos;
 import com.trinityforge.pdc.PlayerData;
@@ -23,6 +24,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.type.Leaves;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -192,6 +194,8 @@ public final class TreeFellingListener implements Listener, SemiActiveCooldown {
      * {@link TreeScan#wholeTree} の展開もそこで止まる)。自然樹の丸太は設置扱いにならないので無害。
      * 材質一致を先に判定してから {@code isPlaced} を呼ぶので、PDC の線形走査が走るのは実際に丸太
      * だった位置(最大 {@code scan-limit} 本)だけに収まる。
+     * 例外: 苗木の設置印が成長後も根元に残っている既存木は、真上に印のない同じ原木があれば幹に含める
+     * （丸太建築は真上が設置or空気なので除外のまま）。
      *
      * <p><b>2026-07-31 G1 round2 指摘2: 設置記録に依存しない第二の歯止め。</b>
      * 上の緩和策は {@code PlacedBlockTracker} の記録が前提で、記録は {@code BlockPlaceEvent} 1本しか
@@ -267,7 +271,19 @@ public final class TreeFellingListener implements Listener, SemiActiveCooldown {
                 return false;
             }
             Block candidate = world.getBlockAt(pos.x(), pos.y(), pos.z());
-            return candidate.getType() == type && !placedLookup.isPlaced(candidate);
+            if (candidate.getType() != type) {
+                return false;
+            }
+            if (!placedLookup.isPlaced(candidate)) {
+                return true;
+            }
+            // 苗木印が成長後も根元に残っている既存木: 真上に印のない同じ原木があれば幹の一部。
+            // 横に自然木が接している丸太建築は真上が設置or空気なので、家を巻き込まない。
+            Block above = candidate.getRelative(BlockFace.UP);
+            BlockPos abovePos = new BlockPos(above.getX(), above.getY(), above.getZ());
+            return withinReach.test(abovePos)
+                    && above.getType() == type
+                    && !placedLookup.isPlaced(above);
         };
         BlockPos base = TreeScan.trunkBase(originPos, sameLog);
         List<BlockPos> tree = TreeScan.wholeTree(base, sameLog, gimmickConfig.treeFellScanLimit());
@@ -593,6 +609,8 @@ public final class TreeFellingListener implements Listener, SemiActiveCooldown {
         }
         ItemStack prize = built.get();
         prize.setAmount(Math.max(1, entry.amount()));
-        block.getWorld().dropItemNaturally(block.getLocation(), prize);
+        // 2026-09-04 W-312: entry.amount() が99を超える設定でも、アイテムエンティティの
+        // コーデック上限(99)以下へ分割してから落とす(ItemStackDrops 参照)。
+        ItemStackDrops.dropSplit(block.getWorld(), block.getLocation(), prize);
     }
 }

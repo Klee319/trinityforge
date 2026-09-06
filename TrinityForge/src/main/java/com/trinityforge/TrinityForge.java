@@ -254,6 +254,12 @@ public final class TrinityForge extends JavaPlugin {
     private org.bukkit.scheduler.BukkitTask achievementPollTask;
     /** 敵の特殊攻撃(2026-07-31)。config が無効なら start() が何も開始しない。 */
     private com.trinityforge.combat.MobAbilityTask mobAbilityTask;
+    /**
+     * アクションバーの調停役(2026-09機構4)。{@code SkillExpFeedbackService} と
+     * {@code MobAbilityExecutor} の予告表示が同じインスタンスを共有する必要があるため、
+     * 生成順が早い {@code SkillExpFeedbackService} 側より前にフィールドとして持つ。
+     */
+    private com.trinityforge.combat.ActionBarRouter actionBarRouter;
     private UseRequirementService useRequirementService;
     private PlayerLootLuckSource lootLuckSource;
     private com.trinityforge.stats.PlayerMobDropBonusSource mobDropBonusSource;
@@ -421,17 +427,26 @@ public final class TrinityForge extends JavaPlugin {
                 new com.trinityforge.progression.event.BukkitDailyExpRateNotifier(
                         this, skillDisplayName, dailyExpRateLookup));
         // EXP獲得ボスバー/アクションバー表示 + レベルアップ通知 (S5/S6)。スキル表示名はスキルツリー定義から解決。
+        this.actionBarRouter = new com.trinityforge.combat.ActionBarRouter();
         com.trinityforge.progression.SkillExpFeedbackService skillExpFeedbackService =
                 new com.trinityforge.progression.SkillExpFeedbackService(
                 this, configManager.skillExp(), progressionCatalog, skillDisplayName,
                 dailyExpRateLookup);
+        // 敵の技の予告(機構4)とEXP表示を同じルータで調停する。予告が走っている間はEXP表示を捨てる。
+        skillExpFeedbackService.setActionBarRouter(this.actionBarRouter);
         this.experienceDispatcher.setFeedback(skillExpFeedbackService);
         // 節目レベルアップの全体アナウンス(progression/level-broadcast.yml, 2026-08-16)。
         // 旧 ValhallaMMO アドオン ValTopBoard の level-up-broadcast を TF 本体へ移したもの。
         // TrinitySkillLevelUpEvent を購読するだけなので、上の Dispatcher 配線より後であればよい。
+        // プレステージ(NG+)段の登り直しで節目アナウンスが氾濫する不具合の対策(2026-09-04, W-313)。
+        // 供給関数は progressionService.progress(UUID, skillId) をそのまま渡すだけ(NativeProgressionService
+        // は編集対象外なので、公開APIをここで束ねる)。読めない場合は null を返し、リスナー側が段0扱いへ倒す。
+        java.util.function.BiFunction<java.util.UUID, String,
+                com.trinityforge.progression.core.SkillProgress> skillProgressLookup =
+                (playerId, skillId) -> progressionService.progress(playerId, skillId).orElse(null);
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.progression.SkillLevelBroadcastListener(
-                        this, configManager.levelBroadcast(), skillDisplayName), this);
+                        this, configManager.levelBroadcast(), skillDisplayName, skillProgressLookup), this);
         // B3(2026-07-25 バグ報告): ログアウト時に当該プレイヤーのスキル別ボスバー/タイマーを確実に
         // 破棄するため PlayerQuitEvent を購読する(以前は Listener 未実装で未登録だった)。
         getServer().getPluginManager().registerEvents(skillExpFeedbackService, this);
@@ -846,16 +861,17 @@ public final class TrinityForge extends JavaPlugin {
                 progressionService);
         getServer().getPluginManager().registerEvents(statusGui, this);
 
-        // 特殊アイテム3種(2026-08-04新設): 職業付け替えの証 / 厳選やり直しの護符 / 品質昇華の結晶。
+        // 特殊アイテム: 職業付け替えの証 / 厳選の護符 / 品質昇華の結晶 / 魂縛解きの符。
         // 券は「効果が成立したときにだけ」消費する(GUIを閉じただけ・対象なし・最高品質到達では減らない)。
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.items.RoleTicketItemListener(roleSelectGui), this);
         com.trinityforge.items.EquipmentTicketGui equipmentTicketGui =
-                new com.trinityforge.items.EquipmentTicketGui(this);
+                new com.trinityforge.items.EquipmentTicketGui(this, perkAttributeApplier::apply);
         getServer().getPluginManager().registerEvents(equipmentTicketGui, this);
         java.util.List<com.trinityforge.items.EquipmentTicketEffect> equipmentTicketEffects = java.util.List.of(
-                new com.trinityforge.items.StatRerollTicketEffect(itemFactory),
-                new com.trinityforge.items.QualityUpgradeTicketEffect(itemFactory, configManager.quality()));
+                new com.trinityforge.items.StatRerollTicketEffect(itemFactory, () -> this.craftQualityService),
+                new com.trinityforge.items.QualityUpgradeTicketEffect(itemFactory, configManager.quality()),
+                new com.trinityforge.items.OwnerUnbindTicketEffect(itemFactory));
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.items.EquipmentTicketItemListener(equipmentTicketGui, equipmentTicketEffects),
                 this);
@@ -918,7 +934,9 @@ public final class TrinityForge extends JavaPlugin {
         // タブへ項目を足せないので、同じ用途をサーバ側の画面で満たす。
         com.trinityforge.items.CatalogBrowseGui catalogGui =
                 new com.trinityforge.items.CatalogBrowseGui(
-                        this, configManager.itemCatalog(), itemFactory);
+                        this, configManager.itemCatalog(), itemFactory,
+                        com.trinityforge.stats.ArsItemGiveBridge::listPlayerItemIds,
+                        crossPluginItemResolver::create);
         getServer().getPluginManager().registerEvents(catalogGui, this);
         this.catalogCommand = new com.trinityforge.command.CatalogCommand(catalogGui);
         // パーティクルシード報酬の実体配布(2026-08-21)。着手前は special: [seed_*] を付与しても
@@ -1290,6 +1308,7 @@ public final class TrinityForge extends JavaPlugin {
         com.trinityforge.mobs.MobDropQualityResolver mobDropQualityResolver =
                 new com.trinityforge.mobs.MobDropQualityResolver(configManager.craftQuality(),
                         configManager.quality(), configManager.itemStats(), mobDropBonusSource);
+        mobDropQualityResolver.setItemFactory(itemFactory);
         mobLevelTableListener.setQualityResolver(mobDropQualityResolver);
         getServer().getPluginManager().registerEvents(mobLevelTableListener, this);
 
@@ -1406,16 +1425,37 @@ public final class TrinityForge extends JavaPlugin {
 
         // 敵の特殊攻撃(2026-07-31): combat/mob-abilities.yml のテンプレートを
         // combat/mob-overrides.yml の abilities: に従って撃つ。プレイヤー周囲だけを走査する。
+        // 予告機構(2026-09-04): actionBarRouter は SkillExpFeedbackService と共有し、
+        // TelegraphBudget は MobAbilityTask の抽選ゲートと MobAbilityExecutor の詠唱ループで共有する。
+        com.trinityforge.combat.MobAbilityExecutor mobAbilityExecutor = new com.trinityforge.combat.MobAbilityExecutor(
+                this, combatService,
+                () -> configManager.mobAbilities().elementBias(),
+                world -> configManager.mobOverrides().abilityDamageScale(world),
+                this.actionBarRouter, new com.trinityforge.combat.TelegraphBudget(),
+                () -> configManager.mobAbilities().telegraphLethalAtomic(),
+                () -> "ascii".equalsIgnoreCase(configManager.mobAbilities().telegraphBarStyle())
+                        ? com.trinityforge.combat.ActionBarRouter.BarStyle.ASCII
+                        : com.trinityforge.combat.ActionBarRouter.BarStyle.BLOCK);
         this.mobAbilityTask = new com.trinityforge.combat.MobAbilityTask(this,
                 configManager.mobAbilities(), configManager.mobOverrides(),
-                new com.trinityforge.combat.MobAbilityExecutor(this, combatService,
-                        () -> configManager.mobAbilities().elementBias()),
+                mobAbilityExecutor,
                 new com.trinityforge.combat.MobAbilityCooldowns(),
                 new java.util.Random());
         mobAbilityTask.start();
+        // 機構8「中断」(2026-09-04): 殴る/スタンで詠唱を止める配線。中断可(interruptible)な技だけが対象。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.MobAbilityCastDamageListener(), this);
+        com.trinityforge.combat.MobAbilityInterrupts.register(mobAbilityExecutor);
 
         // Block player-facing /em /ag while TF owns progression (ops can bypass).
         getServer().getPluginManager().registerEvents(new EliteMobsCommandGateListener(), this);
+        // EliteMobs keeps completed DungeonInstance objects in a static registry. The optional,
+        // reflection-based guard releases them after EliteMobs finishes its own teardown, so dungeon
+        // content with large transitive block states cannot accumulate for the JVM lifetime.
+        com.trinityforge.mobs.EliteMobsInstanceLeakGuard eliteMobsInstanceLeakGuard =
+                new com.trinityforge.mobs.EliteMobsInstanceLeakGuard(this);
+        getServer().getPluginManager().registerEvents(eliteMobsInstanceLeakGuard, this);
+        eliteMobsInstanceLeakGuard.installIfAvailable();
 
         registerCommands();
         // Publish the singleton only after every field is initialized and registration is complete,
@@ -1598,10 +1638,10 @@ public final class TrinityForge extends JavaPlugin {
                                     || src.getSender().hasPermission("trinityforge.use"))
                             .executes(ctx -> {
                                 ctx.getSource().getSender().sendMessage(Component.text(
-                                        "用法: /tf <mail|reload|skills|achievement|start|stop|progression|give|bind|stamp|import|dungeon|stats|status|role|collection|recipes|glyphs|settings|reward|inspect>",
+                                        "用法: /tf <mail|reload|skills|achievement|start|stop|progression|decay|give|bind|stamp|import|dungeon|stats|status|role|collection|recipes|glyphs|settings|reward|inspect>",
                                         NamedTextColor.YELLOW));
                                 ctx.getSource().getSender().sendMessage(Component.text(
-                                        "※ reload/progression/give/bind/stamp/import/dungeon/reward は OP または trinityforge.admin が必要です。",
+                                        "※ reload/progression/decay/give/bind/stamp/import/dungeon/reward は OP または trinityforge.admin が必要です。",
                                         NamedTextColor.GRAY));
                                 return Command.SINGLE_SUCCESS;
                             })
@@ -1641,6 +1681,11 @@ public final class TrinityForge extends JavaPlugin {
                                             try {
                                                 int rewritten = new com.trinityforge.progression.ProgressionCurveReconciler(
                                                         progressionRepository, progressionCatalog,
+                                                        // W-314 タスク2: NativeProgressionService と同じ共有ロックを渡す。
+                                                        // ここを新規インスタンスにすると、reload中の再計算と
+                                                        // プレイ中のEXP付与/perk解放が互いに排他されず、
+                                                        // どちらかの書き込みが後勝ちで消える(ロストアップデート)。
+                                                        progressionService.playerLocks(),
                                                         // reload 直後に読み直した値を渡す。ここを既定(1)のままにすると
                                                         // power.levels-per-skill-point を変えた直後の reload が
                                                         // 全員のポイント残高を旧式で書き戻してしまう。
@@ -1886,6 +1931,10 @@ public final class TrinityForge extends JavaPlugin {
                                                                 snapshot.toString(), NamedTextColor.GRAY));
                                                         return Command.SINGLE_SUCCESS;
                                                     }))))
+                            .then(new com.trinityforge.command.ExpDecayAdminCommand(
+                                            this, dailyExpDiminishing, dailyExpPersistence)
+                                    .node()
+                                    .requires(TrinityForge::isTfAdmin))
                             .then(giveItemCommand.node()
                                     .requires(TrinityForge::isTfAdmin))
                             .then(bindCommand.node()
@@ -2132,10 +2181,13 @@ public final class TrinityForge extends JavaPlugin {
      *   <li>{@code collection_mobs} — 図鑑（モブ）登録数</li>
      *   <li>{@code glyphs_unlocked} — 解放済みグリフ数</li>
      *   <li>{@code mob_kills} — 討伐数</li>
-     *   <li>{@code skill_<id>_level} — 個別スキルのレベル（例 {@code skill_mining_level}）</li>
-     *   <li>{@code skill_total_level} — 全スキルのレベル合計（POWER は含まない）</li>
+     *   <li>{@code skill_<id>_level} — 個別スキルの<b>実効レベル</b>（例 {@code skill_mining_level}）</li>
+     *   <li>{@code skill_total_level} — 全スキルの実効レベル合計（POWER は含まない）</li>
      * </ul>
-     * 値が 0（スキルなら Lv0）の行は返さない。未知の {@code stat}・{@code limit <= 0}・
+     * <b>スキル系の値は「上限レベル × プレステージ段 + 現在レベル」の実効レベル</b>であり、
+     * 生のレベルではない。プレステージはレベルを 0 へ戻すので、生のレベルを返すと
+     * 最も育っているプレイヤーが順位表から消える（例: 上限 100 で 2 段目の Lv5 なら 205）。
+     * 値が 0（スキルなら未プレステージの Lv0）の行は返さない。未知の {@code stat}・{@code limit <= 0}・
      * DB 未初期化・DB エラーは<b>いずれも空リスト</b>（例外を投げない ── 順位表のために
      * 呼び出し側プラグインを落とさない）。件数は 1000 件で頭打ち。
      *

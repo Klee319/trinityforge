@@ -748,6 +748,98 @@ class TreeFellingListenerTest {
     }
 
     @Test
+    void strikingAMarkedDarkOakStumpStillFellsWhenTheCrownIsUnmarked() {
+        // 配備前に育った既存木: 根元だけ苗木印がチャンクに残る。真上の無印原木を見て幹とみなす。
+        stubTreeFell(64);
+        List<Block> stumps = darkOakTwoByTwo(64, 4);
+        for (Block stump : stumps) {
+            placedBlockTracker.markPlaced(stump);
+        }
+        Block origin = stumps.get(0);
+
+        listener().onBlockBreak(breakEvent(origin));
+        origin.breakNaturally(player.getInventory().getItemInMainHand());
+
+        for (int x = 0; x <= 1; x++) {
+            for (int z = 0; z <= 1; z++) {
+                for (int y = 64; y <= 67; y++) {
+                    assertEquals(Material.AIR, player.getWorld().getBlockAt(x, y, z).getType(),
+                            "根元印が残っていても樹冠が無印なら伐れること: (" + x + "," + y + "," + z + ")");
+                }
+            }
+        }
+    }
+
+    @Test
+    void anAllMarkedDarkOakPillarIsStillNotATree() {
+        stubTreeFell(64);
+        List<Block> stumps = darkOakTwoByTwo(64, 4);
+        for (int x = 0; x <= 1; x++) {
+            for (int z = 0; z <= 1; z++) {
+                for (int y = 64; y <= 67; y++) {
+                    placedBlockTracker.markPlaced(player.getWorld().getBlockAt(x, y, z));
+                }
+            }
+        }
+        Block origin = stumps.get(0);
+
+        listener().onBlockBreak(breakEvent(origin));
+
+        for (int x = 0; x <= 1; x++) {
+            for (int z = 0; z <= 1; z++) {
+                for (int y = 64; y <= 67; y++) {
+                    assertEquals(Material.DARK_OAK_LOG,
+                            player.getWorld().getBlockAt(x, y, z).getType(),
+                            "全部設置印の柱は丸太建築なので連鎖しない");
+                }
+            }
+        }
+        assertEquals(0L, remainingCooldownMillis(), "仕事が無いのでCTも取らないこと");
+    }
+
+    @Test
+    void clearingGrownSaplingMarksLetsDarkOakFellingStartAtTheStump() {
+        stubTreeFell(64);
+        List<Block> stumps = darkOakTwoByTwo(64, 4);
+        List<org.bukkit.block.BlockState> grown = new java.util.ArrayList<>();
+        for (Block stump : stumps) {
+            placedBlockTracker.markPlaced(stump);
+            grown.add(stump.getState());
+        }
+        placedBlockTracker.clearGrownStructureMarks(stumps.get(0), grown);
+        Block origin = stumps.get(0);
+
+        listener().onBlockBreak(breakEvent(origin));
+        origin.breakNaturally(player.getInventory().getItemInMainHand());
+
+        for (int x = 0; x <= 1; x++) {
+            for (int z = 0; z <= 1; z++) {
+                for (int y = 64; y <= 67; y++) {
+                    assertEquals(Material.AIR, player.getWorld().getBlockAt(x, y, z).getType(),
+                            "成長後の根元は自然木として伐れること: (" + x + "," + y + "," + z + ")");
+                }
+            }
+        }
+    }
+
+    /** ダークオーク型の 2×2 幹を高さ {@code height} で置く。戻りは根元4本。 */
+    private java.util.List<Block> darkOakTwoByTwo(int baseY, int height) {
+        java.util.List<Block> stumps = new java.util.ArrayList<>();
+        for (int x = 0; x <= 1; x++) {
+            for (int z = 0; z <= 1; z++) {
+                for (int y = baseY; y < baseY + height; y++) {
+                    Block block = player.getWorld().getBlockAt(x, y, z);
+                    block.setType(Material.DARK_OAK_LOG);
+                    if (y == baseY) {
+                        stumps.add(block);
+                    }
+                }
+            }
+        }
+        return stumps;
+    }
+
+    @Test
     void placedLogsStackedOnANaturalTreeStopTheScanInsteadOfExtendingIt() {
         // 自然木(y=64..68)の上にプレイヤーが丸太を積んだ(y=69..70)状況。走査は設置分で止まり、
         // 自然木だけが伐れること。

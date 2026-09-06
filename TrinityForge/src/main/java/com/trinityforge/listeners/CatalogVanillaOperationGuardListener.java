@@ -10,8 +10,6 @@ import io.papermc.paper.event.entity.EntityCompostItemEvent;
 import io.papermc.paper.event.player.CartographyItemEvent;
 import io.papermc.paper.event.player.PlayerLoomPatternSelectEvent;
 import io.papermc.paper.event.player.PlayerStonecutterRecipeSelectEvent;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
@@ -38,7 +36,6 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.SmithingInventory;
 import org.bukkit.inventory.meta.EnchantmentStorageMeta;
-import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionType;
 
@@ -58,10 +55,6 @@ import java.util.Optional;
  * ({@link #onPrepareGrindstone} / {@link #onPrepareAnvil} の各 javadoc)。
  */
 public final class CatalogVanillaOperationGuardListener implements Listener {
-
-    private static final Component BLOCKED_MESSAGE = Component.text(
-            "この操作ではカタログ品を消費できません（見た目が同じでも別のアイテムです）",
-            NamedTextColor.RED);
 
     private final ItemCatalogConfig catalog;
     private final CraftingFeaturesConfig features;
@@ -225,7 +218,6 @@ public final class CatalogVanillaOperationGuardListener implements Listener {
             return;
         }
         event.setResult(null);
-        notifyBlocked(event.getView());
     }
 
     /**
@@ -251,10 +243,16 @@ public final class CatalogVanillaOperationGuardListener implements Listener {
                 || sameCatalogIdentity(inventory.getFirstItem(), inventory.getSecondItem())
                 || isUnlockedWoodRepair(event)
                 || isSeedApplication(event)) {
+            if (appliesEnchantmentBook(inventory)) {
+                ItemStack preserved = CatalogAnvilEnchantPreserve.preserveIfTypeChanged(
+                        inventory.getFirstItem(), event.getResult());
+                if (preserved != event.getResult()) {
+                    event.setResult(preserved);
+                }
+            }
             return;
         }
         event.setResult(null);
-        notifyBlocked(event.getView());
     }
 
     /** 解放済みプレイヤーによる木材修繕か({@link WoodRepairListener#isUnlockedWoodRepair} へ委譲)。 */
@@ -316,15 +314,42 @@ public final class CatalogVanillaOperationGuardListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPrepareSmithing(PrepareSmithingEvent event) {
         SmithingInventory inventory = event.getInventory();
-        if (containsCatalogItem(inventory) && !matchesDeclaredNetherite(inventory)) {
-            event.setResult(null);
-            notifyBlocked(event.getView());
+        if (!containsCatalogItem(inventory) || matchesDeclaredNetherite(inventory)) {
+            return;
         }
+        // 防具トリムは identity を食わない(装備は残り、鍛冶型と鉱石だけ消費)。
+        // 宣言済みネザライト強化以外を全部消していたため、軽装備の装飾が永久にできなかった。
+        if (isVanillaArmorTrim(inventory)) {
+            event.setResult(CatalogCosmeticPreserve.applyTrimOnto(
+                    inventory.getInputEquipment(), event.getResult()));
+            return;
+        }
+        event.setResult(null);
+    }
+
+    /**
+     * バニラの防具トリム: 鍛冶型が {@code *_ARMOR_TRIM_SMITHING_TEMPLATE} で、型と鉱石は
+     * カタログ品ではない。装備側だけがカタログでも許可する。
+     */
+    private boolean isVanillaArmorTrim(SmithingInventory inventory) {
+        ItemStack template = inventory.getInputTemplate();
+        ItemStack equipment = inventory.getInputEquipment();
+        ItemStack mineral = inventory.getInputMineral();
+        if (!CatalogCosmeticPreserve.isArmorTrimTemplate(template)
+                || equipment == null || equipment.getType().isAir()
+                || mineral == null || mineral.getType().isAir()) {
+            return false;
+        }
+        if (isCatalog(template) || isCatalog(mineral)) {
+            return false;
+        }
+        return isCatalog(equipment);
     }
 
     /**
      * Placement events do not cover vanilla right-click consumption against an existing block.
-     * The bundled catalog currently exposes exactly these two base-material behaviours.
+     * カタログ品で今も止めるのはリスポーンアンカーへのグロウストーン充填とエンダーアイ。
+     * 革防具の水入り大釜脱色は色だけ落ちるので許可する。
      *
      * <p><b>{@code ignoreCancelled} を付けてはいけない(2026-08-03)。</b>
      * {@link PlayerInteractEvent#isCancelled()} は {@code useInteractedBlock() == DENY} と等価で、
@@ -367,9 +392,9 @@ public final class CatalogVanillaOperationGuardListener implements Listener {
             return;
         }
         Material target = event.getClickedBlock().getType();
+        // 革防具の水入り大釜脱色は identity を食わない(色だけ落ちる)。カタログ品でも許可する。
         boolean vanillaConsumption =
-                itemType == Material.GLOWSTONE && target == Material.RESPAWN_ANCHOR
-                || item.getItemMeta() instanceof LeatherArmorMeta && target == Material.WATER_CAULDRON;
+                itemType == Material.GLOWSTONE && target == Material.RESPAWN_ANCHOR;
         if (vanillaConsumption) {
             event.setCancelled(true);
         }
@@ -386,16 +411,6 @@ public final class CatalogVanillaOperationGuardListener implements Listener {
                 : event.getPlayer().getInventory().getItemInMainHand();
         if (item.getType() == Material.AMETHYST_SHARD && isCatalog(item)) {
             event.setCancelled(true);
-        }
-    }
-
-    /**
-     * 結果枠を消したときだけアクションバーで理由を出す。チャットに書くと Prepare がマス目ごとに
-     * 飛ぶので流れて読めなくなる。view が無い経路(テスト・自動装置)では宛先が無いので黙る。
-     */
-    private static void notifyBlocked(org.bukkit.inventory.InventoryView view) {
-        if (view != null && view.getPlayer() instanceof org.bukkit.entity.Player player) {
-            player.sendActionBar(BLOCKED_MESSAGE);
         }
     }
 

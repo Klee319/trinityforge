@@ -3,7 +3,7 @@
 // 2026-07-26: コンパニオン config がマージされたときに applyMergedToEditor が何もせず戻る問題の回帰テスト。
 //
 // 背景: 1画面が複数ファイルを保存する「コンパニオン」構成(例: プレイヤー基礎ステータス画面の
-// combat/stat-caps.yml、醸造ギミック画面の stats/alchemy-quality.yml)では、保存時の楽観ロックが
+// combat/stat-caps.yml)では、保存時の楽観ロックが
 // **物理パス単位**で効く。したがってコンパニオン側だけが衝突→マージされることがある。
 // 従来の applyMergedToEditor には tf-quality(craft-quality) と tf-skill-exp(progression-*) の
 // 2スキーマぶんしか再構築分岐が無く、それ以外のコンパニオンでは関数が黙って return していた。
@@ -82,4 +82,53 @@ test("gathering-efficiency は COMPANION_OPTION_KEYS に載せない(編集経�
     "gathering-efficiency は画面から編集する経路が無い(2026-08-05 に stat-caps.yml 側の"
     + "上書き行を撤去し、max-enchant-level は yml 直編集に戻った)。"
     + "載せると存在しない opts キーを渡すことになる");
+});
+
+test("alchemy-quality は COMPANION_OPTION_KEYS に載せない(GUI を外したため)", () => {
+  const map = companionOptionKeyMap();
+  assert.ok(!("alchemy-quality" in map),
+    "ポーション品質換算の GUI は 2026-08-29 に外した。係数は本体が yml を直接読む。"
+    + "載せると存在しない opts キーを渡すことになる");
+});
+
+test("app.js: isEditorDirty は editor.configId を state.current より優先する", () => {
+  const m = appJsSrc.match(/function isEditorDirty\(\) \{[\s\S]*?\n  \}\n/);
+  assert.ok(m, "isEditorDirty の本体を切り出せない");
+  assert.match(m[0], /state\.editor\.configId\s*\|\|\s*state\.current/,
+    "GET 待ち中に state.current だけ見ると、次タブのベースライン×前画面の getData で偽 dirty になる");
+});
+
+test("app.js: selectConfig は GET 前に state.editor を捨てる", () => {
+  const m = appJsSrc.match(/async function selectConfig\(id\) \{[\s\S]*?await api\("GET"/);
+  assert.ok(m, "selectConfig の GET 前半を切り出せない");
+  assert.match(m[0], /state\.editor\s*=\s*null/,
+    "GET 待ちに前画面の editor が残ると isEditorDirty が食い違う");
+});
+
+test("app.js: selectConfig はフォーム組み立て後にも navToken を再確認する", () => {
+  const m = appJsSrc.match(/async function selectConfig\(id\) \{[\s\S]*?\n  \}\n/);
+  assert.ok(m, "selectConfig の本体を切り出せない");
+  assert.match(m[0], /const editor = await buildEditorForLoadedConfig/,
+    "selectConfig が buildEditorForLoadedConfig を待っていない");
+  const after = m[0].split("const editor = await buildEditorForLoadedConfig")[1] || "";
+  assert.match(after, /if \(navToken !== navSeq\) return/,
+    "ensureCustomItemCandidates 待ちのあいだに別タブへ移ると、古い editor が載る");
+});
+
+test("app.js: selectTool の split は buildSplitConfigView の前に navToken を再確認する", () => {
+  const m = appJsSrc.match(/if \(sp\.type === "item-stats" && sp\.itemCategory === "thread"\) \{[\s\S]*?state\.editor = window\.buildSplitConfigView/);
+  assert.ok(m, "selectTool split の GET 後〜buildSplitConfigView を切り出せない");
+  assert.match(m[0], /if \(navToken !== navSeq\) return/,
+    "GET 待ちのあいだに別タブへ移ると、画面は新タブなのに editor が旧フォームになる");
+});
+
+test("app.js: save / saveSplitView は成功後に syncBaseFromEditor する", () => {
+  const saveM = appJsSrc.match(/async function save\(\) \{[\s\S]*?\n  \}\n\n  async function saveSplitView/);
+  assert.ok(saveM, "save() の本体を切り出せない");
+  assert.match(saveM[0], /syncBaseFromEditor\(state\.current\)/,
+    "保存直後の getData が正規化で少し進む画面で、保存済みが再び未保存になる");
+  const splitM = appJsSrc.match(/async function saveSplitView\(\) \{[\s\S]*?\n  \}\n/);
+  assert.ok(splitM, "saveSplitView() の本体を切り出せない");
+  assert.match(splitM[0], /syncBaseFromEditor\(configId\)/,
+    "split 保存後もベースラインを合わせないと、次の切替で偽 dirty になる");
 });

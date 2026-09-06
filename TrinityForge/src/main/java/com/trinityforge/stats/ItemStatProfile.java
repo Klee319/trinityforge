@@ -237,4 +237,23 @@ public record ItemStatProfile(Map<String, Double> fixed, Map<String, Double> per
         }
         return false;
     }
+
+    /**
+     * 厳選ロール(random 層、乗算レイヤ内 random、または grant の seed 抽選)が1つでもあるか。
+     * {@code false} なら rollSeed を引き直しても数値は変わらない(fixed / per-quality のみ、
+     * あるいはプロファイル自体が無い素材・特殊アイテム)。カタログ作成は品質が無くても
+     * identity として rollSeed を刻むので、厳選の護符は {@link #qualityApplies()} ではなく
+     * こちらで対象を絞る。
+     */
+    public boolean randomApplies() {
+        if (randomizeGrants || !random.isEmpty()) {
+            return true;
+        }
+        for (MultiplierSpec spec : multipliers.values()) {
+            if (!spec.random().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

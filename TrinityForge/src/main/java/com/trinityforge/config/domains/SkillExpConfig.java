@@ -42,6 +42,13 @@ public final class SkillExpConfig {
     // (source_shard 100 → infinity_source_core 45,000,000)ので、1.0 のような値を入れると
     // 上位儀式1回で最大レベルに届く。0.001 程度から試すこと。
     private volatile double arsSmithingExpPerSource = 0.0;
+    // 2026-09-04: 儀式1回のソース由来EXPの天井。ソース要求量は階梯とともに桁で増える
+    // (ソースの欠片100 → 無限のソース核45,000,000)ので、係数だけでは上位儀式1回が
+    // 最大レベルぶんのEXPを出してしまう(実機で発生済み)。0 = 天井なし。
+    private volatile double arsSmithingMaxSourceExp = DEFAULT_ARS_SMITHING_MAX_SOURCE_EXP;
+
+    /** ソース由来EXPの天井の既定値。1回の儀式で最大レベルへ届かせないための値。 */
+    public static final double DEFAULT_ARS_SMITHING_MAX_SOURCE_EXP = 100_000.0;
     // 2026-08-04: 総合(POWER)レベルを何レベル進めるごとにスキルポイントを1点与えるか
     // ({@code power.levels-per-skill-point})。1 = 1レベルごとに1点(従来の挙動)。
     // 2 にすると2レベルで1点になる。0 以下は 1 に丸める(ゼロ除算とポイント無限増加の両方を防ぐ)。
@@ -177,6 +184,18 @@ public final class SkillExpConfig {
     private volatile double useLevelScalingMaxMultiplier = 3.0;
     private volatile Map<String, Double> useLevelScalingPerLevel = Map.of();
 
+    // --- W-314 タスク3: 進行データ読みキャッシュのTTL(cache.ttl-seconds) ---
+    // CachedProgressionRepository(EXP/レベル/ポイント残高の読み取りキャッシュ)専用のTTL。
+    // 2026-09-04 まではここに専用キーが無く、進行系と無関係な
+    // progression/combat-level.yml の cache.ttl-seconds(戦闘レベル【表示】のキャッシュ)を
+    // 流用していた。書き込み時は必ず invalidate() するので実害は無かったが、
+    // 「戦闘レベル表示のTTLを変えただけで進行データの鮮度も変わる」という無関係設定への依存だったため
+    // 専用キーへ分離した。既定値は流用時の実効値(3秒)と同一 = 挙動は変えない。
+    private static final int DEFAULT_PROGRESSION_CACHE_TTL_SECONDS = 3;
+    private static final int MIN_PROGRESSION_CACHE_TTL_SECONDS = 0;
+    private static final int MAX_PROGRESSION_CACHE_TTL_SECONDS = 300;
+    private volatile long progressionCacheTtlMillis = DEFAULT_PROGRESSION_CACHE_TTL_SECONDS * 1000L;
+
     /**
      * {@code ars-smithing.exp-per-material}: <b>儀式で消費した素材1個あたり</b>の ARS_SMITHING EXP
      * (2026-08-17 ユーザー確定「editor で鍛冶EXP素材リストが Ars と通常鍛冶で同期される => 分離」)。
@@ -201,6 +220,18 @@ public final class SkillExpConfig {
      */
     public double arsSmithingExpPerSource() {
         return arsSmithingExpPerSource;
+    }
+
+    /**
+     * {@code ars-smithing.max-source-exp-per-craft}: 儀式1回でソース消費量から入るEXPの上限。
+     * {@code 0} で上限なし。素材ぶん({@code exp-per-material})には掛からない。
+     *
+     * <p>なぜ要るか: 係数({@code exp-per-source})は小さくても、上位儀式のソース要求量が
+     * 4,500万に達するため、積は容易に最大レベルぶんを超える。係数を下げるだけだと下位儀式が
+     * 無報酬になるので、<b>下位はそのまま・上位だけ頭打ち</b>にする天井を別に持つ。
+     */
+    public double arsSmithingMaxSourceExp() {
+        return arsSmithingMaxSourceExp;
     }
 
     /**
@@ -584,6 +615,16 @@ public final class SkillExpConfig {
         return Math.min(useLevelScalingMaxMultiplier, multiplier);
     }
 
+    /**
+     * 進行データ(EXP/レベル/ポイント残高)読みキャッシュのTTL(ms)。0 = キャッシュ無効。
+     * {@code progression/combat-level.yml} の {@code cache.ttl-seconds}(戦闘レベル<b>表示</b>の
+     * キャッシュ)とは<b>別物</b> — 混同しないこと。呼び出し側は {@code LongSupplier} 経由で
+     * 毎回読むこと。{@code /trinityforge reload} で書き換えても再生成なしに反映される。
+     */
+    public long progressionCacheTtlMillis() {
+        return progressionCacheTtlMillis;
+    }
+
     /** Loads (or reloads) the config. Returns true when it parsed cleanly. */
     public boolean load(Plugin plugin) {
         Logger log = plugin.getLogger();
@@ -616,6 +657,8 @@ public final class SkillExpConfig {
         // ars-smithing.exp-per-craft(定額)は 2026-08-17 に機能ごと削除。yml に残っていても読まない。
         this.arsSmithingExpPerMaterial = readMaterialTokenMap(yaml, "ars-smithing.exp-per-material");
         this.arsSmithingExpPerSource = Math.max(0.0, yaml.getDouble("ars-smithing.exp-per-source", 0.0));
+        this.arsSmithingMaxSourceExp = Math.max(0.0, yaml.getDouble(
+                "ars-smithing.max-source-exp-per-craft", DEFAULT_ARS_SMITHING_MAX_SOURCE_EXP));
         // 0 以下は 1 に丸める。0 を許すと「0レベルごとに1点」でゼロ除算、負を許すとポイントが
         // レベルとともに減る意味不明な挙動になるため、どちらも設定ミスとして 1 扱いにする。
         this.powerLevelsPerSkillPoint = Math.max(1, yaml.getInt("power.levels-per-skill-point", 1));
@@ -734,6 +777,19 @@ public final class SkillExpConfig {
             }
         }
         this.useLevelScalingPerLevel = Collections.unmodifiableMap(perLevel);
+        // W-314 タスク3: 進行データ読みキャッシュの専用TTL。範囲外は既定(3秒)へ丸めて警告する
+        // (progression/combat-level.yml の cache.ttl-seconds と同じクランプ方針)。
+        int progressionCacheTtlSeconds =
+                yaml.getInt("cache.ttl-seconds", DEFAULT_PROGRESSION_CACHE_TTL_SECONDS);
+        if (progressionCacheTtlSeconds < MIN_PROGRESSION_CACHE_TTL_SECONDS
+                || progressionCacheTtlSeconds > MAX_PROGRESSION_CACHE_TTL_SECONDS) {
+            log.warning("[" + PATH + "] cache.ttl-seconds (" + progressionCacheTtlSeconds
+                    + ") out of range [" + MIN_PROGRESSION_CACHE_TTL_SECONDS + ", "
+                    + MAX_PROGRESSION_CACHE_TTL_SECONDS + "]; using default "
+                    + DEFAULT_PROGRESSION_CACHE_TTL_SECONDS + "s");
+            progressionCacheTtlSeconds = DEFAULT_PROGRESSION_CACHE_TTL_SECONDS;
+        }
+        this.progressionCacheTtlMillis = progressionCacheTtlSeconds * 1000L;
     }
 
     /** 未知の文字列/null/空文字は安全側で{@link GatheringExpMode#DROP_SUM}(現行挙動)にフォールバックする。 */

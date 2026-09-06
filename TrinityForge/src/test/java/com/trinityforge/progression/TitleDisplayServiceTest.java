@@ -12,6 +12,7 @@ import java.lang.reflect.Method;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -84,6 +85,46 @@ class TitleDisplayServiceTest {
     }
 
     @Test
+    void hideFromOwnerHidesTheEntityFromTheOwningPlayer() {
+        var player = server.addPlayer();
+        var entity = player.getWorld().spawnEntity(player.getLocation(), org.bukkit.entity.EntityType.ARMOR_STAND);
+
+        TitleDisplayService.hideFromOwner(plugin, player, entity);
+
+        assertFalse(player.canSee(entity),
+                "自分の称号を本人に送ると統合版で当たり判定が付き、Java でも一人称で邪魔になる");
+    }
+
+    @Test
+    void othersCanSeeATitleTheOwnerCannot() {
+        var owner = server.addPlayer();
+        var other = server.addPlayer();
+        var entity = owner.getWorld().spawnEntity(owner.getLocation(), org.bukkit.entity.EntityType.ARMOR_STAND);
+
+        TitleDisplayService.hideFromOwner(plugin, owner, entity);
+        TitleDisplayService.showToEveryoneExceptOwner(plugin, owner, entity);
+
+        assertFalse(owner.canSee(entity), "本人の一人称／F5 の両方から消す(サーバは視点を知らない)");
+        assertTrue(other.canSee(entity), "他人からは称号が見えること");
+    }
+
+    @Test
+    void followTickReHidesFromTheOwnerAfterTeleport() throws Exception {
+        // teleport が hideEntity を巻き戻すので、追従tickでも掛け直す。TextDisplay spawn は
+        // MockBukkit 未実装のためソースで固定する(踏むと SKIPPED 化する — common-traps.md)。
+        String source = java.nio.file.Files.readString(
+                java.nio.file.Path.of("src/main/java/com/trinityforge/progression/TitleDisplayService.java"));
+        int teleport = source.indexOf("display.teleport(target);");
+        assertTrue(teleport >= 0, "追従 tick の teleport が無い");
+        int rehide = source.indexOf("hideFromOwner(plugin, player, display);", teleport);
+        assertTrue(rehide > teleport, "teleport のあとに hideFromOwner が無いと本人に再表示される");
+        assertTrue(source.contains("setVisibleByDefault(false)"),
+                "既定可視のままでは本人の一人称に称号が出る");
+        assertFalse(source.contains("motion.sample"),
+                "称号の先読みは本人非表示のあと、他人のネームタグより前へ出すだけになる");
+    }
+
+    @Test
     void anyNonNegativeClearanceStaysAtOrAboveTheNametag() {
         for (double clearance : new double[]{0.0, 0.1, 0.4, 1.0, 5.0}) {
             assertTrue(TitleDisplayService.titleAnchorY(1.8, clearance) >= VANILLA_NAMETAG_Y_FOR_STANDING_PLAYER,
@@ -145,6 +186,24 @@ class TitleDisplayServiceTest {
         assertEquals(1.5 + 0.5 + 0.25 + 0.4, TitleDisplayService.titleAnchorY(1.5, 0.4), 1e-9);
         assertTrue(TitleDisplayService.titleAnchorY(1.5, 0.4) < TitleDisplayService.titleAnchorY(1.8, 0.4),
                 "しゃがんだら称号も下がる(高さを定数で埋め込んでいない証明)");
+    }
+
+    @Test
+    void poseChangeSnapsTeleportDurationSoTheGapToTheNametagDoesNotStretch() {
+        // ネームタグのオフセットは姿勢パケットで即変わる。称号だけ duration=3 で補間すると
+        // スニーク／立ち上がりで隙間が伸び縮みする。
+        double standing = TitleDisplayService.titleAnchorY(1.8, 1.62, -0.3);
+        double sneaking = TitleDisplayService.titleAnchorY(1.5, 1.27, -0.3);
+        assertEquals(0, TitleDisplayService.followTeleportDuration(standing, sneaking, 3));
+        assertEquals(0, TitleDisplayService.followTeleportDuration(sneaking, standing, 3));
+        assertEquals(3, TitleDisplayService.followTeleportDuration(standing, standing, 3));
+    }
+
+    @Test
+    void jumpDoesNotSnapTeleportDurationBecauseTheOffsetIsUnchanged() {
+        // ジャンプは足元 Y が動くだけで titleAnchorY は同じ。補間を切ると本体より先に着く。
+        double standing = TitleDisplayService.titleAnchorY(1.8, 1.62, -0.3);
+        assertEquals(3, TitleDisplayService.followTeleportDuration(standing, standing + 1e-9, 3));
     }
 
     @Test

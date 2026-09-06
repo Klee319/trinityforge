@@ -3,6 +3,9 @@ package com.trinityforge.durability;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerItemBreakEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.Damageable;
@@ -11,6 +14,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
+
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -160,9 +165,18 @@ class EquipmentDurabilityServiceTest {
                 true, false, false,
                 true, 0.001, 1, true,
                 true, 0.1, 1, true);
+        AtomicReference<ItemStack> broken = new AtomicReference<>();
+        server.getPluginManager().registerEvents(new Listener() {
+            @EventHandler
+            public void on(PlayerItemBreakEvent event) {
+                broken.set(event.getBrokenItem());
+            }
+        }, MockBukkit.createMockPlugin());
         service(noPrevent, true).applyOnDeath(player);
 
         assertNull(player.getInventory().getHelmet(), "prevent-break=false なら壊れて消える");
+        assertNotNull(broken.get(), "手書き破壊でも PlayerItemBreakEvent が要る(装着スレッド返却)");
+        assertEquals(Material.DIAMOND_HELMET, broken.get().getType());
     }
 
     @Test

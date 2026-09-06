@@ -118,6 +118,30 @@ class ShippedCollectionEntryIdTest {
         assertTrue(problems.isEmpty(), "図鑑の thread カテゴリが実アイテムを指していない: " + problems);
     }
 
+    @Test
+    @DisplayName("最上位装備カテゴリの全エントリがカタログの非draft品として実在する")
+    void infinityCategoryEntriesExistInTheShippedCatalog() {
+        Set<String> catalogIds = catalogIds();
+        YamlConfiguration catalog = load(CATALOG);
+        List<String> entries = entries("infinity");
+        List<String> problems = new ArrayList<>();
+        assertTrue(entries.size() >= 20, "最上位装備が " + entries.size() + " 件しかない(空振りしている)");
+        for (String entry : entries) {
+            if (!catalogIds.contains(entry)) {
+                problems.add(entry + ": catalog.yml に無い(分母に残ると進捗が永久に100%へ届かない)");
+                continue;
+            }
+            if (catalog.getBoolean("items." + entry + ".draft")) {
+                problems.add(entry + ": draft(準備中)なので入手不能");
+            }
+        }
+        assertTrue(problems.isEmpty(), "図鑑の最上位装備が実在しないIDを指している: " + problems);
+        assertTrue(entries.contains("infinity_wand"),
+                "触媒の後継である infinity_wand(魔源の杖)が最上位装備に入っていない");
+        assertTrue(!entries.contains("infinity_catalyst"),
+                "infinity_catalyst はカタログに無いので図鑑に残すと95%で止まる");
+    }
+
     // ---- 出荷 yml の読み出し -------------------------------------------------
 
     private static YamlConfiguration load(String relative) {

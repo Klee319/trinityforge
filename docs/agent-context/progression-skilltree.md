@@ -42,8 +42,14 @@ TFの進行系（スキル経験値・レベル・パーク・スキルツリー
 ので、その斜めの線は扇の線と同じ行の**隣り合うセル**に並ぶ。
 
 ⚠ **GUI にはセルの境目が無いので、隣り合った別々のコネクタは「1本の長い横線」に見える。**
-これが実サーバ報告「ノードのつながり方がおかしい」の見え方であり、**同じセルの重なりではない**。
+これが実サーバ報告「ノードのつながり方がおかしい」の見え方のひとつであり、**同じセルの重なりではない**。
 同じコネクタが横に長く続くのは問題ない（主軸から複数の枝が出る扇は1本の線として正しく読める）。
+
+⚠ **同じ通路セルを縦の続きと「次の主軸の扇」が共有すると、合成が十字になり格子に見える。**
+総合では主軸 B が A の枝（足元強化 I / 天恵 I）と同じ行に居るため、B の扇が A-1→A-2 / A-4→A-5 の縦線を横切る。
+これは列ずれ 0 でも起きる。描画は同じ親の扇だけ T/十字にし、別親の縦×横は縦を残す
+（`GridConnectorRouting.merge(..., joinPerpendicular=false)`）。経路はノード行の左右1セルを通らない
+（BFS が北優先で兄弟の隙間へ落ちて L 字が残るのを防ぐ）。
 
 ⚠ **調べるときに指標を間違えると「直った」が証明できない。** 帯ずれ（y だけ見る）と
 線の重なり（同一セルだけ見る）では、総合ツリーが修正前後で同じ数値に見えた。効いたのは次の2つ:
@@ -344,6 +350,23 @@ SWEET_BERRY_BUSH/TORCHFLOWER_CROP/PITCHER_CROP/MELON_STEM/PUMPKIN_STEM）は必�
 「プレイヤーが種を植えることでしか存在しない（＝設置マークが必ず付く）」タイプかどうかを
 `CropMaturity.isMaturityGated` で確認すること。確認せずに掘削/採掘/伐採と同じ `isPlaced`/
 `clearIfPlaced` を素で使うと、そのブロックの主経路が恒久的に無効化される。
+
+### ⚠️ 苗木の設置印が成長後の根元に残ると、一括伐採が根元から発火しない
+
+**症状**: 植えた木、特にダークオークで、根元から切ると一括伐採がかからない。上のほうから切ると
+幹は倒れるが根元4本が切り株として残る。自然生成の木では起きない。
+
+**機構**: 苗木の設置は `BlockPlaceEvent` を通るので `PlacedBlockTracker` が座標を記録する。
+成長はブロック種別が sapling→log に変わるだけで印は消えない。`TreeFellingListener` の走査述語は
+設置印のある原木を木から除外し、`TreeScan#wholeTree` は起点自身も述語で落とす。根元を叩くと
+起点が空扱いになり連鎖 0 本で終わる。ダークオークは苗木 2×2 なので根元4本すべてが印付きになり、
+どの根元を叩いても同じ症状になる。
+
+**修正**: `PlacedBlockTracker#onStructureGrow` が成長成功時に、起点苗木と生成ブロックの印を消す。
+丸太を直接置いた建築の印は `StructureGrowEvent` を通らないので残る。既存ワールドでは印がチャンクに
+残ったままなので、走査は「真上に印のない同じ原木がある設置原木」だけを幹に含める（横に自然木が
+接している家は巻き込まない）。回帰は `PlacedBlockTrackerGrowthTest` と
+`TreeFellingListenerTest` のダークオーク根元ケース。
 
 ### ⚠️ 縦積み植物（サトウキビ/竹/コンブ等）の根元を壊すと、上に育った段のEXPが連鎖破壊ごと消える
 
@@ -771,6 +794,16 @@ tfcatalog分岐の両方に同じ分離を適用した。回帰は
 `fork-handoff/arspaper/fork/src/test/java/com/arspaper/ritual/RitualQualityExpGateSeparationTest.java`
 （フォークの既存流儀に合わせ、MockBukkitを使わずソーステキスト走査で固定）。
 
+### ⚠️ 儀式の「コア装備→別の装備」は新規スタックなので、品質／ロール以外は明示的に写す
+
+成果物は `createIdentityOnly` でまっさら。旧実装は結果 ID が `mage_` / `spell_book_` / `wand_`
+のときだけホワイトリスト転写しており、**武器・触媒のエンチャントとホワイトリスト外の PDC が消えた**。
+転写は `ItemUpgradeCarryOver`（TF）→ `TrinityForgeBridge#carryOverUpgradePersistent`（stamp 前）と
+`#carryOverUpgradeEnchantments`（stamp 後）。品質と rollSeed は `RitualCraftFinalizer` が
+実行者基準で新規ロールするので写さない。identity（`catalog_id` / `custom_item_id` / ティア /
+bind / 使用可能レベル）も上書きしない。回帰は `ItemUpgradeCarryOverTest` と
+`RitualUpgradeCarryOverWiringTest`。
+
 **副産物**: `TrinityForgeBridge`側の`catch (Throwable t) {}`（TF側API不整合を握り潰す安全弁）が
 **完全に無言**だったため、フォークの`libs/TrinityForge.jar`が古い等でEXP付与が例外落ちしても
 誰にも気付けなかった。`grantArsSmithingExpOnly`では最低限の警告ログを残すよう変更した——
@@ -972,12 +1005,13 @@ reloadで進んだときだけ）の2箇所のみで、**どちらも「Material
   （統合版やタッチ操作では素の操作として出る。Java でも連打で出る）
 
 ⚠ **同じマスに確認と実行を重ねる二段クリックは、この GUI では誤爆防止にならない。**
-`NativeSkillTreeMenu#applyTreeReset`（ツリーリセット）も同じ方式なので、
-同種の報告が来たら真っ先にここを疑う。
+楔（`skill_node_lock`）と再構築の書（`skill_tree_reset`）も 2026-08-29 にプレステージと同じ
+確認モーダルへ移した（`Mode.FUNCTION_CONFIRM`）。メインハンドに持った状態でノード／パーク／
+スキルアイコンをクリックすると確認が開く。持っているだけでは発動しない。
 
 確定解は2つセット:
 
-1. **別画面のモーダルへ移す**（`Mode.PRESTIGE_CONFIRM`）。ツリーもナビも描かず、
+1. **別画面のモーダルへ移す**（`Mode.PRESTIGE_CONFIRM` / `Mode.FUNCTION_CONFIRM`）。ツリーもナビも描かず、
    警告と「はい」「いいえ」だけ。`lastView` へは覚えさせない
    （覚えるとメニューを開き直しただけで確定ボタンのある画面が出る）。
 2. ⚠ **「はい」を直前に押したスロットへ置かない**（`prestigeYesSlot`）。
@@ -1011,6 +1045,17 @@ config（skilltree の yml）には書かない ── 16ツリーぶん書き�
 見えない状態だったので、`dailyRateLore` に「次の段階まで」の行を足した。**新しい表示面を作るときは
 `millisUntilFull` だけでなく `millisUntilImproved` も出すこと**（数字の食い違いを避けるため整形は
 必ず `DailyExpRateText.duration` を通す）。
+
+### EXP解呪の良薬は「倍率の床」ではなく減衰量の削減（並は 70% 天井、極は時間付き無効化）
+
+旧仕様（50%/75%/90% まで引き戻す）は lore と実装がそうなっていたが、現行は違う。
+`ExpCleanseTonic` が真源。並は減衰量（`1 - 倍率`）を 10% 削り **70% までしか戻せない**。
+離散段（出荷 0.9/段）では 70% は段の間に落ちるので、70% を超える段（72.9%）へは上がらず、
+上限は 65.6% 段。上は 15% 削減で天井なし。極は蓄積を削らず **2 時間無効化**し、その間は
+新しい稼ぎを窓に足さない（足すと解けた瞬間に下限へ落ちる）。運営は
+`/tf decay reset <player>` と `/tf decay immune <player> <duration>`。
+無効化は `daily_exp_immune` 表へ永続化する。`DailyExpWindowStore#save` は「大きい方」を残すので、
+並・上の切り下げはメモリのあと `capToSnapshots` で DB も削る。
 
 ### ダンジョン難易度は yml のキーではなくコメントにしか存在しない（`combat/mob-overrides.yml`）
 

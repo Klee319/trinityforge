@@ -21,6 +21,13 @@ final class CatalogItemMatch {
         return ItemData.of(stack.getItemMeta()).quality();
     }
 
+    static Optional<Long> rollSeedOf(ItemStack stack) {
+        if (stack == null || !stack.hasItemMeta()) {
+            return Optional.empty();
+        }
+        return ItemData.of(stack.getItemMeta()).rollSeed();
+    }
+
     static boolean matchesTemplate(ItemStack stack, ItemTemplate template) {
         if (stack == null || stack.getType().isAir() || template == null) {
             return false;

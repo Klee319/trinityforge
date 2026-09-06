@@ -32,10 +32,9 @@ import java.util.Objects;
  *                            {@code ItemCatalogConfig} at parse time (fail-soft: an invalid or
  *                            non-leather {@code color:} is warned about and dropped, never fails the
  *                            whole item), so this record trusts whatever it is handed.
- * @param enchantGlow         when {@code true}, stamps a hidden enchant so the item shows the vanilla
- *                            enchant shimmer with no enchant listed in its tooltip (same
- *                            hidden-enchant + {@code HIDE_ENCHANTS} technique as the reference
- *                            {@code ConfigurableArmor} fork implementation). Defaults to {@code false}.
+ * @param enchantGlow         when {@code true}, applies Paper's enchantment-glint override so the
+ *                            item shimmers without being "enchanted" (no dummy Unbreaking, no
+ *                            {@code HIDE_ENCHANTS}). Defaults to {@code false}.
  * @param externalSource      「このIDの<b>実体</b>を持っているのは別プラグインだ」という宣言
  *                            ({@code items/catalog.yml} の {@code external-source:})。{@code null} =
  *                            TF カタログが実体を持つ(従来どおり)。現在の唯一の有効値は

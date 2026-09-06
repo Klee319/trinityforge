@@ -204,10 +204,16 @@ public final class MobOverrideDropListener implements Listener {
                 // need/greed に乗せない。抽選すると当選者1人しか受け取れず、複数人で潜った片方が
                 // 次の試練に入れない/図鑑が埋まらない状態になっていた。判定に渡すのは倍率を掛ける
                 // 前の drop.chance() であること(理由は MobDropRoller#isProgressionDrop)。
-                if (MobDropRoller.isProgressionDrop(drop.chance())) {
-                    EliteMobsSharedLootBridge.deliverToEveryDamager(event, stack);
-                } else {
-                    EliteMobsSharedLootBridge.deliver(event, stack);
+                // 2026-09-04 W-312: cappedCount 後の個数はアイテムエンティティのコーデック上限
+                // (99)を超えうるので、deliver/deliverToEveryDamager へ渡す前に分割する
+                // (isProgressionDrop な用途でも、分割後の各片が同じ受取人へ渡るだけで
+                // 「全員が1個ずつ持つ」という契約は壊れない)。
+                for (ItemStack part : com.trinityforge.items.ItemStackDrops.split(stack)) {
+                    if (MobDropRoller.isProgressionDrop(drop.chance())) {
+                        EliteMobsSharedLootBridge.deliverToEveryDamager(event, part);
+                    } else {
+                        EliteMobsSharedLootBridge.deliver(event, part);
+                    }
                 }
             }
         }
@@ -228,7 +234,9 @@ public final class MobOverrideDropListener implements Listener {
     private ItemStack buildDropStack(MobOverrideDropEntry drop, int count, String mobLabel,
                                      int mobLevel, int bonusMode) {
         if (!drop.isCustom()) {
-            return new ItemStack(drop.material(), count);
+            ItemStack stack = new ItemStack(drop.material(), count);
+            return qualityResolver == null ? stack
+                    : qualityResolver.stampPlainDrop(stack, mobLevel, bonusMode, random);
         }
         long seed = random.nextLong();
         Optional<ItemStack> resolved = itemResolver.create(drop.catalogId(), seed, 0);

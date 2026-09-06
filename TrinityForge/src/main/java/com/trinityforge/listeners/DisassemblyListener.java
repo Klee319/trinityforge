@@ -13,6 +13,7 @@ import com.trinityforge.stats.RecipeIngredient;
 import com.trinityforge.stats.RecipeSpec;
 import com.trinityforge.stats.StatKeys;
 import org.bukkit.Bukkit;
+import org.bukkit.Keyed;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.FallingBlock;
@@ -26,6 +27,7 @@ import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.Recipe;
+import org.bukkit.inventory.RecipeChoice;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.ShapelessRecipe;
 import org.bukkit.inventory.SmithingTransformRecipe;
@@ -35,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalDouble;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -94,7 +97,7 @@ public final class DisassemblyListener implements Listener {
         AnvilPlacement placement = fallingAnvilOwners.remove(falling.getUniqueId());
         if (placement == null) return; // dispenser/world-generated anvils have no accountable unlock owner.
         Player owner = falling.getServer().getPlayer(placement.owner());
-        int level = owner == null ? 0 : dismantleLevel(owner);
+        int level = owner == null ? 0 : dismantleLevel(dedicatedEffects, owner);
         if (level <= 0) return;
 
         Location impact = event.getBlock().getLocation().add(0.5, -0.25, 0.5);
@@ -133,7 +136,9 @@ public final class DisassemblyListener implements Listener {
             // 2026-07-28: 戻り総%は features.disassemblyPercentFor(level) が解決する(disassembly.tiers
             // の完全一致優先、無ければ従来どおり percentPerLevel × level の線形式)。
             int totalPercent = features.disassemblyPercentFor(level);
-            long amount = returnAmount(ingredientCount, totalPercent, chosen.multiplier(), buffMultiplier);
+            long amount = scaleByStack(
+                    returnAmount(ingredientCount, totalPercent, chosen.multiplier(), buffMultiplier),
+                    stack.getAmount());
             if (amount < 0) return; // malformed or excessive config must never consume the source item.
             if (amount == 0) continue;
             List<ItemStack> returned = resolveReturnStacks(chosen.item(), amount);
@@ -142,12 +147,9 @@ public final class DisassemblyListener implements Listener {
         }
         if (returns.isEmpty()) return; // no fallback: nothing is consumed unless a configured return exists.
 
-        int remaining = stack.getAmount() - 1;
-        if (remaining <= 0) target.remove();
-        else {
-            stack.setAmount(remaining);
-            target.setItemStack(stack);
-        }
+        // 地上ドロップは同種が1つの Item にマージされる。1着だけ消費すると
+        // 「同じ部位を固めてスクラップしたら1着分」になる（2026-08-29）。
+        target.remove();
         for (ItemStack returned : returns) {
             target.getWorld().dropItemNaturally(target.getLocation(), returned);
         }
@@ -170,30 +172,118 @@ public final class DisassemblyListener implements Listener {
     private double vanillaIngredientCount(ItemStack result, String input) {
         if (input == null || input.regionMatches(true, 0, "custom:", 0, 7)) return 0;
         if (!isMaterialInput(input)) return 0;
+        return lowestMatchingIngredientCount(result, input, Bukkit.getRecipesFor(result));
+    }
+
+    /**
+     * バニラ（未刻印）品の素材数。{@code getRecipesFor} は material だけでマッチするので、
+     * 同じ革チェストでもカタログの骨の守護（革2）などが混ざる。それを min すると
+     * バニラ8枠が 1〜2 に潰れ、Lv3 60%×2 が 6 や 2 になる。
+     * {@link ShapedRecipe#getIngredientMap()} は文字キー1件なので、形を歩いてマスを数える。
+     */
+    static double lowestMatchingIngredientCount(ItemStack result, String input, Iterable<Recipe> recipes) {
         double lowestPerItem = Double.POSITIVE_INFINITY;
-        for (Recipe recipe : Bukkit.getRecipesFor(result)) {
-            int count = 0;
-            if (recipe instanceof ShapedRecipe shaped) {
-                for (ItemStack ingredient : shaped.getIngredientMap().values()) {
-                    if (ingredient != null && materialMatchesInput(ingredient.getType(), input)) count++;
-                }
-            } else if (recipe instanceof ShapelessRecipe shapeless) {
-                for (ItemStack ingredient : shapeless.getIngredientList()) {
-                    if (ingredient != null && materialMatchesInput(ingredient.getType(), input)) count++;
-                }
-            } else if (recipe instanceof SmithingTransformRecipe smithing
-                    && matchesSmithingAddition(smithing, input)) {
-                // A netherite upgrade consumes exactly one addition item per result.  The base
-                // item is intentionally not counted: the configured input decides which
-                // component is recoverable, just as for ordinary recipes.
-                count = 1;
-            }
+        for (Recipe recipe : recipes) {
+            if (!isVanillaRecipeForUnstampedItem(result, recipe)) continue;
+            int count = craftingOrNetheriteUpgradeCount(recipe, input);
             if (count > 0) {
                 lowestPerItem = Math.min(lowestPerItem,
                         count / (double) Math.max(1, recipe.getResult().getAmount()));
             }
         }
         return Double.isFinite(lowestPerItem) ? lowestPerItem : 0;
+    }
+
+    /**
+     * 未刻印スタックに対しては {@code minecraft:} 名前空間で、成果物に CMD が無いレシピだけを使う。
+     * プラグインが同じ material で登録したカタログ品は別物。
+     */
+    static boolean isVanillaRecipeForUnstampedItem(ItemStack disassembled, Recipe recipe) {
+        if (disassembled == null || recipe == null) return false;
+        if (hasCustomModelData(disassembled)) return false;
+        if (recipe instanceof Keyed keyed && !"minecraft".equals(keyed.getKey().getNamespace())) {
+            return false;
+        }
+        ItemStack recipeResult = recipe.getResult();
+        if (recipeResult == null || recipeResult.getType() != disassembled.getType()) {
+            return false;
+        }
+        return !hasCustomModelData(recipeResult);
+    }
+
+    @SuppressWarnings("deprecation")
+    static boolean hasCustomModelData(ItemStack stack) {
+        if (stack == null || !stack.hasItemMeta()) return false;
+        return stack.getItemMeta().hasCustomModelData();
+    }
+
+    /**
+     * 作業台の形/ばらレシピと、ネザライト強化の鍛冶だけを数える。
+     *
+     * <p>{@code SmithingTransformRecipe} のうち、成果物がすでに同じネザライト防具なら装飾、
+     * 基材がダイヤモンドなら強化。解体の素材数は「その防具を作ったときの素材」だけが正なので、
+     * 装飾は数えない。1.21 の防具装飾は {@code smithing_trim} が型ごとに18本あり、
+     * addition はタグ {@code #trim_materials}、成果物は空なので {@code getRecipesFor} には
+     * 通常乗らない。8+16=24 は 1.20 の型数16を足した誤診（正は18本、かつ足し方そのものが違う）。
+     */
+    static int craftingOrNetheriteUpgradeCount(Recipe recipe, String input) {
+        if (recipe instanceof ShapedRecipe shaped) {
+            return countShapedSlots(shaped, input);
+        }
+        if (recipe instanceof ShapelessRecipe shapeless) {
+            int count = 0;
+            for (ItemStack ingredient : shapeless.getIngredientList()) {
+                if (ingredient != null && materialMatchesInput(ingredient.getType(), input)) {
+                    count++;
+                }
+            }
+            return count;
+        }
+        if (recipe instanceof SmithingTransformRecipe smithing
+                && matchesSmithingAddition(smithing, input)) {
+            ItemStack resultStack = smithing.getResult();
+            Material resultType = resultStack.getType();
+            if (resultType == null || !resultType.name().startsWith("NETHERITE_")) {
+                return 0;
+            }
+            // 装飾: 基材がすでにネザライト防具。強化: 基材はダイヤモンドで成果物と別物。
+            RecipeChoice base = smithing.getBase();
+            if (base != null && base.test(new ItemStack(resultType))) {
+                return 0;
+            }
+            return 1;
+        }
+        return 0;
+    }
+
+    /**
+     * 形のマスを数える。{@code getIngredientMap().values()} は文字キーが1件なので、
+     * 革チェスト {@code X X / XXX / XXX} が 8 ではなく 1 になる。
+     */
+    static int countShapedSlots(ShapedRecipe shaped, String input) {
+        var choices = shaped.getChoiceMap();
+        int count = 0;
+        for (String row : shaped.getShape()) {
+            for (int i = 0; i < row.length(); i++) {
+                char symbol = row.charAt(i);
+                if (symbol == ' ') continue;
+                RecipeChoice choice = choices.get(symbol);
+                if (choiceMatchesInput(choice, input)) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    private static boolean choiceMatchesInput(RecipeChoice choice, String input) {
+        if (choice == null || input == null) return false;
+        if (input.regionMatches(true, 0, "list:", 0, 5)) {
+            return MaterialLists.resolve(input.substring(5).trim()).stream()
+                    .anyMatch(material -> choice.test(new ItemStack(material)));
+        }
+        Material material = Material.matchMaterial(input);
+        return material != null && choice.test(new ItemStack(material));
     }
 
     private int countInRecipe(RecipeSpec recipe, String input) {
@@ -262,6 +352,24 @@ public final class DisassemblyListener implements Listener {
         double amount = Math.floor(base * multiplier);
         if (!Double.isFinite(amount) || amount < 0 || amount > Integer.MAX_VALUE) return -1;
         return (long) amount;
+    }
+
+    /**
+     * 地上ドロップのスタック数ぶん戻りを倍にする。1個だけ計算すると、同種防具がマージされた
+     * スタックをスクラップしたときに1着分しか出ない（2026-08-29）。
+     */
+    static long scaleByStack(long amount, int stackCount) {
+        if (amount < 0) {
+            return amount;
+        }
+        int count = Math.max(1, stackCount);
+        if (count == 1) {
+            return amount;
+        }
+        if (amount > Integer.MAX_VALUE / count) {
+            return -1;
+        }
+        return amount * count;
     }
 
     /**
@@ -336,8 +444,14 @@ public final class DisassemblyListener implements Listener {
         return stacks;
     }
 
-    private int dismantleLevel(Player player) {
-        int value = (int) Math.floor(dedicatedEffects.valueSum(player, UNLOCK));
+    /**
+     * C/D/E ノードの value は加算量ではなく絶対tier (1/2/3)。
+     * 直列取得した3ノードを合算すると6になり、未定義tierの線形フォールバック(150%)へ入るため、
+     * 段階効果の契約どおり最大値だけを採用する。
+     */
+    static int dismantleLevel(DedicatedEffectsConfig dedicatedEffects, Player player) {
+        OptionalDouble highest = dedicatedEffects.valueMax(player, UNLOCK);
+        int value = highest.isPresent() ? (int) Math.floor(highest.getAsDouble()) : 0;
         return value > 0 ? value : (dedicatedEffects.isActive(player, UNLOCK) ? 1 : 0);
     }
 

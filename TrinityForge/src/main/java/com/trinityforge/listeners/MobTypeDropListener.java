@@ -4,6 +4,7 @@ import com.trinityforge.config.domains.CraftQualityConfig;
 import com.trinityforge.config.domains.ItemStatsConfig;
 import com.trinityforge.config.domains.MobTypesConfig;
 import com.trinityforge.config.domains.QualityConfig;
+import com.trinityforge.items.ItemStackDrops;
 import com.trinityforge.mobs.MobDropEntry;
 import com.trinityforge.mobs.MobDropRoller;
 import com.trinityforge.mobs.MobTypeDefinition;
@@ -195,7 +196,10 @@ public final class MobTypeDropListener implements Listener {
                 ItemStack custom = buildCustomStack(drop, count, entity.getType().name(),
                         mobLevel, bonusMode);
                 if (custom != null) {
-                    event.getDrops().add(custom);
+                    // 2026-09-04 W-312: cappedCount は「総個数」の上限であって1エンティティの上限
+                    // ではない(maxStackSize×8 は99を軽々超える)。ItemStackDrops.split で
+                    // アイテムエンティティのコーデック上限(99)以下へ分割してから積む。
+                    event.getDrops().addAll(ItemStackDrops.split(custom));
                 }
                 continue;
             }
@@ -205,7 +209,7 @@ public final class MobTypeDropListener implements Listener {
                         : resolveQuality(mobLevel, bonusMode, drop.material());
                 itemFactory.stamp(stack, random.nextLong(), qualityValue);
             }
-            event.getDrops().add(stack);
+            event.getDrops().addAll(ItemStackDrops.split(stack));
         }
     }
 

@@ -107,13 +107,13 @@ test("buildItemStatsForm: スレッド (tab: thread) は従来どおり枠を作
 // ---------------------------------------------------------------------------
 require("../public/js/functional-items.js");
 
-test("buildItemStatsForm: TF特殊アイテム8件(既存2件+券3件+2026-08-24追加の良薬3件)は枠を作らない"
+test("buildItemStatsForm: TF特殊アイテム9件(既存2件+券3件+2026-08-24追加の良薬3件+魂縛解き)は枠を作らない"
     + " (読み込み順に依存せず効く)", () => {
   const core = global.window.FUNCTIONAL_ITEMS_CORE;
   assert.ok(core && Array.isArray(core.TF_SPECIAL_ITEM_IDS), "TF_SPECIAL_ITEM_IDS が公開されていること");
   assert.deepEqual(core.TF_SPECIAL_ITEM_IDS.slice().sort(), [
     "exp_cleanse_tonic_greater", "exp_cleanse_tonic_lesser", "exp_cleanse_tonic_supreme",
-    "quality_upgrade_ticket", "role_reselect_ticket", "skill_node_lock",
+    "owner_unbind_ticket", "quality_upgrade_ticket", "role_reselect_ticket", "skill_node_lock",
     "skill_tree_reset", "stat_reroll_ticket"
   ]);
 

@@ -14,7 +14,8 @@ import java.util.UUID;
  * Type-safe view over an item's PersistentDataContainer (ADDON_INTEGRATION_SPEC 6 / SELECTION 5).
  *
  * <p>Item stats are <strong>not</strong> stored here; only the derivation inputs are
- * ({@code rollSeed} + {@code quality}). Concrete stat values are derived on demand by
+ * ({@code rollSeed} + {@code quality}). The separate {@code qualityScore} cache is presentation-only
+ * and is not read by combat/stat derivation. Concrete stat values are derived on demand by
  * {@code StatDerivation} so a config-table change re-balances existing items (SELECTION 1.4).
  *
  * <p>Mutating methods edit the supplied {@link ItemMeta} in place; the caller is responsible
@@ -51,6 +52,14 @@ public final class ItemData {
         return container.has(PdcKeys.ITEM_ROLL_SEED, PersistentDataType.LONG);
     }
 
+    /**
+     * 品質キーが実際に刻印されているか。{@link #quality()} は欠落時に 0 を返すので、
+     * 「劣悪(0)」と「未刻印」を区別するときはこちらを使う。
+     */
+    public boolean hasQuality() {
+        return container.has(PdcKeys.ITEM_QUALITY, PersistentDataType.INTEGER);
+    }
+
     public Optional<Long> rollSeed() {
         return Optional.ofNullable(container.get(PdcKeys.ITEM_ROLL_SEED, PersistentDataType.LONG));
     }
@@ -68,6 +77,16 @@ public final class ItemData {
     public void setQuality(int quality) {
         int clamped = Math.max(MIN_QUALITY, Math.min(MAX_QUALITY, quality));
         container.set(PdcKeys.ITEM_QUALITY, PersistentDataType.INTEGER, clamped);
+    }
+
+    /** Cached random-roll score, when an item has been assembled at least once. */
+    public Optional<Integer> qualityScore() {
+        return Optional.ofNullable(container.get(PdcKeys.ITEM_QUALITY_SCORE, PersistentDataType.INTEGER));
+    }
+
+    public void setQualityScore(int score) {
+        container.set(PdcKeys.ITEM_QUALITY_SCORE, PersistentDataType.INTEGER,
+                Math.max(0, Math.min(100, score)));
     }
 
     public Optional<UUID> owner() {
@@ -188,12 +207,15 @@ public final class ItemData {
     }
 
     /**
-     * Writes {@code mods} to PDC ONLY when non-zero, so a zero-mods craft writes nothing and reads back
-     * as {@link CraftRollMods#NONE} (avoids polluting every item's PDC with inert zero values).
+     * Writes the current mods. Zero clears any previous keys so a later stamp (厳選の護符など)
+     * can drop old ロール運 without leaving stale PDC.
      */
     public void setCraftRollMods(CraftRollMods mods) {
         Objects.requireNonNull(mods, "mods");
         if (mods.isZero()) {
+            container.remove(PdcKeys.ITEM_CRAFT_ROLL_UP);
+            container.remove(PdcKeys.ITEM_CRAFT_ROLL_DOWN_REDUCTION);
+            container.remove(PdcKeys.ITEM_CRAFT_ROLL_INSET_DELTA);
             return;
         }
         container.set(PdcKeys.ITEM_CRAFT_ROLL_UP, PersistentDataType.DOUBLE, mods.rollUpBonus());

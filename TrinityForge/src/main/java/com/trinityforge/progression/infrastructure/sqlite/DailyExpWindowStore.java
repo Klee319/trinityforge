@@ -74,6 +74,13 @@ public final class DailyExpWindowStore implements AutoCloseable {
             + "    value TEXT NOT NULL\n"
             + ")";
 
+    private static final String CREATE_IMMUNE_TABLE =
+            "CREATE TABLE IF NOT EXISTS daily_exp_immune (\n"
+            + "    player_uuid  TEXT PRIMARY KEY,\n"
+            + "    until_millis INTEGER NOT NULL\n"
+            + ")";
+
+    /** 一括解除の合言葉を daily_exp_meta へ残すキー。 */
     private static final String RESET_ID_KEY = "reset_id";
 
     private static final String SELECT =
@@ -135,6 +142,7 @@ public final class DailyExpWindowStore implements AutoCloseable {
                 s.execute("PRAGMA synchronous = NORMAL");
                 s.executeUpdate(CREATE_TABLE);
                 s.executeUpdate(CREATE_META_TABLE);
+                s.executeUpdate(CREATE_IMMUNE_TABLE);
                 // 既存DBへの列追加。2回目以降は「duplicate column name」で失敗するのが正常。
                 // SQLite の ALTER TABLE は IF NOT EXISTS を持たないので、例外で判定するしかない。
                 try {
@@ -320,6 +328,75 @@ public final class DailyExpWindowStore implements AutoCloseable {
     }
 
     /**
+     * スキルごとに切り下げ先が違うとき（減衰量の割合削減）用。
+     * {@code caps} の各スキルについて、保存済み（現在時刻へ減衰済み）がそれより大きければ切り下げる。
+     *
+     * <p>期限切れの行は切り下げずに消す。残して {@code locked_at} を書き戻すと、
+     * あとの {@link #save} が「早い方の発動時刻」で古いロックを蘇らせる。
+     */
+    public synchronized int capToSnapshots(UUID playerId,
+                                           Collection<DailyExpDiminishing.WindowSnapshot> caps,
+                                           double windowMillis,
+                                           double lockReleaseMillis) throws SQLException {
+        Objects.requireNonNull(playerId, "playerId");
+        if (caps == null) {
+            return 0;
+        }
+        Map<String, Double> bySkill = new HashMap<>();
+        for (DailyExpDiminishing.WindowSnapshot cap : caps) {
+            if (cap == null || cap.skillId() == null || !Double.isFinite(cap.amount())) {
+                continue;
+            }
+            bySkill.put(cap.skillId(), cap.amount());
+        }
+        double window = windowMillis > 0.0 && Double.isFinite(windowMillis) ? windowMillis : 1.0;
+        long now = clockMillis.getAsLong();
+        boolean autoCommit = conn.getAutoCommit();
+        conn.setAutoCommit(false);
+        int changed = 0;
+        try {
+            for (DailyExpDiminishing.WindowSnapshot row : load(playerId)) {
+                DailyExpDiminishing.WindowSnapshot stored = live(row, now, lockReleaseMillis);
+                if (stored == null) {
+                    stmtDeleteRow.setString(1, playerId.toString());
+                    stmtDeleteRow.setString(2, row.skillId());
+                    stmtDeleteRow.executeUpdate();
+                    changed++;
+                    continue;
+                }
+                Double maxAmount = bySkill.get(row.skillId());
+                if (maxAmount == null) {
+                    continue;
+                }
+                double decayed = decayTo(now, stored, window);
+                if (decayed <= maxAmount) {
+                    continue;
+                }
+                if (maxAmount < NEGLIGIBLE_AMOUNT) {
+                    stmtDeleteRow.setString(1, playerId.toString());
+                    stmtDeleteRow.setString(2, row.skillId());
+                    stmtDeleteRow.executeUpdate();
+                } else {
+                    stmtUpsert.setString(1, playerId.toString());
+                    stmtUpsert.setString(2, row.skillId());
+                    stmtUpsert.setDouble(3, maxAmount);
+                    stmtUpsert.setLong(4, now);
+                    stmtUpsert.setLong(5, stored.lockedAtMillis());
+                    stmtUpsert.executeUpdate();
+                }
+                changed++;
+            }
+            conn.commit();
+        } catch (SQLException | RuntimeException e) {
+            try { conn.rollback(); } catch (SQLException ignored) { /* 元の例外を潰さない */ }
+            throw e;
+        } finally {
+            conn.setAutoCommit(autoCommit);
+        }
+        return changed;
+    }
+
+    /**
      * 期限切れ(W-154)の行を<b>物理的に消す</b>。ログイン時の復元から呼ぶ。
      *
      * <p>{@code restore} 側で読み飛ばすだけだと行が残り続け、あとの {@link #save} が
@@ -363,6 +440,48 @@ public final class DailyExpWindowStore implements AutoCloseable {
         Objects.requireNonNull(playerId, "playerId");
         stmtDeletePlayer.setString(1, playerId.toString());
         stmtDeletePlayer.executeUpdate();
+        clearImmunity(playerId);
+    }
+
+    public synchronized void saveImmunity(UUID playerId, long untilMillis) throws SQLException {
+        Objects.requireNonNull(playerId, "playerId");
+        try (PreparedStatement upsert = conn.prepareStatement(
+                "INSERT INTO daily_exp_immune (player_uuid, until_millis) VALUES (?, ?)\n"
+                        + "ON CONFLICT(player_uuid) DO UPDATE SET until_millis = excluded.until_millis")) {
+            upsert.setString(1, playerId.toString());
+            upsert.setLong(2, untilMillis);
+            upsert.executeUpdate();
+        }
+    }
+
+    /** 期限が残っていればその時刻。無ければ / 切れていれば empty。切れた行は消す。 */
+    public synchronized java.util.Optional<Long> loadImmunity(UUID playerId) throws SQLException {
+        Objects.requireNonNull(playerId, "playerId");
+        long now = clockMillis.getAsLong();
+        try (PreparedStatement select = conn.prepareStatement(
+                "SELECT until_millis FROM daily_exp_immune WHERE player_uuid = ?")) {
+            select.setString(1, playerId.toString());
+            try (ResultSet rs = select.executeQuery()) {
+                if (!rs.next()) {
+                    return java.util.Optional.empty();
+                }
+                long until = rs.getLong(1);
+                if (until <= now) {
+                    clearImmunity(playerId);
+                    return java.util.Optional.empty();
+                }
+                return java.util.Optional.of(until);
+            }
+        }
+    }
+
+    public synchronized void clearImmunity(UUID playerId) throws SQLException {
+        Objects.requireNonNull(playerId, "playerId");
+        try (PreparedStatement delete = conn.prepareStatement(
+                "DELETE FROM daily_exp_immune WHERE player_uuid = ?")) {
+            delete.setString(1, playerId.toString());
+            delete.executeUpdate();
+        }
     }
 
     /**

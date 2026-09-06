@@ -10,6 +10,7 @@
 #   display-name           (optional) MiniMessage, e.g. "<gradient:#ffd76a:#ff7a3c>Ember Edge</gradient>"
 #   custom-model-data      (optional) resource-pack model id (integer)
 #   bind-type              (optional) SOULBOUND | TRADEABLE | OWNER_BOUND (default TRADEABLE)
+#                           スレッド: 作業台/儀式レシピがある種は TRADEABLE、レシピ無しは SOULBOUND。
 #   use-level-requirement  (optional) required skill-tree level to use (0 = unrestricted)
 #   use-skill              (optional) skill tree the requirement is measured against, e.g. HEAVY_WEAPONS
 #   lore                   (optional) フレーバー説明文（複数行可、MiniMessage記法）。
@@ -26,7 +27,8 @@
 #                           (アイテム本体は継続してロードされる)。
 #                             例: color: "#8B0000"   (暗い赤色の革鎧)
 #   enchant-glow           (optional) true でエンチャント光沢(発光)だけを付与する(実際のエンチャント効果は
-#                           付かない見た目だけの光沢。隠しエンチャント+HIDE_ENCHANTSの定番手法)。既定 false。
+#                           付かない見た目だけの光沢。Paper の glint override。ダミーエンチャントではないので
+#                           エンチャント台・金床・砥石を邪魔しない)。既定 false。
 #   external-source        (optional) 「このIDの"実体"を持っているのは別プラグインだ」という宣言。
 #                           有効値は現在 arspaper のみ。未指定 = TFカタログが実体を持つ(従来どおり)。
 #                           これを書くと CrossPluginItemResolver#create が【そのIDに限り】
@@ -90,6 +92,2643 @@
 #                               source-item: diamond_blade
 
 items:
+  source_gem_helmet:
+    material: DIAMOND_HELMET
+    display-name: <aqua>ソースジェムのヘルメット</aqua>
+    custom-model-data: 200101
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - iii
+        - i i
+        - "   "
+      ingredients:
+        i: custom:source_gem
+    lore:
+      - <color:gray><i>魔力を帯びた外殻</i></color>
+      - ""
+      - <color:dark_purple>魔力を纏いし体躯</color>
+  source_gem_chestplate:
+    material: DIAMOND_CHESTPLATE
+    display-name: <aqua>ソースジェムのチェストプレート</aqua>
+    custom-model-data: 200102
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - i i
+        - iii
+        - iii
+      ingredients:
+        i: custom:source_gem
+    lore:
+      - <color:gray><i>魔力を帯びた外殻</i></color>
+      - ""
+      - <color:dark_purple>魔力を纏いし体躯</color>
+  source_gem_leggings:
+    material: DIAMOND_LEGGINGS
+    display-name: <aqua>ソースジェムのレギンス</aqua>
+    custom-model-data: 200103
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - iii
+        - i i
+        - i i
+      ingredients:
+        i: custom:source_gem
+    lore:
+      - <color:gray><i>魔力を帯びた外殻</i></color>
+      - ""
+      - <color:dark_purple>魔力を纏いし体躯</color>
+  source_gem_boots:
+    material: DIAMOND_BOOTS
+    display-name: <aqua>ソースジェムのブーツ</aqua>
+    custom-model-data: 200104
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - i i
+        - i i
+        - "   "
+      ingredients:
+        i: custom:source_gem
+    lore:
+      - <color:gray><i>魔力を帯びた外殻</i></color>
+      - ""
+      - <color:dark_purple>魔力を纏いし体躯</color>
+  dragon_helmet:
+    material: NETHERITE_HELMET
+    display-name: <color:dark_purple>エンダードラゴンのヘルメット</color>
+    custom-model-data: 149
+    recipe:
+      method: ritual
+      core-item: DRAGON_EGG
+      pedestal-items:
+        - custom:shulker_shell_2x x5
+        - custom:dragon_breath_3x x5
+        - custom:dragon_scale x2
+      source: 2000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <color:gray><i>儀式によって精製した龍を模した鎧</i></color>
+      - ""
+      - <color:dark_purple>終焉の龍が現世で産声を上げる</color>
+  dragon_chestplate:
+    material: NETHERITE_CHESTPLATE
+    display-name: <color:dark_purple>エンダードラゴンのチェストプレート</color>
+    custom-model-data: 152
+    recipe:
+      method: ritual
+      core-item: DRAGON_EGG
+      pedestal-items:
+        - custom:shulker_shell_2x x5
+        - custom:dragon_breath_3x x5
+        - custom:dragon_scale x4
+      source: 2000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <color:gray><i>儀式によって精製した龍を模した鎧</i></color>
+      - ""
+      - <color:dark_purple>終焉の龍が現世で産声を上げる</color>
+  dragon_leggings:
+    material: NETHERITE_LEGGINGS
+    display-name: <color:dark_purple>エンダードラゴンのレギンス</color>
+    custom-model-data: 155
+    recipe:
+      method: ritual
+      core-item: DRAGON_EGG
+      pedestal-items:
+        - custom:shulker_shell_2x x5
+        - custom:dragon_breath_3x x5
+        - custom:dragon_scale x3
+      source: 2000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <color:gray><i>儀式によって精製した龍を模した鎧</i></color>
+      - ""
+      - <color:dark_purple>終焉の龍が現世で産声を上げる</color>
+  dragon_boots:
+    material: NETHERITE_BOOTS
+    display-name: <color:dark_purple>エンダードラゴンのブーツ</color>
+    custom-model-data: 158
+    recipe:
+      method: ritual
+      core-item: DRAGON_EGG
+      pedestal-items:
+        - custom:shulker_shell_2x x5
+        - custom:dragon_breath_3x x5
+        - custom:dragon_scale x1
+      source: 2000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <color:gray><i>儀式によって精製した龍を模した鎧</i></color>
+      - ""
+      - <color:dark_purple>終焉の龍が現世で産声を上げる</color>
+  wither_helmet:
+    material: NETHERITE_HELMET
+    display-name: <color:#696969>ウィザーのヘルメット</color>
+    custom-model-data: 150
+    recipe:
+      method: ritual
+      core-item: NETHER_STAR
+      pedestal-items:
+        - custom:shulker_shell_1x x5
+        - custom:wither_rose_1x x5
+        - custom:reinforced_leather x2
+      source: 250000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <color:gray><i>儀式によって精製した黒骸骨を模した鎧</i></color>
+      - ""
+      - <color:dark_purple>己が課した試練を乗り越えた証</color>
+  wither_chestplate:
+    material: NETHERITE_CHESTPLATE
+    display-name: <color:dark_gray>ウィザーのチェストプレート</color>
+    custom-model-data: 153
+    recipe:
+      method: ritual
+      core-item: NETHER_STAR
+      pedestal-items:
+        - custom:shulker_shell_1x x5
+        - custom:wither_rose_1x x5
+        - custom:reinforced_leather x4
+      source: 250000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <color:gray><i>儀式によって精製した黒骸骨を模した鎧</i></color>
+      - ""
+      - <color:dark_purple>己が課した試練を乗り越えた証</color>
+  wither_leggings:
+    material: NETHERITE_LEGGINGS
+    display-name: <color:dark_gray>ウィザーのレギンス</color>
+    custom-model-data: 156
+    recipe:
+      method: ritual
+      core-item: NETHER_STAR
+      pedestal-items:
+        - custom:shulker_shell_1x x5
+        - custom:wither_rose_1x x5
+        - custom:reinforced_leather x3
+      source: 250000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <color:gray><i>儀式によって精製した黒骸骨を模した鎧</i></color>
+      - ""
+      - <color:dark_purple>己が課した試練を乗り越えた証</color>
+  wither_boots:
+    material: NETHERITE_BOOTS
+    display-name: <color:dark_gray>ウィザーのブーツ</color>
+    custom-model-data: 159
+    recipe:
+      method: ritual
+      core-item: NETHER_STAR
+      pedestal-items:
+        - custom:shulker_shell_1x x5
+        - custom:wither_rose_1x x5
+        - custom:reinforced_leather x1
+      source: 250000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <color:gray><i>儀式によって精製した黒骸骨を模した鎧</i></color>
+      - ""
+      - <color:dark_purple>己が課した試練を乗り越えた証</color>
+  infinity_helmet:
+    material: NETHERITE_HELMET
+    display-name: <color:#7df9ff>インフィニティのヘルメット</color>
+    custom-model-data: 148
+    recipe:
+      method: ritual
+      core-item: custom:core_jewelry
+      pedestal-items:
+        - custom:amethyst_block_2x x4
+      source: 15000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <color:gray><i>無限の力が宿る装甲</i></color>
+      - ""
+      - <color:dark_purple>無限をその身に</color>
+  pit_lamp:
+    draft: true
+    material: LEATHER_HELMET
+    color: "#E0B23C"
+    display-name: <color:#b48ee0>坑夫の灯</color>
+    custom-model-data: 5761
+    recipe:
+      method: ritual
+      core-item: custom:core_jewelry
+      pedestal-items:
+        - custom:hard_metal x2
+        - FLINT x1
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>暗いほど、見えるものがある。</italic></dark_gray>
+      - <gray>坑夫だけが身に着けられる。採掘運が上がる。</gray>
+  tide_float:
+    draft: true
+    material: LEATHER_HELMET
+    color: "#2FA4B8"
+    display-name: <color:#b48ee0>潮見の浮き</color>
+    custom-model-data: 5760
+    recipe:
+      method: ritual
+      core-item: custom:core_jewelry
+      pedestal-items:
+        - custom:hard_metal x2
+        - NAUTILUS_SHELL x1
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>沈む速さで、下にいるものが分かる。</italic></dark_gray>
+      - <gray>釣り人だけが身に着けられる。釣り運が上がる。</gray>
+  herb_hat:
+    draft: true
+    material: NETHERITE_HELMET
+    display-name: <color:#c9b37a>香草の帽子</color>
+    custom-model-data: 5740
+    recipe:
+      method: ritual
+      core-item: custom:core_vegetable
+      pedestal-items:
+        - WHEAT x13
+        - custom:hard_metal x2
+        - GOLDEN_HELMET x1
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>草の匂いが染みついている。</italic></dark_gray>
+      - <gray>食べたときの満腹度回復量が増える。</gray>
+  emberforge_helmet:
+    draft: true
+    material: NETHERITE_HELMET
+    display-name: <color:#e8894a>熾鉄の兜</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - GOLDEN_HELMET x1
+      source: 40000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  infinity_chestplate:
+    material: NETHERITE_CHESTPLATE
+    display-name: <color:#7df9ff>インフィニティのチェストプレート</color>
+    custom-model-data: 151
+    recipe:
+      method: ritual
+      core-item: custom:core_jewelry
+      pedestal-items:
+        - custom:amethyst_block_2x x7
+      source: 30000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <color:gray><i>無限の力が宿る装甲</i></color>
+      - ""
+      - <color:dark_purple>無限をその身に</color>
+  leveling_gloves:
+    draft: true
+    material: LEATHER_CHESTPLATE
+    color: "#7A6A5A"
+    display-name: <color:#b48ee0>均しの手袋</color>
+    custom-model-data: 5762
+    recipe:
+      method: ritual
+      core-item: custom:core_jewelry
+      pedestal-items:
+        - custom:hard_metal x2
+        - DIRT x8
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>掘るより、均すほうが難しい。</italic></dark_gray>
+      - <gray>掘削者だけが身に着けられる。怪しいブロックが復活しやすくなる。</gray>
+  harvest_basket:
+    draft: true
+    material: LEATHER_CHESTPLATE
+    color: "#C08A3E"
+    display-name: <color:#b48ee0>実りの籠</color>
+    custom-model-data: 5761
+    recipe:
+      method: ritual
+      core-item: custom:core_jewelry
+      pedestal-items:
+        - custom:hard_metal x2
+        - HAY_BLOCK x1
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>背負ったぶんだけ、持って帰れる。</italic></dark_gray>
+      - <gray>農家だけが身に着けられる。収穫の追加ドロップ率が上がる。</gray>
+  taunt_crest:
+    draft: true
+    material: NETHERITE_CHESTPLATE
+    display-name: <color:#b48ee0>挑発の紋章</color>
+    custom-model-data: 5760
+    recipe:
+      method: ritual
+      core-item: custom:core_jewelry
+      pedestal-items:
+        - custom:hard_metal x2
+        - SHIELD x1
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>前に出る者にしか、これは似合わない。</italic></dark_gray>
+      - <gray>盾役だけが身に着けられる。被ダメージとノックバックを抑える。</gray>
+  gladiator_belt:
+    draft: true
+    material: LEATHER_CHESTPLATE
+    color: "#8C2F1F"
+    display-name: <color:#b48ee0>闘士の帯</color>
+    custom-model-data: 5760
+    recipe:
+      method: ritual
+      core-item: custom:core_jewelry
+      pedestal-items:
+        - custom:hard_metal x2
+        - IRON_BLOCK x1
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>締めた瞬間、間合いが変わる。</italic></dark_gray>
+      - <gray>剣闘士だけが身に着けられる。貫通率が上がる。</gray>
+  feast_breastplate:
+    draft: true
+    material: NETHERITE_CHESTPLATE
+    display-name: <color:#c9b37a>饗宴の胸当て</color>
+    custom-model-data: 5741
+    recipe:
+      method: ritual
+      core-item: custom:core_meat
+      pedestal-items:
+        - COOKED_BEEF x8
+        - custom:hard_metal x2
+        - GOLDEN_CHESTPLATE x1
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>満たされた腹は、鎧より硬い。</italic></dark_gray>
+      - <gray>体力が増え、食料の消費が減る。</gray>
+  forestfolk_cloak:
+    draft: true
+    material: NETHERITE_CHESTPLATE
+    display-name: <color:#c9b37a>森人の外套</color>
+    custom-model-data: 5740
+    recipe:
+      method: ritual
+      core-item: custom:core_wood
+      pedestal-items:
+        - OAK_LOG x8
+        - custom:hard_metal x2
+        - GOLDEN_CHESTPLATE x1
+      source: 25000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>枝を鳴らさずに歩く者の装い。</italic></dark_gray>
+      - <gray>回避率と移動速度が上がる。</gray>
+  emberforge_chestplate:
+    draft: true
+    material: NETHERITE_CHESTPLATE
+    display-name: <color:#e8894a>熾鉄の胸当て</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - GOLDEN_CHESTPLATE x1
+      source: 40000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  infinity_leggings:
+    material: NETHERITE_LEGGINGS
+    display-name: <color:#7df9ff>インフィニティのレギンス</color>
+    custom-model-data: 154
+    recipe:
+      method: ritual
+      core-item: custom:core_jewelry
+      pedestal-items:
+        - custom:amethyst_block_2x x6
+      source: 25000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <color:gray><i>無限の力が宿る装甲</i></color>
+      - ""
+      - <color:dark_purple>無限をその身に</color>
+  emberforge_leggings:
+    draft: true
+    material: NETHERITE_LEGGINGS
+    display-name: <color:#e8894a>熾鉄の具足</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - GOLDEN_LEGGINGS x1
+      source: 40000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  infinity_boots:
+    material: NETHERITE_BOOTS
+    display-name: <color:#7df9ff>インフィニティのブーツ</color>
+    custom-model-data: 157
+    recipe:
+      method: ritual
+      core-item: custom:core_jewelry
+      pedestal-items:
+        - custom:amethyst_block_2x x3
+      source: 15000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <color:gray><i>無限の力が宿る装甲</i></color>
+      - ""
+      - <color:dark_purple>無限をその身に</color>
+  bedrock_greaves:
+    draft: true
+    material: NETHERITE_BOOTS
+    display-name: <color:#c9b37a>岩盤の具足</color>
+    custom-model-data: 5740
+    recipe:
+      method: ritual
+      core-item: custom:core_ground
+      pedestal-items:
+        - DIRT x13
+        - custom:hard_metal x2
+        - GOLDEN_BOOTS x1
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>一歩も下がらないための重さ。</italic></dark_gray>
+      - <gray>ノックバック耐性が上がる。</gray>
+  emberforge_boots:
+    draft: true
+    material: NETHERITE_BOOTS
+    display-name: <color:#e8894a>熾鉄の靴</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - GOLDEN_BOOTS x1
+      source: 40000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  mage_arcane_novice_helmet:
+    material: LEATHER_HELMET
+    display-name: <light_purple>見習いの魔導ヘルメット</light_purple>
+    custom-model-data: 200031
+    color: "#3B2566"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: IRON_HELMET
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
+      source: 5000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
+  mage_arcane_novice_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <light_purple>見習いの魔導チェストプレート</light_purple>
+    custom-model-data: 200032
+    color: "#3B2566"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: IRON_CHESTPLATE
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
+  mage_arcane_novice_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <light_purple>見習いの魔導レギンス</light_purple>
+    custom-model-data: 200033
+    color: "#3B2566"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: IRON_LEGGINGS
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
+  mage_arcane_novice_boots:
+    material: LEATHER_BOOTS
+    display-name: <light_purple>見習いの魔導ブーツ</light_purple>
+    custom-model-data: 200034
+    color: "#3B2566"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: IRON_BOOTS
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
+      source: 5000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
+  mage_arcane_apprentice_helmet:
+    material: LEATHER_HELMET
+    display-name: <dark_purple>魔術師の魔導ヘルメット</dark_purple>
+    custom-model-data: 200041
+    color: "#6B3FA0"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_novice_helmet
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
+      source: 50000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
+  mage_arcane_apprentice_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <dark_purple>魔術師の魔導チェストプレート</dark_purple>
+    custom-model-data: 200042
+    color: "#6B3FA0"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_novice_chestplate
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
+      source: 100000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
+  mage_arcane_apprentice_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <dark_purple>魔術師の魔導レギンス</dark_purple>
+    custom-model-data: 200043
+    color: "#6B3FA0"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_novice_leggings
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
+      source: 80000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
+  mage_arcane_apprentice_boots:
+    material: LEATHER_BOOTS
+    display-name: <dark_purple>魔術師の魔導ブーツ</dark_purple>
+    custom-model-data: 200044
+    color: "#6B3FA0"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_novice_boots
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
+      source: 50000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
+  mage_arcane_archmage_helmet:
+    material: LEATHER_HELMET
+    display-name: <gold>大魔導士の魔導ヘルメット</gold>
+    custom-model-data: 200051
+    color: "#9457E8"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_apprentice_helmet
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
+      source: 400000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
+  mage_arcane_archmage_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <gold>大魔導士の魔導チェストプレート</gold>
+    custom-model-data: 200052
+    color: "#9457E8"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_apprentice_chestplate
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
+      source: 800000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
+  mage_arcane_archmage_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <gold>大魔導士の魔導レギンス</gold>
+    custom-model-data: 200053
+    color: "#9457E8"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_apprentice_leggings
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
+      source: 640000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_gray><color:dark_purple>大魔導士の風格を纏う最上級装備。</color></color>
+  mage_arcane_archmage_boots:
+    material: LEATHER_BOOTS
+    display-name: <gold>大魔導士の魔導ブーツ</gold>
+    custom-model-data: 200054
+    color: "#9457E8"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_apprentice_boots
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
+      source: 400000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
+  mage_arcane_sage_helmet:
+    material: LEATHER_HELMET
+    display-name: <aqua>賢者の魔導ヘルメット</aqua>
+    custom-model-data: 200241
+    color: "#C08CFF"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_archmage_helmet
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
+        - custom:dragon_scale x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
+      source: 2000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_arcane_sage_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <aqua>賢者の魔導チェストプレート</aqua>
+    custom-model-data: 200242
+    color: "#C08CFF"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_archmage_chestplate
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
+        - custom:dragon_scale x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
+      source: 4000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_arcane_sage_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <aqua>賢者の魔導レギンス</aqua>
+    custom-model-data: 200243
+    color: "#C08CFF"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_archmage_leggings
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
+        - custom:dragon_scale x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
+      source: 3200000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_arcane_sage_boots:
+    material: LEATHER_BOOTS
+    display-name: <aqua>賢者の魔導ブーツ</aqua>
+    custom-model-data: 200244
+    color: "#C08CFF"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_archmage_boots
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
+        - custom:dragon_scale x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
+      source: 2000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_arcane_starseer_helmet:
+    material: LEATHER_HELMET
+    display-name: <color:#C8A2FF>星詠みの魔導ヘルメット</color>
+    custom-model-data: 200251
+    color: "#E3C6FF"
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_sage_helmet
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
+      source: 8000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_arcane_starseer_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <color:#C8A2FF>星詠みの魔導チェストプレート</color>
+    custom-model-data: 200252
+    color: "#E3C6FF"
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_sage_chestplate
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
+      source: 16000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_arcane_starseer_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <color:#C8A2FF>星詠みの魔導レギンス</color>
+    custom-model-data: 200253
+    color: "#E3C6FF"
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_sage_leggings
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
+      source: 12800000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_arcane_starseer_boots:
+    material: LEATHER_BOOTS
+    display-name: <color:#C8A2FF>星詠みの魔導ブーツ</color>
+    custom-model-data: 200254
+    color: "#E3C6FF"
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_sage_boots
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
+      source: 8000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_weaver_novice_helmet:
+    material: LEATHER_HELMET
+    display-name: <light_purple>見習いの魔織ヘルメット</light_purple>
+    custom-model-data: 200061
+    color: "#14532D"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: GOLDEN_HELMET
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
+      source: 5000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
+  mage_weaver_novice_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <light_purple>見習いの魔織チェストプレート</light_purple>
+    custom-model-data: 200062
+    color: "#14532D"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: GOLDEN_CHESTPLATE
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
+  mage_weaver_novice_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <light_purple>見習いの魔織レギンス</light_purple>
+    custom-model-data: 200063
+    color: "#14532D"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: GOLDEN_LEGGINGS
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
+  mage_weaver_novice_boots:
+    material: LEATHER_BOOTS
+    display-name: <light_purple>見習いの魔織ブーツ</light_purple>
+    custom-model-data: 200064
+    color: "#14532D"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: GOLDEN_BOOTS
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
+      source: 5000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
+  mage_weaver_apprentice_helmet:
+    material: LEATHER_HELMET
+    display-name: <dark_purple>魔術師の魔織ヘルメット</dark_purple>
+    custom-model-data: 200071
+    color: "#1F8A4C"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_novice_helmet
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
+      source: 50000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
+  mage_weaver_apprentice_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <dark_purple>魔術師の魔織チェストプレート</dark_purple>
+    custom-model-data: 200072
+    color: "#1F8A4C"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_novice_chestplate
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
+      source: 100000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
+  mage_weaver_apprentice_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <dark_purple>魔術師の魔織レギンス</dark_purple>
+    custom-model-data: 200073
+    color: "#1F8A4C"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_novice_leggings
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
+      source: 80000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
+  mage_weaver_apprentice_boots:
+    material: LEATHER_BOOTS
+    display-name: <dark_purple>魔術師の魔織ブーツ</dark_purple>
+    custom-model-data: 200074
+    color: "#1F8A4C"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_novice_boots
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
+      source: 50000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
+  mage_weaver_archmage_helmet:
+    material: LEATHER_HELMET
+    display-name: <gold>大魔導士の魔織ヘルメット</gold>
+    custom-model-data: 200081
+    color: "#2ECC71"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_apprentice_helmet
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
+      source: 400000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
+  mage_weaver_archmage_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <gold>大魔導士の魔織チェストプレート</gold>
+    custom-model-data: 200082
+    color: "#2ECC71"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_apprentice_chestplate
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
+      source: 800000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
+  mage_weaver_archmage_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <gold>大魔導士の魔織レギンス</gold>
+    custom-model-data: 200083
+    color: "#2ECC71"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_apprentice_leggings
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
+      source: 640000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
+  mage_weaver_archmage_boots:
+    material: LEATHER_BOOTS
+    display-name: <gold>大魔導士の魔織ブーツ</gold>
+    custom-model-data: 200084
+    color: "#2ECC71"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_apprentice_boots
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
+      source: 400000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
+  mage_weaver_sage_helmet:
+    material: LEATHER_HELMET
+    display-name: <aqua>賢者の魔織ヘルメット</aqua>
+    custom-model-data: 200221
+    color: "#6FE39B"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_archmage_helmet
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
+        - custom:dragon_scale x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
+      source: 2000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_weaver_sage_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <aqua>賢者の魔織チェストプレート</aqua>
+    custom-model-data: 200222
+    color: "#6FE39B"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_archmage_chestplate
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
+        - custom:dragon_scale x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
+      source: 4000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_weaver_sage_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <aqua>賢者の魔織レギンス</aqua>
+    custom-model-data: 200223
+    color: "#6FE39B"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_archmage_leggings
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
+        - custom:dragon_scale x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
+      source: 3200000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_weaver_sage_boots:
+    material: LEATHER_BOOTS
+    display-name: <aqua>賢者の魔織ブーツ</aqua>
+    custom-model-data: 200224
+    color: "#6FE39B"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_archmage_boots
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
+        - custom:dragon_scale x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
+      source: 2000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_weaver_starseer_helmet:
+    material: LEATHER_HELMET
+    display-name: <color:#C8A2FF>星詠みの魔織ヘルメット</color>
+    custom-model-data: 200231
+    color: "#B7F5CF"
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_sage_helmet
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
+      source: 8000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_weaver_starseer_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <color:#C8A2FF>星詠みの魔織チェストプレート</color>
+    custom-model-data: 200232
+    color: "#B7F5CF"
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_sage_chestplate
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
+      source: 16000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_weaver_starseer_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <color:#C8A2FF>星詠みの魔織レギンス</color>
+    custom-model-data: 200233
+    color: "#B7F5CF"
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_sage_leggings
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
+      source: 12800000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_weaver_starseer_boots:
+    material: LEATHER_BOOTS
+    display-name: <color:#C8A2FF>星詠みの魔織ブーツ</color>
+    custom-model-data: 200234
+    color: "#B7F5CF"
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_sage_boots
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
+      source: 8000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_guardian_novice_helmet:
+    material: LEATHER_HELMET
+    display-name: <light_purple>見習いの守護ヘルメット</light_purple>
+    custom-model-data: 200001
+    color: "#33455C"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: DIAMOND_HELMET
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
+      source: 5000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
+  mage_guardian_novice_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <light_purple>見習いの守護チェストプレート</light_purple>
+    custom-model-data: 200002
+    color: "#33455C"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: DIAMOND_CHESTPLATE
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
+  mage_guardian_novice_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <light_purple>見習いの守護レギンス</light_purple>
+    custom-model-data: 200003
+    color: "#33455C"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: DIAMOND_LEGGINGS
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
+  mage_guardian_novice_boots:
+    material: LEATHER_BOOTS
+    display-name: <light_purple>見習いの守護ブーツ</light_purple>
+    custom-model-data: 200004
+    color: "#33455C"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: DIAMOND_BOOTS
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
+      source: 5000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
+  mage_guardian_apprentice_helmet:
+    material: LEATHER_HELMET
+    display-name: <dark_purple>魔術師の守護ヘルメット</dark_purple>
+    custom-model-data: 200011
+    color: "#4A6785"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_novice_helmet
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
+      source: 50000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
+  mage_guardian_apprentice_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <dark_purple>魔術師の守護チェストプレート</dark_purple>
+    custom-model-data: 200012
+    color: "#4A6785"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_novice_chestplate
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
+      source: 100000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
+  mage_guardian_apprentice_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <dark_purple>魔術師の守護レギンス</dark_purple>
+    custom-model-data: 200013
+    color: "#4A6785"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_novice_leggings
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
+      source: 80000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
+  mage_guardian_apprentice_boots:
+    material: LEATHER_BOOTS
+    display-name: <dark_purple>魔術師の守護ブーツ</dark_purple>
+    custom-model-data: 200014
+    color: "#4A6785"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_novice_boots
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
+      source: 50000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
+  mage_guardian_archmage_helmet:
+    material: LEATHER_HELMET
+    display-name: <gold>大魔導士の守護ヘルメット</gold>
+    custom-model-data: 200021
+    color: "#6E93B8"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_apprentice_helmet
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
+      source: 400000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
+  mage_guardian_archmage_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <gold>大魔導士の守護チェストプレート</gold>
+    custom-model-data: 200022
+    color: "#6E93B8"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_apprentice_chestplate
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
+      source: 800000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
+  mage_guardian_archmage_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <gold>大魔導士の守護レギンス</gold>
+    custom-model-data: 200023
+    color: "#6E93B8"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_apprentice_leggings
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
+      source: 640000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
+  mage_guardian_archmage_boots:
+    material: LEATHER_BOOTS
+    display-name: <gold>大魔導士の守護ブーツ</gold>
+    custom-model-data: 200024
+    color: "#6E93B8"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_apprentice_boots
+      pedestal-items:
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
+      source: 400000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
+  mage_guardian_sage_helmet:
+    material: LEATHER_HELMET
+    display-name: <aqua>賢者の守護ヘルメット</aqua>
+    custom-model-data: 200201
+    color: "#9BC0DE"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_archmage_helmet
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
+        - custom:dragon_scale x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
+      source: 2000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_guardian_sage_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <aqua>賢者の守護チェストプレート</aqua>
+    custom-model-data: 200202
+    color: "#9BC0DE"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_archmage_chestplate
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
+        - custom:dragon_scale x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
+      source: 4000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_guardian_sage_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <aqua>賢者の守護レギンス</aqua>
+    custom-model-data: 200203
+    color: "#9BC0DE"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_archmage_leggings
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
+        - custom:dragon_scale x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
+      source: 3200000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_guardian_sage_boots:
+    material: LEATHER_BOOTS
+    display-name: <aqua>賢者の守護ブーツ</aqua>
+    custom-model-data: 200204
+    color: "#9BC0DE"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_archmage_boots
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
+        - custom:dragon_scale x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
+      source: 2000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_guardian_starseer_helmet:
+    material: LEATHER_HELMET
+    display-name: <color:#C8A2FF>星詠みの守護ヘルメット</color>
+    custom-model-data: 200211
+    color: "#C9E4F5"
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_sage_helmet
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
+      source: 8000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_guardian_starseer_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <color:#C8A2FF>星詠みの守護チェストプレート</color>
+    custom-model-data: 200212
+    color: "#C9E4F5"
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_sage_chestplate
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
+      source: 16000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_guardian_starseer_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <color:#C8A2FF>星詠みの守護レギンス</color>
+    custom-model-data: 200213
+    color: "#C9E4F5"
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_sage_leggings
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
+      source: 12800000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_guardian_starseer_boots:
+    material: LEATHER_BOOTS
+    display-name: <color:#C8A2FF>星詠みの守護ブーツ</color>
+    custom-model-data: 200214
+    color: "#C9E4F5"
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_sage_boots
+      pedestal-items:
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
+      source: 8000000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  abyssal_scale_helmet:
+    material: LEATHER_HELMET
+    display-name: <white>深海鱗の鎧のヘルメット</white>
+    custom-model-data: 200140
+    color: "#1B4F72"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - XXX
+        - Y Y
+        - "   "
+      ingredients:
+        X: PRISMARINE_SHARD
+        Y: LEATHER
+    lore:
+      - <color:gray><i>深海の光を纏う、プリズマリンの鱗鎧。</i></color>
+      - ""
+      - <color:dark_purple>海底神殿の守人が身につけていたとされる。</color>
+  abyssal_scale_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <white>深海鱗の鎧のチェストプレート</white>
+    custom-model-data: 200141
+    color: "#1B4F72"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - Y Y
+        - XXX
+        - XXX
+      ingredients:
+        X: PRISMARINE_SHARD
+        Y: LEATHER
+    lore:
+      - <gray><italic>深海の光を纏う、プリズマリンの鱗鎧。</italic></gray>
+      - ""
+      - <color:dark_purple>海底神殿の守人が身につけていたとされる。</color>
+  abyssal_scale_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <white>深海鱗の鎧のレギンス</white>
+    custom-model-data: 200142
+    color: "#1B4F72"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - XXX
+        - Y Y
+        - Y Y
+      ingredients:
+        X: PRISMARINE_SHARD
+        Y: LEATHER
+    lore:
+      - <gray><italic>深海の光を纏う、プリズマリンの鱗鎧。</italic></gray>
+      - ""
+      - <color:dark_purple>海底神殿の守人が身につけていたとされる。</color>
+  abyssal_scale_boots:
+    material: LEATHER_BOOTS
+    display-name: <white>深海鱗の鎧のブーツ</white>
+    custom-model-data: 200143
+    color: "#1B4F72"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - Y Y
+        - X X
+        - "   "
+      ingredients:
+        X: PRISMARINE_SHARD
+        Y: LEATHER
+    lore:
+      - <gray><italic>深海の光を纏う、プリズマリンの鱗鎧。</italic></gray>
+      - ""
+      - <color:dark_purple>海底神殿の守人が身につけていたとされる。</color>
+  bone_guard_helmet:
+    material: LEATHER_HELMET
+    display-name: <white>骨鎧のヘルメット</white>
+    custom-model-data: 200124
+    color: "#E8E4D8"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - XXX
+        - Y Y
+        - "   "
+      ingredients:
+        X: BONE
+        Y: LEATHER
+    lore:
+      - <gray><italic>金属を持たない者のための、骨と革の鎧。</italic></gray>
+      - ""
+      - <color:dark_purple>軽さを活かして戦う初学の冒険者向け。</color>
+  bone_guard_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <white>骨鎧のチェストプレート</white>
+    custom-model-data: 200125
+    color: "#E8E4D8"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - Y Y
+        - XXX
+        - XXX
+      ingredients:
+        X: BONE
+        Y: LEATHER
+    lore:
+      - <gray><italic>金属を持たない者のための、骨と革の鎧。</italic></gray>
+      - ""
+      - <color:dark_purple>軽さを活かして戦う初学の冒険者向け。</color>
+  bone_guard_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <white>骨鎧のレギンス</white>
+    custom-model-data: 200126
+    color: "#E8E4D8"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - XXX
+        - Y Y
+        - Y Y
+      ingredients:
+        X: BONE
+        Y: LEATHER
+    lore:
+      - <gray><italic>金属を持たない者のための、骨と革の鎧。</italic></gray>
+      - ""
+      - <color:dark_purple>軽さを活かして戦う初学の冒険者向け。</color>
+  bone_guard_boots:
+    material: LEATHER_BOOTS
+    display-name: <white>骨鎧のブーツ</white>
+    custom-model-data: 200127
+    color: "#E8E4D8"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - Y Y
+        - X X
+        - "   "
+      ingredients:
+        X: BONE
+        Y: LEATHER
+    lore:
+      - <gray><italic>金属を持たない者のための、骨と革の鎧。</italic></gray>
+      - ""
+      - <color:dark_purple>軽さを活かして戦う初学の冒険者向け。</color>
+  carapace_mail_helmet:
+    material: LEATHER_HELMET
+    display-name: <white>甲殻鎧のヘルメット</white>
+    custom-model-data: 200132
+    color: "#2E8B57"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - XXX
+        - X Y
+        - "   "
+      ingredients:
+        X: LEATHER
+        Y: TURTLE_SCUTE
+    lore:
+      - <gray><italic>ウミガメの甲羅を纏わせた、しなやかな鎧。</italic></gray>
+      - ""
+      - <color:dark_purple>鉄の重鎧に匹敵する守りを、身軽さと共に。</color>
+  carapace_mail_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <white>甲殻鎧のチェストプレート</white>
+    custom-model-data: 200133
+    color: "#2E8B57"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - X X
+        - XXX
+        - XXY
+      ingredients:
+        X: LEATHER
+        Y: TURTLE_SCUTE
+    lore:
+      - <gray><italic>ウミガメの甲羅を纏わせた、しなやかな鎧。</italic></gray>
+      - ""
+      - <color:dark_purple>鉄の重鎧に匹敵する守りを、身軽さと共に。</color>
+  carapace_mail_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <white>甲殻鎧のレギンス</white>
+    custom-model-data: 200134
+    color: "#2E8B57"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - XXX
+        - X X
+        - X Y
+      ingredients:
+        X: LEATHER
+        Y: TURTLE_SCUTE
+    lore:
+      - <gray><italic>ウミガメの甲羅を纏わせた、しなやかな鎧。</italic></gray>
+      - ""
+      - <color:dark_purple>鉄の重鎧に匹敵する守りを、身軽さと共に。</color>
+  carapace_mail_boots:
+    material: LEATHER_BOOTS
+    display-name: <white>甲殻鎧のブーツ</white>
+    custom-model-data: 200135
+    color: "#2E8B57"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - X X
+        - X Y
+        - "   "
+      ingredients:
+        X: LEATHER
+        Y: TURTLE_SCUTE
+    lore:
+      - <gray><italic>ウミガメの甲羅を纏わせた、しなやかな鎧。</italic></gray>
+      - ""
+      - <color:dark_purple>鉄の重鎧に匹敵する守りを、身軽さと共に。</color>
+  copper_stud_helmet:
+    material: LEATHER_HELMET
+    display-name: <white>銅鋲の革鎧のヘルメット</white>
+    custom-model-data: 200128
+    color: "#C36A3F"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - XXX
+        - X Y
+        - "   "
+      ingredients:
+        X: LEATHER
+        Y: COPPER_INGOT
+    lore:
+      - <gray><italic>銅の鋲を打った、実用本位の革鎧。</italic></gray>
+      - ""
+      - <color:dark_purple>重装の銅鎧に対する、軽装側の答え。</color>
+  copper_stud_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <white>銅鋲の革鎧のチェストプレート</white>
+    custom-model-data: 200129
+    color: "#C36A3F"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - X X
+        - XXX
+        - XXY
+      ingredients:
+        X: LEATHER
+        Y: COPPER_INGOT
+    lore:
+      - <gray><italic>銅の鋲を打った、実用本位の革鎧。</italic></gray>
+      - ""
+      - <color:dark_purple>重装の銅鎧に対する、軽装側の答え。</color>
+  copper_stud_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <white>銅鋲の革鎧のレギンス</white>
+    custom-model-data: 200130
+    color: "#C36A3F"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - XXX
+        - X X
+        - X Y
+      ingredients:
+        X: LEATHER
+        Y: COPPER_INGOT
+    lore:
+      - <gray><italic>銅の鋲を打った、実用本位の革鎧。</italic></gray>
+      - ""
+      - <color:dark_purple>重装の銅鎧に対する、軽装側の答え。</color>
+  copper_stud_boots:
+    material: LEATHER_BOOTS
+    display-name: <white>銅鋲の革鎧のブーツ</white>
+    custom-model-data: 200131
+    color: "#C36A3F"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - X X
+        - X Y
+        - "   "
+      ingredients:
+        X: LEATHER
+        Y: COPPER_INGOT
+    lore:
+      - <gray><italic>銅の鋲を打った、実用本位の革鎧。</italic></gray>
+      - ""
+      - <color:dark_purple>重装の銅鎧に対する、軽装側の答え。</color>
+  gilded_thread_helmet:
+    material: LEATHER_HELMET
+    display-name: <white>金糸の装束のヘルメット</white>
+    custom-model-data: 200136
+    color: "#D4AF37"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - XXX
+        - X Y
+        - "   "
+      ingredients:
+        X: STRING
+        Y: GOLD_NUGGET
+    lore:
+      - <gray><italic>金の糸を織り込んだ、華美な装束。</italic></gray>
+      - ""
+      - <color:dark_purple>守りは高いが、金糸ゆえに脆さも併せ持つ。</color>
+  gilded_thread_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <white>金糸の装束のチェストプレート</white>
+    custom-model-data: 200137
+    color: "#D4AF37"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - X X
+        - XXX
+        - XXY
+      ingredients:
+        X: STRING
+        Y: GOLD_NUGGET
+    lore:
+      - <gray><italic>金の糸を織り込んだ、華美な装束。</italic></gray>
+      - ""
+      - <color:dark_purple>守りは高いが、金糸ゆえに脆さも併せ持つ。</color>
+  gilded_thread_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <white>金糸の装束のレギンス</white>
+    custom-model-data: 200138
+    color: "#D4AF37"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - XXX
+        - X X
+        - X Y
+      ingredients:
+        X: STRING
+        Y: GOLD_NUGGET
+    lore:
+      - <gray><italic>金の糸を織り込んだ、華美な装束。</italic></gray>
+      - ""
+      - <color:dark_purple>守りは高いが、金糸ゆえに脆さも併せ持つ。</color>
+  gilded_thread_boots:
+    material: LEATHER_BOOTS
+    display-name: <white>金糸の装束のブーツ</white>
+    custom-model-data: 200139
+    color: "#D4AF37"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - X X
+        - X Y
+        - "   "
+      ingredients:
+        X: STRING
+        Y: GOLD_NUGGET
+    lore:
+      - <gray><italic>金の糸を織り込んだ、華美な装束。</italic></gray>
+      - ""
+      - <color:dark_purple>守りは高いが、金糸ゆえに脆さも併せ持つ。</color>
+  phantom_shroud_helmet:
+    material: LEATHER_HELMET
+    display-name: <white>幻膜の外套のヘルメット</white>
+    custom-model-data: 200144
+    color: "#B39DDB"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - XXX
+        - X Y
+        - "   "
+      ingredients:
+        X: PHANTOM_MEMBRANE
+        Y: STRING
+    lore:
+      - <color:gray><i>ファントムの膜で織り上げた、幻のような外套。</i></color>
+      - ""
+      - <color:dark_purple>夜空を彷徨う怪物の一部が、今は身を守る。</color>
+  phantom_shroud_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <white>幻膜の外套のチェストプレート</white>
+    custom-model-data: 200145
+    color: "#B39DDB"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - X X
+        - XXX
+        - XXY
+      ingredients:
+        X: PHANTOM_MEMBRANE
+        Y: STRING
+    lore:
+      - <gray><italic>ファントムの膜で織り上げた、幻のような外套。</italic></gray>
+      - ""
+      - <color:dark_purple>夜空を彷徨う怪物の一部が、今は身を守る。</color>
+  phantom_shroud_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <white>幻膜の外套のレギンス</white>
+    custom-model-data: 200146
+    color: "#B39DDB"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - XXX
+        - X X
+        - X Y
+      ingredients:
+        X: PHANTOM_MEMBRANE
+        Y: STRING
+    lore:
+      - <gray><italic>ファントムの膜で織り上げた、幻のような外套。</italic></gray>
+      - ""
+      - <color:dark_purple>夜空を彷徨う怪物の一部が、今は身を守る。</color>
+  phantom_shroud_boots:
+    material: LEATHER_BOOTS
+    display-name: <white>幻膜の外套のブーツ</white>
+    custom-model-data: 200147
+    color: "#B39DDB"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "XX "
+        - "XY "
+        - "   "
+      ingredients:
+        X: PHANTOM_MEMBRANE
+        Y: STRING
+    lore:
+      - <gray><italic>ファントムの膜で織り上げた、幻のような外套。</italic></gray>
+      - ""
+      - <color:dark_purple>夜空を彷徨う怪物の一部が、今は身を守る。</color>
+  withered_silk_helmet:
+    material: LEATHER_HELMET
+    display-name: <white>蝕みの絹のヘルメット</white>
+    custom-model-data: 200148
+    color: "#4A235A"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - XXX
+        - X Y
+        - "   "
+      ingredients:
+        X: STRING
+        Y: WITHER_SKELETON_SKULL
+    lore:
+      - <gray><italic>ウィザースケルトンの頭蓋を縫い込んだ、蝕みの絹。</italic></gray>
+      - ""
+      - <color:dark_purple>ネザー要塞の深部でのみ揃う、稀少な素材の結晶。</color>
+  withered_silk_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <white>蝕みの絹のチェストプレート</white>
+    custom-model-data: 200149
+    color: "#4A235A"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - X X
+        - XXX
+        - XXY
+      ingredients:
+        X: STRING
+        Y: WITHER_SKELETON_SKULL
+    lore:
+      - <gray><italic>ウィザースケルトンの頭蓋を縫い込んだ、蝕みの絹。</italic></gray>
+      - ""
+      - <color:dark_purple>ネザー要塞の深部でのみ揃う、稀少な素材の結晶。</color>
+  withered_silk_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <white>蝕みの絹のレギンス</white>
+    custom-model-data: 200150
+    color: "#4A235A"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - XXX
+        - X X
+        - X Y
+      ingredients:
+        X: STRING
+        Y: WITHER_SKELETON_SKULL
+    lore:
+      - <gray><italic>ウィザースケルトンの頭蓋を縫い込んだ、蝕みの絹。</italic></gray>
+      - ""
+      - <color:dark_purple>ネザー要塞の深部でのみ揃う、稀少な素材の結晶。</color>
+  withered_silk_boots:
+    material: LEATHER_BOOTS
+    display-name: <white>蝕みの絹のブーツ</white>
+    custom-model-data: 200151
+    color: "#4A235A"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - X X
+        - X Y
+        - "   "
+      ingredients:
+        X: STRING
+        Y: WITHER_SKELETON_SKULL
+    lore:
+      - <gray><italic>ウィザースケルトンの頭蓋を縫い込んだ、蝕みの絹。</italic></gray>
+      - ""
+      - <color:dark_purple>ネザー要塞の深部でのみ揃う、稀少な素材の結晶。</color>
+  binder_helmet:
+    draft: true
+    material: NETHERITE_HELMET
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐヘルメット</gradient>
+    custom-model-data: 5611
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:hard_metal x2
+      source: 60000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
+  binder_chestplate:
+    draft: true
+    material: NETHERITE_CHESTPLATE
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐチェストプレート</gradient>
+    custom-model-data: 5611
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:hard_metal x4
+      source: 120000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
+  binder_leggings:
+    draft: true
+    material: NETHERITE_LEGGINGS
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐレギンス</gradient>
+    custom-model-data: 5611
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:hard_metal x3
+      source: 90000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
+  binder_boots:
+    draft: true
+    material: NETHERITE_BOOTS
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐブーツ</gradient>
+    custom-model-data: 5611
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:hard_metal x1
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
   key_mines:
     material: TRIAL_KEY
     display-name: <color:#9e9e9e>鉱山の鍵</color>
@@ -523,7 +3162,7 @@ items:
     material: STRING
     display-name: <blue>潮読みのスレッド</blue>
     custom-model-data: 300025
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -534,7 +3173,7 @@ items:
     material: STRING
     display-name: <yellow>養蜂のスレッド</yellow>
     custom-model-data: 300042
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -545,7 +3184,7 @@ items:
     material: STRING
     display-name: <gold>鑑識のスレッド</gold>
     custom-model-data: 300044
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -556,7 +3195,7 @@ items:
     material: STRING
     display-name: <gold>匠のスレッド</gold>
     custom-model-data: 300020
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -567,7 +3206,7 @@ items:
     material: STRING
     display-name: <dark_green>バックパックのスレッド</dark_green>
     custom-model-data: 300016
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -578,7 +3217,7 @@ items:
     material: STRING
     display-name: <dark_aqua>昏倒のスレッド</dark_aqua>
     custom-model-data: 300036
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -612,7 +3251,7 @@ items:
     material: STRING
     display-name: <dark_red>攻撃マナ回復のスレッド</dark_red>
     custom-model-data: 300013
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -623,7 +3262,7 @@ items:
     material: STRING
     display-name: <green>研鑽のスレッド</green>
     custom-model-data: 300029
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -678,7 +3317,7 @@ items:
     material: STRING
     display-name: <gold>持久のスレッド</gold>
     custom-model-data: 300033
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -689,7 +3328,7 @@ items:
     material: STRING
     display-name: <dark_gray>削岩のスレッド</dark_gray>
     custom-model-data: 300045
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -700,7 +3339,7 @@ items:
     material: STRING
     display-name: <green>経験のスレッド</green>
     custom-model-data: 300030
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -711,7 +3350,7 @@ items:
     material: STRING
     display-name: <red>耐火のスレッド</red>
     custom-model-data: 300007
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -722,7 +3361,7 @@ items:
     material: STRING
     display-name: <white>飛行のスレッド</white>
     custom-model-data: 300015
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -733,7 +3372,7 @@ items:
     material: STRING
     display-name: <red>美食のスレッド</red>
     custom-model-data: 300034
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -744,7 +3383,7 @@ items:
     material: STRING
     display-name: <yellow>実りのスレッド</yellow>
     custom-model-data: 300026
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -755,7 +3394,7 @@ items:
     material: STRING
     display-name: <red>体力増強のスレッド</red>
     custom-model-data: 300011
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -766,7 +3405,7 @@ items:
     material: STRING
     display-name: <green>牧人のスレッド</green>
     custom-model-data: 300043
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -777,7 +3416,7 @@ items:
     material: STRING
     display-name: <green>村の英雄のスレッド</green>
     custom-model-data: 300010
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -833,7 +3472,7 @@ items:
     material: STRING
     display-name: <gold>幸運のスレッド</gold>
     custom-model-data: 300040
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -844,7 +3483,7 @@ items:
     material: STRING
     display-name: <blue>マナ増幅のスレッド</blue>
     custom-model-data: 300017
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -899,7 +3538,7 @@ items:
     material: STRING
     display-name: <aqua>マナ回復速度上昇のスレッド</aqua>
     custom-model-data: 300002
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -910,7 +3549,7 @@ items:
     material: STRING
     display-name: <dark_green>射手のスレッド</dark_green>
     custom-model-data: 300038
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -921,7 +3560,7 @@ items:
     material: STRING
     display-name: <red>治癒のスレッド</red>
     custom-model-data: 300032
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -932,7 +3571,7 @@ items:
     material: STRING
     display-name: <dark_gray>豊鉱のスレッド</dark_gray>
     custom-model-data: 300024
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -992,7 +3631,7 @@ items:
     material: STRING
     display-name: <light_purple>調香のスレッド</light_purple>
     custom-model-data: 300041
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -1003,7 +3642,7 @@ items:
     material: STRING
     display-name: <light_purple>儀式師のスレッド</light_purple>
     custom-model-data: 300021
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <color:dark_purple>作法を知る者に祭壇は応える</color>
@@ -1014,7 +3653,7 @@ items:
     material: STRING
     display-name: <gray>解体のスレッド</gray>
     custom-model-data: 300023
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -1025,7 +3664,7 @@ items:
     material: STRING
     display-name: <dark_purple>選書のスレッド</dark_purple>
     custom-model-data: 300031
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -1036,7 +3675,7 @@ items:
     material: STRING
     display-name: <white>浮遊のスレッド</white>
     custom-model-data: 300039
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -1047,7 +3686,7 @@ items:
     material: STRING
     display-name: <dark_aqua>源流節約のスレッド</dark_aqua>
     custom-model-data: 300019
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -1080,7 +3719,7 @@ items:
     material: STRING
     display-name: <yellow>詠唱効率のスレッド</yellow>
     custom-model-data: 300014
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -1091,7 +3730,7 @@ items:
     material: STRING
     display-name: <gold>戦利品のスレッド</gold>
     custom-model-data: 300028
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -1102,7 +3741,7 @@ items:
     material: STRING
     display-name: <yellow>速攻のスレッド</yellow>
     custom-model-data: 300037
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -1113,7 +3752,7 @@ items:
     material: STRING
     display-name: <dark_red>棘のスレッド</dark_red>
     custom-model-data: 300035
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -1124,7 +3763,7 @@ items:
     material: STRING
     display-name: <yellow>倹約のスレッド</yellow>
     custom-model-data: 300022
-    bind-type: TRADEABLE
+    bind-type: SOULBOUND
     enchant-glow: true
     lore:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
@@ -1342,17 +3981,16 @@ items:
     display-name: <color:#7df9ff>インフィニティの剣</color>
     custom-model-data: 112
     recipe:
-      method: ritual
-      core-item: custom:core_jewelry
-      pedestal-items:
-        - custom:amethyst_block_2x x1
-        - custom:breeze_rod_2x x1
-      source: 20000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - ""
+      method: workbench
+      type: shaped
+      ingredients:
+        J: custom:core_jewelry
+        B: custom:breeze_rod_2x
+        I: custom:amethyst_block_2x
+      shape:
+        - " J "
+        - " I "
+        - " B "
   hero_sword:
     material: NETHERITE_SWORD
     display-name: <color:dark_purple>守護者の剣</color>
@@ -2856,2310 +5494,6 @@ items:
     lore:
       - ""
       - <color:dark_purple>我々は魔力を定着させることに成功した</color>
-  source_gem_helmet:
-    material: DIAMOND_HELMET
-    display-name: <aqua>ソースジェムのヘルメット</aqua>
-    custom-model-data: 200101
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - iii
-        - i i
-        - "   "
-      ingredients:
-        i: custom:source_gem
-    lore:
-      - <color:gray><i>魔力を帯びた外殻</i></color>
-      - ""
-      - <color:dark_purple>魔力を纏いし体躯</color>
-  source_gem_chestplate:
-    material: DIAMOND_CHESTPLATE
-    display-name: <aqua>ソースジェムのチェストプレート</aqua>
-    custom-model-data: 200102
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - i i
-        - iii
-        - iii
-      ingredients:
-        i: custom:source_gem
-    lore:
-      - <color:gray><i>魔力を帯びた外殻</i></color>
-      - ""
-      - <color:dark_purple>魔力を纏いし体躯</color>
-  source_gem_leggings:
-    material: DIAMOND_LEGGINGS
-    display-name: <aqua>ソースジェムのレギンス</aqua>
-    custom-model-data: 200103
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - iii
-        - i i
-        - i i
-      ingredients:
-        i: custom:source_gem
-    lore:
-      - <color:gray><i>魔力を帯びた外殻</i></color>
-      - ""
-      - <color:dark_purple>魔力を纏いし体躯</color>
-  source_gem_boots:
-    material: DIAMOND_BOOTS
-    display-name: <aqua>ソースジェムのブーツ</aqua>
-    custom-model-data: 200104
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - i i
-        - i i
-        - "   "
-      ingredients:
-        i: custom:source_gem
-    lore:
-      - <color:gray><i>魔力を帯びた外殻</i></color>
-      - ""
-      - <color:dark_purple>魔力を纏いし体躯</color>
-  dragon_helmet:
-    material: NETHERITE_HELMET
-    display-name: <color:dark_purple>エンダードラゴンのヘルメット</color>
-    custom-model-data: 149
-    recipe:
-      method: ritual
-      core-item: DRAGON_EGG
-      pedestal-items:
-        - custom:shulker_shell_2x x5
-        - custom:dragon_breath_3x x5
-        - custom:dragon_scale x2
-      source: 2000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <color:gray><i>儀式によって精製した龍を模した鎧</i></color>
-      - ""
-      - <color:dark_purple>終焉の龍が現世で産声を上げる</color>
-  dragon_chestplate:
-    material: NETHERITE_CHESTPLATE
-    display-name: <color:dark_purple>エンダードラゴンのチェストプレート</color>
-    custom-model-data: 152
-    recipe:
-      method: ritual
-      core-item: DRAGON_EGG
-      pedestal-items:
-        - custom:shulker_shell_2x x5
-        - custom:dragon_breath_3x x5
-        - custom:dragon_scale x4
-      source: 2000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <color:gray><i>儀式によって精製した龍を模した鎧</i></color>
-      - ""
-      - <color:dark_purple>終焉の龍が現世で産声を上げる</color>
-  dragon_leggings:
-    material: NETHERITE_LEGGINGS
-    display-name: <color:dark_purple>エンダードラゴンのレギンス</color>
-    custom-model-data: 155
-    recipe:
-      method: ritual
-      core-item: DRAGON_EGG
-      pedestal-items:
-        - custom:shulker_shell_2x x5
-        - custom:dragon_breath_3x x5
-        - custom:dragon_scale x3
-      source: 2000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <color:gray><i>儀式によって精製した龍を模した鎧</i></color>
-      - ""
-      - <color:dark_purple>終焉の龍が現世で産声を上げる</color>
-  dragon_boots:
-    material: NETHERITE_BOOTS
-    display-name: <color:dark_purple>エンダードラゴンのブーツ</color>
-    custom-model-data: 158
-    recipe:
-      method: ritual
-      core-item: DRAGON_EGG
-      pedestal-items:
-        - custom:shulker_shell_2x x5
-        - custom:dragon_breath_3x x5
-        - custom:dragon_scale x1
-      source: 2000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <color:gray><i>儀式によって精製した龍を模した鎧</i></color>
-      - ""
-      - <color:dark_purple>終焉の龍が現世で産声を上げる</color>
-  wither_helmet:
-    material: NETHERITE_HELMET
-    display-name: <color:#696969>ウィザーのヘルメット</color>
-    custom-model-data: 150
-    recipe:
-      method: ritual
-      core-item: NETHER_STAR
-      pedestal-items:
-        - custom:shulker_shell_1x x5
-        - custom:wither_rose_1x x5
-        - custom:reinforced_leather x2
-      source: 250000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <color:gray><i>儀式によって精製した黒骸骨を模した鎧</i></color>
-      - ""
-      - <color:dark_purple>己が課した試練を乗り越えた証</color>
-  wither_chestplate:
-    material: NETHERITE_CHESTPLATE
-    display-name: <color:dark_gray>ウィザーのチェストプレート</color>
-    custom-model-data: 153
-    recipe:
-      method: ritual
-      core-item: NETHER_STAR
-      pedestal-items:
-        - custom:shulker_shell_1x x5
-        - custom:wither_rose_1x x5
-        - custom:reinforced_leather x4
-      source: 250000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <color:gray><i>儀式によって精製した黒骸骨を模した鎧</i></color>
-      - ""
-      - <color:dark_purple>己が課した試練を乗り越えた証</color>
-  wither_leggings:
-    material: NETHERITE_LEGGINGS
-    display-name: <color:dark_gray>ウィザーのレギンス</color>
-    custom-model-data: 156
-    recipe:
-      method: ritual
-      core-item: NETHER_STAR
-      pedestal-items:
-        - custom:shulker_shell_1x x5
-        - custom:wither_rose_1x x5
-        - custom:reinforced_leather x3
-      source: 250000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <color:gray><i>儀式によって精製した黒骸骨を模した鎧</i></color>
-      - ""
-      - <color:dark_purple>己が課した試練を乗り越えた証</color>
-  wither_boots:
-    material: NETHERITE_BOOTS
-    display-name: <color:dark_gray>ウィザーのブーツ</color>
-    custom-model-data: 159
-    recipe:
-      method: ritual
-      core-item: NETHER_STAR
-      pedestal-items:
-        - custom:shulker_shell_1x x5
-        - custom:wither_rose_1x x5
-        - custom:reinforced_leather x1
-      source: 250000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <color:gray><i>儀式によって精製した黒骸骨を模した鎧</i></color>
-      - ""
-      - <color:dark_purple>己が課した試練を乗り越えた証</color>
-  infinity_helmet:
-    material: NETHERITE_HELMET
-    display-name: <color:#7df9ff>インフィニティのヘルメット</color>
-    custom-model-data: 148
-    recipe:
-      method: ritual
-      core-item: custom:core_jewelry
-      pedestal-items:
-        - custom:amethyst_block_2x x4
-      source: 15000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <color:gray><i>無限の力が宿る装甲</i></color>
-      - ""
-      - <color:dark_purple>無限をその身に</color>
-  infinity_chestplate:
-    material: NETHERITE_CHESTPLATE
-    display-name: <color:#7df9ff>インフィニティのチェストプレート</color>
-    custom-model-data: 151
-    recipe:
-      method: ritual
-      core-item: custom:core_jewelry
-      pedestal-items:
-        - custom:amethyst_block_2x x7
-      source: 30000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <color:gray><i>無限の力が宿る装甲</i></color>
-      - ""
-      - <color:dark_purple>無限をその身に</color>
-  infinity_leggings:
-    material: NETHERITE_LEGGINGS
-    display-name: <color:#7df9ff>インフィニティのレギンス</color>
-    custom-model-data: 154
-    recipe:
-      method: ritual
-      core-item: custom:core_jewelry
-      pedestal-items:
-        - custom:amethyst_block_2x x6
-      source: 25000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <color:gray><i>無限の力が宿る装甲</i></color>
-      - ""
-      - <color:dark_purple>無限をその身に</color>
-  infinity_boots:
-    material: NETHERITE_BOOTS
-    display-name: <color:#7df9ff>インフィニティのブーツ</color>
-    custom-model-data: 157
-    recipe:
-      method: ritual
-      core-item: custom:core_jewelry
-      pedestal-items:
-        - custom:amethyst_block_2x x3
-      source: 15000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <color:gray><i>無限の力が宿る装甲</i></color>
-      - ""
-      - <color:dark_purple>無限をその身に</color>
-  mage_arcane_novice_helmet:
-    material: LEATHER_HELMET
-    display-name: <light_purple>見習いの魔導ヘルメット</light_purple>
-    custom-model-data: 200031
-    color: "#3B2566"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: IRON_HELMET
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x2
-        - GOLD_BLOCK
-        - LAPIS_BLOCK
-      source: 5000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
-  mage_arcane_novice_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <light_purple>見習いの魔導チェストプレート</light_purple>
-    custom-model-data: 200032
-    color: "#3B2566"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: IRON_CHESTPLATE
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x2
-        - GOLD_BLOCK
-        - LAPIS_BLOCK
-      source: 10000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
-  mage_arcane_novice_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <light_purple>見習いの魔導レギンス</light_purple>
-    custom-model-data: 200033
-    color: "#3B2566"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: IRON_LEGGINGS
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x2
-        - GOLD_BLOCK
-        - LAPIS_BLOCK
-      source: 8000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
-  mage_arcane_novice_boots:
-    material: LEATHER_BOOTS
-    display-name: <light_purple>見習いの魔導ブーツ</light_purple>
-    custom-model-data: 200034
-    color: "#3B2566"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: IRON_BOOTS
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x2
-        - GOLD_BLOCK
-        - LAPIS_BLOCK
-      source: 5000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
-  mage_arcane_apprentice_helmet:
-    material: LEATHER_HELMET
-    display-name: <dark_purple>魔術師の魔導ヘルメット</dark_purple>
-    custom-model-data: 200041
-    color: "#6B3FA0"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_arcane_novice_helmet
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x3
-        - custom:source_gem_block
-        - BLAZE_ROD x2
-        - AMETHYST_BLOCK
-      source: 50000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
-  mage_arcane_apprentice_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <dark_purple>魔術師の魔導チェストプレート</dark_purple>
-    custom-model-data: 200042
-    color: "#6B3FA0"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_arcane_novice_chestplate
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x3
-        - custom:source_gem_block
-        - BLAZE_ROD x2
-        - AMETHYST_BLOCK
-      source: 100000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
-  mage_arcane_apprentice_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <dark_purple>魔術師の魔導レギンス</dark_purple>
-    custom-model-data: 200043
-    color: "#6B3FA0"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_arcane_novice_leggings
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x3
-        - custom:source_gem_block
-        - BLAZE_ROD x2
-        - AMETHYST_BLOCK
-      source: 80000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
-  mage_arcane_apprentice_boots:
-    material: LEATHER_BOOTS
-    display-name: <dark_purple>魔術師の魔導ブーツ</dark_purple>
-    custom-model-data: 200044
-    color: "#6B3FA0"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_arcane_novice_boots
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x3
-        - custom:source_gem_block
-        - BLAZE_ROD x2
-        - AMETHYST_BLOCK
-      source: 50000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
-  mage_arcane_archmage_helmet:
-    material: LEATHER_HELMET
-    display-name: <gold>大魔導士の魔導ヘルメット</gold>
-    custom-model-data: 200051
-    color: "#9457E8"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_arcane_apprentice_helmet
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem_block x2
-        - custom:source_crystal
-        - ECHO_SHARD x2
-        - ENDER_EYE x2
-        - DIAMOND_BLOCK
-      source: 400000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
-  mage_arcane_archmage_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <gold>大魔導士の魔導チェストプレート</gold>
-    custom-model-data: 200052
-    color: "#9457E8"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_arcane_apprentice_chestplate
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem_block x2
-        - custom:source_crystal
-        - ECHO_SHARD x2
-        - ENDER_EYE x2
-        - DIAMOND_BLOCK
-      source: 800000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
-  mage_arcane_archmage_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <gold>大魔導士の魔導レギンス</gold>
-    custom-model-data: 200053
-    color: "#9457E8"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_arcane_apprentice_leggings
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem_block x2
-        - custom:source_crystal
-        - ECHO_SHARD x2
-        - ENDER_EYE x2
-        - DIAMOND_BLOCK
-      source: 640000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_gray><color:dark_purple>大魔導士の風格を纏う最上級装備。</color></color>
-  mage_arcane_archmage_boots:
-    material: LEATHER_BOOTS
-    display-name: <gold>大魔導士の魔導ブーツ</gold>
-    custom-model-data: 200054
-    color: "#9457E8"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_arcane_apprentice_boots
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem_block x2
-        - custom:source_crystal
-        - ECHO_SHARD x2
-        - ENDER_EYE x2
-        - DIAMOND_BLOCK
-      source: 400000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
-  mage_arcane_sage_helmet:
-    material: LEATHER_HELMET
-    display-name: <aqua>賢者の魔導ヘルメット</aqua>
-    custom-model-data: 200241
-    color: "#C08CFF"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_arcane_archmage_helmet
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_crystal x2
-        - custom:dragon_scale x2
-        - custom:echo_shard_2x
-        - NETHERITE_INGOT x2
-        - NETHER_STAR
-        - CRYING_OBSIDIAN
-      source: 2000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
-  mage_arcane_sage_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <aqua>賢者の魔導チェストプレート</aqua>
-    custom-model-data: 200242
-    color: "#C08CFF"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_arcane_archmage_chestplate
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_crystal x2
-        - custom:dragon_scale x2
-        - custom:echo_shard_2x
-        - NETHERITE_INGOT x2
-        - NETHER_STAR
-        - CRYING_OBSIDIAN
-      source: 4000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
-  mage_arcane_sage_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <aqua>賢者の魔導レギンス</aqua>
-    custom-model-data: 200243
-    color: "#C08CFF"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_arcane_archmage_leggings
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_crystal x2
-        - custom:dragon_scale x2
-        - custom:echo_shard_2x
-        - NETHERITE_INGOT x2
-        - NETHER_STAR
-        - CRYING_OBSIDIAN
-      source: 3200000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
-  mage_arcane_sage_boots:
-    material: LEATHER_BOOTS
-    display-name: <aqua>賢者の魔導ブーツ</aqua>
-    custom-model-data: 200244
-    color: "#C08CFF"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_arcane_archmage_boots
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_crystal x2
-        - custom:dragon_scale x2
-        - custom:echo_shard_2x
-        - NETHERITE_INGOT x2
-        - NETHER_STAR
-        - CRYING_OBSIDIAN
-      source: 2000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
-  mage_arcane_starseer_helmet:
-    material: LEATHER_HELMET
-    display-name: <color:#C8A2FF>星詠みの魔導ヘルメット</color>
-    custom-model-data: 200251
-    color: "#E3C6FF"
-    enchant-glow: true
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_arcane_sage_helmet
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_condenser
-        - custom:warden_tendril x2
-        - custom:amethyst_block_2x x2
-        - NETHER_STAR x2
-        - NETHERITE_BLOCK
-        - TOTEM_OF_UNDYING x2
-        - END_CRYSTAL
-      source: 8000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
-  mage_arcane_starseer_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <color:#C8A2FF>星詠みの魔導チェストプレート</color>
-    custom-model-data: 200252
-    color: "#E3C6FF"
-    enchant-glow: true
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_arcane_sage_chestplate
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_condenser
-        - custom:warden_tendril x2
-        - custom:amethyst_block_2x x2
-        - NETHER_STAR x2
-        - NETHERITE_BLOCK
-        - TOTEM_OF_UNDYING x2
-        - END_CRYSTAL
-      source: 16000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
-  mage_arcane_starseer_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <color:#C8A2FF>星詠みの魔導レギンス</color>
-    custom-model-data: 200253
-    color: "#E3C6FF"
-    enchant-glow: true
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_arcane_sage_leggings
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_condenser
-        - custom:warden_tendril x2
-        - custom:amethyst_block_2x x2
-        - NETHER_STAR x2
-        - NETHERITE_BLOCK
-        - TOTEM_OF_UNDYING x2
-        - END_CRYSTAL
-      source: 12800000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
-  mage_arcane_starseer_boots:
-    material: LEATHER_BOOTS
-    display-name: <color:#C8A2FF>星詠みの魔導ブーツ</color>
-    custom-model-data: 200254
-    color: "#E3C6FF"
-    enchant-glow: true
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_arcane_sage_boots
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_condenser
-        - custom:warden_tendril x2
-        - custom:amethyst_block_2x x2
-        - NETHER_STAR x2
-        - NETHERITE_BLOCK
-        - TOTEM_OF_UNDYING x2
-        - END_CRYSTAL
-      source: 8000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
-  mage_weaver_novice_helmet:
-    material: LEATHER_HELMET
-    display-name: <light_purple>見習いの魔織ヘルメット</light_purple>
-    custom-model-data: 200061
-    color: "#14532D"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: GOLDEN_HELMET
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x2
-        - GOLD_BLOCK
-        - LAPIS_BLOCK
-      source: 5000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
-  mage_weaver_novice_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <light_purple>見習いの魔織チェストプレート</light_purple>
-    custom-model-data: 200062
-    color: "#14532D"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: GOLDEN_CHESTPLATE
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x2
-        - GOLD_BLOCK
-        - LAPIS_BLOCK
-      source: 10000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
-  mage_weaver_novice_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <light_purple>見習いの魔織レギンス</light_purple>
-    custom-model-data: 200063
-    color: "#14532D"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: GOLDEN_LEGGINGS
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x2
-        - GOLD_BLOCK
-        - LAPIS_BLOCK
-      source: 8000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
-  mage_weaver_novice_boots:
-    material: LEATHER_BOOTS
-    display-name: <light_purple>見習いの魔織ブーツ</light_purple>
-    custom-model-data: 200064
-    color: "#14532D"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: GOLDEN_BOOTS
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x2
-        - GOLD_BLOCK
-        - LAPIS_BLOCK
-      source: 5000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
-  mage_weaver_apprentice_helmet:
-    material: LEATHER_HELMET
-    display-name: <dark_purple>魔術師の魔織ヘルメット</dark_purple>
-    custom-model-data: 200071
-    color: "#1F8A4C"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_weaver_novice_helmet
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x3
-        - custom:source_gem_block
-        - BLAZE_ROD x2
-        - AMETHYST_BLOCK
-      source: 50000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
-  mage_weaver_apprentice_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <dark_purple>魔術師の魔織チェストプレート</dark_purple>
-    custom-model-data: 200072
-    color: "#1F8A4C"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_weaver_novice_chestplate
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x3
-        - custom:source_gem_block
-        - BLAZE_ROD x2
-        - AMETHYST_BLOCK
-      source: 100000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
-  mage_weaver_apprentice_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <dark_purple>魔術師の魔織レギンス</dark_purple>
-    custom-model-data: 200073
-    color: "#1F8A4C"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_weaver_novice_leggings
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x3
-        - custom:source_gem_block
-        - BLAZE_ROD x2
-        - AMETHYST_BLOCK
-      source: 80000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
-  mage_weaver_apprentice_boots:
-    material: LEATHER_BOOTS
-    display-name: <dark_purple>魔術師の魔織ブーツ</dark_purple>
-    custom-model-data: 200074
-    color: "#1F8A4C"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_weaver_novice_boots
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x3
-        - custom:source_gem_block
-        - BLAZE_ROD x2
-        - AMETHYST_BLOCK
-      source: 50000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
-  mage_weaver_archmage_helmet:
-    material: LEATHER_HELMET
-    display-name: <gold>大魔導士の魔織ヘルメット</gold>
-    custom-model-data: 200081
-    color: "#2ECC71"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_weaver_apprentice_helmet
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem_block x2
-        - custom:source_crystal
-        - ECHO_SHARD x2
-        - ENDER_EYE x2
-        - DIAMOND_BLOCK
-      source: 400000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
-  mage_weaver_archmage_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <gold>大魔導士の魔織チェストプレート</gold>
-    custom-model-data: 200082
-    color: "#2ECC71"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_weaver_apprentice_chestplate
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem_block x2
-        - custom:source_crystal
-        - ECHO_SHARD x2
-        - ENDER_EYE x2
-        - DIAMOND_BLOCK
-      source: 800000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
-  mage_weaver_archmage_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <gold>大魔導士の魔織レギンス</gold>
-    custom-model-data: 200083
-    color: "#2ECC71"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_weaver_apprentice_leggings
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem_block x2
-        - custom:source_crystal
-        - ECHO_SHARD x2
-        - ENDER_EYE x2
-        - DIAMOND_BLOCK
-      source: 640000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
-  mage_weaver_archmage_boots:
-    material: LEATHER_BOOTS
-    display-name: <gold>大魔導士の魔織ブーツ</gold>
-    custom-model-data: 200084
-    color: "#2ECC71"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_weaver_apprentice_boots
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem_block x2
-        - custom:source_crystal
-        - ECHO_SHARD x2
-        - ENDER_EYE x2
-        - DIAMOND_BLOCK
-      source: 400000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
-  mage_weaver_sage_helmet:
-    material: LEATHER_HELMET
-    display-name: <aqua>賢者の魔織ヘルメット</aqua>
-    custom-model-data: 200221
-    color: "#6FE39B"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_weaver_archmage_helmet
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_crystal x2
-        - custom:dragon_scale x2
-        - custom:echo_shard_2x
-        - NETHERITE_INGOT x2
-        - NETHER_STAR
-        - CRYING_OBSIDIAN
-      source: 2000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
-  mage_weaver_sage_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <aqua>賢者の魔織チェストプレート</aqua>
-    custom-model-data: 200222
-    color: "#6FE39B"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_weaver_archmage_chestplate
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_crystal x2
-        - custom:dragon_scale x2
-        - custom:echo_shard_2x
-        - NETHERITE_INGOT x2
-        - NETHER_STAR
-        - CRYING_OBSIDIAN
-      source: 4000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
-  mage_weaver_sage_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <aqua>賢者の魔織レギンス</aqua>
-    custom-model-data: 200223
-    color: "#6FE39B"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_weaver_archmage_leggings
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_crystal x2
-        - custom:dragon_scale x2
-        - custom:echo_shard_2x
-        - NETHERITE_INGOT x2
-        - NETHER_STAR
-        - CRYING_OBSIDIAN
-      source: 3200000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
-  mage_weaver_sage_boots:
-    material: LEATHER_BOOTS
-    display-name: <aqua>賢者の魔織ブーツ</aqua>
-    custom-model-data: 200224
-    color: "#6FE39B"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_weaver_archmage_boots
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_crystal x2
-        - custom:dragon_scale x2
-        - custom:echo_shard_2x
-        - NETHERITE_INGOT x2
-        - NETHER_STAR
-        - CRYING_OBSIDIAN
-      source: 2000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
-  mage_weaver_starseer_helmet:
-    material: LEATHER_HELMET
-    display-name: <color:#C8A2FF>星詠みの魔織ヘルメット</color>
-    custom-model-data: 200231
-    color: "#B7F5CF"
-    enchant-glow: true
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_weaver_sage_helmet
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_condenser
-        - custom:warden_tendril x2
-        - custom:amethyst_block_2x x2
-        - NETHER_STAR x2
-        - NETHERITE_BLOCK
-        - TOTEM_OF_UNDYING x2
-        - END_CRYSTAL
-      source: 8000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
-  mage_weaver_starseer_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <color:#C8A2FF>星詠みの魔織チェストプレート</color>
-    custom-model-data: 200232
-    color: "#B7F5CF"
-    enchant-glow: true
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_weaver_sage_chestplate
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_condenser
-        - custom:warden_tendril x2
-        - custom:amethyst_block_2x x2
-        - NETHER_STAR x2
-        - NETHERITE_BLOCK
-        - TOTEM_OF_UNDYING x2
-        - END_CRYSTAL
-      source: 16000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
-  mage_weaver_starseer_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <color:#C8A2FF>星詠みの魔織レギンス</color>
-    custom-model-data: 200233
-    color: "#B7F5CF"
-    enchant-glow: true
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_weaver_sage_leggings
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_condenser
-        - custom:warden_tendril x2
-        - custom:amethyst_block_2x x2
-        - NETHER_STAR x2
-        - NETHERITE_BLOCK
-        - TOTEM_OF_UNDYING x2
-        - END_CRYSTAL
-      source: 12800000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
-  mage_weaver_starseer_boots:
-    material: LEATHER_BOOTS
-    display-name: <color:#C8A2FF>星詠みの魔織ブーツ</color>
-    custom-model-data: 200234
-    color: "#B7F5CF"
-    enchant-glow: true
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_weaver_sage_boots
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_condenser
-        - custom:warden_tendril x2
-        - custom:amethyst_block_2x x2
-        - NETHER_STAR x2
-        - NETHERITE_BLOCK
-        - TOTEM_OF_UNDYING x2
-        - END_CRYSTAL
-      source: 8000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
-  mage_guardian_novice_helmet:
-    material: LEATHER_HELMET
-    display-name: <light_purple>見習いの守護ヘルメット</light_purple>
-    custom-model-data: 200001
-    color: "#33455C"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: DIAMOND_HELMET
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x2
-        - GOLD_BLOCK
-        - LAPIS_BLOCK
-      source: 5000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
-  mage_guardian_novice_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <light_purple>見習いの守護チェストプレート</light_purple>
-    custom-model-data: 200002
-    color: "#33455C"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: DIAMOND_CHESTPLATE
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x2
-        - GOLD_BLOCK
-        - LAPIS_BLOCK
-      source: 10000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
-  mage_guardian_novice_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <light_purple>見習いの守護レギンス</light_purple>
-    custom-model-data: 200003
-    color: "#33455C"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: DIAMOND_LEGGINGS
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x2
-        - GOLD_BLOCK
-        - LAPIS_BLOCK
-      source: 8000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
-  mage_guardian_novice_boots:
-    material: LEATHER_BOOTS
-    display-name: <light_purple>見習いの守護ブーツ</light_purple>
-    custom-model-data: 200004
-    color: "#33455C"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: DIAMOND_BOOTS
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x2
-        - GOLD_BLOCK
-        - LAPIS_BLOCK
-      source: 5000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>見習いの魔法使いが纏う入門装備。</color>
-  mage_guardian_apprentice_helmet:
-    material: LEATHER_HELMET
-    display-name: <dark_purple>魔術師の守護ヘルメット</dark_purple>
-    custom-model-data: 200011
-    color: "#4A6785"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_guardian_novice_helmet
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x3
-        - custom:source_gem_block
-        - BLAZE_ROD x2
-        - AMETHYST_BLOCK
-      source: 50000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
-  mage_guardian_apprentice_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <dark_purple>魔術師の守護チェストプレート</dark_purple>
-    custom-model-data: 200012
-    color: "#4A6785"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_guardian_novice_chestplate
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x3
-        - custom:source_gem_block
-        - BLAZE_ROD x2
-        - AMETHYST_BLOCK
-      source: 100000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
-  mage_guardian_apprentice_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <dark_purple>魔術師の守護レギンス</dark_purple>
-    custom-model-data: 200013
-    color: "#4A6785"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_guardian_novice_leggings
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x3
-        - custom:source_gem_block
-        - BLAZE_ROD x2
-        - AMETHYST_BLOCK
-      source: 80000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
-  mage_guardian_apprentice_boots:
-    material: LEATHER_BOOTS
-    display-name: <dark_purple>魔術師の守護ブーツ</dark_purple>
-    custom-model-data: 200014
-    color: "#4A6785"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_guardian_novice_boots
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem x3
-        - custom:source_gem_block
-        - BLAZE_ROD x2
-        - AMETHYST_BLOCK
-      source: 50000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>研鑽を積んだ魔術師に相応しい装備。</color>
-  mage_guardian_archmage_helmet:
-    material: LEATHER_HELMET
-    display-name: <gold>大魔導士の守護ヘルメット</gold>
-    custom-model-data: 200021
-    color: "#6E93B8"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_guardian_apprentice_helmet
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem_block x2
-        - custom:source_crystal
-        - ECHO_SHARD x2
-        - ENDER_EYE x2
-        - DIAMOND_BLOCK
-      source: 400000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
-  mage_guardian_archmage_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <gold>大魔導士の守護チェストプレート</gold>
-    custom-model-data: 200022
-    color: "#6E93B8"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_guardian_apprentice_chestplate
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem_block x2
-        - custom:source_crystal
-        - ECHO_SHARD x2
-        - ENDER_EYE x2
-        - DIAMOND_BLOCK
-      source: 800000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
-  mage_guardian_archmage_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <gold>大魔導士の守護レギンス</gold>
-    custom-model-data: 200023
-    color: "#6E93B8"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_guardian_apprentice_leggings
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem_block x2
-        - custom:source_crystal
-        - ECHO_SHARD x2
-        - ENDER_EYE x2
-        - DIAMOND_BLOCK
-      source: 640000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
-  mage_guardian_archmage_boots:
-    material: LEATHER_BOOTS
-    display-name: <gold>大魔導士の守護ブーツ</gold>
-    custom-model-data: 200024
-    color: "#6E93B8"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_guardian_apprentice_boots
-      pedestal-items:
-        - custom:magebloom_fiber x4
-        - custom:source_gem_block x2
-        - custom:source_crystal
-        - ECHO_SHARD x2
-        - ENDER_EYE x2
-        - DIAMOND_BLOCK
-      source: 400000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
-  mage_guardian_sage_helmet:
-    material: LEATHER_HELMET
-    display-name: <aqua>賢者の守護ヘルメット</aqua>
-    custom-model-data: 200201
-    color: "#9BC0DE"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_guardian_archmage_helmet
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_crystal x2
-        - custom:dragon_scale x2
-        - custom:echo_shard_2x
-        - NETHERITE_INGOT x2
-        - NETHER_STAR
-        - CRYING_OBSIDIAN
-      source: 2000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
-  mage_guardian_sage_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <aqua>賢者の守護チェストプレート</aqua>
-    custom-model-data: 200202
-    color: "#9BC0DE"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_guardian_archmage_chestplate
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_crystal x2
-        - custom:dragon_scale x2
-        - custom:echo_shard_2x
-        - NETHERITE_INGOT x2
-        - NETHER_STAR
-        - CRYING_OBSIDIAN
-      source: 4000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
-  mage_guardian_sage_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <aqua>賢者の守護レギンス</aqua>
-    custom-model-data: 200203
-    color: "#9BC0DE"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_guardian_archmage_leggings
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_crystal x2
-        - custom:dragon_scale x2
-        - custom:echo_shard_2x
-        - NETHERITE_INGOT x2
-        - NETHER_STAR
-        - CRYING_OBSIDIAN
-      source: 3200000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
-  mage_guardian_sage_boots:
-    material: LEATHER_BOOTS
-    display-name: <aqua>賢者の守護ブーツ</aqua>
-    custom-model-data: 200204
-    color: "#9BC0DE"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_guardian_archmage_boots
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_crystal x2
-        - custom:dragon_scale x2
-        - custom:echo_shard_2x
-        - NETHERITE_INGOT x2
-        - NETHER_STAR
-        - CRYING_OBSIDIAN
-      source: 2000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
-  mage_guardian_starseer_helmet:
-    material: LEATHER_HELMET
-    display-name: <color:#C8A2FF>星詠みの守護ヘルメット</color>
-    custom-model-data: 200211
-    color: "#C9E4F5"
-    enchant-glow: true
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_guardian_sage_helmet
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_condenser
-        - custom:warden_tendril x2
-        - custom:amethyst_block_2x x2
-        - NETHER_STAR x2
-        - NETHERITE_BLOCK
-        - TOTEM_OF_UNDYING x2
-        - END_CRYSTAL
-      source: 8000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
-  mage_guardian_starseer_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <color:#C8A2FF>星詠みの守護チェストプレート</color>
-    custom-model-data: 200212
-    color: "#C9E4F5"
-    enchant-glow: true
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_guardian_sage_chestplate
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_condenser
-        - custom:warden_tendril x2
-        - custom:amethyst_block_2x x2
-        - NETHER_STAR x2
-        - NETHERITE_BLOCK
-        - TOTEM_OF_UNDYING x2
-        - END_CRYSTAL
-      source: 16000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
-  mage_guardian_starseer_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <color:#C8A2FF>星詠みの守護レギンス</color>
-    custom-model-data: 200213
-    color: "#C9E4F5"
-    enchant-glow: true
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_guardian_sage_leggings
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_condenser
-        - custom:warden_tendril x2
-        - custom:amethyst_block_2x x2
-        - NETHER_STAR x2
-        - NETHERITE_BLOCK
-        - TOTEM_OF_UNDYING x2
-        - END_CRYSTAL
-      source: 12800000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
-  mage_guardian_starseer_boots:
-    material: LEATHER_BOOTS
-    display-name: <color:#C8A2FF>星詠みの守護ブーツ</color>
-    custom-model-data: 200214
-    color: "#C9E4F5"
-    enchant-glow: true
-    bind-type: TRADEABLE
-    recipe:
-      method: ritual
-      core-item: custom:mage_guardian_sage_boots
-      pedestal-items:
-        - custom:source_gem_block x4
-        - custom:source_condenser
-        - custom:warden_tendril x2
-        - custom:amethyst_block_2x x2
-        - NETHER_STAR x2
-        - NETHERITE_BLOCK
-        - TOTEM_OF_UNDYING x2
-        - END_CRYSTAL
-      source: 8000000
-      type: shapeless
-      ingredients: []
-    lore:
-      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
-      - ""
-      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
-  abyssal_scale_helmet:
-    material: LEATHER_HELMET
-    display-name: <white>深海鱗の鎧のヘルメット</white>
-    custom-model-data: 200140
-    color: "#1B4F72"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - XXX
-        - Y Y
-        - "   "
-      ingredients:
-        X: PRISMARINE_SHARD
-        Y: LEATHER
-    lore:
-      - <color:gray><i>深海の光を纏う、プリズマリンの鱗鎧。</i></color>
-      - ""
-      - <color:dark_purple>海底神殿の守人が身につけていたとされる。</color>
-  abyssal_scale_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <white>深海鱗の鎧のチェストプレート</white>
-    custom-model-data: 200141
-    color: "#1B4F72"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - Y Y
-        - XXX
-        - XXX
-      ingredients:
-        X: PRISMARINE_SHARD
-        Y: LEATHER
-    lore:
-      - <gray><italic>深海の光を纏う、プリズマリンの鱗鎧。</italic></gray>
-      - ""
-      - <color:dark_purple>海底神殿の守人が身につけていたとされる。</color>
-  abyssal_scale_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <white>深海鱗の鎧のレギンス</white>
-    custom-model-data: 200142
-    color: "#1B4F72"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - XXX
-        - Y Y
-        - Y Y
-      ingredients:
-        X: PRISMARINE_SHARD
-        Y: LEATHER
-    lore:
-      - <gray><italic>深海の光を纏う、プリズマリンの鱗鎧。</italic></gray>
-      - ""
-      - <color:dark_purple>海底神殿の守人が身につけていたとされる。</color>
-  abyssal_scale_boots:
-    material: LEATHER_BOOTS
-    display-name: <white>深海鱗の鎧のブーツ</white>
-    custom-model-data: 200143
-    color: "#1B4F72"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - Y Y
-        - X X
-        - "   "
-      ingredients:
-        X: PRISMARINE_SHARD
-        Y: LEATHER
-    lore:
-      - <gray><italic>深海の光を纏う、プリズマリンの鱗鎧。</italic></gray>
-      - ""
-      - <color:dark_purple>海底神殿の守人が身につけていたとされる。</color>
-  bone_guard_helmet:
-    material: LEATHER_HELMET
-    display-name: <white>骨鎧のヘルメット</white>
-    custom-model-data: 200124
-    color: "#E8E4D8"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - XXX
-        - Y Y
-        - "   "
-      ingredients:
-        X: BONE
-        Y: LEATHER
-    lore:
-      - <gray><italic>金属を持たない者のための、骨と革の鎧。</italic></gray>
-      - ""
-      - <color:dark_purple>軽さを活かして戦う初学の冒険者向け。</color>
-  bone_guard_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <white>骨鎧のチェストプレート</white>
-    custom-model-data: 200125
-    color: "#E8E4D8"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - Y Y
-        - XXX
-        - XXX
-      ingredients:
-        X: BONE
-        Y: LEATHER
-    lore:
-      - <gray><italic>金属を持たない者のための、骨と革の鎧。</italic></gray>
-      - ""
-      - <color:dark_purple>軽さを活かして戦う初学の冒険者向け。</color>
-  bone_guard_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <white>骨鎧のレギンス</white>
-    custom-model-data: 200126
-    color: "#E8E4D8"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - XXX
-        - Y Y
-        - Y Y
-      ingredients:
-        X: BONE
-        Y: LEATHER
-    lore:
-      - <gray><italic>金属を持たない者のための、骨と革の鎧。</italic></gray>
-      - ""
-      - <color:dark_purple>軽さを活かして戦う初学の冒険者向け。</color>
-  bone_guard_boots:
-    material: LEATHER_BOOTS
-    display-name: <white>骨鎧のブーツ</white>
-    custom-model-data: 200127
-    color: "#E8E4D8"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - Y Y
-        - X X
-        - "   "
-      ingredients:
-        X: BONE
-        Y: LEATHER
-    lore:
-      - <gray><italic>金属を持たない者のための、骨と革の鎧。</italic></gray>
-      - ""
-      - <color:dark_purple>軽さを活かして戦う初学の冒険者向け。</color>
-  carapace_mail_helmet:
-    material: LEATHER_HELMET
-    display-name: <white>甲殻鎧のヘルメット</white>
-    custom-model-data: 200132
-    color: "#2E8B57"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - XXX
-        - X Y
-        - "   "
-      ingredients:
-        X: LEATHER
-        Y: TURTLE_SCUTE
-    lore:
-      - <gray><italic>ウミガメの甲羅を纏わせた、しなやかな鎧。</italic></gray>
-      - ""
-      - <color:dark_purple>鉄の重鎧に匹敵する守りを、身軽さと共に。</color>
-  carapace_mail_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <white>甲殻鎧のチェストプレート</white>
-    custom-model-data: 200133
-    color: "#2E8B57"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - X X
-        - XXX
-        - XXY
-      ingredients:
-        X: LEATHER
-        Y: TURTLE_SCUTE
-    lore:
-      - <gray><italic>ウミガメの甲羅を纏わせた、しなやかな鎧。</italic></gray>
-      - ""
-      - <color:dark_purple>鉄の重鎧に匹敵する守りを、身軽さと共に。</color>
-  carapace_mail_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <white>甲殻鎧のレギンス</white>
-    custom-model-data: 200134
-    color: "#2E8B57"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - XXX
-        - X X
-        - X Y
-      ingredients:
-        X: LEATHER
-        Y: TURTLE_SCUTE
-    lore:
-      - <gray><italic>ウミガメの甲羅を纏わせた、しなやかな鎧。</italic></gray>
-      - ""
-      - <color:dark_purple>鉄の重鎧に匹敵する守りを、身軽さと共に。</color>
-  carapace_mail_boots:
-    material: LEATHER_BOOTS
-    display-name: <white>甲殻鎧のブーツ</white>
-    custom-model-data: 200135
-    color: "#2E8B57"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - X X
-        - X Y
-        - "   "
-      ingredients:
-        X: LEATHER
-        Y: TURTLE_SCUTE
-    lore:
-      - <gray><italic>ウミガメの甲羅を纏わせた、しなやかな鎧。</italic></gray>
-      - ""
-      - <color:dark_purple>鉄の重鎧に匹敵する守りを、身軽さと共に。</color>
-  copper_stud_helmet:
-    material: LEATHER_HELMET
-    display-name: <white>銅鋲の革鎧のヘルメット</white>
-    custom-model-data: 200128
-    color: "#C36A3F"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - XXX
-        - X Y
-        - "   "
-      ingredients:
-        X: LEATHER
-        Y: COPPER_INGOT
-    lore:
-      - <gray><italic>銅の鋲を打った、実用本位の革鎧。</italic></gray>
-      - ""
-      - <color:dark_purple>重装の銅鎧に対する、軽装側の答え。</color>
-  copper_stud_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <white>銅鋲の革鎧のチェストプレート</white>
-    custom-model-data: 200129
-    color: "#C36A3F"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - X X
-        - XXX
-        - XXY
-      ingredients:
-        X: LEATHER
-        Y: COPPER_INGOT
-    lore:
-      - <gray><italic>銅の鋲を打った、実用本位の革鎧。</italic></gray>
-      - ""
-      - <color:dark_purple>重装の銅鎧に対する、軽装側の答え。</color>
-  copper_stud_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <white>銅鋲の革鎧のレギンス</white>
-    custom-model-data: 200130
-    color: "#C36A3F"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - XXX
-        - X X
-        - X Y
-      ingredients:
-        X: LEATHER
-        Y: COPPER_INGOT
-    lore:
-      - <gray><italic>銅の鋲を打った、実用本位の革鎧。</italic></gray>
-      - ""
-      - <color:dark_purple>重装の銅鎧に対する、軽装側の答え。</color>
-  copper_stud_boots:
-    material: LEATHER_BOOTS
-    display-name: <white>銅鋲の革鎧のブーツ</white>
-    custom-model-data: 200131
-    color: "#C36A3F"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - X X
-        - X Y
-        - "   "
-      ingredients:
-        X: LEATHER
-        Y: COPPER_INGOT
-    lore:
-      - <gray><italic>銅の鋲を打った、実用本位の革鎧。</italic></gray>
-      - ""
-      - <color:dark_purple>重装の銅鎧に対する、軽装側の答え。</color>
-  gilded_thread_helmet:
-    material: LEATHER_HELMET
-    display-name: <white>金糸の装束のヘルメット</white>
-    custom-model-data: 200136
-    color: "#D4AF37"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - XXX
-        - X Y
-        - "   "
-      ingredients:
-        X: STRING
-        Y: GOLD_NUGGET
-    lore:
-      - <gray><italic>金の糸を織り込んだ、華美な装束。</italic></gray>
-      - ""
-      - <color:dark_purple>守りは高いが、金糸ゆえに脆さも併せ持つ。</color>
-  gilded_thread_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <white>金糸の装束のチェストプレート</white>
-    custom-model-data: 200137
-    color: "#D4AF37"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - X X
-        - XXX
-        - XXY
-      ingredients:
-        X: STRING
-        Y: GOLD_NUGGET
-    lore:
-      - <gray><italic>金の糸を織り込んだ、華美な装束。</italic></gray>
-      - ""
-      - <color:dark_purple>守りは高いが、金糸ゆえに脆さも併せ持つ。</color>
-  gilded_thread_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <white>金糸の装束のレギンス</white>
-    custom-model-data: 200138
-    color: "#D4AF37"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - XXX
-        - X X
-        - X Y
-      ingredients:
-        X: STRING
-        Y: GOLD_NUGGET
-    lore:
-      - <gray><italic>金の糸を織り込んだ、華美な装束。</italic></gray>
-      - ""
-      - <color:dark_purple>守りは高いが、金糸ゆえに脆さも併せ持つ。</color>
-  gilded_thread_boots:
-    material: LEATHER_BOOTS
-    display-name: <white>金糸の装束のブーツ</white>
-    custom-model-data: 200139
-    color: "#D4AF37"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - X X
-        - X Y
-        - "   "
-      ingredients:
-        X: STRING
-        Y: GOLD_NUGGET
-    lore:
-      - <gray><italic>金の糸を織り込んだ、華美な装束。</italic></gray>
-      - ""
-      - <color:dark_purple>守りは高いが、金糸ゆえに脆さも併せ持つ。</color>
-  phantom_shroud_helmet:
-    material: LEATHER_HELMET
-    display-name: <white>幻膜の外套のヘルメット</white>
-    custom-model-data: 200144
-    color: "#B39DDB"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - XXX
-        - X Y
-        - "   "
-      ingredients:
-        X: PHANTOM_MEMBRANE
-        Y: STRING
-    lore:
-      - <color:gray><i>ファントムの膜で織り上げた、幻のような外套。</i></color>
-      - ""
-      - <color:dark_purple>夜空を彷徨う怪物の一部が、今は身を守る。</color>
-  phantom_shroud_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <white>幻膜の外套のチェストプレート</white>
-    custom-model-data: 200145
-    color: "#B39DDB"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - X X
-        - XXX
-        - XXY
-      ingredients:
-        X: PHANTOM_MEMBRANE
-        Y: STRING
-    lore:
-      - <gray><italic>ファントムの膜で織り上げた、幻のような外套。</italic></gray>
-      - ""
-      - <color:dark_purple>夜空を彷徨う怪物の一部が、今は身を守る。</color>
-  phantom_shroud_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <white>幻膜の外套のレギンス</white>
-    custom-model-data: 200146
-    color: "#B39DDB"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - XXX
-        - X X
-        - X Y
-      ingredients:
-        X: PHANTOM_MEMBRANE
-        Y: STRING
-    lore:
-      - <gray><italic>ファントムの膜で織り上げた、幻のような外套。</italic></gray>
-      - ""
-      - <color:dark_purple>夜空を彷徨う怪物の一部が、今は身を守る。</color>
-  phantom_shroud_boots:
-    material: LEATHER_BOOTS
-    display-name: <white>幻膜の外套のブーツ</white>
-    custom-model-data: 200147
-    color: "#B39DDB"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - "XX "
-        - "XY "
-        - "   "
-      ingredients:
-        X: PHANTOM_MEMBRANE
-        Y: STRING
-    lore:
-      - <gray><italic>ファントムの膜で織り上げた、幻のような外套。</italic></gray>
-      - ""
-      - <color:dark_purple>夜空を彷徨う怪物の一部が、今は身を守る。</color>
-  withered_silk_helmet:
-    material: LEATHER_HELMET
-    display-name: <white>蝕みの絹のヘルメット</white>
-    custom-model-data: 200148
-    color: "#4A235A"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - XXX
-        - X Y
-        - "   "
-      ingredients:
-        X: STRING
-        Y: WITHER_SKELETON_SKULL
-    lore:
-      - <gray><italic>ウィザースケルトンの頭蓋を縫い込んだ、蝕みの絹。</italic></gray>
-      - ""
-      - <color:dark_purple>ネザー要塞の深部でのみ揃う、稀少な素材の結晶。</color>
-  withered_silk_chestplate:
-    material: LEATHER_CHESTPLATE
-    display-name: <white>蝕みの絹のチェストプレート</white>
-    custom-model-data: 200149
-    color: "#4A235A"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - X X
-        - XXX
-        - XXY
-      ingredients:
-        X: STRING
-        Y: WITHER_SKELETON_SKULL
-    lore:
-      - <gray><italic>ウィザースケルトンの頭蓋を縫い込んだ、蝕みの絹。</italic></gray>
-      - ""
-      - <color:dark_purple>ネザー要塞の深部でのみ揃う、稀少な素材の結晶。</color>
-  withered_silk_leggings:
-    material: LEATHER_LEGGINGS
-    display-name: <white>蝕みの絹のレギンス</white>
-    custom-model-data: 200150
-    color: "#4A235A"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - XXX
-        - X X
-        - X Y
-      ingredients:
-        X: STRING
-        Y: WITHER_SKELETON_SKULL
-    lore:
-      - <gray><italic>ウィザースケルトンの頭蓋を縫い込んだ、蝕みの絹。</italic></gray>
-      - ""
-      - <color:dark_purple>ネザー要塞の深部でのみ揃う、稀少な素材の結晶。</color>
-  withered_silk_boots:
-    material: LEATHER_BOOTS
-    display-name: <white>蝕みの絹のブーツ</white>
-    custom-model-data: 200151
-    color: "#4A235A"
-    enchant-glow: false
-    bind-type: TRADEABLE
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - X X
-        - X Y
-        - "   "
-      ingredients:
-        X: STRING
-        Y: WITHER_SKELETON_SKULL
-    lore:
-      - <gray><italic>ウィザースケルトンの頭蓋を縫い込んだ、蝕みの絹。</italic></gray>
-      - ""
-      - <color:dark_purple>ネザー要塞の深部でのみ揃う、稀少な素材の結晶。</color>
   spell_book_novice:
     material: BOOK
     display-name: <#D4A0FF>見習いの魔法書</#D4A0FF>
@@ -6364,82 +6698,6 @@ items:
       - ""
       - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
       - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
-  binder_helmet:
-    draft: true
-    material: NETHERITE_HELMET
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐヘルメット</gradient>
-    custom-model-data: 5611
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      pedestal-items:
-        - custom:binder_fragment x3
-        - custom:abyssal_ingot x2
-        - custom:hard_metal x2
-      source: 60000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
-  binder_chestplate:
-    draft: true
-    material: NETHERITE_CHESTPLATE
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐチェストプレート</gradient>
-    custom-model-data: 5611
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      pedestal-items:
-        - custom:binder_fragment x3
-        - custom:abyssal_ingot x2
-        - custom:hard_metal x4
-      source: 120000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
-  binder_leggings:
-    draft: true
-    material: NETHERITE_LEGGINGS
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐレギンス</gradient>
-    custom-model-data: 5611
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      pedestal-items:
-        - custom:binder_fragment x3
-        - custom:abyssal_ingot x2
-        - custom:hard_metal x3
-      source: 90000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
-  binder_boots:
-    draft: true
-    material: NETHERITE_BOOTS
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐブーツ</gradient>
-    custom-model-data: 5611
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      pedestal-items:
-        - custom:binder_fragment x3
-        - custom:abyssal_ingot x2
-        - custom:hard_metal x1
-      source: 30000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
   cryocore_sword:
     draft: true
     material: NETHERITE_SWORD
@@ -6958,86 +7216,6 @@ items:
       - ""
       - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
       - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_helmet:
-    draft: true
-    material: NETHERITE_HELMET
-    display-name: <color:#e8894a>熾鉄の兜</color>
-    custom-model-data: 5720
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-        - custom:stone_5x x1
-        - custom:emerald_block_4x x1
-        - custom:hard_metal x6
-        - GOLDEN_HELMET x1
-      source: 40000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_chestplate:
-    draft: true
-    material: NETHERITE_CHESTPLATE
-    display-name: <color:#e8894a>熾鉄の胸当て</color>
-    custom-model-data: 5720
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-        - custom:stone_5x x1
-        - custom:emerald_block_4x x1
-        - custom:hard_metal x6
-        - GOLDEN_CHESTPLATE x1
-      source: 40000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_leggings:
-    draft: true
-    material: NETHERITE_LEGGINGS
-    display-name: <color:#e8894a>熾鉄の具足</color>
-    custom-model-data: 5720
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-        - custom:stone_5x x1
-        - custom:emerald_block_4x x1
-        - custom:hard_metal x6
-        - GOLDEN_LEGGINGS x1
-      source: 40000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_boots:
-    draft: true
-    material: NETHERITE_BOOTS
-    display-name: <color:#e8894a>熾鉄の靴</color>
-    custom-model-data: 5720
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-        - custom:stone_5x x1
-        - custom:emerald_block_4x x1
-        - custom:hard_metal x6
-        - GOLDEN_BOOTS x1
-      source: 40000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
   woodsman_greataxe:
     draft: true
     material: NETHERITE_SWORD
@@ -7057,44 +7235,6 @@ items:
       - ""
       - <dark_gray><italic>刃こぼれの一つ一つが、倒した木の数だ。</italic></dark_gray>
       - <gray>伐採の経験値と追加ドロップが増える。</gray>
-  forestfolk_cloak:
-    draft: true
-    material: NETHERITE_CHESTPLATE
-    display-name: <color:#c9b37a>森人の外套</color>
-    custom-model-data: 5740
-    recipe:
-      method: ritual
-      core-item: custom:core_wood
-      pedestal-items:
-        - OAK_LOG x8
-        - custom:hard_metal x2
-        - GOLDEN_CHESTPLATE x1
-      source: 25000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <dark_gray><italic>枝を鳴らさずに歩く者の装い。</italic></dark_gray>
-      - <gray>回避率と移動速度が上がる。</gray>
-  feast_breastplate:
-    draft: true
-    material: NETHERITE_CHESTPLATE
-    display-name: <color:#c9b37a>饗宴の胸当て</color>
-    custom-model-data: 5741
-    recipe:
-      method: ritual
-      core-item: custom:core_meat
-      pedestal-items:
-        - COOKED_BEEF x8
-        - custom:hard_metal x2
-        - GOLDEN_CHESTPLATE x1
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <dark_gray><italic>満たされた腹は、鎧より硬い。</italic></dark_gray>
-      - <gray>体力が増え、食料の消費が減る。</gray>
   hunter_javelin:
     draft: true
     material: NETHERITE_SPEAR
@@ -7133,25 +7273,6 @@ items:
       - ""
       - <dark_gray><italic>実りは待つ者にだけ来る。</italic></dark_gray>
       - <gray>農業の経験値と追加ドロップが増える。</gray>
-  herb_hat:
-    draft: true
-    material: NETHERITE_HELMET
-    display-name: <color:#c9b37a>香草の帽子</color>
-    custom-model-data: 5740
-    recipe:
-      method: ritual
-      core-item: custom:core_vegetable
-      pedestal-items:
-        - WHEAT x13
-        - custom:hard_metal x2
-        - GOLDEN_HELMET x1
-      source: 10000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <dark_gray><italic>草の匂いが染みついている。</italic></dark_gray>
-      - <gray>食べたときの満腹度回復量が増える。</gray>
   leyline_shovel:
     draft: true
     material: NETHERITE_SHOVEL
@@ -7171,44 +7292,6 @@ items:
       - ""
       - <dark_gray><italic>地面の下を流れるものを掬い上げる。</italic></dark_gray>
       - <gray>掘削の経験値と幸運が増える。</gray>
-  bedrock_greaves:
-    draft: true
-    material: NETHERITE_BOOTS
-    display-name: <color:#c9b37a>岩盤の具足</color>
-    custom-model-data: 5740
-    recipe:
-      method: ritual
-      core-item: custom:core_ground
-      pedestal-items:
-        - DIRT x13
-        - custom:hard_metal x2
-        - GOLDEN_BOOTS x1
-      source: 10000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <dark_gray><italic>一歩も下がらないための重さ。</italic></dark_gray>
-      - <gray>ノックバック耐性が上がる。</gray>
-  gladiator_belt:
-    draft: true
-    material: LEATHER_CHESTPLATE
-    color: "#8C2F1F"
-    display-name: <color:#b48ee0>闘士の帯</color>
-    custom-model-data: 5760
-    recipe:
-      method: ritual
-      core-item: custom:core_jewelry
-      pedestal-items:
-        - custom:hard_metal x2
-        - IRON_BLOCK x1
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <dark_gray><italic>締めた瞬間、間合いが変わる。</italic></dark_gray>
-      - <gray>剣闘士だけが身に着けられる。貫通率が上がる。</gray>
   chanter_ring:
     draft: true
     material: AMETHYST_SHARD
@@ -7227,100 +7310,6 @@ items:
       - ""
       - <dark_gray><italic>唱えるより先に、指が覚えている。</italic></dark_gray>
       - <gray>魔導士だけが使える装飾品。オフハンドに持つとマナ消費が減る。</gray>
-  taunt_crest:
-    draft: true
-    material: NETHERITE_CHESTPLATE
-    display-name: <color:#b48ee0>挑発の紋章</color>
-    custom-model-data: 5760
-    recipe:
-      method: ritual
-      core-item: custom:core_jewelry
-      pedestal-items:
-        - custom:hard_metal x2
-        - SHIELD x1
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <dark_gray><italic>前に出る者にしか、これは似合わない。</italic></dark_gray>
-      - <gray>盾役だけが身に着けられる。被ダメージとノックバックを抑える。</gray>
-  harvest_basket:
-    draft: true
-    material: LEATHER_CHESTPLATE
-    color: "#C08A3E"
-    display-name: <color:#b48ee0>実りの籠</color>
-    custom-model-data: 5761
-    recipe:
-      method: ritual
-      core-item: custom:core_jewelry
-      pedestal-items:
-        - custom:hard_metal x2
-        - HAY_BLOCK x1
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <dark_gray><italic>背負ったぶんだけ、持って帰れる。</italic></dark_gray>
-      - <gray>農家だけが身に着けられる。収穫の追加ドロップ率が上がる。</gray>
-  tide_float:
-    draft: true
-    material: LEATHER_HELMET
-    color: "#2FA4B8"
-    display-name: <color:#b48ee0>潮見の浮き</color>
-    custom-model-data: 5760
-    recipe:
-      method: ritual
-      core-item: custom:core_jewelry
-      pedestal-items:
-        - custom:hard_metal x2
-        - NAUTILUS_SHELL x1
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <dark_gray><italic>沈む速さで、下にいるものが分かる。</italic></dark_gray>
-      - <gray>釣り人だけが身に着けられる。釣り運が上がる。</gray>
-  pit_lamp:
-    draft: true
-    material: LEATHER_HELMET
-    color: "#E0B23C"
-    display-name: <color:#b48ee0>坑夫の灯</color>
-    custom-model-data: 5761
-    recipe:
-      method: ritual
-      core-item: custom:core_jewelry
-      pedestal-items:
-        - custom:hard_metal x2
-        - FLINT x1
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <dark_gray><italic>暗いほど、見えるものがある。</italic></dark_gray>
-      - <gray>坑夫だけが身に着けられる。採掘運が上がる。</gray>
-  leveling_gloves:
-    draft: true
-    material: LEATHER_CHESTPLATE
-    color: "#7A6A5A"
-    display-name: <color:#b48ee0>均しの手袋</color>
-    custom-model-data: 5762
-    recipe:
-      method: ritual
-      core-item: custom:core_jewelry
-      pedestal-items:
-        - custom:hard_metal x2
-        - DIRT x8
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <dark_gray><italic>掘るより、均すほうが難しい。</italic></dark_gray>
-      - <gray>掘削者だけが身に着けられる。怪しいブロックが復活しやすくなる。</gray>
   woodsman_whetstone:
     draft: true
     material: AMETHYST_SHARD
@@ -7342,6 +7331,7 @@ items:
   thread_better_fortune:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7351,6 +7341,7 @@ items:
   thread_gacha:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7360,6 +7351,7 @@ items:
   thread_role_luck:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7369,6 +7361,7 @@ items:
   thread_role_effeciency:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7378,6 +7371,7 @@ items:
   thread_blindness:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7387,6 +7381,7 @@ items:
   thread_translate:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7396,6 +7391,7 @@ items:
   thread_swordsman:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>剣と噛み合うよう組まれている</color>
@@ -7406,6 +7402,7 @@ items:
   thread_berserker:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>戦斧と噛み合うよう組まれている</color>
@@ -7416,6 +7413,7 @@ items:
   thread_lancer:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>槍と噛み合うよう組まれている</color>
@@ -7426,6 +7424,7 @@ items:
   thread_reaper:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>鎌と噛み合うよう組まれている</color>
@@ -7436,6 +7435,7 @@ items:
   thread_crusher:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>ウォーハンマーと噛み合うよう組まれている</color>
@@ -7446,6 +7446,7 @@ items:
   thread_assassin:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>短剣と噛み合うよう組まれている</color>
@@ -7456,6 +7457,7 @@ items:
   thread_duelist:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>レイピアと噛み合うよう組まれている</color>
@@ -7466,6 +7468,7 @@ items:
   thread_titan:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>大斧と噛み合うよう組まれている</color>
@@ -7476,6 +7479,7 @@ items:
   thread_greatsword:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>大剣と噛み合うよう組まれている</color>
@@ -7486,6 +7490,7 @@ items:
   thread_longshot:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>弓と噛み合うよう組まれている</color>
@@ -7496,6 +7501,7 @@ items:
   thread_tidecaller:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>トライデントと噛み合うよう組まれている</color>
@@ -7506,6 +7512,7 @@ items:
   thread_earthshaker:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>メイスと噛み合うよう組まれている</color>
@@ -7516,6 +7523,7 @@ items:
   thread_bolter:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>クロスボウと噛み合うよう組まれている</color>
@@ -7526,6 +7534,7 @@ items:
   thread_spellblade:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>杖・触媒と噛み合うよう組まれている</color>
@@ -7536,6 +7545,7 @@ items:
   thread_onslaught:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7545,6 +7555,7 @@ items:
   thread_precision:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7554,6 +7565,7 @@ items:
   thread_execution:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7563,6 +7575,7 @@ items:
   thread_piercer:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7572,6 +7585,7 @@ items:
   thread_hemorrhage:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7581,6 +7595,7 @@ items:
   thread_bulwark:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7590,6 +7605,7 @@ items:
   thread_aegis:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7599,6 +7615,7 @@ items:
   thread_ironhide:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7608,6 +7625,7 @@ items:
   thread_evasion:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7617,6 +7635,7 @@ items:
   thread_resilience:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7631,9 +7650,13 @@ items:
   # 唯一の入手経路で、それがこの10種の存在理由。ここへレシピを足すと
   # 「そのティアを漁る動機」という設計目的がまるごと消えるので足さないこと。
   # 効果の実体は TrinityForge の stats/item-stats.yml の STRING#300070-300079。
+  # 魂縛は catalog の bind-type。作業台/儀式レシピがあるスレッドは TRADEABLE、
+  # レシピの無いスレッド（この10種を含む宝箱・ドロップ・ガチャ等）は SOULBOUND。
+  # CMD 帯でのハードコードではない。
   thread_maelstrom:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>巻き込んだ相手への威力を上げる</color>
@@ -7645,6 +7668,7 @@ items:
   thread_exsanguinate:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>傷口が塞がらなくなる</color>
@@ -7656,6 +7680,7 @@ items:
   thread_skyfall:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>跳んでから当てるほど重い</color>
@@ -7667,6 +7692,7 @@ items:
   thread_farsight:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>離れているほど矢が重くなる</color>
@@ -7678,6 +7704,7 @@ items:
   thread_truesight:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>狙ったところへ素直に飛ぶ</color>
@@ -7689,6 +7716,7 @@ items:
   thread_swiftarrow:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>矢が速く、まっすぐ届く</color>
@@ -7700,6 +7728,7 @@ items:
   thread_piercingshot:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>一本で複数を貫く</color>
@@ -7711,6 +7740,7 @@ items:
   thread_rampart:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>受けるダメージの割合を削る</color>
@@ -7722,6 +7752,7 @@ items:
   thread_bastion:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>物理の一撃を実数で削る</color>
@@ -7733,6 +7764,7 @@ items:
   thread_wardstone:
     external-source: arspaper
     material: STRING
+    bind-type: SOULBOUND
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - <color:gray>魔法の一撃を実数で削る</color>
@@ -7741,6 +7773,26 @@ items:
       - <color:dark_purple>呪いは、石に食わせておけばいい</color>
     display-name: <color:aqua>護法のスレッド</color>
     custom-model-data: 300079
+  # ---------------------------------------------------------------------------
+  # 魂縛解きの符（2026-08-29）
+  # 所有者を消し、bind を TRADEABLE にする。/tf bind clear は owner UUID だけ消すので、
+  # SOULBOUND のままだと次の拾得で所有者が焼き直される。こちらは永続。
+  # ⚠ レシピは仮置き。素材は ars-smithing.exp-per-material に既にある品だけ。
+  # ⚠ custom-model-data は resourcepack/cmd-registry.json へ払い出し済み（273）。
+  #   リソースパック側のモデルはまだ無いので、見た目は素材そのまま。
+  #   素材は PAPER（LEAD だとリードとしてmobに使えてしまう）。
+  owner_unbind_ticket:
+    material: PAPER
+    display-name: <color:light_purple>魂縛解きの符</color>
+    enchant-glow: true
+    lore:
+      - <gray><italic>結びついた名をほどき、以後だれの手にも渡る。</italic></gray>
+      - ""
+      - <yellow>手に持って右クリックで対象の装備を選択します</yellow>
+      - <gray>所有者を消し、魂縛／所有者バインドを取引可能にします。</gray>
+      - <gray>もう一度同じ対象をクリックすると確定します。</gray>
+      - <dark_gray>※拾っても再び所有者は焼き付きません。</dark_gray>
+    custom-model-data: 273
   skill_node_lock:
     material: AMETHYST_SHARD
     display-name: <color:gold>スキルノードの楔</color>
@@ -7748,9 +7800,10 @@ items:
     lore:
       - <gray><italic>解放した一点を、時の巻き戻しから守る楔。</italic></gray>
       - ""
-      - <yellow>スキルツリーGUIで解放済みノードをクリック</yellow>
+      - <yellow>楔をメインハンドに持ち、スキルツリーで解放済みノードをクリック</yellow>
+      - <gray>確認画面の「はい」でロックします（押したマスには「はい」が出ません）。</gray>
       - <gray>ロックしたノードはプレステージしても解放が維持されます。</gray>
-      - <gray>ロックを外すときは消費しません（もう一度クリック）。</gray>
+      - <gray>ロックを外すときも確認画面を出します（楔は消費しません）。</gray>
       - <dark_gray>※ツリーリセットは保護しません（リセットは全ノードが対象）。</dark_gray>
     custom-model-data: 3
     recipe:
@@ -7776,7 +7829,8 @@ items:
     lore:
       - <gray><italic>積み上げた選択だけを解き、歩んだ距離は残す。</italic></gray>
       - ""
-      - <yellow>スキルツリーGUIでノードをクリック（2回目で確定）</yellow>
+      - <yellow>書をメインハンドに持ち、スキルツリーまたはパークをクリック</yellow>
+      - <gray>確認画面の「はい」でリセットします（押したマスには「はい」が出ません）。</gray>
       - <gray>そのツリーのノードを全解除し、消費したSPを返却します。</gray>
       - <gray>スキルレベルとプレステージ段はそのまま維持されます。</gray>
     custom-model-data: 100083
@@ -7836,7 +7890,7 @@ items:
       pedestal-items:
         - RABBIT_FOOT
         - TURTLE_EGG
-        - custom:witch_elixir
+        - custom:endermite_soot
         - custom:stray_cloth
         - custom:piglin_brute_plate
         - custom:guardian_spine
@@ -7870,15 +7924,17 @@ items:
       source: 10000
       amount: 1
   # ---------------------------------------------------------------------------
-  # EXP解呪の良薬（2026-08-24 ユーザー要望）
+  # EXP解呪の良薬（2026-08-29 仕様差し替え）
   # 日次逓減（stats/skill-exp.yml の daily-diminishing。直近24時間の稼ぎ量でスキルEXPの
-  # 取得量が薄まる仕組み）を【飲んだ瞬間だけ】全スキル一括で引き戻す使い切り。
-  # 恒久的に下限を書き換えるものではないので、飲んだあとまた稼げば普通に下がる。
+  # 取得量が薄まる仕組み）を全スキル一括で動かす使い切り。
+  # 恒久的に下限を書き換えるものではない。並・上は飲んだあとまた稼げば普通に下がる。
+  # 極は期限が切れたら、その時点の蓄積で逓減が再開する（無効化中は蓄積を増やさない）。
   #
-  # ⚠ 数字の向き: 「10%/25%/50%」はユーザー指定どおり【減る側（ペナルティ）の上限】。
-  #   出荷設定の下限 floor: 0.5 は「どれだけ稼いでも最悪50%は入る」＝ペナルティ50%が初期値なので、
-  #   ペナルティ10%まで削れる良薬＝【取得倍率90%まで引き戻す】良薬になる。
-  #   実装側の対応表は com.trinityforge.items.ExpCleanseTonic（そちらが真源）。
+  # 並: 減衰量を 10% 減らす。取得倍率は 70% までしか戻せない（離散段では 70% を超える段
+  #     には上がらない。出荷の 0.9 倍/段だと 70% 直上は 72.9% なので、上限は 65.6% 段）。
+  # 上: 減衰量を 15% 減らす（上限なし）。
+  # 極: 減衰を 2 時間無効化する。
+  # 実装側の対応表は com.trinityforge.items.ExpCleanseTonic（そちらが真源）。
   #
   # ⚠ レシピは仮置き（ユーザー了承済み）。素材は「ars-smithing.exp-per-material に既に行がある品」
   #   だけで組んである —— 表に無い素材を使うと儀式EXPが無言で取りこぼされる
@@ -7890,35 +7946,72 @@ items:
     display-name: <color:green>EXP解呪の良薬・並</color>
     enchant-glow: true
     lore:
-      - <gray><italic>渋りはじめた実りを、渋りはじめる手前へ戻すだけの一杯。</italic></gray>
+      - <gray><italic>渋りはじめた実りを、少しだけ取り戻す一杯。</italic></gray>
       - ""
       - <yellow>手に持って右クリックで飲みます</yellow>
-      - <gray>全スキルのEXP取得量を <white>50%</white> 以上まで引き戻します。</gray>
-      - <gray>取得量の下限そのものは変わりませんが、等倍へ戻るまでの時間が縮みます。</gray>
-      - <dark_gray>※目減りしていないときは消費しません。</dark_gray>
+      - <gray>全スキルのEXP取得量の減衰量を <white>10%</white> 減らします。</gray>
+      - <gray>取得倍率は <white>70%</white> までしか戻せません。</gray>
+      - <dark_gray>※目減りしていないとき／既に70%以上のときは消費しません。</dark_gray>
     custom-model-data: 261
+    recipe:
+      method: ritual
+      type: shapeless
+      ingredients: []
+      pedestal-items:
+        - custom:cod_1x
+        - custom:salmon_1x
+        - HONEY_BLOCK
+        - PUFFERFISH
+        - TROPICAL_FISH
+      core-item: custom:witch_elixir
+      source: 20000
   exp_cleanse_tonic_greater:
     material: POTION
     display-name: <color:aqua>EXP解呪の良薬・上</color>
     enchant-glow: true
     lore:
-      - <gray><italic>疲れを抜き、取り分の四分の三を取り返す。</italic></gray>
+      - <gray><italic>疲れを抜き、取り分を一段取り返す。</italic></gray>
       - ""
       - <yellow>手に持って右クリックで飲みます</yellow>
-      - <gray>全スキルのEXP取得量を <white>75%</white> 以上まで引き戻します。</gray>
+      - <gray>全スキルのEXP取得量の減衰量を <white>15%</white> 減らします。</gray>
       - <dark_gray>※目減りしていないときは消費しません。</dark_gray>
     custom-model-data: 262
+    recipe:
+      method: ritual
+      type: shapeless
+      ingredients: []
+      pedestal-items:
+        - custom:cod_2x
+        - custom:salmon_2x
+        - custom:honey_block_1x
+        - custom:pufferfish_1x
+        - custom:tropical_fish_1x
+      core-item: custom:witch_elixir
+      source: 50000
   exp_cleanse_tonic_supreme:
     material: DRAGON_BREATH
     display-name: <color:light_purple>EXP解呪の良薬・極</color>
     enchant-glow: true
     lore:
-      - <gray><italic>積み上げた疲れを、ほとんど無かったことにする。</italic></gray>
+      - <gray><italic>しばらくのあいだ、稼ぎすぎの罰を忘れる。</italic></gray>
       - ""
       - <yellow>手に持って右クリックで飲みます</yellow>
-      - <gray>全スキルのEXP取得量を <white>90%</white> 以上まで引き戻します。</gray>
-      - <dark_gray>※目減りしていないときは消費しません。</dark_gray>
+      - <gray>全スキルのEXP取得量の減衰を <white>2時間</white> 無効化します。</gray>
+      - <gray>無効化中は新しい稼ぎが減衰の蓄積に乗りません。</gray>
+      - <dark_gray>※既に2時間以上無効化されているときは消費しません。</dark_gray>
     custom-model-data: 263
+    recipe:
+      method: ritual
+      type: shapeless
+      ingredients: []
+      pedestal-items:
+        - custom:cod_3x
+        - custom:salmon_3x
+        - custom:pufferfish_2x
+        - custom:tropical_fish_2x
+        - custom:honey_block_2x
+      source: 250000
+      core-item: custom:witch_elixir
 _editor:
   categories:
     weapon:

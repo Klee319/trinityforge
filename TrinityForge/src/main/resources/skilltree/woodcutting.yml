@@ -30,6 +30,9 @@ prestige:
   description: |-
     効率強化増幅+1
     幸運(伐採)+20%
+    伐採EXP増加+10%
+  buffs:
+    woodcutting-exp-bonus: 0.1
 nodes:
   A:
     name: はじまりの木こり
@@ -125,7 +128,7 @@ nodes:
     effects:
       - リンゴが落ちやすくなる
     dedicated-effects:
-      - id: drop:woodcutting:apple
+      - id: drop:woodcutting:golden_apple
     description: 金リンゴがまれにおちる
   A-2:
     name: クリスタル金リンゴ生活
@@ -138,7 +141,7 @@ nodes:
     effects:
       - 金リンゴが落ちやすくなる
     dedicated-effects:
-      - id: drop:woodcutting:golden_apple
+      - id: drop:woodcutting:crystal_apple
     description: クリスタル金リンゴがまれに落ちる
   A-3:
     name: エンチャント金リンゴ生活
@@ -155,15 +158,15 @@ nodes:
       # 2026-08-16修正: crystal_apple は親の A-2 が解放済み。同じ解放を子ノードにも置くと
       # Java 側が重複警告を出すだけで、取得条件は何も変わらない(A-3 の親は A-2)。
       - id: glyph:cut
-      - id: drop:woodcutting:crystal_apple
+      - id: drop:woodcutting:enchant
     description: |-
       エンチャント金リンゴが落ちやすくなる
       剪定のグリフ解放
-  A-2-1:
+  B-2-1:
     name: 効率伐採I
-    level: 20
+    level: 40
     role: branch
-    parent: A
+    parent: B
     icon: OAK_LOG
     cost: 1
     effect-text: 一括破壊のcdを-3s
@@ -172,11 +175,11 @@ nodes:
     mainhand-buffs:
       tree-fell-cooldown-reduction: 0.2
     description: 一括破壊のCTを-2sする
-  A-2-2:
+  B-2-2:
     name: 効率伐採II
-    level: 40
+    level: 60
     role: branch
-    parent: A-2-1
+    parent: B-2-1
     icon: BIRCH_LOG
     cost: 1
     effect-text: 一括破壊のcdを-3s
@@ -185,11 +188,11 @@ nodes:
     mainhand-buffs:
       tree-fell-cooldown-reduction: 0.2
     description: 一括破壊のCTを-2sする
-  A-2-3:
+  B-2-3:
     name: 効率伐採Ⅲ
-    level: 60
+    level: 80
     role: branch
-    parent: A-2-2
+    parent: B-2-2
     icon: SPRUCE_LOG
     cost: 1
     effect-text: 一括破壊のcdを-3s
@@ -198,11 +201,11 @@ nodes:
     mainhand-buffs:
       tree-fell-cooldown-reduction: 0.2
     description: 一括破壊のCTを-2sする
-  A-2-4:
+  B-2-4:
     role: branch
-    parent: A-2-3
+    parent: B-2-3
     name: 効率伐採Ⅳ
-    level: 80
+    level: 100
     mainhand-buffs:
       tree-fell-cooldown-reduction: 0.2
     description: 一括破壊のCTを-2sする

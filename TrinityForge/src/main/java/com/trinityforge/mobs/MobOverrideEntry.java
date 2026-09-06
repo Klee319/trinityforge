@@ -28,6 +28,14 @@ import java.util.List;
  *                   下位スコープへフォールスルーする(「特殊攻撃なし」を意味しない)。
  *                   <b>ここに書けるのはIDだけ</b>で、数値はテンプレート側にある — モブは396体あるので、
  *                   個別に数値を書き下すとバランス調整のたびに396箇所を直すことになる。
+ * @param abilitySequence このモブの技の発動「順番」指定(2026-09-04、UXレビュー #12「技選択のリズム」)。
+ *                   空はこのスコープが未指定であることを意味し、{@code abilities} と同じく下位スコープへ
+ *                   フォールスルーする。非空のときは {@code MobAbilityTask} がランダム抽選をせず、
+ *                   この順番どおりに撃つ(振り付け専用、ボス・中ボスにだけ書く運用を想定)。
+ *                   <b>{@code abilities} と違い重複を許す</b>(同じ技を連続させる振り付けを書けるように)。
+ * @param abilityIntervalSeconds このモブ単位の共通クールダウン({@code MobAbilityTask#GLOBAL_GAP_KEY})の
+ *                   秒数上書き。{@code null} は未指定で、呼び出し側は
+ *                   {@code MobAbilitiesConfig#globalCooldownMillis()} を使う。
  *
  * <p><b>「レベル差による足きり」({@code levelCutoff}) は 2026-08-09 に撤去した。</b> ダンジョン×モブ単位で
  * 持つ意味が無い設定だった — この足きりは EliteMobs のスタンプがあるモブにしか効かず、フィールドの
@@ -35,13 +43,21 @@ import java.util.List;
  * 適用は {@code com.trinityforge.listeners.KillRewardAdjuster} が一手に引き受ける。
  */
 public record MobOverrideEntry(MobStatOverride stats, List<MobOverrideDropEntry> drops, Ramp vanillaExp,
-                                String displayName, List<String> abilities) {
+                                String displayName, List<String> abilities,
+                                List<String> abilitySequence, Double abilityIntervalSeconds) {
 
     public MobOverrideEntry {
         stats = stats == null ? MobStatOverride.EMPTY : stats;
         drops = drops == null ? List.of() : List.copyOf(drops);
         displayName = displayName == null || displayName.isBlank() ? null : displayName;
         abilities = abilities == null ? List.of() : List.copyOf(abilities);
+        abilitySequence = abilitySequence == null ? List.of() : List.copyOf(abilitySequence);
+    }
+
+    /** Back-compat: an entry carrying no ability sequence / interval override (pre-2026-09-04 shape). */
+    public MobOverrideEntry(MobStatOverride stats, List<MobOverrideDropEntry> drops, Ramp vanillaExp,
+                             String displayName, List<String> abilities) {
+        this(stats, drops, vanillaExp, displayName, abilities, List.of(), null);
     }
 
     /** Back-compat: an entry carrying no ability list (the pre-2026-07-31 shape). */

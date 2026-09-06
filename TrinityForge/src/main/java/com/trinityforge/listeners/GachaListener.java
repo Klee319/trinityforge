@@ -9,6 +9,7 @@ import com.trinityforge.gacha.GachaEntry;
 import com.trinityforge.gacha.GachaPool;
 import com.trinityforge.gacha.GachaRateUp;
 import com.trinityforge.gacha.GachaTicket;
+import com.trinityforge.items.ItemStackDrops;
 import com.trinityforge.stats.CrossPluginItemResolver;
 import com.trinityforge.stats.ItemFactory;
 import com.trinityforge.stats.StatKeys;
@@ -28,7 +29,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
@@ -209,6 +209,14 @@ public final class GachaListener implements Listener {
      */
     private Optional<ItemStack> resolvePrize(GachaEntry entry) {
         try {
+            // Dungeon keys are fixed-identity items. Building them through the random-roll path adds a
+            // fresh roll_seed on every draw, so identical keys cannot stack (and do not match recipe
+            // results). Other prizes retain their existing quality/random-roll behaviour.
+            if (isStackableCatalogPrize(entry.itemId())) {
+                Optional<ItemStack> stackable = itemResolver.createStackable(entry.itemId());
+                stackable.ifPresent(stack -> stack.setAmount(entry.amount()));
+                return stackable;
+            }
             int rolledQuality = entry.qualityRandom()
                     ? ThreadLocalRandom.current().nextInt(quality.maxQuality() + 1)
                     : 0;
@@ -221,6 +229,20 @@ public final class GachaListener implements Listener {
                     "[gacha] failed to build prize '" + entry.itemId() + "'", ex);
             return Optional.empty();
         }
+    }
+
+    /** Catalog ids may be written as {@code custom:<id>} by the config editor. */
+    private boolean isStackableCatalogPrize(String id) {
+        if (id == null || id.isBlank()) {
+            return false;
+        }
+        String bare = id.trim();
+        if (bare.regionMatches(true, 0, "custom:", 0, "custom:".length())) {
+            bare = bare.substring("custom:".length()).trim();
+        }
+        return itemCatalog.template(bare)
+                .map(template -> template.material() == org.bukkit.Material.TRIAL_KEY)
+                .orElse(false);
     }
 
     /**
@@ -245,13 +267,11 @@ public final class GachaListener implements Listener {
     }
 
     private void giveOrDrop(Player player, ItemStack prize) {
-        Map<Integer, ItemStack> leftover = player.getInventory().addItem(prize);
-        if (leftover.isEmpty()) {
-            return;
-        }
-        for (ItemStack remainder : leftover.values()) {
-            player.getWorld().dropItemNaturally(player.getLocation(), remainder);
-        }
+        // 2026-09-04 W-312: entry.amount() が99を超える景品でも、アイテムエンティティの
+        // コーデック上限(99)以下へ分割してから付与/床落ちさせる(ItemStackDrops 参照)。
+        // 分割してから addItem に渡すのが要点: 先に渡すと満杯時の leftover が元の巨大な
+        // スタックのまま返ってきて分割の意味がなくなる。
+        ItemStackDrops.giveOrDropSplit(player, prize);
     }
 
     private void consumeOneTicket(Player player, ItemStack heldStack) {

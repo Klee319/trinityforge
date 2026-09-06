@@ -61,6 +61,8 @@ class NativeSkillTreeCanvasTest {
     void overlappingConnectorArmsBecomeJunctionOrCrossShapes() {
         assertEquals("16", NativeSkillTreeCanvas.mergeConnectorSuffix("12", "15"));
         assertEquals("20", NativeSkillTreeCanvas.mergeConnectorSuffix("16", "13"));
+        assertEquals("06", NativeSkillTreeCanvas.mergeConnectorSuffix("06", "07", false));
+        assertEquals("20", NativeSkillTreeCanvas.mergeConnectorSuffix("06", "07", true));
     }
 
     private static SkillTree tree() {

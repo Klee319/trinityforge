@@ -443,7 +443,7 @@ stats:
       cap: 0.9
       cap-ref: combat/damage.yml#defense.max-dodge-chance
   reflect-flat:
-    name: 反射ダメ追加
+    name: 反撃ダメ追加
     icon: ""
     format: FLAT
     decimals: 1
@@ -460,7 +460,7 @@ stats:
     limits:
       floor: 0
   reflect-percent:
-    name: 反射率
+    name: 反撃率
     icon: ""
     format: PERCENT
     decimals: 0
@@ -534,7 +534,7 @@ stats:
       applies-to:
         - PLAYER
   mana-bonus:
-    name: マナ上限
+    name: 最大マナ
     icon: ""
     format: FLAT
     decimals: 0

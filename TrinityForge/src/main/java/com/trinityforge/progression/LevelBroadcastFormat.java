@@ -24,12 +24,15 @@ public final class LevelBroadcastFormat {
     public static final String PLACEHOLDER_PLAYER = "%player%";
     public static final String PLACEHOLDER_SKILL = "%skill%";
     public static final String PLACEHOLDER_LEVEL = "%level%";
+    /** プレステージ(NG+)段番号。{@code %player%}/{@code %level%} と違い必須ではない。 */
+    public static final String PLACEHOLDER_PRESTIGE = "%prestige%";
 
     // MiniMessage のタグ名は [a-z0-9_-] のみ。既存タグとぶつからないよう接頭辞を付ける
     // （ChatFormat の tf_player 等と同じ流儀）。
     private static final String TAG_PLAYER = "tf_player";
     private static final String TAG_SKILL = "tf_skill";
     private static final String TAG_LEVEL = "tf_level";
+    private static final String TAG_PRESTIGE = "tf_prestige";
 
     static final String FALLBACK_TEMPLATE =
             "<gold><bold>[祝!]</bold></gold> <yellow><tf_player></yellow><gray> が </gray>"
@@ -47,15 +50,18 @@ public final class LevelBroadcastFormat {
      *
      * @param skillDisplay スキル表示名。既に Component 化されている（{@code skilltree/*.yml} の
      *                     {@code display_name} は MiniMessage 記法を持ちうるため、呼び出し側で解決させる）
+     * @param prestige     プレステージ(NG+)段番号。{@code %prestige%} が書式に無ければ単に無視される
+     *                     （{@code %skill%} と同じく任意プレースホルダ）
      * @param onWarning    書式が不正だったときの通知先（ログ出力を想定）
      */
     public static Component render(String format, String playerName, Component skillDisplay, int level,
-                                   Consumer<String> onWarning) {
+                                   int prestige, Consumer<String> onWarning) {
         TagResolver resolver = TagResolver.resolver(
                 Placeholder.component(TAG_PLAYER, Component.text(playerName == null ? "" : playerName)),
                 Placeholder.component(TAG_SKILL,
                         skillDisplay == null ? Component.empty() : skillDisplay),
-                Placeholder.component(TAG_LEVEL, Component.text(Integer.toString(level))));
+                Placeholder.component(TAG_LEVEL, Component.text(Integer.toString(level))),
+                Placeholder.component(TAG_PRESTIGE, Component.text(Integer.toString(prestige))));
 
         String template = toTemplate(format);
         if (template == null) {
@@ -85,6 +91,7 @@ public final class LevelBroadcastFormat {
         return format
                 .replace(PLACEHOLDER_PLAYER, "<" + TAG_PLAYER + ">")
                 .replace(PLACEHOLDER_SKILL, "<" + TAG_SKILL + ">")
-                .replace(PLACEHOLDER_LEVEL, "<" + TAG_LEVEL + ">");
+                .replace(PLACEHOLDER_LEVEL, "<" + TAG_LEVEL + ">")
+                .replace(PLACEHOLDER_PRESTIGE, "<" + TAG_PRESTIGE + ">");
     }
 }

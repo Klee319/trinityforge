@@ -4,9 +4,9 @@
 
 experience:
   max_level: 100
-  exp_level_curve: (%level% + 75 * 2^(%level%/7.6)) + 300
+  exp_level_curve: (%level% + 75 * 2^(%level%/8)) + 300
   digging_break:
-    SNOW: 4
+    SNOW: 1
     FARMLAND: 8
     DIRT: 8
     SAND: 8

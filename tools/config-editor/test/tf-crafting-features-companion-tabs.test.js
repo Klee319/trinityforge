@@ -3,21 +3,14 @@
 // public/js/tf-crafting-features.js の buildBrewGimmickForm / buildEnchantGimmickForm 回帰テスト。
 //
 // 背景:
-// - T5 (2026-07-25): ポーション品質換算(alchemy-quality.yml)/エンチャント運(enchant-luck.yml)は
-//   「ステータス定義」画面ではなく「スキルギミック」>「その他のギミック」タブに表示すべき、という
-//   ユーザー要望に基づき表示移設した(このファイルは元々その回帰テストだった)。
-// - T7 (2026-07-26): 「その他ギミックから、エンチャント関連・醸造関連はそれぞれのタブへ切り出す」という
-//   追加のユーザー指示により、ポーション品質換算は「醸造ギミック」(buildBrewGimmickForm)、
-//   エンチャント運は「エンチャントギミック」(buildEnchantGimmickForm)へさらに表示移設した。
-//   保存先configのYAMLキーパスは不変(alchemy-quality / enchant-luck のまま)で、鍛冶/伐採ギミックの
-//   crafting-features コンパニオン(craftingFeaturesData)と同じ getExtraSaves 方式で編集する。
+// - T5/T7: ポーション品質換算・エンチャント運を「その他ギミック」から各専用タブへ移設した。
+// - 2026-08-29: ポーション品質換算の GUI を外した(係数は本体が alchemy-quality.yml を直接読む。
+//   gathering-efficiency と同じ yml 直編集)。エンチャント運の GUI はエンチャントギミックに残る。
 //
-// 1) buildBrewGimmickForm / buildEnchantGimmickForm がそれぞれのコンパニオンフィールドを描画すること。
-// 2) getExtraSaves() が主保存先(alchemy-quality / enchant-luck)を id 不変で返し、
-//    渡したデータオブジェクトをそのまま(キー追加のみで、既存キー破壊なく)保持していること
-//    (= 保存先キーパスが変わっていないことの確認)。
-// 3) コンパニオン未指定でも例外を投げず getExtraSaves が空配列を返すこと(鍛冶/伐採ギミックと同じ契約)。
-// 4) buildCraftingFeaturesForm(「その他ギミック」)側にはもうこの2タブが存在しないこと。
+// 1) 醸造ギミックはポーション品質換算カードを描かない / getExtraSaves は空。
+// 2) エンチャントギミックは enchant-luck を id 不変で getExtraSaves する。
+// 3) コンパニオン未指定でも例外を投げず getExtraSaves が空配列を返す。
+// 4) buildCraftingFeaturesForm(「その他ギミック」)側にはもうこの2タブが存在しない。
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -77,14 +70,11 @@ test("その他ギミック: getExtraSaves はもう ars-config のみを返す(
   assert.deepEqual(ids, ["ars-config"]);
 });
 
-test("醸造ギミックタブ: alchemyQualityData 指定時、ポーション品質換算のフィールドを描画する", () => {
+test("醸造ギミックタブ: ポーション品質換算カードは描かない", () => {
   setupStubs();
-  const alchemyQualityData = { "duration-ticks-per-quality": 20, "amplifier-per-quality": 0.5 };
-  const result = window.buildBrewGimmickForm(
-    { "potion-merge": {}, "brew-unlocks": {} }, { alchemyQualityData }
-  );
+  const result = window.buildBrewGimmickForm({ "potion-merge": {}, "brew-unlocks": {} });
   const texts = findAllText(result.element);
-  assert.ok(texts.includes("ポーション品質換算 (stat: potion_quality_bonus)"),
+  assert.ok(!texts.includes("ポーション品質換算 (stat: potion_quality_bonus)"),
     `描画テキスト: ${JSON.stringify(texts)}`);
 });
 
@@ -97,16 +87,10 @@ test("エンチャントギミックタブ: enchantLuckData 指定時、エン�
     `描画テキスト: ${JSON.stringify(texts)}`);
 });
 
-test("醸造ギミックタブ getExtraSaves: potion-merge/brew-unlocks 本体には無関係に alchemy-quality を id 不変で返す(キーパス維持)", () => {
+test("醸造ギミックタブ getExtraSaves: alchemy-quality はもう返さない", () => {
   setupStubs();
-  const alchemyQualityData = { "duration-ticks-per-quality": 99 };
-  const result = window.buildBrewGimmickForm(
-    { "potion-merge": {}, "brew-unlocks": {} }, { alchemyQualityData }
-  );
-  const extras = result.getExtraSaves();
-  assert.equal(extras.length, 1);
-  assert.equal(extras[0].id, "alchemy-quality");
-  assert.equal(extras[0].data["duration-ticks-per-quality"], 99, "既存キーの値が保持されていません(往復ロス)");
+  const extras = window.buildBrewGimmickForm({ "potion-merge": {}, "brew-unlocks": {} }).getExtraSaves();
+  assert.deepEqual(extras, []);
 });
 
 test("エンチャントギミックタブ getExtraSaves: over-enchant 本体には無関係に enchant-luck を id 不変で返す(キーパス維持)", () => {
@@ -119,7 +103,7 @@ test("エンチャントギミックタブ getExtraSaves: over-enchant 本体に
   assert.equal(extras[0].data["level-boost-chance-per-luck"], 0.42, "既存キーの値が保持されていません(往復ロス)");
 });
 
-test("醸造ギミックタブ getExtraSaves: alchemyQualityData 未指定でも例外を投げず、空オブジェクトから既定値を補って返す", () => {
+test("醸造ギミックタブ getExtraSaves: 未指定でも例外を投げず空配列を返す", () => {
   setupStubs();
   const result = window.buildBrewGimmickForm({ "potion-merge": {}, "brew-unlocks": {} });
   assert.deepEqual(result.getExtraSaves(), []);
@@ -131,17 +115,6 @@ test("エンチャントギミックタブ getExtraSaves: enchantLuckData 未指
   assert.deepEqual(result.getExtraSaves(), []);
 });
 
-test("醸造ギミックタブ: alchemyQualityData 指定時、既定値を補って alchemy-quality を返す", () => {
-  setupStubs();
-  const result = window.buildBrewGimmickForm(
-    { "potion-merge": {}, "brew-unlocks": {} }, { alchemyQualityData: {} }
-  );
-  const aq = result.getExtraSaves().find((e) => e.id === "alchemy-quality").data;
-  assert.equal(aq["duration-ticks-per-quality"], 20.0);
-  assert.equal(aq["amplifier-per-quality"], 0.5);
-  assert.equal(aq["lingering-splash-duration-ticks-per-quality"], 10.0);
-});
-
 test("エンチャントギミックタブ: enchantLuckData 指定時、既定値を補って enchant-luck を返す", () => {
   setupStubs();
   const result = window.buildEnchantGimmickForm({ "over-enchant": {} }, { enchantLuckData: {} });
@@ -150,4 +123,7 @@ test("エンチャントギミックタブ: enchantLuckData 指定時、既定�
   assert.equal(el["level-boost-max-steps"], 2);
   assert.equal(el["overenchant-bonus-chance-per-luck"], 0.02);
   assert.equal(el["extra-enchant-chance-per-luck"], 0.005);
+  assert.equal(el["vanilla-parity-luck"], 10);
+  assert.equal(el["level-nerf-chance-at-zero"], 0.5);
+  assert.equal(el["level-nerf-max-steps"], 2);
 });

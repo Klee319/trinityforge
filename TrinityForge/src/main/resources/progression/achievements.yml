@@ -637,33 +637,33 @@ achievements:
         # 突き合わせは ShippedDungeonSealDifficultyOrderTest が
         # mob-overrides.yml のコメントを直読みして固定している。
         targets:
-          - dungeon_seal_dark_cathedral       # 難易度1
-          - dungeon_seal_enchant_trial_1       # 難易度1
-          - dungeon_seal_deep_mines            # 難易度2
-          - dungeon_seal_enchant_trial_2        # 難易度2
-          - dungeon_seal_hallosseum            # 難易度2
-          - dungeon_seal_bridge                # 難易度3
-          - dungeon_seal_enchant_trial_3        # 難易度3
-          - dungeon_seal_knight_castle          # 難易度3
-          - dungeon_seal_enchant_trial_4        # 難易度4
-          - dungeon_seal_palace                # 難易度4
-          - dungeon_seal_steamworks            # 難易度4
-          - dungeon_seal_enchant_trial_5        # 難易度5
-          - dungeon_seal_mines                 # 難易度5
-          - dungeon_seal_nether_bell            # 難易度5
-          - dungeon_seal_city                  # 難易度6
-          - dungeon_seal_enchant_trial_6        # 難易度6
-          - dungeon_seal_fireworks             # 難易度6
-          - dungeon_seal_nether_wastes          # 難易度6
-          - dungeon_seal_enchant_trial_7        # 難易度7
-          - dungeon_seal_north_pole            # 難易度7
-          - dungeon_seal_sewer_maze            # 難易度7
-          - dungeon_seal_climb                 # 難易度8
-          - dungeon_seal_enchant_trial_8        # 難易度8
-          - dungeon_seal_quarry                # 難易度8
-          - dungeon_seal_cave                  # 難易度9
-          - dungeon_seal_enchant_trial_9        # 難易度9
-          - dungeon_seal_enchant_trial_10       # 難易度10
+          - dungeon_seal_dark_cathedral # 難易度1
+          - dungeon_seal_enchant_trial_1 # 難易度1
+          - dungeon_seal_deep_mines # 難易度2
+          - dungeon_seal_enchant_trial_2 # 難易度2
+          - dungeon_seal_hallosseum # 難易度2
+          - dungeon_seal_bridge # 難易度3
+          - dungeon_seal_enchant_trial_3 # 難易度3
+          - dungeon_seal_knight_castle # 難易度3
+          - dungeon_seal_enchant_trial_4 # 難易度4
+          - dungeon_seal_palace # 難易度4
+          - dungeon_seal_steamworks # 難易度4
+          - dungeon_seal_enchant_trial_5 # 難易度5
+          - dungeon_seal_mines # 難易度5
+          - dungeon_seal_nether_bell # 難易度5
+          - dungeon_seal_city # 難易度6
+          - dungeon_seal_enchant_trial_6 # 難易度6
+          - dungeon_seal_fireworks # 難易度6
+          - dungeon_seal_nether_wastes # 難易度6
+          - dungeon_seal_enchant_trial_7 # 難易度7
+          - dungeon_seal_north_pole # 難易度7
+          - dungeon_seal_sewer_maze # 難易度7
+          - dungeon_seal_climb # 難易度8
+          - dungeon_seal_enchant_trial_8 # 難易度8
+          - dungeon_seal_quarry # 難易度8
+          - dungeon_seal_cave # 難易度9
+          - dungeon_seal_enchant_trial_9 # 難易度9
+          - dungeon_seal_enchant_trial_10 # 難易度10
         threshold: 27
         percent: false
     broadcast: true
@@ -1008,6 +1008,7 @@ achievements:
           - source_reservoir
         threshold: 2
         percent: false
+        target: source_condenser
     broadcast: false
     rewards:
       special: []
@@ -1034,6 +1035,7 @@ achievements:
           - dominion_wand
         threshold: 1
         percent: false
+        target: dominion_wand
     broadcast: false
     rewards:
       special: []
@@ -1059,6 +1061,7 @@ achievements:
           - source_vault
         threshold: 1
         percent: false
+        target: source_vault
     broadcast: false
     rewards:
       special:
@@ -1076,7 +1079,7 @@ achievements:
     icon: CONDUIT
     lore:
       - <gray>ソース機関と特異点の壺を手に入れる。</gray>
-      - <dark_gray>機関は焼べると 3,000万ソース。特異点の壺の容量は 5,000万。</dark_gray>
+      - <color:dark_gray>機関は万物を作る。</color>
       - <dark_gray>ここまで来ると律速はソースではなく<b>古代の残骸</b>になる。</dark_gray>
     trigger:
       type: static
@@ -1087,6 +1090,7 @@ achievements:
           - source_singularity_jar
         threshold: 2
         percent: false
+        target: source_engine
     broadcast: true
     rewards:
       special:

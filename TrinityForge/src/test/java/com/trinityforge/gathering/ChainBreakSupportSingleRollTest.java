@@ -5,6 +5,9 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerItemBreakEvent;
 import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +19,7 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -82,6 +86,8 @@ class ChainBreakSupportSingleRollTest {
         verify(block, times(1)).getDrops(tool, player);
         verify(block, never()).breakNaturally(any(ItemStack.class));
         verify(block, never()).breakNaturally();
+        verify(world).getNearbyEntities(any(Location.class), org.mockito.ArgumentMatchers.eq(1.6),
+                org.mockito.ArgumentMatchers.eq(1.6), org.mockito.ArgumentMatchers.eq(1.6));
     }
 
     @Test
@@ -253,6 +259,13 @@ class ChainBreakSupportSingleRollTest {
         player.getInventory().setItemInMainHand(axe);
         shippedLogWithDrops(0, 64, 0, List.of(new ItemStack(Material.OAK_LOG)));
         shippedLogWithDrops(0, 65, 0, List.of(new ItemStack(Material.OAK_LOG)));
+        AtomicInteger breaks = new AtomicInteger();
+        server.getPluginManager().registerEvents(new Listener() {
+            @EventHandler
+            public void on(PlayerItemBreakEvent event) {
+                breaks.incrementAndGet();
+            }
+        }, MockBukkit.createMockPlugin());
 
         int broken = ChainBreakSupport.breakChain(player, player.getWorld(),
                 List.of(new BlockPos(0, 64, 0), new BlockPos(0, 65, 0)),
@@ -261,5 +274,7 @@ class ChainBreakSupportSingleRollTest {
         assertEquals(1, broken, "残り耐久1なら1ブロックで壊れ、連鎖はそこで止まること");
         assertEquals(Material.AIR, player.getInventory().getItemInMainHand().getType(),
                 "普通の道具は従来どおり壊れること(保護を広げすぎていないことの確認)");
+        assertEquals(1, breaks.get(),
+                "setItemInMainHand(null) だけでは PlayerItemBreakEvent が飛ばず装着スレッドが消える");
     }
 }

@@ -1,6 +1,6 @@
 {
-  "parent": "minecraft:item/generated",
+  "parent": "minecraft:item/amethyst_shard",
   "textures": {
-    "layer0": "trinityforge:item/source_shard"
+    "layer0": "trinityforge:item/source_shard_1x"
   }
 }

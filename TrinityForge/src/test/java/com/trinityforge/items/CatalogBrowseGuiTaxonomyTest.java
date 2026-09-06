@@ -83,6 +83,63 @@ class CatalogBrowseGuiTaxonomyTest {
     }
 
     @Test
+    @DisplayName("カタログに無いカスタムIDは素材/スレッドへ足し、既存IDは重複させない")
+    void extraCustomIdsLandInNamedTabsWithoutDuplicatingCatalog() {
+        String existing = catalog.all().keySet().iterator().next();
+        String extraMaterial = "ars_only_example_item";
+        String extraThread = "thread_ars_only_example";
+        CatalogBrowseGui withExtras = new CatalogBrowseGui(
+                org.mockbukkit.mockbukkit.MockBukkit.createMockPlugin(), catalog,
+                new ItemFactory(org.mockito.Mockito.mock(ItemAssembler.class)),
+                () -> java.util.List.of(existing, extraMaterial, extraThread),
+                id -> java.util.Optional.of(new org.bukkit.inventory.ItemStack(
+                        org.bukkit.Material.APPLE)));
+
+        java.util.List<String> shown = new java.util.ArrayList<>();
+        for (String tab : withExtras.tabs()) {
+            for (CatalogBrowseGui.Entry entry : withExtras.entriesFor(tab)) {
+                shown.add(entry.id());
+            }
+        }
+        assertEquals(1, shown.stream().filter(existing::equals).count(),
+                "カタログにあるIDを extra に足すとタブをまたいで重複する");
+        assertTrue(shown.contains(extraMaterial), "カタログ外の素材が画面に出ていない");
+        assertTrue(shown.contains(extraThread), "カタログ外のスレッドが画面に出ていない");
+        assertTrue(withExtras.entriesFor("material").stream().anyMatch(e -> extraMaterial.equals(e.id())),
+                "カタログ外の素材は素材タブへ出す");
+        assertTrue(withExtras.entriesFor("thread").stream().anyMatch(e -> extraThread.equals(e.id())),
+                "カタログ外のスレッドはスレッドタブへ出す");
+        assertTrue(withExtras.entriesFor("_unsorted").stream().noneMatch(e -> extraMaterial.equals(e.id())),
+                "カタログ外のカスタムIDを未分類へ落とすとタブ行から消える");
+    }
+
+    @Test
+    @DisplayName("出荷カタログのスレッドはスレッドタブに出る")
+    void shippedThreadsLandInThreadTab() {
+        assertTrue(catalog.all().containsKey("thread_backpack"),
+                "前提: thread_backpack が出荷カタログに無い");
+        assertTrue(gui.entriesFor("thread").stream().anyMatch(e -> "thread_backpack".equals(e.id())),
+                "スレッドタブに thread_backpack が無い。_editor.categories.thread が空でも itemTabs から回収されなければならない");
+        assertTrue(gui.tabs().contains("thread"), "スレッドタブ自体が出ていない");
+    }
+
+    @Test
+    @DisplayName("external-source のカタログ品は extraCreate の実体をプレビューに使う")
+    void externalSourcePreviewUsesExtraCreate() {
+        assertTrue(catalog.template("thread_backpack").map(t -> t.hasExternalSource()).orElse(false),
+                "前提: thread_backpack に external-source が無い");
+        CatalogBrowseGui withArs = new CatalogBrowseGui(
+                MockBukkit.createMockPlugin(), catalog,
+                new ItemFactory(org.mockito.Mockito.mock(ItemAssembler.class)),
+                List::of,
+                id -> "thread_backpack".equals(id)
+                        ? java.util.Optional.of(new org.bukkit.inventory.ItemStack(org.bukkit.Material.APPLE))
+                        : java.util.Optional.empty());
+        assertEquals(org.bukkit.Material.APPLE, withArs.previewOf("thread_backpack").getType(),
+                "スレッドを TF の STRING で配ると防具に挿せない");
+    }
+
+    @Test
     @DisplayName("カタログのアイテムは1件残らずどれかのタブに出る（未分類が受け皿）")
     void everyCatalogItemLandsInExactlyOneTab() {
         List<String> tabs = gui.tabs();

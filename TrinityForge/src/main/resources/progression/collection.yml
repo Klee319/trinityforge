@@ -58,7 +58,6 @@ categories:
         - infinity_axe_tool
         - infinity_boots
         - infinity_bow
-        - infinity_catalyst
         - infinity_chestplate
         - infinity_crossbow
         - infinity_dagger
@@ -75,6 +74,7 @@ categories:
         - infinity_spear
         - infinity_sword
         - infinity_trident
+        - infinity_wand
         - infinity_warhammer
     dungeon:
       display-name: 踏破の証
@@ -84,37 +84,34 @@ categories:
       # dungeon_seal_binder(束縛者、難易度10)より後ろの2件(binder_fragment/reality_thread_core)
       # は「踏破の証」そのものではない別素材なので順序整理の対象外、末尾のまま動かさない。
       entries:
-        - dungeon_seal_dark_cathedral       # 難易度1
-        - dungeon_seal_enchant_trial_1       # 難易度1
-        - dungeon_seal_deep_mines            # 難易度2
-        - dungeon_seal_enchant_trial_2        # 難易度2
-        - dungeon_seal_hallosseum            # 難易度2
-        - dungeon_seal_bridge                # 難易度3
-        - dungeon_seal_enchant_trial_3        # 難易度3
-        - dungeon_seal_knight_castle          # 難易度3
-        - dungeon_seal_enchant_trial_4        # 難易度4
-        - dungeon_seal_palace                # 難易度4
-        - dungeon_seal_steamworks            # 難易度4
-        - dungeon_seal_enchant_trial_5        # 難易度5
-        - dungeon_seal_mines                 # 難易度5
-        - dungeon_seal_nether_bell            # 難易度5
-        - dungeon_seal_city                  # 難易度6
-        - dungeon_seal_enchant_trial_6        # 難易度6
-        - dungeon_seal_fireworks             # 難易度6
-        - dungeon_seal_nether_wastes          # 難易度6
-        - dungeon_seal_enchant_trial_7        # 難易度7
-        - dungeon_seal_north_pole            # 難易度7
-        - dungeon_seal_sewer_maze            # 難易度7
-        - dungeon_seal_climb                 # 難易度8
-        - dungeon_seal_enchant_trial_8        # 難易度8
-        - dungeon_seal_quarry                # 難易度8
-        - dungeon_seal_cave                  # 難易度9
-        - dungeon_seal_enchant_trial_9        # 難易度9
-        - dungeon_seal_enchant_trial_10       # 難易度10
-        - dungeon_seal_binder                # 難易度10(束縛者本人)
-        - binder_fragment
-        - reality_thread_core
-        - abyssal_ingot
+        - dungeon_seal_dark_cathedral # 難易度1
+        - dungeon_seal_enchant_trial_1 # 難易度1
+        - dungeon_seal_deep_mines # 難易度2
+        - dungeon_seal_enchant_trial_2 # 難易度2
+        - dungeon_seal_hallosseum # 難易度2
+        - dungeon_seal_bridge # 難易度3
+        - dungeon_seal_enchant_trial_3 # 難易度3
+        - dungeon_seal_knight_castle # 難易度3
+        - dungeon_seal_enchant_trial_4 # 難易度4
+        - dungeon_seal_palace # 難易度4
+        - dungeon_seal_steamworks # 難易度4
+        - dungeon_seal_enchant_trial_5 # 難易度5
+        - dungeon_seal_mines # 難易度5
+        - dungeon_seal_nether_bell # 難易度5
+        - dungeon_seal_city # 難易度6
+        - dungeon_seal_enchant_trial_6 # 難易度6
+        - dungeon_seal_fireworks # 難易度6
+        - dungeon_seal_nether_wastes # 難易度6
+        - dungeon_seal_enchant_trial_7 # 難易度7
+        - dungeon_seal_north_pole # 難易度7
+        - dungeon_seal_sewer_maze # 難易度7
+        - dungeon_seal_climb # 難易度8
+        - dungeon_seal_enchant_trial_8 # 難易度8
+        - dungeon_seal_quarry # 難易度8
+        - dungeon_seal_cave # 難易度9
+        - dungeon_seal_enchant_trial_9 # 難易度9
+        - dungeon_seal_enchant_trial_10 # 難易度10
+        - dungeon_seal_binder # 難易度10(束縛者本人)
     source:
       display-name: ソースの階梯
       order: 3
@@ -550,6 +547,7 @@ categories:
         - key_sewer_maze
         - key_steamworks
         - koujien
+        - owner_unbind_ticket
         - quality_upgrade_ticket
         - role_reselect_ticket
         - skill_node_lock
@@ -1075,9 +1073,9 @@ categories:
     #   MANNEQUIN — Mob ではなく LivingEntity(プレイヤー像の設置物)で、討伐という概念が無い。
     # どちらも載せると「永久に埋まらない枠」が分母に入り、collection の percent: 100 系
     # アチーブメント(goal_completionist)を到達不能にする。K-11 と同じ形の事故になるので入れない。
-# 報酬ティア。2026-08-16 に図鑑を 140 → 750 件規模へ拡充したのに合わせて引き直した。
-# 旧しきい値(10/30/60/120/200)のままだと t5「万象を知る者」が全体の 26% で解放されてしまい、
-# 最終目標の称号が序盤の称号に化ける。おおむね 4% / 13% / 33% / 60% / 93% になるよう置いた。
+    # 報酬ティア。2026-08-16 に図鑑を 140 → 750 件規模へ拡充したのに合わせて引き直した。
+    # 旧しきい値(10/30/60/120/200)のままだと t5「万象を知る者」が全体の 26% で解放されてしまい、
+    # 最終目標の称号が序盤の称号に化ける。おおむね 4% / 13% / 33% / 60% / 93% になるよう置いた。
 reward-tiers:
   t1:
     threshold: 30

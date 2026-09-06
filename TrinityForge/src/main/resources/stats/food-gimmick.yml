@@ -120,6 +120,12 @@ custom-foods:
   salmon_1x:
     food-level: 18
     saturation: 4
+  pufferfish_1x:
+    food-level: 9
+    saturation: 2
+  tropical_fish_1x:
+    food-level: 9
+    saturation: 2
   # クリスタルリンゴ。ベースはエンチャント金リンゴなので、バニラ相当の栄養を明示して
   # 「未登録＝食べられない」側へ落ちないようにする(FoodGimmickConfig の設計コメントどおり、
   # 例外はハードコードのID除外ではなく custom-foods への登録で表現する)。

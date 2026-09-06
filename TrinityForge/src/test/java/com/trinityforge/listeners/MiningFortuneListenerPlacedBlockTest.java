@@ -25,12 +25,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * GTH-01 exploit fix: {@link MiningFortuneListener} must never grant its bonus extra-drop on a
- * player-placed block, mirroring the guard every sibling extra-drop listener already has
- * ({@code VeinMiningListener}, {@code TreeFellingListener}, {@code DiggingGimmickListener},
- * {@code GatheringExtraDropListener}). Without this, a craftable-and-placeable {@code fortune-blocks}
- * entry (e.g. GLOWSTONE: 4 dust -> 1 block via the vanilla recipe) could be placed and re-broken in a
- * loop for unbounded resource growth.
+ * GTH-01: ドロップから同じブロックへ戻せる循環（グロウストーン等）は設置済みに幸運(採掘)を乗せない。
+ * 鉱石はシルク→再設置→砕くが一方通行なので、設置済みでも乗せる。
  *
  * <p>Also covers the non-obvious timing bug this fix has to route around: {@link BlockDropItemEvent}
  * fires strictly AFTER a player-initiated break's {@link BlockBreakEvent} finishes ALL priorities
@@ -118,7 +114,7 @@ class MiningFortuneListenerPlacedBlockTest {
         listener.onBlockDropItem(dropEvent(block, state, primary));
 
         int after = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
-        assertEquals(before, after, "placed block must not receive the mining-fortune bonus extra drop");
+        assertEquals(before, after, "placed glowstone must not receive the mining-fortune bonus extra drop");
     }
 
     @Test
@@ -160,6 +156,46 @@ class MiningFortuneListenerPlacedBlockTest {
 
         int after = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
         assertEquals(before, after, "chain-mined placed block must not receive the bonus extra drop");
+    }
+
+    @Test
+    void placedIronOreStillGrantsBonusBecauseCrushIsOneWay() {
+        when(gathering.fortuneBlocks()).thenReturn(Set.of(Material.IRON_ORE));
+        Block block = player.getWorld().getBlockAt(0, 64, 0);
+        block.setType(Material.IRON_ORE);
+        placedBlockTracker.markPlaced(block);
+        BlockState state = block.getState();
+        org.bukkit.entity.Item primary = spawnDrop(block, Material.RAW_IRON);
+
+        int before = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
+
+        MiningFortuneListener listener = listener();
+        listener.onBlockBreak(breakEvent(block));
+        placedBlockTracker.clearIfPlaced(block);
+        listener.onBlockDropItem(dropEvent(block, state, primary));
+
+        int after = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
+        assertEquals(before + GatheringPolicyMax(), after,
+                "silk-place-crush ore must still receive mining-fortune extras");
+    }
+
+    @Test
+    void naturalIronOreAlsoClonesRawIronAsFortuneExtra() {
+        when(gathering.fortuneBlocks()).thenReturn(Set.of(Material.IRON_ORE));
+        Block block = player.getWorld().getBlockAt(0, 64, 0);
+        block.setType(Material.IRON_ORE);
+        BlockState state = block.getState();
+        org.bukkit.entity.Item primary = spawnDrop(block, Material.RAW_IRON);
+
+        int before = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
+
+        MiningFortuneListener listener = listener();
+        listener.onBlockBreak(breakEvent(block));
+        listener.onBlockDropItem(dropEvent(block, state, primary));
+
+        int after = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
+        assertEquals(before + GatheringPolicyMax(), after,
+                "natural iron ore extras clone RAW_IRON; that is the crush payoff");
     }
 
     private static int GatheringPolicyMax() {

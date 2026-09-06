@@ -6,6 +6,7 @@ import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.stats.CrossPluginItemResolver;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -14,8 +15,10 @@ import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.inventory.PrepareAnvilEvent;
+import org.bukkit.inventory.AnvilInventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
+import org.bukkit.inventory.view.AnvilView;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -35,6 +38,8 @@ import java.util.Optional;
 public final class WoodRepairListener implements Listener {
 
     private static final String UNLOCK = "wood-repair-unlock";
+    private static final int ANVIL_RESULT_SLOT = 2;
+    private static final int REPAIR_LEVEL_COST = 1;
 
     private final DedicatedEffectsConfig dedicatedEffects;
     private final CraftingFeaturesConfig features;
@@ -86,12 +91,107 @@ public final class WoodRepairListener implements Listener {
         Damageable damageable = (Damageable) left.getItemMeta();
         WoodRepairMaterial mat = features.woodRepairMaterial(
                 CrossPluginItemResolver.idOf(material).orElseThrow());
-        int repair = mat.durability();
+        int units = unitsToConsume(damageable.getDamage(), mat.durability(), material.getAmount());
+        if (units <= 0) {
+            return;
+        }
+        int repair = Math.min(damageable.getDamage(), units * mat.durability());
         ItemStack result = left.clone();
-        ItemMetaRepair.applyRepair(result, Math.min(damageable.getDamage(), repair));
+        ItemMetaRepair.applyRepair(result, repair);
         event.setResult(result);
-        event.getInventory().setRepairCost(1);
+        event.getInventory().setRepairCost(REPAIR_LEVEL_COST);
+        if (event.getView() instanceof AnvilView anvilView) {
+            anvilView.setRepairCost(REPAIR_LEVEL_COST);
+            anvilView.setRepairItemCountCost(units);
+            anvilView.setMaximumRepairCost(EnchantCostReductionListener.UNCAPPED_ANVIL_REPAIR_COST);
+        }
         // No action-bar here: PrepareAnvil fires continuously while items sit in the anvil.
+    }
+
+    /**
+     * 金床結果の取り出し。消費数は {@link #unitsToConsume} で決めた個数。
+     * バニラに任せると {@code repairItemCountCost} が 0 のまま右枠を丸ごと消す
+     * （パーティクルシードと同じ穴。2026-08-29 複数個修繕）。
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onAnvilResultTake(InventoryClickEvent event) {
+        if (event.getRawSlot() != ANVIL_RESULT_SLOT) {
+            return;
+        }
+        if (!(event.getInventory() instanceof AnvilInventory inventory)) {
+            return;
+        }
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        ItemStack left = inventory.getFirstItem();
+        ItemStack material = inventory.getSecondItem();
+        if (!isUnlockedWoodRepair(player, left, material, dedicatedEffects, features)) {
+            return;
+        }
+        event.setCancelled(true);
+        ClickType click = event.getClick();
+        boolean shift = click == ClickType.SHIFT_LEFT || click == ClickType.SHIFT_RIGHT;
+        if (!shift && click != ClickType.LEFT && click != ClickType.RIGHT) {
+            return;
+        }
+        Damageable damageable = (Damageable) left.getItemMeta();
+        WoodRepairMaterial mat = features.woodRepairMaterial(
+                CrossPluginItemResolver.idOf(material).orElseThrow());
+        int units = unitsToConsume(damageable.getDamage(), mat.durability(), material.getAmount());
+        if (units <= 0) {
+            return;
+        }
+        boolean creative = player.getGameMode() == GameMode.CREATIVE;
+        if (!creative && player.getLevel() < REPAIR_LEVEL_COST) {
+            player.sendActionBar(Component.text(
+                    "レベルが足りません(必要 " + REPAIR_LEVEL_COST + ")", NamedTextColor.RED));
+            return;
+        }
+        ItemStack result = left.clone();
+        ItemMetaRepair.applyRepair(result, Math.min(damageable.getDamage(), units * mat.durability()));
+        if (shift) {
+            if (!player.getInventory().addItem(result).isEmpty()) {
+                player.sendActionBar(Component.text("インベントリに空きがありません", NamedTextColor.RED));
+                return;
+            }
+        } else {
+            ItemStack cursor = player.getItemOnCursor();
+            if (cursor != null && !cursor.getType().isAir()) {
+                player.sendActionBar(Component.text(
+                        "カーソルを空にしてから取り出してください", NamedTextColor.RED));
+                return;
+            }
+            player.setItemOnCursor(result);
+        }
+        inventory.setFirstItem(null);
+        inventory.setSecondItem(consumeAmount(material, units));
+        if (!creative) {
+            player.setLevel(player.getLevel() - REPAIR_LEVEL_COST);
+        }
+        player.updateInventory();
+        player.sendActionBar(Component.text("装備を修繕しました。", NamedTextColor.GREEN));
+    }
+
+    /**
+     * 損傷 {@code damage} を {@code durabilityPerUnit} ずつ直すのに必要な個数を、手元のスタック数で
+     * 頭打ちする。0 以下の入力は 0。
+     */
+    static int unitsToConsume(int damage, int durabilityPerUnit, int stackAmount) {
+        if (damage <= 0 || durabilityPerUnit <= 0 || stackAmount <= 0) {
+            return 0;
+        }
+        int needed = (damage + durabilityPerUnit - 1) / durabilityPerUnit;
+        return Math.min(stackAmount, needed);
+    }
+
+    static ItemStack consumeAmount(ItemStack stack, int amount) {
+        if (stack == null || stack.getAmount() <= amount) {
+            return null;
+        }
+        ItemStack left = stack.clone();
+        left.setAmount(stack.getAmount() - amount);
+        return left;
     }
 
     /**

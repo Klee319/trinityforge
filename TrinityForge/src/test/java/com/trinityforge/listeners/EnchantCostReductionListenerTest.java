@@ -293,4 +293,133 @@ class EnchantCostReductionListenerTest {
                 "the displayed Sharpness II hint must not be scaled a second time to level I");
         assertFalse(event.getEnchantsToAdd().containsKey(Enchantment.SMITE));
     }
+
+    @Test
+    void openingAnAnvilRaisesTheVanillaFortyLevelCap() {
+        org.bukkit.inventory.view.AnvilView view = mock(org.bukkit.inventory.view.AnvilView.class);
+        org.bukkit.event.inventory.InventoryOpenEvent event =
+                mock(org.bukkit.event.inventory.InventoryOpenEvent.class);
+        when(event.getView()).thenReturn(view);
+
+        new EnchantCostReductionListener(mock(PlayerStatAggregator.class)).onAnvilOpen(event);
+
+        org.mockito.Mockito.verify(view)
+                .setMaximumRepairCost(EnchantCostReductionListener.UNCAPPED_ANVIL_REPAIR_COST);
+    }
+
+    @Test
+    void clientDisplayCapIsThirtyNineWhenRealCostHitsVanillaTooExpensive() {
+        assertEquals(39, AnvilClientCost.displayed(40));
+        assertEquals(39, AnvilClientCost.displayed(80));
+        assertEquals(39, AnvilClientCost.displayed(39));
+        assertEquals(1, AnvilClientCost.displayed(1));
+        assertTrue(AnvilClientCost.needsDisplayCap(40));
+        assertFalse(AnvilClientCost.needsDisplayCap(39));
+    }
+
+    @Test
+    void prepareSendsThirtyNineWhenRealAnvilCostWouldShowTooExpensive() {
+        PlayerStatAggregator aggregator = mock(PlayerStatAggregator.class);
+        EnchantCostReductionListener listener = new EnchantCostReductionListener(aggregator, null);
+        PlayerMock player = server.addPlayer();
+        org.bukkit.inventory.view.AnvilView view = mock(org.bukkit.inventory.view.AnvilView.class);
+        org.bukkit.inventory.AnvilInventory inventory = mock(org.bukkit.inventory.AnvilInventory.class);
+        org.bukkit.event.inventory.PrepareAnvilEvent event =
+                mock(org.bukkit.event.inventory.PrepareAnvilEvent.class);
+        when(event.getView()).thenReturn(view);
+        when(event.getInventory()).thenReturn(inventory);
+        when(event.getResult()).thenReturn(new ItemStack(Material.DIAMOND_SWORD));
+        when(view.getPlayer()).thenReturn(player);
+        when(view.getRepairCost()).thenReturn(80);
+
+        listener.onAnvilClientDisplay(event);
+
+        org.mockito.Mockito.verify(view).setRepairCost(AnvilClientCost.CLIENT_DISPLAY_CAP);
+        org.mockito.Mockito.verify(inventory).setRepairCost(AnvilClientCost.CLIENT_DISPLAY_CAP);
+        org.mockito.Mockito.verify(view, org.mockito.Mockito.never())
+                .setRepairCost(80);
+    }
+
+    @Test
+    void prepareRestoresEmptyResultThenSendsDisplayCap() {
+        PlayerStatAggregator aggregator = mock(PlayerStatAggregator.class);
+        EnchantCostReductionListener listener = new EnchantCostReductionListener(aggregator, null);
+        PlayerMock player = server.addPlayer();
+        org.bukkit.inventory.view.AnvilView view = mock(org.bukkit.inventory.view.AnvilView.class);
+        org.bukkit.inventory.AnvilInventory inventory = mock(org.bukkit.inventory.AnvilInventory.class);
+        org.bukkit.event.inventory.PrepareAnvilEvent event =
+                mock(org.bukkit.event.inventory.PrepareAnvilEvent.class);
+        ItemStack preview = new ItemStack(Material.DIAMOND_SWORD);
+        when(event.getView()).thenReturn(view);
+        when(event.getInventory()).thenReturn(inventory);
+        when(event.getResult()).thenReturn(preview);
+        when(view.getPlayer()).thenReturn(player);
+        when(view.getRepairCost()).thenReturn(80);
+        when(inventory.getItem(2)).thenReturn(null);
+
+        listener.onAnvilClientDisplay(event);
+
+        org.mockito.Mockito.verify(inventory).setItem(org.mockito.ArgumentMatchers.eq(2),
+                org.mockito.ArgumentMatchers.argThat(stack ->
+                        stack != null && stack.getType() == Material.DIAMOND_SWORD));
+        org.mockito.Mockito.verify(view).setRepairCost(AnvilClientCost.CLIENT_DISPLAY_CAP);
+        org.mockito.Mockito.verify(inventory)
+                .setMaximumRepairCost(EnchantCostReductionListener.UNCAPPED_ANVIL_REPAIR_COST);
+    }
+
+    @Test
+    void takingAnvilResultRestoresTheRealCostSoVanillaChargesFully() {
+        PlayerStatAggregator aggregator = mock(PlayerStatAggregator.class);
+        EnchantCostReductionListener listener = new EnchantCostReductionListener(aggregator, null);
+        PlayerMock player = server.addPlayer();
+        player.setLevel(80);
+        org.bukkit.inventory.view.AnvilView view = mock(org.bukkit.inventory.view.AnvilView.class);
+        org.bukkit.inventory.AnvilInventory inventory = mock(org.bukkit.inventory.AnvilInventory.class);
+        org.bukkit.event.inventory.PrepareAnvilEvent prepare =
+                mock(org.bukkit.event.inventory.PrepareAnvilEvent.class);
+        when(prepare.getView()).thenReturn(view);
+        when(prepare.getInventory()).thenReturn(inventory);
+        when(prepare.getResult()).thenReturn(new ItemStack(Material.DIAMOND_SWORD));
+        when(view.getPlayer()).thenReturn(player);
+        when(view.getRepairCost()).thenReturn(80);
+        listener.onAnvilClientDisplay(prepare);
+
+        org.bukkit.event.inventory.InventoryClickEvent click =
+                mock(org.bukkit.event.inventory.InventoryClickEvent.class);
+        when(click.getRawSlot()).thenReturn(2);
+        when(click.getView()).thenReturn(view);
+        when(click.getWhoClicked()).thenReturn(player);
+        listener.onAnvilResultTake(click);
+
+        org.mockito.Mockito.verify(view).setRepairCost(80);
+        org.mockito.Mockito.verify(click, org.mockito.Mockito.never()).setCancelled(true);
+    }
+
+    @Test
+    void takingAnvilResultWithTooFewLevelsIsBlockedAtTheRealCost() {
+        PlayerStatAggregator aggregator = mock(PlayerStatAggregator.class);
+        EnchantCostReductionListener listener = new EnchantCostReductionListener(aggregator, null);
+        PlayerMock player = server.addPlayer();
+        player.setLevel(40);
+        org.bukkit.inventory.view.AnvilView view = mock(org.bukkit.inventory.view.AnvilView.class);
+        org.bukkit.inventory.AnvilInventory inventory = mock(org.bukkit.inventory.AnvilInventory.class);
+        org.bukkit.event.inventory.PrepareAnvilEvent prepare =
+                mock(org.bukkit.event.inventory.PrepareAnvilEvent.class);
+        when(prepare.getView()).thenReturn(view);
+        when(prepare.getInventory()).thenReturn(inventory);
+        when(prepare.getResult()).thenReturn(new ItemStack(Material.DIAMOND_SWORD));
+        when(view.getPlayer()).thenReturn(player);
+        when(view.getRepairCost()).thenReturn(80);
+        listener.onAnvilClientDisplay(prepare);
+
+        org.bukkit.event.inventory.InventoryClickEvent click =
+                mock(org.bukkit.event.inventory.InventoryClickEvent.class);
+        when(click.getRawSlot()).thenReturn(2);
+        when(click.getView()).thenReturn(view);
+        when(click.getWhoClicked()).thenReturn(player);
+        listener.onAnvilResultTake(click);
+
+        org.mockito.Mockito.verify(click).setCancelled(true);
+        org.mockito.Mockito.verify(view, org.mockito.Mockito.never()).setRepairCost(80);
+    }
 }

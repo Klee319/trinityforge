@@ -5,11 +5,11 @@ import com.trinityforge.pdc.ItemData;
 import com.trinityforge.stats.CatalogIdentity;
 import com.trinityforge.stats.DerivedItemStats;
 import com.trinityforge.stats.ItemFactory;
+import com.trinityforge.stats.ItemUpgradeCarryOver;
 import com.trinityforge.stats.ItemTemplate;
 import com.trinityforge.stats.PreviewRollSeeds;
 import com.trinityforge.stats.RecipeSpec;
 import org.bukkit.Material;
-import org.bukkit.enchantments.Enchantment;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -19,7 +19,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.SmithingInventory;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
@@ -50,8 +49,8 @@ import java.util.concurrent.ThreadLocalRandom;
  * 丸ごとコピーしたまま Material だけ差し替えるので、lore・耐久上限・use-level-requirement が
  * 旧 Material(ダイヤ等)の値に凍結される。{@link #restampPlainQualityUpgrade}/
  * {@link #restampPlainQualitySmith} がこのケースを検知し、{@link ItemFactory#stamp}
- * で新 Material の item-stats プロファイルに基づいて再組み立てする(品質は引き継ぎ、
- * rollSeed のみ再抽選 — ユーザー確定仕様)。
+ * で新 Material の item-stats プロファイルに基づいて再組み立てする(品質と rollSeed は引き継ぐ —
+ * 2026-08-29 ユーザー決定。W-51 の再抽選は撤回)。
  *
  * <p><b>W-140(2026-08-19) 増殖バグ修正 — {@code setItemOnCursor} を呼んではいけない</b>:
  * 実サーバ報告「鍛冶台でネザライト化する際に素材を消費せず無限にネザライト化できる」。
@@ -91,9 +90,14 @@ public final class CatalogSmithingListener implements Listener {
             return;
         }
         int quality = CatalogItemMatch.qualityOf(match.base());
-        ItemStack result = itemFactory.create(match.resultTemplate(), PreviewRollSeeds.SMITHING, quality);
+        long seed = CatalogItemMatch.rollSeedOf(match.base())
+                .orElse(PreviewRollSeeds.SMITHING);
+        ItemStack result = itemFactory.create(match.resultTemplate(), seed, quality);
         CatalogIdentity.ensure(result, itemCatalog);
-        carryOverEnchantments(match.base(), result);
+        // まっさらな create() が素材のエンチャントを落とすので、品質 stamp 前でも後でも
+        // プレイヤー付与分は max で戻す（儀式と同じ ItemUpgradeCarryOver）。
+        ItemUpgradeCarryOver.copyEnchantments(match.base(), result);
+        ArsSocketCarryOver.copy(match.base(), result);
         event.setResult(result);
     }
 
@@ -109,18 +113,19 @@ public final class CatalogSmithingListener implements Listener {
             return;
         }
         int quality = CatalogItemMatch.qualityOf(match.base());
-        long seed = ThreadLocalRandom.current().nextLong();
+        long seed = CatalogItemMatch.rollSeedOf(match.base())
+                .orElseGet(ThreadLocalRandom.current()::nextLong);
         ItemStack stamped = itemFactory.create(match.resultTemplate(), seed, quality);
         CatalogIdentity.ensure(stamped, itemCatalog);
-        carryOverEnchantments(match.base(), stamped);
+        ItemUpgradeCarryOver.copyEnchantments(match.base(), stamped);
+        ArsSocketCarryOver.copy(match.base(), stamped);
         // 結果枠だけを差し替える。カーソルには絶対に触らない(理由は setItemOnCursor の禁止理由)。
         event.setCurrentItem(stamped.clone());
     }
 
     /**
      * W-51: プレビュー({@link #onPrepare})側の CMD 無し品質付きバニラ装備の救済。
-     * {@link PreviewRollSeeds#SMITHING} で仮ロールを見せる点はカタログ品のプレビューと揃える
-     * (実ロールは {@link #restampPlainQualitySmith} で確定する)。
+     * 品質と rollSeed は base から見せる（確定時と同じ個体）。
      *
      * @return この経路で処理した(=結果を差し替えた)なら {@code true}。{@code false} のときは
      *         呼び出し側が {@link #clearForeignNetheriteResult} など既存の経路へフォールバックする。
@@ -131,15 +136,16 @@ public final class CatalogSmithingListener implements Listener {
             return false;
         }
         int quality = CatalogItemMatch.qualityOf(base);
+        long seed = CatalogItemMatch.rollSeedOf(base).orElse(PreviewRollSeeds.SMITHING);
         ItemStack stamped = vanillaResult.clone();
-        itemFactory.stamp(stamped, PreviewRollSeeds.SMITHING, quality);
+        itemFactory.stamp(stamped, seed, quality);
         event.setResult(stamped);
         return true;
     }
 
     /**
-     * W-51: 実際に強化を確定させる側。品質は base から引き継ぎ、rollSeed は毎回新規発番する
-     * (ユーザー確定仕様: 「品質は引き継ぐが、ランダムロールは再抽選する」)。
+     * W-51: 実際に強化を確定させる側。品質と rollSeed は base から引き継ぐ
+     * (2026-08-29 ユーザー決定「ベースの品質ptとロールを引き継ぐ」。W-51 の再抽選は撤回)。
      */
     private boolean restampPlainQualitySmith(SmithItemEvent event) {
         ItemStack base = event.getInventory().getInputEquipment();
@@ -148,7 +154,8 @@ public final class CatalogSmithingListener implements Listener {
             return false;
         }
         int quality = CatalogItemMatch.qualityOf(base);
-        long seed = ThreadLocalRandom.current().nextLong();
+        long seed = CatalogItemMatch.rollSeedOf(base)
+                .orElseGet(ThreadLocalRandom.current()::nextLong);
         ItemStack stamped = current.clone();
         itemFactory.stamp(stamped, seed, quality);
         // 結果枠だけを差し替える。カーソルには絶対に触らない(理由は setItemOnCursor の禁止理由)。
@@ -206,41 +213,6 @@ public final class CatalogSmithingListener implements Listener {
                 .orElse(false);
         if (tfNetheriteResult) {
             event.setResult(null);
-        }
-    }
-
-    /**
-     * ネザライト強化の素材に付いていたエンチャントを成果物へ引き継ぐ
-     * （実サーバ報告「ネザライト化したときにエンチャントがはがれる」2026-08-05 の修正）。
-     *
-     * <p>このリスナーは成果物を {@code itemFactory.create(...)} で<b>まっさらに作り直す</b>。
-     * TF のステータス/品質を正しく刻むにはそれが必要だが、その副作用として素材側の
-     * エンチャントが丸ごと消えていた。バニラのネザライト強化はエンチャントを保持するので、
-     * プレイヤーから見ると「強化したら全部消えた」という取り返しのつかない損失になる。
-     *
-     * <p><b>付与可否({@code canEnchantItem})で絞り込まない。</b> 素材が正当に持っていた
-     * エンチャントなので、成果物でも正当である。TF のカタログ品は見た目のために本来の武器種と
-     * 違う Material を土台にすることがあり（杖など）、ここで絞ると<b>正しいエンチャントの方が
-     * 消える</b>。金床側の不正付与は {@link OverEnchantListener} の入口で塞いである。
-     *
-     * <p>テンプレート側が同じエンチャントを持つ場合はレベルの高い方を残す。
-     */
-    private static void carryOverEnchantments(ItemStack base, ItemStack result) {
-        if (base == null || result == null || result.getType().isAir()) {
-            return;
-        }
-        for (Map.Entry<Enchantment, Integer> entry : base.getEnchantments().entrySet()) {
-            Enchantment ench = entry.getKey();
-            int fromBase = entry.getValue();
-            if (fromBase <= 0) {
-                continue;
-            }
-            if (result.getEnchantmentLevel(ench) >= fromBase) {
-                continue;
-            }
-            // addUnsafeEnchantment: 上限突破パークで素材が上限超えのレベルを持っている場合に、
-            // ここで削られないようにする。
-            result.addUnsafeEnchantment(ench, fromBase);
         }
     }
 

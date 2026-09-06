@@ -37,11 +37,12 @@ class EquipmentTicketGuiTest {
     private EquipmentTicketGui gui;
     private PlayerMock player;
     private FakeEffect effect;
+    private int equipmentRefreshCount;
 
     @BeforeEach
     void setUp() {
         server = MockBukkit.mock();
-        gui = new EquipmentTicketGui(MockBukkit.createMockPlugin());
+        gui = new EquipmentTicketGui(MockBukkit.createMockPlugin(), ignored -> equipmentRefreshCount++);
         player = server.addPlayer();
         effect = new FakeEffect();
         player.getInventory().setItemInMainHand(ticketStack());
@@ -141,6 +142,18 @@ class EquipmentTicketGuiTest {
         ItemStack mainHand = player.getInventory().getItemInMainHand();
         assertTrue(mainHand == null || mainHand.getType() == Material.AIR,
                 "券は1個しか持っていなかったので消費後は空になるはず");
+    }
+
+    @Test
+    void refreshesEquipmentEffectsAfterSuccessfulTicketApplication() {
+        player.getInventory().setItem(9, stampedGear(3));
+        gui.open(player, effect);
+
+        gui.onClick(clickEvent(candidateSlot()));
+        gui.onClick(clickEvent(candidateSlot()));
+
+        assertEquals(1, equipmentRefreshCount,
+                "装備を書き戻したらセット効果を含む装備由来の効果を再計算するはず");
     }
 
     @Test

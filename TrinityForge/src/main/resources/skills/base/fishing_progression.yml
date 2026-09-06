@@ -4,11 +4,11 @@
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skills/base/fishing_progression.md
 experience:
   max_level: 100
-  exp_level_curve: '(%level% + 75 * 2^(%level%/7.6)) + 300'
-  fishing_catch_exp: 20
+  exp_level_curve: (%level% + 75 * 2^(%level%/8)) + 300
+  fishing_catch_exp: 400
   fishing_catch:
-    COD: 200
-    SALMON: 250
+    COD: 300
+    SALMON: 300
     PUFFERFISH: 500
     TROPICAL_FISH: 800
     BOW: 600
@@ -17,16 +17,16 @@ experience:
     NAME_TAG: 500
     NAUTILUS_SHELL: 500
     SADDLE: 500
-    LILY_PAD: 150
-    BOWL: 150
-    LEATHER: 150
-    LEATHER_BOOTS: 150
-    ROTTEN_FLESH: 100
-    STICK: 100
-    STRING: 100
-    POTION: 150 # water bottle
-    BONE: 100
-    INK_SAC: 100
-    TRIPWIRE_HOOK: 100
-    BAMBOO: 150
-
+    LILY_PAD: 200
+    BOWL: 200
+    LEATHER: 200
+    ROTTEN_FLESH: 200
+    STICK: 200
+    STRING: 200
+    POTION: 200 # water bottle
+    BONE: 200
+    INK_SAC: 200
+    TRIPWIRE_HOOK: 200
+    BAMBOO: 200
+    custom:tf_scrap: 200
+    custom:gacha_ticket_fishing: 1000

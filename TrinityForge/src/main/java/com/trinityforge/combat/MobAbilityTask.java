@@ -10,10 +10,15 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalDouble;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
@@ -46,12 +51,29 @@ public final class MobAbilityTask implements Runnable {
      */
     static final String GLOBAL_GAP_KEY = " global-gap";
 
+    /**
+     * 選択リズムで見る「直近の発動」の記録数(2026-09-04、UXレビュー #12)。3回分より前の履歴は
+     * 重みに影響させない ―― 際限なく覚えると、たまたま同じ技が続いただけの偶然まで長く引きずる。
+     */
+    private static final int RECENT_ACTION_WORDS_TRACKED = 3;
+
     private final Plugin plugin;
     private final MobAbilitiesConfig abilitiesConfig;
     private final MobOverridesConfig overrides;
     private final MobAbilityExecutor executor;
     private final MobAbilityCooldowns cooldowns;
     private final Random random;
+
+    /**
+     * モブ単位の技「順番」の進行位置({@code ability-sequence} 用、2026-09-04)。
+     * ランダム抽選をしないモブだけがここに載る。
+     */
+    private final Map<UUID, Integer> sequenceCursor = new HashMap<>();
+    /**
+     * モブ単位の直近 {@link #RECENT_ACTION_WORDS_TRACKED} 回ぶんの発動語（選択リズム用、2026-09-04）。
+     * 先頭が最新。sequence 経路でも記録する(将来ランダムと混在させる可能性に備えるため)。
+     */
+    private final Map<UUID, Deque<String>> recentActionWords = new HashMap<>();
 
     private BukkitTask task;
     private int runCount;
@@ -64,6 +86,10 @@ public final class MobAbilityTask implements Runnable {
         this.executor = Objects.requireNonNull(executor, "executor");
         this.cooldowns = Objects.requireNonNull(cooldowns, "cooldowns");
         this.random = Objects.requireNonNull(random, "random");
+        // 2026-09-04: 抽選側(このクラス)のクールダウン台帳を実行部へ渡す。中断された技の再詠唱ロックや
+        // 空振り硬直の間合いは、抽選を止める側=この台帳へ書くしかないため(MobAbilityExecutor#attachCooldowns
+        // javadoc参照)。
+        executor.attachCooldowns(cooldowns);
     }
 
     /** 判定間隔は config 由来。無効なら何も開始しない（タスク自体を作らない）。 */
@@ -82,6 +108,18 @@ public final class MobAbilityTask implements Runnable {
         }
     }
 
+    /**
+     * ログアウト・死亡時の予告予算/アクションバー掃除について（機構5設計判断、2026-09-04）。
+     *
+     * <p>このタスクにはイベントリスナーが無く、{@link #run()} のループもオンラインのプレイヤーしか
+     * 見ないので、退出・死亡した瞬間を捕まえて {@code TelegraphBudget#releasePlayer} /
+     * {@code ActionBarRouter#forget} を呼ぶ専用の掃除経路をここには作らない。代わりに、
+     * <b>詠唱ループ・{@code delayedZone} 自身が毎tick対象の生存/オンライン状態を確認しており</b>
+     * （{@code MobAbilityExecutor#castInterrupted}）、退出・死亡を検知した瞬間に
+     * {@code finish("misfire")} が予約解放とアクションバー終了を行う。つまり
+     * 「進行中の予告」は撃った側が自分で片付ける。{@link TelegraphBudget#purgeExpired()} の
+     * 定期呼び出し（{@link #PURGE_EVERY}）は、それでも取りこぼした場合の保険に過ぎない。
+     */
     @Override
     public void run() {
         if (!abilitiesConfig.enabled() || abilitiesConfig.abilities().isEmpty()) {
@@ -111,6 +149,13 @@ public final class MobAbilityTask implements Runnable {
         }
         if (runCount % PURGE_EVERY == 0) {
             cooldowns.purge(seen);
+            // 2026-09-04: 技「順番」の進行位置と選択リズムの履歴も、消えたモブの分は捨てる。
+            // cooldowns.purge と同じタイミングにしてあるのは、掃除のトリガをこれ以上増やさないため。
+            sequenceCursor.keySet().retainAll(seen);
+            recentActionWords.keySet().retainAll(seen);
+            // 予告予算の期限切れ掃除(機構5)。詠唱ループ・delayedZone側のfinish()が毎回release()を
+            // 呼ぶので通常は空だが、ワールドのアンロード等でrelease漏れが起きた場合の保険。
+            executor.budget().purgeExpired();
         }
     }
 
@@ -134,23 +179,131 @@ public final class MobAbilityTask implements Runnable {
         if (!engagementAllows(mob, target)) {
             return false;
         }
+        // 2026-09-04: モブ単位の共通クールダウン秒数の上書き(ability-interval-seconds)。
+        // 未設定は従来どおり config 側の既定値を使う。
+        OptionalDouble customIntervalSeconds =
+                overrides.abilityIntervalSecondsFor(mob.getWorld().getName(), mobIdOf(mob));
+        long globalCooldownMillis = customIntervalSeconds.isPresent()
+                ? (long) (customIntervalSeconds.getAsDouble() * 1000.0)
+                : abilitiesConfig.globalCooldownMillis();
+        List<String> sequence = overrides.abilitySequenceFor(mob.getWorld().getName(), mobIdOf(mob));
+        return sequence.isEmpty()
+                ? tryFireRandom(mob, target, globalCooldownMillis)
+                : tryFireSequence(mob, target, sequence, globalCooldownMillis);
+    }
+
+    /**
+     * 従来どおりの抽選経路(2026-07-31〜)。候補の中から重み付きで1つ選び、その1つだけ抽選する。
+     * 「全候補を順に抽選」にすると技を多く持つモブほど毎周期で何か撃つようになり、
+     * 技を足すこと自体が難易度の急上昇になってしまう。
+     *
+     * <p><b>選択リズム</b>(2026-09-04、UXレビュー #12「技選択のリズム」): 一様抽選ではなく、
+     * 直近{@value #RECENT_ACTION_WORDS_TRACKED}回の発動語({@link MobAbilityExecutor#responseWordOf})に
+     * 同じ語が多く出ている候補ほど選ばれにくくする({@link #weightsFor}）。「横へ」ばかりが連続する
+     * 単調さを崩すのが目的で、候補が1つしかないモブには影響しない。
+     */
+    private boolean tryFireRandom(LivingEntity mob, Player target, long globalCooldownMillis) {
         List<MobAbility> candidates = candidatesFor(mob, target);
         if (candidates.isEmpty()) {
             return false;
         }
-        // 候補の中からランダムに1つ選び、その1つだけ抽選する。
-        // 「全候補を順に抽選」にすると技を多く持つモブほど毎周期で何か撃つようになり、
-        // 技を足すこと自体が難易度の急上昇になってしまう。
-        MobAbility ability = candidates.get(random.nextInt(candidates.size()));
+        UUID mobId = mob.getUniqueId();
+        List<Double> weights = weightsFor(candidates, recentActionWords.get(mobId));
+        MobAbility ability = candidates.get(pickWeighted(weights, random.nextDouble()));
         if (random.nextDouble() >= ability.chance()) {
             return false;
         }
         if (!executor.execute(mob, target, ability)) {
             return false;
         }
-        cooldowns.arm(mob.getUniqueId(), ability.id(), ability.cooldownMillis());
-        cooldowns.arm(mob.getUniqueId(), GLOBAL_GAP_KEY, abilitiesConfig.globalCooldownMillis());
+        cooldowns.arm(mobId, ability.id(), ability.cooldownMillis());
+        cooldowns.arm(mobId, GLOBAL_GAP_KEY, globalCooldownMillis);
+        recordActionWord(mobId, ability.type());
         return true;
+    }
+
+    /**
+     * {@code ability-sequence} が設定されたモブの発動経路(2026-09-04)。
+     *
+     * <p><b>なぜランダム抽選をしないか</b>: sequence は「振り付け」であり、たまたま chance を外して
+     * 順番が飛ぶと振り付けそのものが崩れる。だから候補が条件を満たす限り確定で撃つ
+     * (= {@link MobAbility#chance()} を無視する)。
+     *
+     * <p><b>なぜ満たさないときに次の技へ飛ばさないか</b>: 飛ばすと「この周は空いた枠」が発生せず、
+     * 振り付けの<b>周期</b>そのものが崩れる。射程外・クールダウン中などで撃てない周は、
+     * その周をまるごと空振りにしてカーソルを進めない ―― 次に呼ばれたときも同じ技から再挑戦する。
+     */
+    private boolean tryFireSequence(LivingEntity mob, Player target, List<String> sequence,
+                                    long globalCooldownMillis) {
+        UUID mobId = mob.getUniqueId();
+        int size = sequence.size();
+        int cursor = Math.floorMod(sequenceCursor.getOrDefault(mobId, 0), size);
+        String abilityId = sequence.get(cursor);
+        double distanceSquared = mob.getLocation().distanceSquared(target.getLocation());
+        double healthFraction = healthFractionOf(mob);
+        MobAbility ability = eligibleAbility(mob, target, abilityId, distanceSquared, healthFraction);
+        if (ability == null) {
+            return false;
+        }
+        if (!executor.execute(mob, target, ability)) {
+            return false;
+        }
+        cooldowns.arm(mobId, ability.id(), ability.cooldownMillis());
+        cooldowns.arm(mobId, GLOBAL_GAP_KEY, globalCooldownMillis);
+        recordActionWord(mobId, ability.type());
+        sequenceCursor.put(mobId, (cursor + 1) % size);
+        return true;
+    }
+
+    /** 発動した技の行動語を、選択リズム判定用に直近{@value #RECENT_ACTION_WORDS_TRACKED}件だけ覚える。 */
+    private void recordActionWord(UUID mobId, MobAbility.Type type) {
+        Deque<String> words = recentActionWords.computeIfAbsent(mobId, id -> new ArrayDeque<>());
+        words.addFirst(MobAbilityExecutor.responseWordOf(type));
+        while (words.size() > RECENT_ACTION_WORDS_TRACKED) {
+            words.removeLast();
+        }
+    }
+
+    /**
+     * 候補ごとの重み(純関数、選択リズム用、2026-09-04)。直近の発動語に同じ語が {@code n} 回出ていれば
+     * 重みは {@code 1 / (1 + n)}。全く出ていない語(n=0)は重み1のまま ―― 一様抽選からの相対的な
+     * 「出にくさ」だけを付ける設計で、候補を丸ごと除外することはしない(除外すると技が1つしか無い
+     * ボスや、たまたま偏って連続した直後に候補が尽きるボスが技を一生撃たなくなる)。
+     */
+    static List<Double> weightsFor(List<MobAbility> candidates, Deque<String> recentWords) {
+        List<Double> weights = new ArrayList<>(candidates.size());
+        for (MobAbility candidate : candidates) {
+            String word = MobAbilityExecutor.responseWordOf(candidate.type());
+            long occurrences = recentWords == null ? 0L
+                    : recentWords.stream().filter(word::equals).count();
+            weights.add(1.0 / (1 + occurrences));
+        }
+        return weights;
+    }
+
+    /**
+     * 重み付き抽選(純関数)。{@code weights} の合計を分母にした累積分布から {@code roll}(0以上1未満)が
+     * 落ちる区間の index を返す。合計が0以下(全候補が重み0)のときは index 0 にフォールバックする
+     * ―― 呼び出し元の {@link #weightsFor} は常に正の重みしか作らないため実運用では起きないが、
+     * 純関数として不正な入力でも例外を投げない契約にしておく。
+     */
+    static int pickWeighted(List<Double> weights, double roll) {
+        double total = 0.0;
+        for (double weight : weights) {
+            total += weight;
+        }
+        if (total <= 0.0) {
+            return 0;
+        }
+        double target = Math.max(0.0, Math.min(1.0, roll)) * total;
+        double cumulative = 0.0;
+        for (int i = 0; i < weights.size(); i++) {
+            cumulative += weights.get(i);
+            if (target < cumulative) {
+                return i;
+            }
+        }
+        return weights.size() - 1;
     }
 
     /**
@@ -207,24 +360,46 @@ public final class MobAbilityTask implements Runnable {
         double healthFraction = healthFractionOf(mob);
         List<MobAbility> out = new ArrayList<>();
         for (String id : ids) {
-            MobAbility ability = abilitiesConfig.ability(id);
-            if (ability == null) {
-                continue; // 未定義IDは黙って読み飛ばす(ロード順に依存させない)
+            MobAbility ability = eligibleAbility(mob, target, id, distanceSquared, healthFraction);
+            if (ability != null) {
+                out.add(ability);
             }
-            if (distanceSquared > ability.range() * ability.range()) {
-                continue;
-            }
-            // 残HPの門(health-below / health-above)。「瀕死になると出す大技」を作るための条件で、
-            // ここで落とすと【その技だけ】が候補から消える(他の技は今までどおり撃てる)。
-            if (!ability.allowedAtHealth(healthFraction)) {
-                continue;
-            }
-            if (!cooldowns.ready(mob.getUniqueId(), ability.id())) {
-                continue;
-            }
-            out.add(ability);
         }
         return out;
+    }
+
+    /**
+     * テンプレート実在 + 射程内 + 残HP門 + クールダウン明け + 予告予算が取れる、を全部満たすなら
+     * その技を返す(満たさなければ {@code null})。{@link #candidatesFor}(ランダム抽選経路)と
+     * {@link #tryFireSequence}(順番指定経路)の両方が使う共通判定 ―― <b>{@code chance} の判定は
+     * ここに含めない</b>（呼び出し元ごとに扱いが違うため: ランダム経路は候補選出後に別途ロールし、
+     * 順番指定経路は振り付けを守るため {@code chance} 自体を無視する）。
+     */
+    private MobAbility eligibleAbility(LivingEntity mob, Player target, String id, double distanceSquared,
+                                       double healthFraction) {
+        MobAbility ability = abilitiesConfig.ability(id);
+        if (ability == null) {
+            return null; // 未定義IDは黙って読み飛ばす(ロード順に依存させない)
+        }
+        if (distanceSquared > ability.range() * ability.range()) {
+            return null;
+        }
+        // 残HPの門(health-below / health-above)。「瀕死になると出す大技」を作るための条件で、
+        // ここで落とすと【その技だけ】が候補から消える(他の技は今までどおり撃てる)。
+        if (!ability.allowedAtHealth(healthFraction)) {
+            return null;
+        }
+        if (!cooldowns.ready(mob.getUniqueId(), ability.id())) {
+            return null;
+        }
+        // 予告予算(機構5)。予約が取れない予告付き技は候補から外す。ここで「候補が全部落ちたら
+        // 別の技へ振り替える」実装をしないこと ―― candidatesFor が空を返せば呼び出し元の
+        // tryFire はそのまま空振りになる(振り替え先を探しにいかない)。予算が埋まっているときほど
+        // 身軽な技が飛ぶのは、予告予算を設けた目的(致命の同時発生を抑える)と正反対の挙動になる。
+        if (ability.telegraphed() && !executor.budget().canReserve(target.getUniqueId(), ability.lethal())) {
+            return null;
+        }
+        return ability;
     }
 
     /**

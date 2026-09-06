@@ -18,6 +18,8 @@ public final class PdcKeys {
     // --- Item (SELECTION 5 / 6): stats are derived from rollSeed + quality, never baked. ---
     public static final NamespacedKey ITEM_ROLL_SEED = key("roll_seed");
     public static final NamespacedKey ITEM_QUALITY = key("quality");
+    /** Cached random-roll score shown in item lore. It is kept when only quality is promoted. */
+    public static final NamespacedKey ITEM_QUALITY_SCORE = key("quality_score");
     public static final NamespacedKey ITEM_OWNER = key("owner");
     public static final NamespacedKey ITEM_BIND_TYPE = key("bind_type");
     public static final NamespacedKey ITEM_USE_LEVEL_REQ = key("use_level_req");

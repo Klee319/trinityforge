@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 /**
  * {@link EquipmentTicketEffect} 共通の対象選択GUIエンジン(ランダムステータス再抽選券/品質レベルアップ券の
@@ -56,10 +57,20 @@ public final class EquipmentTicketGui implements Listener {
 
     private final Plugin plugin;
     private final NamespacedKey targetRefKey;
+    private final Consumer<Player> equipmentRefresh;
 
     public EquipmentTicketGui(Plugin plugin) {
+        this(plugin, ignored -> {
+        });
+    }
+
+    /**
+     * @param equipmentRefresh 装備を書き戻した直後に、装備由来の常時効果を再計算する処理
+     */
+    public EquipmentTicketGui(Plugin plugin, Consumer<Player> equipmentRefresh) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.targetRefKey = new NamespacedKey(plugin, "ticket_target_ref");
+        this.equipmentRefresh = Objects.requireNonNull(equipmentRefresh, "equipmentRefresh");
     }
 
     public void open(Player player, EquipmentTicketEffect effect) {
@@ -192,13 +203,14 @@ public final class EquipmentTicketGui implements Listener {
             return;
         }
 
-        Optional<ItemStack> applied = session.effect.apply(current.clone());
+        Optional<ItemStack> applied = session.effect.apply(current.clone(), player);
         if (applied.isEmpty()) {
             player.sendMessage(Component.text("効果を適用できませんでした。", NamedTextColor.RED));
             render(player, session.effect, null, null);
             return;
         }
         writeRef(player, ref, applied.get());
+        equipmentRefresh.accept(player);
         consumeMainHandTicket(player);
         player.sendMessage(Component.text(session.effect.appliedMessage(), NamedTextColor.GREEN));
         player.closeInventory();

@@ -2,6 +2,7 @@ package com.trinityforge.items;
 
 import com.trinityforge.config.domains.QualityConfig;
 import com.trinityforge.config.domains.QualityTiersConfig;
+import com.trinityforge.listeners.PickupQualityListener;
 import com.trinityforge.pdc.ItemData;
 import com.trinityforge.stats.ItemFactory;
 import com.trinityforge.stats.QualityTier;
@@ -19,11 +20,11 @@ import java.util.Optional;
  * 品質レベルアップ券({@code quality_upgrade_ticket})の効果本体。装備の品質だけを+1し、
  * rollSeed(ランダムロール)は完全に維持する。
  *
- * <p>品質を上げる既存経路({@code CraftQualityListener}/{@code PickupQualityListener}/
- * {@code FishingQualityListener}/{@code MobTypeDropListener})はいずれも最終的に
- * {@link ItemFactory#stamp(ItemStack, long, int)} へ収束しており、本クラスもそれをそのまま使う
- * ことで実効上限({@link QualityConfig#maxQuality()}、{@code stats/quality-tiers.yml} のティア数
- * 由来)を含めて既存経路と完全に整合する。
+ * <p>通常の装備は {@link ItemFactory#stampPreservingQualityScore(ItemStack, long, int)} で品質だけを
+ * 更新し、同じ rollSeed のランダムロール(pt)を保持する。ArsPaper の効果付きスレッドだけは専用
+ * lore/セット効果を壊さないよう {@code ThreadItem#refreshLoreKeepingIdentity} へ委譲する。
+ * いずれも実効上限({@link QualityConfig#maxQuality()}、{@code stats/quality-tiers.yml} のティア数
+ * 由来)を含めて既存の品質経路と整合する。
  *
  * <p>最上位ティアに到達済みの装備は {@link #eligible(ItemStack)} が {@code false} を返し、
  * {@link EquipmentTicketGui} は候補にすら出さない(= 券を消費せず拒否する)。
@@ -63,8 +64,21 @@ public final class QualityUpgradeTicketEffect implements EquipmentTicketEffect {
         if (stack == null || stack.getType().isAir() || !stack.hasItemMeta()) {
             return false;
         }
+        if (EquipmentTicketEffect.isConsumableTicketItem(stack)) {
+            return false;
+        }
         ItemData data = ItemData.of(stack.getItemMeta());
-        return data.hasRollSeed() && data.quality() < qualityConfig.maxQuality();
+        if (!data.hasRollSeed() || data.quality() >= qualityConfig.maxQuality()) {
+            return false;
+        }
+        // Ars のスレッドは専用 lore を持つ完成品。item-stats の Material#CMD 引きが
+        // 外れる(CustomModelData コンポーネント差・薄い profile)と qualityVaries が false になり、
+        // 候補にすら出ず昇華できない。マーカーと rollSeed がある個体は品質対象として扱う。
+        // 空スレッドは rollSeed を持たない(W-53)ので、この分岐には入らない。
+        if (PickupQualityListener.hasArsThreadMarker(stack.getItemMeta())) {
+            return true;
+        }
+        return itemFactory.qualityVaries(stack);
     }
 
     @Override
@@ -89,6 +103,9 @@ public final class QualityUpgradeTicketEffect implements EquipmentTicketEffect {
 
     @Override
     public Optional<ItemStack> apply(ItemStack stack) {
+        if (!eligible(stack)) {
+            return Optional.empty();
+        }
         ItemMeta meta = stack.getItemMeta();
         if (meta == null) {
             return Optional.empty();
@@ -103,7 +120,13 @@ public final class QualityUpgradeTicketEffect implements EquipmentTicketEffect {
             return Optional.empty();
         }
         long seed = data.rollSeed().orElse(0L);
-        itemFactory.stamp(stack, seed, quality + 1);
+        // ArsPaper のスレッドは専用 lore にセット効果・スロット案内を持つ。
+        // 汎用 stamp はそれらを消してしまうため、既存 identity を保つ専用更新へ委譲する。
+        if (PickupQualityListener.hasArsThreadMarker(meta)) {
+            return PickupQualityListener.promoteArsThreadKeepingIdentity(stack, quality + 1, itemFactory)
+                    ? Optional.of(stack) : Optional.empty();
+        }
+        itemFactory.stampPreservingQualityScore(stack, seed, quality + 1);
         return Optional.of(stack);
     }
 

@@ -24,15 +24,17 @@ prestige:
   max-times: 5
   at-level: 100
   name: 拡張スレッドの大匠の栄光
-  effect-text: 品質+1・必要ソース-10%
+  effect-text: 儀式品質基準+2・ランダムステータス抽選の上振れ+2%・下振れ軽減+2%・中心寄せ+2%・Ars鍛冶EXP+10%
   buffs:
     ritual-quality-bonus: 2
     craft-roll-up-bonus: 2
     craft-roll-down-reduction: 2
     craft-roll-inset: 2
+    ars-smithing-exp-bonus: 0.1
   description: |-
-    儀式品質+2
-    ロールステータスの品質up
+    儀式品質基準+2
+    ランダムステータス抽選の上振れ+2%・下振れ軽減+2%・中心寄せ+2%
+    Ars鍛冶EXP増加+10%
 nodes:
   A:
     name: ソース細工の見習い
@@ -41,15 +43,11 @@ nodes:
     parent:
     icon: AMETHYST_SHARD
     cost: 1
-    effect-text: ソースジェム一括クラフト開放
+    effect-text: ソースジェム一括クラフト開放・儀式品質基準+1
     effects:
       - ソースジェム一括クラフトを解放
-    dedicated-effects:
-      - id: recipe:source_gem_block
-    description: |-
-      ソースジェムブロッククラフト解放
-      &8儀式で直接ブロックを作成することもできます
-      儀式品質+1
+      - 儀式クラフトの品質基準+1
+    description: 儀式品質基準+1
     buffs:
       ritual-quality-bonus: 1
   B:
@@ -59,12 +57,15 @@ nodes:
     parent: A
     icon: IRON_INGOT
     cost: 1
-    effect-text: 品質+1
+    effect-text: 儀式品質基準+1・素材返却率+5%
+    effects:
+      - 儀式クラフトの品質基準+1
+      - 素材返却率+5%
     buffs:
       ritual-quality-bonus: 1
       material-refund-chance: 0.05
     description: |-
-      儀式品質+1
+      儀式品質基準+1
       素材効率+5%
   C:
     name: 返却の魔法鍛冶
@@ -73,16 +74,19 @@ nodes:
     parent: B
     icon: GOLD_INGOT
     cost: 1
-    effect-text: 品質+1・一定確率で素材返却
+    effect-text: 儀式品質基準+1・一定確率で素材返却
     buffs:
       ritual-quality-bonus: 1
     effects:
+      - 儀式クラフトの品質基準+1
       - 一定確率で素材返却
     description: |-
-      儀式品質+1
+      儀式品質基準+1
       スレッド枠追加の儀式 Lv1解放
+      ソース結晶のクラフト解放
     dedicated-effects:
       - id: ritual:thread_slot_expand_ritual
+      - id: ritual:source_crystal
   D:
     name: スレッド織りの匠
     level: 70
@@ -90,16 +94,18 @@ nodes:
     parent: C
     icon: DIAMOND
     cost: 1
-    effect-text: 品質+1・クラフトスレッド開放
+    effect-text: "儀式品質運: 上振れ幅+1.0・クラフトスレッド開放"
     buffs:
       ritual-upswing-bonus: 1
     effects:
       - クラフトスレッドを解放
     description: |-
-      儀式品質+1
+      儀式品質運（上振れ幅+1.0）
       スレッド枠追加の儀式 Lv2解放
+      ソース凝縮物のクラフト解放
     dedicated-effects:
       - id: ritual:thread_slot_expand_ritual_2
+      - id: ritual:source_condenser
   E:
     name: 儀式鍛冶の大匠
     level: 90
@@ -107,14 +113,18 @@ nodes:
     parent: D
     icon: NETHERITE_INGOT
     cost: 1
-    effect-text: 作業台品質+1・儀式品質+1
+    effect-text: 儀式品質基準+2
+    effects:
+      - 儀式クラフトの品質基準+2
     buffs:
       ritual-quality-bonus: 2
     description: |-
-      儀式品質+2
+      儀式品質基準+2
       スレッド枠追加の儀式 Lv3解放
+      ソース機関のクラフト解放
     dedicated-effects:
       - id: ritual:thread_slot_expand_ritual_3
+      - id: ritual:source_engine
   A-1:
     name: ソース節約
     level: 20
@@ -143,24 +153,6 @@ nodes:
       ソースベリー変換
       &8インベントリのソースベリーを消費して自動でマナを補充します
       &8100マナ/10CT
-  A-3:
-    name: 上位ソースジャー・ソースリンク
-    level: 60
-    role: branch
-    parent: A-2
-    icon: DECORATED_POT
-    cost: 1
-    effect-text: 上位ソースジャー・ソースリンク(ヴォルカニック)解放
-    effects:
-      - 上位ソースジャー・ソースリンクを解放
-    dedicated-effects:
-      # 2026-08-16再修正: source_crystal/condenser/engine は materials.yml で、volcanic_sourcelink は
-      # sourcelinks.yml で method: ritual。ArsPaper の UnlockGate は儀式を hasRitualPermission でしか
-      # 照合しないので、recipe: 側に置くと永久に無効(=常時解放)になる。ritual: が正しい。
-      - id: ritual:source_crystal
-      - id: ritual:source_condenser
-      - id: ritual:source_engine
-    description: 上位ソースジャー・ソースリンクの素材クラフト解放
   D-1:
     name: Waystoneクラフト
     level: 80
@@ -181,7 +173,7 @@ nodes:
       テレポートコンパスのクラフト開放
   B-1-1:
     name: エンチャントI
-    level: 20
+    level: 40
     role: branch
     parent: B
     icon: ENCHANTED_BOOK
@@ -198,7 +190,7 @@ nodes:
       マナ上昇Iのエンチャント本クラフト開放
   B-1-2:
     name: エンチャントII・回生
-    level: 40
+    level: 60
     role: branch
     parent: B-1-1
     icon: ENCHANTED_BOOK
@@ -215,7 +207,7 @@ nodes:
       マナ再生Ⅱのエンチャント本クラフト開放
       マナ上昇Ⅱのエンチャント本クラフト開放
       回生のエンチャント本クラフト開放
-  B-1-4:
+  B-1-3:
     name: エンチャントIII・共有
     level: 80
     role: branch
@@ -289,10 +281,12 @@ nodes:
     group: C-greek
     icon: QUARTZ
     cost: 1
-    effect-text: 品質+1
+    effect-text: "儀式品質運: 上振れ幅+0.7"
+    effects:
+      - "儀式品質の上振れ幅+0.7"
     buffs:
       ritual-upswing-bonus: 0.7
-    description: 品質運up Lv1
+    description: "儀式品質運: 上振れ幅+0.7"
   D-alpha-1:
     name: 品質強化II
     level: 80
@@ -301,10 +295,12 @@ nodes:
     group: C-greek
     icon: QUARTZ
     cost: 1
-    effect-text: 品質+2
+    effect-text: "儀式品質運: 上振れ幅+0.7"
+    effects:
+      - "儀式品質の上振れ幅+0.7"
     buffs:
       ritual-upswing-bonus: 0.7
-    description: 品質運up Lv2
+    description: "儀式品質運: 上振れ幅+0.7"
   C-beta-1:
     name: 儀式精度I
     level: 60
@@ -315,8 +311,11 @@ nodes:
     cost: 1
     buffs:
       ritual-downswing-reduction: 0.4
-    description: 品質効率up Lv1
-  D-beta-2:
+    effect-text: "儀式品質運: 下振れ幅-0.4"
+    effects:
+      - "儀式品質の下振れ幅-0.4"
+    description: "儀式品質運: 下振れ幅-0.4"
+  D-beta-1:
     name: 儀式精度II
     level: 80
     role: greek
@@ -324,7 +323,9 @@ nodes:
     group: C-greek
     icon: STRING
     cost: 1
-    effect-text: 儀式品質+1
+    effect-text: "儀式品質運: 下振れ幅-0.4"
     buffs:
       ritual-downswing-reduction: 0.4
-    description: 品質効率up Lv2
+    effects:
+      - "儀式品質の下振れ幅-0.4"
+    description: "儀式品質運: 下振れ幅-0.4"

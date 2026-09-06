@@ -107,6 +107,19 @@ class ItemDataTest {
     }
 
     @Test
+    void settingZeroCraftRollModsClearsPreviousMods() {
+        ItemMeta meta = freshMeta();
+        ItemData data = ItemData.of(meta);
+        data.setCraftRollMods(new com.trinityforge.stats.CraftRollMods(0.3, 0.1, 0.05));
+
+        data.setCraftRollMods(com.trinityforge.stats.CraftRollMods.NONE);
+
+        assertEquals(com.trinityforge.stats.CraftRollMods.NONE, ItemData.of(meta).craftRollMods());
+        assertTrue(meta.getPersistentDataContainer().getKeys().isEmpty(),
+                "ゼロへ戻したあとに古いロール運が残ってはならない");
+    }
+
+    @Test
     void coatingFlatDamageRoundTrips() {
         ItemMeta meta = freshMeta();
         ItemData data = ItemData.of(meta);

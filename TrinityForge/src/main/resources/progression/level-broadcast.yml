@@ -31,6 +31,11 @@ multiple-of: 10
 # (書式の設定ミスで「誰が何レベルになったのか分からない行」が流れるのを防ぐため)。
 message: "<gold><bold>[祝!]</bold></gold> <yellow>%player%</yellow><gray> が </gray><aqua>%skill%</aqua><gray> で </gray><green>Lv%level%</green><gray> に到達しました!</gray>"
 
+# プレステージ(NG+)段が1以上のスキルへ使う専用書式(2026-09-04, W-313)。
+# %prestige% (現在の周回数) が追加で使える。%player% / %level% は必須なのは message と同じ。
+# 未設定なら既定のこの書式へ戻る。
+message-prestige: "<gold><bold>[祝!]</bold></gold> <yellow>%player%</yellow><gray> が </gray><aqua>%skill%</aqua><gray>（</gray><white>%prestige%</white><gray>周目）で </gray><green>Lv%level%</green><gray> に到達しました!</gray>"
+
 # 総合(POWER)のレベルアップもアナウンスするか。<b>既定は false</b>。
 # POWER は各スキルのレベルアップから<b>派生して積み上がる導出値</b>であって、
 # プレイヤーが直接稼ぐ経路が無い(NativeProgressionService#derivePowerProgress の項を参照)。
@@ -45,6 +50,18 @@ include-power: false
 # 全スキルを一括で上げた場合はスキル数だけ行が出るため、ここで頭を押さえる。
 # 超過分は黙って捨てる(件数はサーバログへ FINE で残す)。1 未満は 1 として扱う。
 max-announcements-per-batch: 3
+
+# プレステージ(NG+, /trinityforge のプレステージ機能)を経たスキルは、途中の節目(10/20/...)を
+# 全体へ流さず、<b>そのプレステージ段の上限レベルへ到達したとき</b>だけ流す(2026-09-04, W-313)。
+# プレステージはレベルを 0 から登り直させる機構なので、抑制しないと周回のたびに
+# 同じ節目行が何度もチャットへ流れてしまう(実測: 90秒で14行)。
+# 段0(未プレステージ)には影響しない。段が読めない場合は安全側(=段0扱い=全部流す)に倒す。
+
+# 同一プレイヤーの全体放送を、この秒数の間に1行までへ絞る。0 で無効。範囲は 0〜3600。
+# 上のプレステージ抑制だけでは「短時間に何度もプレステージする」「累計EXPの異常で
+# 一瞬で上限まで戻る」といったケースを塞ぎきれない。原因が何であれチャットが
+# 埋まること自体を止める最後の砦として、ここで頭を押さえる。
+min-interval-seconds: 30
 
 # アナウンスと同時に鳴らす効果音。
 sound:

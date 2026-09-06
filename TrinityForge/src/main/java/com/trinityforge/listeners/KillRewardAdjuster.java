@@ -196,7 +196,8 @@ public final class KillRewardAdjuster {
     }
 
     /**
-     * ドロップ増加ステ({@code mob_drop_bonus})の合算値。0以上 +200% 以下へクランプ済み。
+     * ドロップ増加ステ({@code mob_drop_bonus})の合算値。負と非有限は 0。
+     * 設計上限は {@code combat/stat-caps.yml}（{@code totalOf} が既に適用）。
      *
      * <p>2026-08-13 以降、これは<b>倍率ではない</b>。使い方はドロップの形で分かれる:
      * 1個固定のドロップは {@link MobDropRoller#boostedChance}(抽選確率を上げる)、

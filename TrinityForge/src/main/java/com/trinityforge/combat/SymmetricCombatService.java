@@ -131,6 +131,20 @@ public final class SymmetricCombatService {
     }
 
     /**
+     * Same as {@link #physicalFinalDamageFromMob} but lets the caller flag the hit as coming from a
+     * <b>telegraphed</b> ability (2026-09-02 機構6): a telegraphed hit must NOT be able to roll a
+     * probability dodge (回避) — the player already saw the warning and it is position-only whether
+     * it lands. A normal attack, or a mob ability with no telegraph, is unaffected: this delegates to
+     * {@link #physicalFinalDamageFromMob} with {@code telegraphed = false}.
+     */
+    public double physicalFinalDamageFromMob(LivingEntity mobAttacker, Player victim,
+                                             double vanillaBaseDamage, AttackStats attack,
+                                             boolean telegraphed) {
+        return physicalFinalDamageFromMobResult(mobAttacker, victim, vanillaBaseDamage, attack, false, telegraphed)
+                .damage();
+    }
+
+    /**
      * Same as {@link #physicalFinalDamageFromMob} with crit flag for VFX ({@link CritFlash}).
      */
     public CombatHitResult physicalFinalDamageFromMobResult(LivingEntity mobAttacker, Player victim,
@@ -147,10 +161,26 @@ public final class SymmetricCombatService {
      * so the victim's Projectile Protection must be re-derived for those hits — TF zeroes the vanilla
      * {@code MAGIC} modifier unconditionally, and a re-derivation that is not asked for silently
      * deletes the enchantment's mitigation.
+     *
+     * <p>Delegates to the {@code telegraphed} overload with {@code telegraphed = false} — behaviour
+     * unchanged for every existing caller.
      */
     public CombatHitResult physicalFinalDamageFromMobResult(LivingEntity mobAttacker, Player victim,
                                                             double vanillaBaseDamage, AttackStats attack,
                                                             boolean projectileHit) {
+        return physicalFinalDamageFromMobResult(mobAttacker, victim, vanillaBaseDamage, attack, projectileHit, false);
+    }
+
+    /**
+     * Same as {@link #physicalFinalDamageFromMobResult(LivingEntity, Player, double, AttackStats, boolean)}
+     * but lets the caller flag the hit as {@code telegraphed} (2026-09-02 機構6: 予告技へ確率回避を通さ
+     * ない). A telegraphed hit routes through {@link DodgeResolver#NEVER} instead of the config-capped
+     * random resolver — it can still be reduced by defense/mitigation, it simply can never be dodged
+     * outright. A normal attack and a non-telegraphed mob ability keep the usual capped random dodge.
+     */
+    public CombatHitResult physicalFinalDamageFromMobResult(LivingEntity mobAttacker, Player victim,
+                                                            double vanillaBaseDamage, AttackStats attack,
+                                                            boolean projectileHit, boolean telegraphed) {
         Objects.requireNonNull(mobAttacker, "mobAttacker");
         Objects.requireNonNull(victim, "victim");
         int mobLevel = MobData.of(mobAttacker).level();
@@ -163,14 +193,16 @@ public final class SymmetricCombatService {
         double ratio = attack.magicRatio();
         if (ratio <= 0.0) {
             return componentResult(DamageType.PHYSICAL, victim, attack.withDefaultDamage(baseDamage),
-                    damageConfig.minComponentDamage(), vanillaProtectionDefense(victim, projectileHit));
+                    damageConfig.minComponentDamage(), vanillaProtectionDefense(victim, projectileHit),
+                    telegraphed);
         }
         if (ratio >= 1.0) {
             return componentResult(DamageType.MAGICAL, victim, attack.withDefaultDamage(baseDamage),
-                    damageConfig.magicalMinComponentDamage());
+                    damageConfig.magicalMinComponentDamage(), DefenseStats.NONE, telegraphed);
         }
         return hybridComponentResult(victim, attack.withDefaultDamage(baseDamage * (1.0 - ratio)),
-                attack.withDefaultDamage(baseDamage * ratio), vanillaProtectionDefense(victim, projectileHit));
+                attack.withDefaultDamage(baseDamage * ratio), vanillaProtectionDefense(victim, projectileHit),
+                telegraphed);
     }
 
     /**
@@ -326,6 +358,18 @@ public final class SymmetricCombatService {
      */
     private CombatHitResult componentResult(DamageType type, PersistentDataHolder victim, AttackStats attack,
                                             double minComponentDamage, DefenseStats extraDefense) {
+        return componentResult(type, victim, attack, minComponentDamage, extraDefense, false);
+    }
+
+    /**
+     * @param telegraphed 2026-09-02 機構6: {@code true} のとき回避ロールは {@link DodgeResolver#NEVER}
+     *                    へ差し替わる(予告付きの技は当たるか外れるかを位置取りだけで決める。防御力/
+     *                    軽減による減算は従来どおり効く)。{@code false} は既存の config-capped ランダム
+     *                    回避のまま(通常攻撃・予告なしの技は挙動不変)。
+     */
+    private CombatHitResult componentResult(DamageType type, PersistentDataHolder victim, AttackStats attack,
+                                            double minComponentDamage, DefenseStats extraDefense,
+                                            boolean telegraphed) {
         Objects.requireNonNull(victim, "victim");
         Objects.requireNonNull(attack, "attack");
         DefenderProfile defender = resolveDefender(type, victim);
@@ -334,10 +378,11 @@ public final class SymmetricCombatService {
         // is applied here exactly once, then the B3 balance cap bounds 耐性%/被ダメージ軽減% below full immunity.
         DefenseStats stats = clampedDefense(defender.stats().combine(extraDefense));
         // B3の回避版: 回避率も defense.max-dodge-chance でcapする(無上限だと加算スタッキングで
-        // 回避率1.0=永久無敵が構成可能になるため)。
+        // 回避率1.0=永久無敵が構成可能になるため)。予告付きの技は telegraphed=true で NEVER に差し替える。
         DodgeResolver cappedDodge = DodgeResolver.capped(DodgeResolver.RANDOM, damageConfig.maxDodgeChance());
+        DodgeResolver dodge = telegraphed ? DodgeResolver.NEVER : cappedDodge;
         SymmetricDamagePipeline pipeline =
-                new SymmetricDamagePipeline(CritResolver.RANDOM, cappedDodge, minComponentDamage);
+                new SymmetricDamagePipeline(CritResolver.RANDOM, dodge, minComponentDamage);
         return pipeline.computeResult(
                 List.of(new ComponentInput(type, attack, stats)), defender.dodgeChance());
     }
@@ -364,13 +409,24 @@ public final class SymmetricCombatService {
      */
     private CombatHitResult hybridComponentResult(PersistentDataHolder victim, AttackStats physicalAttack,
                                                   AttackStats magicalAttack, DefenseStats extraPhysicalDefense) {
+        return hybridComponentResult(victim, physicalAttack, magicalAttack, extraPhysicalDefense, false);
+    }
+
+    /**
+     * @param telegraphed 2026-09-02 機構6: {@code true} のとき回避ロールは {@link DodgeResolver#NEVER}
+     *                    へ差し替わる(componentResultのtelegraphed引数と同じ契約)。
+     */
+    private CombatHitResult hybridComponentResult(PersistentDataHolder victim, AttackStats physicalAttack,
+                                                  AttackStats magicalAttack, DefenseStats extraPhysicalDefense,
+                                                  boolean telegraphed) {
         DefenderProfile physicalDefender = resolveDefender(DamageType.PHYSICAL, victim);
         DefenderProfile magicalDefender = resolveDefender(DamageType.MAGICAL, victim);
         DefenseStats physicalStats = clampedDefense(physicalDefender.stats().combine(extraPhysicalDefense));
         DefenseStats magicalStats = clampedDefense(magicalDefender.stats());
         DodgeResolver cappedDodge = DodgeResolver.capped(DodgeResolver.RANDOM, damageConfig.maxDodgeChance());
+        DodgeResolver dodge = telegraphed ? DodgeResolver.NEVER : cappedDodge;
         SymmetricDamagePipeline pipeline =
-                new SymmetricDamagePipeline(CritResolver.RANDOM, cappedDodge, damageConfig.minComponentDamage());
+                new SymmetricDamagePipeline(CritResolver.RANDOM, dodge, damageConfig.minComponentDamage());
         List<ComponentInput> components = List.of(
                 new ComponentInput(DamageType.PHYSICAL, physicalAttack, physicalStats,
                         damageConfig.minComponentDamage()),

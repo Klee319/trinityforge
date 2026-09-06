@@ -51,7 +51,7 @@ public final class WoodcuttingGimmickConfig {
      * かといって葉1枚ごとに引くと1回の伐採で最大1024回引くことになり、手で割るのと桁が変わる。
      * そこで「壊した葉の枚数と、この上限の小さいほう」だけ引く。
      */
-    public static final int DEFAULT_CHAIN_DROP_ROLLS_MAX = 8;
+    public static final int DEFAULT_CHAIN_DROP_ROLLS_MAX = 32;
     /**
      * 「木全体」を把握する走査の上限本数の既定値(2026-07-31 G1 レビュー指摘6b)。
      * {@link com.trinityforge.woodcutting.TreeScan#TREE_SCAN_LIMIT} と同じ値。
@@ -181,7 +181,7 @@ public final class WoodcuttingGimmickConfig {
     }
 
     /**
-     * {@code tree-fell.chain-drop-rolls-max}(既定 8): 一括伐採1回あたりに引く
+     * {@code tree-fell.chain-drop-rolls-max}(既定 32): 一括伐採1回あたりに引く
      * {@code drop-tables} の上限回数(2026-08-24)。
      *
      * <p>実際に引く回数は「連鎖で壊した葉の枚数」とこの値の小さいほう。

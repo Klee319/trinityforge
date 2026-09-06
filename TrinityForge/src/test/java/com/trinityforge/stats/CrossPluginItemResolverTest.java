@@ -60,6 +60,21 @@ class CrossPluginItemResolverTest {
     }
 
     @Test
+    void createStackableUsesIdentityOnlyCatalogPath() {
+        ItemTemplate template = new ItemTemplate("key_x", Material.TRIAL_KEY,
+                "<gold>Key</gold>", 5501, com.trinityforge.pdc.BindType.TRADEABLE, 0, null);
+        ItemCatalogConfig catalog = mock(ItemCatalogConfig.class);
+        when(catalog.template("key_x")).thenReturn(Optional.of(template));
+        ItemFactory factory = mock(ItemFactory.class);
+        ItemStack built = new ItemStack(Material.TRIAL_KEY);
+        when(factory.createStackable(template)).thenReturn(built);
+
+        CrossPluginItemResolver resolver = new CrossPluginItemResolver(catalog, factory);
+
+        assertEquals(Optional.of(built), resolver.createStackable("key_x"));
+    }
+
+    @Test
     void createFallsBackToVanillaMaterialWhenNeitherCatalogNorArsResolve() {
         // ArsPaper plugin is absent in the MockBukkit environment, so ArsItemGiveBridge.create()
         // (and thus CrossPluginItemResolver's Ars branch) naturally no-ops here.

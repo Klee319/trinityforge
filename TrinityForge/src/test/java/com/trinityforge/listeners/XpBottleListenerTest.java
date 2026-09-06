@@ -187,6 +187,25 @@ class XpBottleListenerTest {
     }
 
     @Test
+    @DisplayName("ポーションを飲んだ同じtickの空瓶クリックでは格納しない")
+    void drinkingAPotionDoesNotStoreExpIntoTheEmptyBottleTheSameTick() {
+        when(gimmickConfig.xpBottleStoreAmount(1)).thenReturn(100);
+        player.giveExp(500);
+        org.bukkit.event.player.PlayerItemConsumeEvent consume =
+                mock(org.bukkit.event.player.PlayerItemConsumeEvent.class);
+        when(consume.getPlayer()).thenReturn(player);
+        when(consume.getItem()).thenReturn(new ItemStack(Material.POTION));
+
+        listener.onConsume(consume);
+        PlayerInteractEvent event = interactEvent(new ItemStack(Material.GLASS_BOTTLE), null);
+        listener.onInteract(event);
+
+        assertEquals(500, totalPlayerExp(), "飲用直後の空瓶に経験値が吸われてはいけない");
+        assertEquals(Material.GLASS_BOTTLE, player.getInventory().getItemInMainHand().getType());
+        verify(event, never()).setCancelled(anyBoolean());
+    }
+
+    @Test
     @DisplayName("汲める対象は水源・水入り大釜・水没ブロック")
     void isWaterFillTargetCoversCauldronAndWaterloggedBlocks() {
         assertFalse(XpBottleListener.isWaterFillTarget(null));

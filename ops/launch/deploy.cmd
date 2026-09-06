@@ -177,7 +177,7 @@ REM  The deployable is the shadowJar uberjar in testbed\plugins, NOT build\libs\
 REM  jar has MagmaCore stripped out and dies at load with
 REM  NoClassDefFoundError: com/magmaguy/magmacore/location/DungeonLocator.
 set "EM_ART=%EM_DIR%\testbed\plugins\EliteMobs.jar"
-set "EM_WATCH=%EM_DIR%\src\main;%EM_DIR%\build.gradle;%EM_DIR%\libs\TrinityForge.jar"
+set "EM_WATCH=%EM_DIR%\src\main;%EM_DIR%\build.gradle;%EM_DIR%\settings.gradle;%EM_DIR%\libs\TrinityForge.jar"
 
 echo.
 echo ============================================================
@@ -346,6 +346,7 @@ set /a BUILT+=1
 goto b_done
 :b_em_skip
 echo   [SKIP ] EliteMobs      %STALE_WHY%
+echo           step 3 still copies it if a backend jar differs from the artifact
 set /a SKIPPED+=1
 goto b_done
 :b_em_absent
@@ -596,6 +597,10 @@ REM
 REM    A backend with no such jar is SKIPPED, never given a new one. EliteMobs is deliberately
 REM    absent from Resource_Server (ops\PLUGIN_MATRIX.md); installing it there would be a silent
 REM    change of what that server runs.
+REM
+REM    Copy is skipped when the installed file already has the same SHA256 as the artifact, so a
+REM    source-side SKIP (nothing newer than the jar) still ships a hand-built uberjar that the
+REM    backends do not have yet, and does not rewrite a jar that is already current.
 REM ---------------------------------------------------------------------------------------------
 :deploy_jar
 if "%~2"=="" (
@@ -634,6 +639,14 @@ if %HITS% GTR 1 (
     set "FAILED=1"
     goto :eof
 )
+set "DJ_DST=%PLUGDIR%\%TARGET%"
+set "DJ_CMP="
+for /f "usebackq delims=" %%A in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "$d='%DJ_DST%'; if(-not (Test-Path -LiteralPath $d)){'DIFF'; exit}; if((Get-FileHash -LiteralPath '%~2' -Algorithm SHA256).Hash -eq (Get-FileHash -LiteralPath $d -Algorithm SHA256).Hash){'SAME'}else{'DIFF'}"`) do set "DJ_CMP=%%A"
+if /i "%DJ_CMP%"=="SAME" (
+    echo     [SKIP ] %~4: %TARGET% already matches the artifact
+    goto :eof
+)
+if not defined DJ_CMP echo     [NOTE ] %~4: could not hash %TARGET%, copying anyway
 if defined DRYRUN (
     echo     [DRY  ] %~4: would overwrite %TARGET%
     goto :eof

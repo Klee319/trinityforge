@@ -160,6 +160,30 @@ class NativeSkillTreeMenuPrestigeConfirmTest {
     }
 
     @Test
+    @DisplayName("確認モーダルのはいは表示用valueが欠けてもセッションの対象で実行する")
+    void confirmButtonUsesTheModalSessionWhenItsValueMetadataIsMissing() {
+        menu.open(player);
+        clickSlot(prestigeSlot());
+        server.getScheduler().performOneTick();
+
+        int yes = slotWithAction("prestige-confirm");
+        assertTrue(yes >= 0, "確認画面に「はい」のボタンが無い");
+        Inventory top = player.getOpenInventory().getTopInventory();
+        ItemStack button = top.getItem(yes);
+        assertNotNull(button, "「はい」のボタンが無い");
+        var meta = button.getItemMeta();
+        meta.getPersistentDataContainer().remove(valueKey);
+        button.setItemMeta(meta);
+        top.setItem(yes, button);
+
+        clickSlot(yes);
+        server.getScheduler().performOneTick();
+
+        assertTrue(hasPrestiged(),
+                "確認モーダル自身が対象を保持しているのに、ボタンの冗長なvalue欠落だけで無言停止している");
+    }
+
+    @Test
     @DisplayName("確認画面の「いいえ」は何もせずツリーへ戻る")
     void cancelButtonDoesNothing() {
         menu.open(player);

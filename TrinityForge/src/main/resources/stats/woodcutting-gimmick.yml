@@ -13,13 +13,13 @@ tree-fell:
   leaves-per-log: 6
   leaves-per-tick: 48
   leaves-decay-only: true
-  # 一括伐採1回あたりに引く drop-tables の上限回数(2026-08-24)。
+  # 一括伐採1回あたりに引く drop-tables の上限回数(2026-08-24、既定は 32)。
   # 連鎖で壊した葉は BlockBreakEvent を発火しないため、これが無いと一括伐採では
   # リンゴ等の追加ドロップが1回も抽選されない(手で葉を割ったときしか出ない)。
   # 実際に引く回数は「壊した葉の枚数」とこの値の小さいほう。
   # 葉1枚ごとに引くと1回で最大1024回になり手動と桁が変わるので上限を置いてある。
   # 0以下にするとこの経路の抽選を行わない(2026-08-24 以前の挙動)。
-  chain-drop-rolls-max: 8
+  chain-drop-rolls-max: 32
   scan-limit: 512
   max-horizontal-distance: 8
   max-vertical-distance: 32
@@ -28,12 +28,9 @@ tree-fell:
       max-extra-logs: 16
       leaves-max: 128
     "2":
-      max-extra-logs: 32
-      leaves-max: 256
-    "3":
       max-extra-logs: 64
       leaves-max: 512
-    "4":
+    "3":
       max-extra-logs: 128
       leaves-max: 1024
 drop-tables:
@@ -55,15 +52,22 @@ drop-tables:
           amount: 1
     golden_apple:
       display-name: 金リンゴ
-      trigger-chance-percent: 1
+      trigger-chance-percent: 0.5
       entries:
         - item: GOLDEN_APPLE
           weight: 1
           amount: 1
     crystal_apple:
       display-name: クリスタルリンゴ
-      trigger-chance-percent: 0.1
+      trigger-chance-percent: 0.05
       entries:
         - item: custom:tf_crystal_apple
           weight: 1
           amount: 1
+    enchant:
+      display-name: エンチャント金リンゴ
+      entries:
+        - item: ENCHANTED_GOLDEN_APPLE
+          weight: 10
+          amount: 1
+      trigger-chance-percent: 0.01

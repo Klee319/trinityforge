@@ -752,7 +752,10 @@
       return hashIdx >= 0 ? key.slice(0, hashIdx) : key;
     }
     function idsInCategory(cat) {
+      const specialIds = tfSpecialItemIdsForStats();
       return Object.keys(working.items).filter((k) => {
+        const catalogMatch = findCatalogForStatsKey(k);
+        if (catalogMatch && specialIds.includes(catalogMatch.id)) return false;
         const mat = keyMaterial(k);
         if (typeof window.getItemDisplayTab === "function") {
           return window.getItemDisplayTab(working, k, mat) === cat;
@@ -3146,7 +3149,15 @@
       refreshReversible();
     }
 
-    if (recipe.method === "workbench" || recipe.method === "ritual" || recipe.method === "inventory") {
+    if (recipe.method === "ritual") {
+      // Ars UnifiedRecipeLoader は儀式の個数を result-amount から読む。amount は作業台用。
+      // 共通UIが amount だけを出すと、yml に result-amount: 4 があっても欄が空(=1)に見える。
+      const ritualAmount = recipe["result-amount"] != null ? recipe["result-amount"] : recipe.amount;
+      box.appendChild(fieldRow("result-amount", window.numberInput(ritualAmount, (v) => {
+        setOrDelete(recipe, "result-amount", v);
+        delete recipe.amount;
+      }, { int: true })));
+    } else if (recipe.method === "workbench" || recipe.method === "inventory") {
       box.appendChild(fieldRow("amount", window.numberInput(recipe.amount, (v) => { setOrDelete(recipe, "amount", v); }, { int: true })));
     }
 
@@ -3205,7 +3216,11 @@
     const listBox = h("div", { class: "card-list" });
 
     function idsInCategory(cat) {
+      const specialIds = tfSpecialItemIdsForStats();
       return Object.keys(working.items).filter((id) => {
+        // LEAD 等は Material 推論が other(補助)になる。ハードコード特殊アイテムは
+        // 「特殊アイテム」画面へ集約済みなので、カタログの補助タブには出さない。
+        if (specialIds.includes(id)) return false;
         const mat = working.items[id] && working.items[id].material;
         if (typeof window.getItemDisplayTab === "function") {
           return window.getItemDisplayTab(working, id, mat) === cat;

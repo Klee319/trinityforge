@@ -1,9 +1,12 @@
 package com.trinityforge.items;
 
 import com.trinityforge.pdc.ItemData;
+import com.trinityforge.stats.CraftQualityService;
+import com.trinityforge.stats.CraftRollMods;
 import com.trinityforge.stats.ItemFactory;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -11,10 +14,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
 
 /**
  * ランダムステータス再抽選券({@code stat_reroll_ticket})の効果本体。装備の rollSeed だけを
- * 引き直し、品質は完全に維持する。
+ * 引き直し、品質は完全に維持する。実行者のロール運・ロール効率
+ * ({@link CraftQualityService#craftRollMods}) は作業台/儀式と同じく再抽選時に焼き直す。
  *
  * <p><b>{@link com.trinityforge.listeners.GrindstonePreserveListener} との整合について。</b>
  * 同クラスの javadoc は「rollSeed は絶対に引き直さない(砥石でロールをガチャする exploit になる)」と
@@ -30,9 +35,20 @@ public final class StatRerollTicketEffect implements EquipmentTicketEffect {
     public static final String CATALOG_ID = "stat_reroll_ticket";
 
     private final ItemFactory itemFactory;
+    private final Supplier<CraftQualityService> craftQuality;
 
     public StatRerollTicketEffect(ItemFactory itemFactory) {
+        this(itemFactory, () -> null);
+    }
+
+    /**
+     * {@code craftQuality} は {@link com.trinityforge.TrinityForge} の初期化順が券の配線より後なので
+     * Supplier で遅延参照する。適用時点では必ずセット済み。テストは {@code () -> null} で
+     * {@link CraftRollMods#NONE} に落とす。
+     */
+    public StatRerollTicketEffect(ItemFactory itemFactory, Supplier<CraftQualityService> craftQuality) {
         this.itemFactory = Objects.requireNonNull(itemFactory, "itemFactory");
+        this.craftQuality = craftQuality == null ? () -> null : craftQuality;
     }
 
     @Override
@@ -50,7 +66,11 @@ public final class StatRerollTicketEffect implements EquipmentTicketEffect {
         if (stack == null || stack.getType().isAir() || !stack.hasItemMeta()) {
             return false;
         }
-        return ItemData.of(stack.getItemMeta()).hasRollSeed();
+        if (EquipmentTicketEffect.isConsumableTicketItem(stack)) {
+            return false;
+        }
+        ItemData data = ItemData.of(stack.getItemMeta());
+        return data.hasRollSeed() && itemFactory.hasRerollableRandom(stack);
     }
 
     @Override
@@ -58,11 +78,20 @@ public final class StatRerollTicketEffect implements EquipmentTicketEffect {
         int quality = ItemData.of(stack.getItemMeta()).quality();
         return List.of(
                 Component.text("品質: " + quality + " (維持されます)", NamedTextColor.GRAY),
-                Component.text("厳選ロール(ランダム幅)だけを引き直します", NamedTextColor.AQUA));
+                Component.text("厳選ロール(ランダム幅)だけを引き直します", NamedTextColor.AQUA),
+                Component.text("ロール運・ロール効率は実行者の今の値（作業台と同じ）", NamedTextColor.DARK_AQUA));
     }
 
     @Override
     public Optional<ItemStack> apply(ItemStack stack) {
+        return apply(stack, null);
+    }
+
+    @Override
+    public Optional<ItemStack> apply(ItemStack stack, Player player) {
+        if (!eligible(stack)) {
+            return Optional.empty();
+        }
         ItemMeta meta = stack.getItemMeta();
         if (meta == null) {
             return Optional.empty();
@@ -73,8 +102,16 @@ public final class StatRerollTicketEffect implements EquipmentTicketEffect {
         }
         int quality = data.quality();
         long newSeed = ThreadLocalRandom.current().nextLong();
-        itemFactory.stamp(stack, newSeed, quality);
+        itemFactory.stamp(stack, newSeed, quality, rollModsOf(player));
         return Optional.of(stack);
+    }
+
+    private CraftRollMods rollModsOf(Player player) {
+        if (player == null) {
+            return CraftRollMods.NONE;
+        }
+        CraftQualityService service = craftQuality.get();
+        return service == null ? CraftRollMods.NONE : service.craftRollMods(player);
     }
 
     @Override

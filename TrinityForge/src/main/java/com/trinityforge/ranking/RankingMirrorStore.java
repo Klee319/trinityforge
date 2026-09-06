@@ -110,6 +110,23 @@ public final class RankingMirrorStore implements AutoCloseable {
      */
     private static final String POWER_SKILL_ID = "POWER";
 
+    /**
+     * スキルの<b>実効レベル</b>を求める SQL 式（{@code player_skill_state} の別名 {@code s} 前提）。
+     *
+     * <p><b>なぜ {@code level} をそのまま使えないのか。</b> プレステージすると
+     * {@code NativePerkService#prestigeUnderLock} が {@code level} を 0 へ戻して {@code prestige} を
+     * 1 段上げる。つまり生の {@code level} で並べると<b>最も育っているプレイヤーが順位表の最下位へ
+     * 落ちる</b>し、{@code level > 0} で絞っていたため<b>プレステージ直後は行ごと消えていた</b>。
+     *
+     * <p>プレステージは {@code prestige.at-level}（出荷値ではどのスキルも上限レベルと同じ 100）へ
+     * 到達しないと踏めないので、1 段 = 上限レベル 1 周ぶんの到達量として数えてよい。
+     * よって「上限レベル × プレステージ段 + 現在レベル」が、プレステージを跨いで単調に増える
+     * 唯一の量になる。順位表に出る数値もこの実効レベル（例: 上限 100 で 2 段目の Lv5 なら 205）。
+     *
+     * <p>外側の丸括弧を含めているのは {@code "SUM" + EFFECTIVE_LEVEL_EXPR} で合計へ包めるようにするため。
+     */
+    private static final String EFFECTIVE_LEVEL_EXPR = "(s.prestige * s.max_allowed_level + s.level)";
+
     private final Connection conn;
     private final PreparedStatement stmtUpsert;
     private final PreparedStatement stmtSelect;
@@ -211,8 +228,16 @@ public final class RankingMirrorStore implements AutoCloseable {
     }
 
     /**
-     * 指定スキルのレベル上位 {@code limit} 件。スキル ID は保存時と同じく大文字へ正規化して照合する
-     * （{@code NativeProgressionService#normalizeSkillId} と同じ規則）。Lv0 の行は返さない。
+     * 指定スキルの<b>実効レベル</b>上位 {@code limit} 件。スキル ID は保存時と同じく大文字へ
+     * 正規化して照合する（{@code NativeProgressionService#normalizeSkillId} と同じ規則）。
+     * 実効レベル 0（＝未プレステージの Lv0）の行は返さない。
+     *
+     * <p>返す値は生のレベルではなく {@link #EFFECTIVE_LEVEL_EXPR}（上限レベル × プレステージ段 +
+     * 現在レベル）である。プレステージでレベルが 0 へ戻る仕様なので、生のレベルで並べると
+     * 最も育っているプレイヤーが順位表から落ちる。
+     *
+     * <p>同値のときは<b>プレステージ段の多いほうを上</b>にする。プレステージは累計 EXP も 0 へ
+     * 戻すため、総 EXP だけで割ると「Lv100・未プレステージ」が「2 段目・Lv0」を常に押しのける。
      *
      * <p>表示名は {@code player_ranking_stats} を LEFT JOIN して引く。まだミラーへ書かれていない
      * プレイヤーは名前が空文字になる（{@link RankingEntry} 参照）。
@@ -222,11 +247,12 @@ public final class RankingMirrorStore implements AutoCloseable {
         if (skillId == null || skillId.isBlank() || capped == 0 || !skillStateTableExists()) {
             return List.of();
         }
-        String sql = "SELECT s.player_id, COALESCE(r.player_name, ''), s.level"
+        String sql = "SELECT s.player_id, COALESCE(r.player_name, ''), "
+                + EFFECTIVE_LEVEL_EXPR + " AS effective_level"
                 + "  FROM player_skill_state s"
                 + "  LEFT JOIN player_ranking_stats r ON r.player_uuid = s.player_id"
-                + " WHERE s.skill_id = ? AND s.level > 0"
-                + " ORDER BY s.level DESC, s.total_exp DESC LIMIT ?";
+                + " WHERE s.skill_id = ? AND " + EFFECTIVE_LEVEL_EXPR + " > 0"
+                + " ORDER BY effective_level DESC, s.prestige DESC, s.total_exp DESC LIMIT ?";
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, skillId.trim().toUpperCase(Locale.ROOT));
             stmt.setInt(2, capped);
@@ -235,17 +261,22 @@ public final class RankingMirrorStore implements AutoCloseable {
     }
 
     /**
-     * 全スキルのレベル合計の上位 {@code limit} 件。合計 0 の行は返さない。
+     * 全スキルの<b>実効レベル</b>合計の上位 {@code limit} 件。合計 0 の行は返さない。
      *
      * <p><b>POWER は合計に含めない。</b> POWER は各スキルのレベルアップから自動的に伸びる
      * メタスキルなので、含めると同じ成長を二重計上することになる。
+     *
+     * <p>個別ランキングと同じく {@link #EFFECTIVE_LEVEL_EXPR} を足す。生のレベルを足すと
+     * 「1 つでもプレステージした瞬間に合計が下がる」ことになり、順位表が育成を罰する。
      */
     public synchronized List<RankingEntry> topTotalSkillLevel(int limit) throws SQLException {
         int capped = cappedLimit(limit);
         if (capped == 0 || !skillStateTableExists()) {
             return List.of();
         }
-        String sql = "SELECT s.player_id, COALESCE(MAX(r.player_name), ''), SUM(s.level) AS total"
+        // SUM(...) で包むため、外側の丸括弧を含んだ定数をそのまま連結する。
+        String sql = "SELECT s.player_id, COALESCE(MAX(r.player_name), ''), SUM"
+                + EFFECTIVE_LEVEL_EXPR + " AS total"
                 + "  FROM player_skill_state s"
                 + "  LEFT JOIN player_ranking_stats r ON r.player_uuid = s.player_id"
                 + " WHERE s.skill_id <> ?"

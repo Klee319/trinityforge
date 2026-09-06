@@ -64,19 +64,26 @@ import java.util.function.IntSupplier;
  * <b>パッセンジャーが付いたエンティティはプラグインからのテレポートを妨げる</b>という
  * 旧実装のもう1つの欠陥(ダンジョン入口の転送が失敗しうる)も同時に消えている。
  *
- * <h2>2026-08-25: 残っていた遅れを「1tick先読み」で詰めた(W-248)</h2>
+ * <h2>2026-08-25: 残っていた遅れを「1tick先読み」で詰めた(W-248) → 2026-08-29 に外した</h2>
  * 実サーバ報告「称号の位置同期がまだネームタグより遅い」。W-212 で補間長を本体と揃えても
  * 遅れが残るのは、<b>揃えたのが補間の“長さ”だけで、目標地点そのものが過去だから</b> ──
  * 毎tick読む {@code player.getLocation()} はクライアントが送ってきた位置で、
- * ネームタグ(＝本体そのもの)より必ず後ろに居る。
+ * ネームタグ(＝本体そのもの)より必ず後ろに居る、というのが当時の診断だった。
  *
- * <p>そこで {@link MotionLead} で<b>直前1tickの移動量ぶん進めた位置</b>へテレポートする。
- * 等速移動中はズレが消え、加速・減速の瞬間だけ最大「1tickの移動量」(走行時 0.3 ブロック弱)
- * 行き過ぎる。テレポートのような巨大な差分は先読みを丸ごと捨てる(上限
- * {@link MotionLead#MAX_LEAD_BLOCKS})ので、称号が遠くへ飛ぶことはない。
+ * <p>そこで {@link MotionLead} で<b>直前1tickの移動量ぶん進めた位置</b>へテレポートしていた。
+ * これは<b>自分の本体を F5 で見たとき</b>の遅れを詰めるためのもの。
  *
- * <p>⚠ <b>自分の称号を F5 で見たときの遅れはこれでも完全には消えない</b>(往復ぶんの遅れは
- * 先読み1tickより大きいことがある)。他人から見えている位置のズレを消すのが目的。
+ * <p>⚠ <b>2026-08-29(W-263)で本人には称号を出さなくなった</b>ので、先読みの前提が消えた。
+ * 見るのは他人だけ。他人のクライアントは本体も称号もサーバ位置を補間するので、
+ * 先読みすると称号だけがネームタグより前へ出て<b>中心がずれる</b>。ジャンプの縦速度は
+ * 等速ではないので、縦の先読みはネームタグとの隙間を伸ばす。先読みは称号から外す。
+ * パーティクルは本人視点にだけ出すので {@link MotionLead} を残す。
+ *
+ * <p>スニーク／ジャンプで隙間が変わる残件: ネームタグのオフセットは姿勢パケットで即変わる。
+ * 称号だけ {@code teleport_duration=3} で補間すると、しゃがみ始めの数tickだけ称号が
+ * 高い位置に残る。足元からのオフセット({@link #titleAnchorY})が変わったtickは
+ * 補間を切る({@link #followTeleportDuration})。ジャンプはオフセットが変わらないので
+ * 補間したまま本体に追従する。
  *
  * <h2>2026-08-21: クライアント騎乗(W-153)は撤去した —— <b>名前が消える代償が大きすぎた</b></h2>
  * 実サーバ報告「ネームタグが表示されていない(他人の名前も見えない)」。切り分けで
@@ -170,6 +177,11 @@ public final class TitleDisplayService implements Listener {
      * 等号(＝ぴったり重なる)を許していたため、この重なりを一度も検出できなかった。
      */
     private static final double NAMETAG_LINE_HEIGHT = 0.25;
+    /**
+     * 足元からのオフセットがこれより動いたら姿勢変化とみなし、そのtickの補間を切る。
+     * スニークは 0.3 動く。ジャンプはオフセットが変わらないので引っかからない。
+     */
+    static final double POSE_OFFSET_SNAP = 0.02;
     /** {@link #nametagClearance} が壊れた値(NaN/負)を返したときのフォールバック。 */
     private static final double FALLBACK_CLEARANCE = 0.4;
 
@@ -184,12 +196,8 @@ public final class TitleDisplayService implements Listener {
     /** 追従補間の長さ(tick)。config駆動、reloadで次tickから反映。 */
     private final IntSupplier teleportDurationTicks;
     private final Map<UUID, TextDisplay> active = new ConcurrentHashMap<>();
-    /**
-     * 追従の遅れを詰めるための先読み(2026-08-25 / W-248)。<b>毎tick 1回だけ sample する</b>こと ──
-     * 差分は「前回 sample からの移動量」なので、抜け道を通って sample を飛ばすと
-     * 次のtickで2tickぶん先読みして称号が行き過ぎる。
-     */
-    private final MotionLead motion = new MotionLead();
+    /** 直前tickの足元からのオフセット。姿勢変化で補間を切るために覚える。 */
+    private final Map<UUID, Double> lastOffsetY = new ConcurrentHashMap<>();
     /**
      * 迷子掃除の間隔(tick)。5秒 —— 二重表示に気付く前に消える速さと、
      * 近傍検索を毎tick回さない安さの折衷。
@@ -275,6 +283,22 @@ public final class TitleDisplayService implements Listener {
         return Math.max(height, eyes) + VANILLA_NAMETAG_OFFSET + NAMETAG_LINE_HEIGHT + gap;
     }
 
+    /**
+     * 追従テレポートの補間長。足元からのオフセット({@link #titleAnchorY})が変わったtickは
+     * 0 ── ネームタグのオフセットは姿勢で即変わるので、称号だけ滑らせると隙間が伸びる。
+     * オフセットが同じ(走行・ジャンプ)ときは {@code moveDurationTicks} のまま本体に合わせる。
+     */
+    static int followTeleportDuration(double previousOffsetY, double offsetY, int moveDurationTicks) {
+        int duration = Math.max(0, moveDurationTicks);
+        if (!Double.isFinite(previousOffsetY) || !Double.isFinite(offsetY)) {
+            return duration;
+        }
+        if (Math.abs(offsetY - previousOffsetY) > POSE_OFFSET_SNAP) {
+            return 0;
+        }
+        return duration;
+    }
+
     public void start() {
         sweepOrphans();
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -302,6 +326,7 @@ public final class TitleDisplayService implements Listener {
             safeRemove(display);
         }
         active.clear();
+        lastOffsetY.clear();
     }
 
     /** 装備状態(称号テキスト)に合わせて表示を張り直す。称号未装備/死亡中/オフラインなら消すのみ。 */
@@ -340,8 +365,15 @@ public final class TitleDisplayService implements Listener {
                 despawn(playerId);
                 continue;
             }
-            // ⚠ どの分岐へ抜けるより先に位置を決める(sample を飛ばすと次tickの先読みが2倍になる)。
+            // ⚠ どの分岐へ抜けるより先に位置を決める。
             Location target = nextAnchorFor(player);
+            double offsetY = titleAnchorY(player.getHeight(), player.getEyeHeight(),
+                    nametagClearance.getAsDouble());
+            Double previousOffset = lastOffsetY.put(playerId, offsetY);
+            int duration = followTeleportDuration(
+                    previousOffset != null ? previousOffset : offsetY,
+                    offsetY,
+                    resolvedTeleportDuration());
             if (display == null || !display.isValid()) {
                 // ⚠️ 追跡から外すだけでは【実体が残る】(2026-08-21 実サーバ報告「称号が二個付いている」)。
                 // isValid() が false になるのは「死んだ」ときだけではない ── CraftEntity#isValid() は
@@ -356,28 +388,27 @@ public final class TitleDisplayService implements Listener {
                 refresh(player);
                 continue;
             }
-            // 補間長は config 駆動(既定3 = クライアントがプレイヤー本体を補間するのと同じ長さ)。
-            // 毎tick読み直しているので /trinityforge reload が次tickから効く(W-212)。
-            display.setTeleportDuration(resolvedTeleportDuration());
+            // 走行中は config の補間長(既定3)。姿勢が変わったtickだけ 0(W-299)。
+            display.setTeleportDuration(duration);
             display.teleport(target);
+            // 毎tickの teleport が本人への spawn パケットを再送しうるので、hide を掛け直す。
+            hideFromOwner(plugin, player, display);
         }
     }
 
     /**
-     * 次のtickで称号を置く位置。<b>{@link #tick()} が使う唯一の位置決め</b>で、
-     * 「頭上の高さ」({@link #anchorFor})に<b>1tickぶんの先読み</b>({@link MotionLead})を足したもの。
+     * 次のtickで称号を置く位置。<b>{@link #tick()} が使う唯一の位置決め</b>。
      *
-     * <p>先読みを足す理由: ネームタグはプレイヤー本体そのものなので、サーバが知っている位置に
-     * 置いた称号は<b>構造的に本体より後ろへズレる</b>(2026-08-25 / W-248)。
+     * <p>ネームタグは本体と同じエンティティなので、他人のクライアントでは本体の補間位置に出る。
+     * 称号は本人に出さない(W-263)。サーバ位置へ {@code teleport_duration} で追従すれば、
+     * 他人から見たネームタグと同じ補間の法則になる。1tick先読みは本人視点用だったので外す。
      *
      * <p>package-private なのは<b>試験のため</b>。{@code TextDisplay} の生成は MockBukkit が
      * 未実装で、{@link #tick()} をそのまま呼ぶテストは書けない(踏むと FAILED ではなく
-     * <b>SKIPPED に化ける</b>)。位置決めだけを切り出しておけば、追従の遅れの回帰は実サーバ無しで
-     * 固定できる ―― <b>1tickに1回しか呼んではいけない</b>点だけ注意(移動量の差分を消費する)。
+     * <b>SKIPPED に化ける</b>)。
      */
     Location nextAnchorFor(Player player) {
-        double[] lead = motion.sample(player, MotionLead.DEFAULT_LEAD_TICKS);
-        return anchorFor(player).add(lead[0], lead[1], lead[2]);
+        return anchorFor(player);
     }
 
     private Location anchorFor(Player player) {
@@ -399,14 +430,47 @@ public final class TitleDisplayService implements Listener {
             d.setTextOpacity((byte) 200);
             d.setTeleportDuration(resolvedTeleportDuration());
             d.text(text);
+            // 既定可視だと本人の一人称にも出る。他人へは下で明示的に show する。
+            d.setVisibleByDefault(false);
         });
+        // 統合版では TextDisplay が当たる実体に翻訳され、自分の称号にぶつかる（2026-08-29）。
+        // Java でも一人称の頭上テキストは邪魔。サーバは F5 を知らないので、本人には出さない。
+        hideFromOwner(plugin, player, display);
+        showToEveryoneExceptOwner(plugin, player, display);
         active.put(player.getUniqueId(), display);
+        lastOffsetY.put(player.getUniqueId(),
+                titleAnchorY(player.getHeight(), player.getEyeHeight(), nametagClearance.getAsDouble()));
+    }
+
+    /**
+     * 本人のクライアントへ称号エンティティを送らない。統合版の当たり判定と、
+     * Java を含む一人称で自分の称号が見えるノイズを同時に消す。
+     * {@code Entity#teleport} のあとにも掛け直すこと（再送で hide が外れる）。
+     */
+    static void hideFromOwner(Plugin plugin, Player owner, Entity display) {
+        if (plugin == null || owner == null || display == null) {
+            return;
+        }
+        owner.hideEntity(plugin, display);
+    }
+
+    /**
+     * {@code setVisibleByDefault(false)} にした表示体を、本人以外へ見せる。
+     */
+    static void showToEveryoneExceptOwner(Plugin plugin, Player owner, Entity display) {
+        if (plugin == null || owner == null || display == null) {
+            return;
+        }
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            if (!viewer.getUniqueId().equals(owner.getUniqueId())) {
+                viewer.showEntity(plugin, display);
+            }
+        }
     }
 
     private void despawn(UUID playerId) {
         safeRemove(active.remove(playerId));
-        // 消してから張り直すまでの間に動いていることがある。その差分は「1tickの移動」ではない。
-        motion.forget(playerId);
+        lastOffsetY.remove(playerId);
     }
 
     /**
@@ -526,6 +590,16 @@ public final class TitleDisplayService implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onJoin(PlayerJoinEvent event) {
-        refresh(event.getPlayer());
+        Player joiner = event.getPlayer();
+        refresh(joiner);
+        for (Map.Entry<UUID, TextDisplay> entry : active.entrySet()) {
+            if (entry.getKey().equals(joiner.getUniqueId())) {
+                continue;
+            }
+            TextDisplay other = entry.getValue();
+            if (other != null) {
+                joiner.showEntity(plugin, other);
+            }
+        }
     }
 }

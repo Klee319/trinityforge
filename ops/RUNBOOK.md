@@ -1124,6 +1124,9 @@ D:\game\minecraft\PaperServer\Velocity_for_TF\launch\deploy.cmd --dry-run
   `build/libs/EliteMobs-*-min.jar` は MagmaCore が剥がされていて
   `NoClassDefFoundError: com/magmaguy/magmacore/location/DungeonLocator` で起動不能。
   `deploy.cmd` は `shadowJar` を叩き、成果物として uberjar 側だけを見る。
+- **コピーは「成果物と実機 jar の SHA256」で決める。** ビルドが `[SKIP]` でも、手で
+  `gradlew shadowJar` した uberjar が実機と違えば main / dev へ配る。同じ中身なら触らない。
+  `[SKIP] EliteMobs nothing newer than the jar` は「再ビルドしない」だけで「配らない」ではない。
 - jar を置き換えたら `plugins\.paper-remapped\<同名>` を消す（あれば）。Paper が古い
   remap キャッシュを再利用しないようにするため。EliteMobs は remap 対象、
   `paper-plugin.yml` 方式の TF / ArsPaper はそこに現れないので何もしない。
@@ -1139,7 +1142,7 @@ D:\game\minecraft\PaperServer\Velocity_for_TF\launch\deploy.cmd --dry-run
 |---|---|
 | TF 本体 | `TrinityForge\src\main` / `build.gradle.kts` / `gradle.properties` |
 | ArsPaper | `fork\src\main` / `build.gradle.kts` / `gradle.properties` / **`fork\libs\TrinityForge.jar`** |
-| EliteMobs | `elitemobs-fork\src\main` / `build.gradle` / **`elitemobs-fork\libs\TrinityForge.jar`** |
+| EliteMobs | `elitemobs-fork\src\main` / `build.gradle` / `settings.gradle` / **`elitemobs-fork\libs\TrinityForge.jar`** |
 
 - **`src\test` は見ない。** `releaseAssembly` はテストを走らせないので、テストだけを直しても
   配備物は変わらない。テストを流すのは `gradlew test` の仕事で、配備の仕事ではない。

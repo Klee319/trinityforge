@@ -13,6 +13,7 @@ import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.event.inventory.PrepareGrindstoneEvent;
 import org.bukkit.inventory.GrindstoneInventory;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -29,6 +30,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -210,9 +212,55 @@ class GrindstonePreserveListenerTest {
 
         ItemStack restored = capturedResult(event);
         assertEquals(0, restored.getEnchantmentLevel(playerApplied));
-        assertEquals(2, restored.getEnchantments().size(),
-                "enchant-glow の隠しエンチャントは砥石通過で永久に消えてはいけない"
-                        + "(TF付与 tool-enchant + glow の2件が残る)");
+        assertEquals(3, restored.getEnchantmentLevel(tfGranted),
+                "TF が付与した tool-enchant は再組み立てで戻る");
+        assertTrue(hasGlowPresentation(restored.getItemMeta()),
+                "enchant-glow の光沢は砥石通過で永久に消えてはいけない");
+        assertFalse(glintHidesEnchants(restored.getItemMeta()),
+                "光沢の復元が HIDE_ENCHANTS を立てると本物のエンチャントがツールチップに出ない");
+    }
+
+    @Test
+    void turningCatalogGlowOffClearsLeftoverHideSoNewEnchantsCanShow() {
+        ItemTemplate glowing = new ItemTemplate("glow_blade", Material.DIAMOND_SWORD, "<gold>光の刃</gold>", 112,
+                BindType.TRADEABLE, 0, null, List.of(), (RecipeSpec) null, null, true);
+        templates.put(glowing.id(), glowing);
+        ItemStack input = itemFactory.create(glowing, ORIGINAL_ROLL_SEED, ORIGINAL_QUALITY);
+        input.addUnsafeEnchantment(playerApplied, 4);
+        ItemMeta leftover = input.getItemMeta();
+        leftover.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        input.setItemMeta(leftover);
+        templates.put(glowing.id(), new ItemTemplate("glow_blade", Material.DIAMOND_SWORD, "<gold>光の刃</gold>", 112,
+                BindType.TRADEABLE, 0, null, List.of(), (RecipeSpec) null, null, false));
+
+        PrepareGrindstoneEvent event = grindstoneEvent(input, null, strippedByVanilla(input));
+
+        listener.onPrepareGrindstone(event);
+
+        ItemStack restored = capturedResult(event);
+        assertFalse(restored.getItemMeta().hasItemFlag(ItemFlag.HIDE_ENCHANTS),
+                "カタログで glow を切ったあと砥石に通すと、残った HIDE_ENCHANTS を落とさなければならない");
+        assertEquals(0, restored.getEnchantmentLevel(playerApplied));
+        assertEquals(3, restored.getEnchantmentLevel(tfGranted));
+    }
+
+    private static boolean hasGlowPresentation(ItemMeta meta) {
+        try {
+            if (Boolean.TRUE.equals(meta.getEnchantmentGlintOverride())) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+        }
+        return meta.hasEnchants() && meta.getItemFlags().contains(ItemFlag.HIDE_ENCHANTS);
+    }
+
+    private static boolean glintHidesEnchants(ItemMeta meta) {
+        try {
+            return Boolean.TRUE.equals(meta.getEnchantmentGlintOverride())
+                    && meta.hasItemFlag(ItemFlag.HIDE_ENCHANTS);
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     /** カタログ由来の TF 装備(rollSeed/quality 刻印済み)。 */

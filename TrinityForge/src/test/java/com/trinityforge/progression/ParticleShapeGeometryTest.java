@@ -134,6 +134,37 @@ class ParticleShapeGeometryTest {
     }
 
     @Test
+    @DisplayName("3点×3巻きは位相なしだと左右2本のギザギザ（実機の静止画）")
+    void threePointThreeTurnHelixWithoutPhaseIsTwoVerticalLines() {
+        Emission spiral = new Emission(Shape.HELIX, 3, 1.0, 0.0, 1.7, 3, 120.0, 0.0);
+        List<ParticleGeometry.Emit> emits = ParticleGeometry.emits(spiral, 0.0, 0.0);
+        assertEquals(3, emits.size());
+        assertEquals(1.0, emits.get(0).dx(), 1e-9);
+        assertEquals(0.0, emits.get(0).dz(), 1e-9);
+        assertEquals(-1.0, emits.get(1).dx(), 1e-9);
+        assertEquals(0.0, emits.get(1).dz(), 1e-9);
+        assertEquals(1.0, emits.get(2).dx(), 1e-9);
+        assertEquals(0.0, emits.get(2).dz(), 1e-9);
+    }
+
+    @Test
+    @DisplayName("螺旋の位相を進めると高さを変えずに水平に回る（止まっていても螺旋に見える）")
+    void helixPhaseRotatesInPlace() {
+        Emission spiral = new Emission(Shape.HELIX, 9, 1.0, 0.0, 3.0, 2, 120.0, 0.0);
+        List<ParticleGeometry.Emit> rest = ParticleGeometry.emits(spiral, 0.0, 0.0);
+        List<ParticleGeometry.Emit> spun = ParticleGeometry.emits(spiral, 0.0, 0.25);
+        assertEquals(rest.size(), spun.size());
+        for (int i = 0; i < rest.size(); i++) {
+            assertEquals(rest.get(i).dy(), spun.get(i).dy(), 1e-9, "高さは位相で動かさない");
+            assertEquals(1.0, Math.hypot(spun.get(i).dx(), spun.get(i).dz()), 1e-9);
+        }
+        assertNotEquals(rest.get(0).dx(), spun.get(0).dx(), 1e-9, "位相が位置に効いていない");
+        // 1/4 周は (x,z)=(r,0) が (0,r) へ。
+        assertEquals(0.0, spun.get(0).dx(), 1e-9);
+        assertEquals(1.0, spun.get(0).dz(), 1e-9);
+    }
+
+    @Test
     @DisplayName("柱は縦に伸び、横のばらつきだけ箱に任せる")
     void pillarStacksVertically() {
         Emission pillar = new Emission(Shape.PILLAR, 5, 0.4, 0.0, 2.0, 1, 120.0, 0.0);

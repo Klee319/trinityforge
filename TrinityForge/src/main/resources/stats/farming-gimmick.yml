@@ -13,11 +13,7 @@ area-harvest:
       radius: 1
     "2":
       radius: 2
-    "3":
-      radius: 3
-    "4":
-      radius: 4
 animal-damage-4x:
   multiplier: 4
 bee-no-aggro:
-  calm-radius: 8
+  calm-radius: 16

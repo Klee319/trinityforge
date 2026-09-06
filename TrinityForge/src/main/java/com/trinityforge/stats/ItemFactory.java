@@ -8,6 +8,7 @@ import com.trinityforge.pdc.ItemData;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.papermc.paper.datacomponent.item.Equippable;
 import net.kyori.adventure.key.Key;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Color;
@@ -35,10 +36,10 @@ import java.util.Optional;
 public final class ItemFactory {
 
     /**
-     * Hidden enchant stamped for {@link ItemTemplate#enchantGlow()}: any vanilla enchant works for the
-     * shimmer effect, {@code UNBREAKING} is picked because it is valid on every enchantable material
-     * (armor, tools, weapons), and {@link ItemFlag#HIDE_ENCHANTS} keeps it out of the tooltip so the
-     * glow shows with no enchant text (same technique as the reference {@code ConfigurableArmor} fork).
+     * Legacy dummy used before Paper's enchantment-glint override. Kept only to (a) strip that dummy
+     * off already-issued items and (b) fall back when MockBukkit does not implement the override API.
+     * Production Paper 1.21 uses {@link ItemMeta#setEnchantmentGlintOverride(Boolean)} so the item is
+     * not "already enchanted" (enchanting table / anvil books) and the grindstone has nothing to peel.
      */
     private static final NamespacedKey ENCHANT_GLOW_KEY = NamespacedKey.minecraft("unbreaking");
 
@@ -100,6 +101,30 @@ public final class ItemFactory {
     }
 
     /**
+     * Builds the equipment-style lore block with an optional cached quality score.  ArsPaper uses the
+     * override when refreshing a thread after a quality-only promotion so its displayed pt remains the
+     * original random-roll result.
+     */
+    public java.util.List<net.kyori.adventure.text.Component> statLoreBlock(
+            org.bukkit.Material material, Integer cmd, int quality, long rollSeed,
+            Integer qualityScoreOverride) {
+        return assembler.statLoreBlock(material, cmd, quality, rollSeed, qualityScoreOverride);
+    }
+
+    /** {@link ItemAssembler#appendOwnerLoreIfMissing(ItemStack)} への委譲。 */
+    public boolean appendOwnerLoreIfMissing(ItemStack stack) {
+        return assembler.appendOwnerLoreIfMissing(stack);
+    }
+
+    /**
+     * フォークが専用 lore を組む途中で所有者行を足すための委譲。
+     * {@link ItemStack} 全体を再組み立てず、渡された lore リストだけを更新する。
+     */
+    public boolean appendOwnerLoreIfMissing(ItemMeta meta, java.util.List<Component> lore) {
+        return assembler.appendOwnerLoreIfMissing(meta, lore);
+    }
+
+    /**
      * Builds a fresh item from {@code template}, seeded by {@code rollSeed} at {@code quality}.
      *
      * <p>{@code setCustomModelData(int)} is deprecated in favour of the 1.21 component API but
@@ -121,8 +146,9 @@ public final class ItemFactory {
 
     /**
      * Builds ONLY the template's identity (display name, model, bind type, use requirement, catalog
-     * id) with NO rollSeed/quality/stats/lore stamp — deliberately leaves the item without a
-     * TrinityForge roll so it reads as a "fresh, unstamped" item to any downstream stamping hook.
+     * id) with NO rollSeed/quality/stats stamp — deliberately leaves the item without a TrinityForge
+     * roll so it reads as a "fresh, unstamped" item to any downstream stamping hook. Stable flavor
+     * lore is copied so identity-only recipe results remain similar to fixed gacha rewards.
      *
      * <p>Used as the registered RESULT item of a catalog {@code recipe:} ({@link
      * com.trinityforge.stats.CatalogRecipeRegistrar}): {@code CraftQualityListener} only re-stamps a
@@ -136,9 +162,36 @@ public final class ItemFactory {
     public ItemStack createIdentityOnly(ItemTemplate template) {
         ItemStack stack = new ItemStack(template.material());
         ItemMeta meta = buildIdentity(template, stack);
+        applyFlavorLore(meta, template);
         stack.setItemMeta(meta);
         stampEquipmentAsset(stack, template);
         return stack;
+    }
+
+    /**
+     * Builds a catalog item with only stable identity and flavor lore. No roll/quality PDC is written,
+     * so fixed-identity rewards such as dungeon keys remain stack-compatible with one another and with
+     * recipe results. Quality-bearing equipment must continue to use {@link #create}.
+     */
+    @SuppressWarnings("deprecation")
+    public ItemStack createStackable(ItemTemplate template) {
+        ItemStack stack = new ItemStack(template.material());
+        ItemMeta meta = buildIdentity(template, stack);
+        applyFlavorLore(meta, template);
+        stack.setItemMeta(meta);
+        stampEquipmentAsset(stack, template);
+        return stack;
+    }
+
+    private void applyFlavorLore(ItemMeta meta, ItemTemplate template) {
+        if (meta == null || template == null || template.lore().isEmpty()) {
+            return;
+        }
+        java.util.List<Component> lore = template.lore().stream()
+                .map(line -> miniMessage.deserialize(line)
+                        .decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE))
+                .toList();
+        meta.lore(lore);
     }
 
     /**
@@ -235,17 +288,91 @@ public final class ItemFactory {
     }
 
     /**
-     * カタログの {@code enchant-glow: true} 由来の隠しエンチャント(+{@link ItemFlag#HIDE_ENCHANTS})を
-     * (再)付与する。{@link #buildIdentity} 以外に、砥石でエンチャントを剥がした後の復元
-     * ({@code GrindstonePreserveListener}) からも呼ぶため public: キー({@link #ENCHANT_GLOW_KEY})を
-     * 呼び出し側で複製すると、glow の実装を変えたときに片方だけ取り残される。
+     * カタログの {@code enchant-glow: true} 由来の見た目光沢を (再)付与する。
+     * Paper 1.21 の {@link ItemMeta#setEnchantmentGlintOverride(Boolean)} を使う。
+     * ダミー {@code UNBREAKING} + {@link ItemFlag#HIDE_ENCHANTS} は使わない
+     * （テーブルが「既にエンチャント済み」と見なす／砥石で剥がれる／後付けエンチャントが
+     * ツールチップごと隠れる）。{@link #buildIdentity} 以外に、砥石復元
+     * ({@code GrindstonePreserveListener}) と {@link ItemAssembler#assemble} からも呼ぶ。
      */
     public static void applyEnchantGlow(ItemMeta meta) {
         Objects.requireNonNull(meta, "meta");
+        stripLegacyGlowDummy(meta);
+        if (trySetGlintOverride(meta, Boolean.TRUE)) {
+            return;
+        }
         Enchantment glow = Registry.ENCHANTMENT.get(ENCHANT_GLOW_KEY);
-        if (glow != null) {
-            meta.addEnchant(glow, 1, true);
-            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        if (glow == null) {
+            return;
+        }
+        meta.addEnchant(glow, 1, true);
+        meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+    }
+
+    /**
+     * カタログの {@code enchant-glow: false} へ合わせる。glint override を外し、旧実装が残した
+     * {@link ItemFlag#HIDE_ENCHANTS}（とダミー耐久力 I）を落とす。砥石でダミーだけ剥がしたあとに
+     * フラグが残ると、後から付けた本物のエンチャントがツールチップに出ない。
+     */
+    public static void clearEnchantGlow(ItemMeta meta) {
+        Objects.requireNonNull(meta, "meta");
+        stripLegacyGlowDummy(meta);
+        trySetGlintOverride(meta, null);
+    }
+
+    /** {@code glow} に合わせて付与または解除する（カタログ現値の単一入口）。 */
+    public static void syncEnchantGlow(ItemMeta meta, boolean glow) {
+        if (glow) {
+            applyEnchantGlow(meta);
+        } else {
+            clearEnchantGlow(meta);
+        }
+    }
+
+    /**
+     * 旧実装（ダミーエンチャントを隠すための {@link ItemFlag#HIDE_ENCHANTS}）が残っているか。
+     * テーブル世代が最新でも、持ち替え時に一度 assemble してフラグを落とす判定に使う。
+     */
+    public static boolean hasLegacyGlowResidue(ItemMeta meta) {
+        return meta != null && meta.hasItemFlag(ItemFlag.HIDE_ENCHANTS);
+    }
+
+    /**
+     * 旧 glow の署名は「{@link ItemFlag#HIDE_ENCHANTS} が立っている」。立っていればフラグを外し、
+     * 同時に付いていたダミー耐久力 I だけを剥がす。プレイヤーが付けた耐久力 II 以上や、
+     * フラグ無しの本物の耐久力 I には触らない。
+     */
+    private static void stripLegacyGlowDummy(ItemMeta meta) {
+        boolean hidden = meta.hasItemFlag(ItemFlag.HIDE_ENCHANTS);
+        meta.removeItemFlags(ItemFlag.HIDE_ENCHANTS);
+        if (!hidden) {
+            return;
+        }
+        Enchantment unbreaking = Registry.ENCHANTMENT.get(ENCHANT_GLOW_KEY);
+        if (unbreaking != null && meta.getEnchantLevel(unbreaking) == 1) {
+            meta.removeEnchant(unbreaking);
+        }
+    }
+
+    /**
+     * @return {@code true} when the override was stored. MockBukkit may no-op or throw
+     *         {@code UnimplementedOperationException}; callers then fall back to the dummy enchant.
+     */
+    private static boolean trySetGlintOverride(ItemMeta meta, Boolean value) {
+        try {
+            meta.setEnchantmentGlintOverride(value);
+            if (value == null) {
+                return !meta.hasEnchantmentGlintOverride()
+                        || meta.getEnchantmentGlintOverride() == null;
+            }
+            return value.equals(meta.getEnchantmentGlintOverride());
+        } catch (UnsupportedOperationException | NoSuchMethodError e) {
+            return false;
+        } catch (RuntimeException e) {
+            if (e.getClass().getName().contains("UnimplementedOperation")) {
+                return false;
+            }
+            throw e;
         }
     }
 
@@ -286,6 +413,42 @@ public final class ItemFactory {
         data.setCraftRollMods(rollMods == null ? CraftRollMods.NONE : rollMods);
         assembler.assemble(meta, stack.getType(), rollSeed, quality);
         stack.setItemMeta(meta);
+    }
+
+    /**
+     * Stamps a quality-only promotion while retaining the existing deterministic random-roll score.
+     * Ordinary {@link #stamp(ItemStack, long, int)} calls intentionally recalculate the score so table
+     * reloads and lore refreshes are not pinned to stale values.
+     */
+    public void stampPreservingQualityScore(ItemStack stack, long rollSeed, int quality) {
+        Objects.requireNonNull(stack, "stack");
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null) {
+            return;
+        }
+        assembler.assemble(meta, stack.getType(), rollSeed, quality, true);
+        stack.setItemMeta(meta);
+    }
+
+    /**
+     * Caches an existing item's random-roll score without changing its lore or quality.  This is used
+     * by the ArsPaper thread promotion path before it changes the quality PDC and asks ArsPaper to
+     * rebuild the thread-specific lore.
+     */
+    public boolean cacheQualityScore(ItemStack stack) {
+        Objects.requireNonNull(stack, "stack");
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null) {
+            return false;
+        }
+        ItemData data = ItemData.of(meta);
+        java.util.Optional<Long> seed = data.rollSeed();
+        if (seed.isEmpty()) {
+            return false;
+        }
+        assembler.cacheQualityScore(meta, stack.getType(), seed.get(), data.quality());
+        stack.setItemMeta(meta);
+        return true;
     }
 
     /**
@@ -335,5 +498,44 @@ public final class ItemFactory {
         ItemStack result = stack.clone();
         result.setItemMeta(meta);
         return Optional.of(result);
+    }
+
+    /**
+     * 厳選の護符の対象: {@code item-stats.yml} に random 層(または grant の seed 抽選)がある。
+     * プロファイルが無いカタログ品(護符・素材など)は {@code false}。{@code itemStats} 未配線の
+     * テストでは {@code true}(既存テストは rollSeed の有無だけを見ている)。
+     */
+    public boolean hasRerollableRandom(ItemStack stack) {
+        if (itemStats == null) {
+            return true;
+        }
+        if (stack == null || stack.getType().isAir() || !stack.hasItemMeta()) {
+            return false;
+        }
+        Integer cmd = DerivedItemStats.customModelDataOf(stack.getItemMeta());
+        return itemStats.profileFor(stack.getType(), cmd)
+                .map(ItemStatProfile::randomApplies)
+                .orElse(false);
+    }
+
+    /**
+     * 品質昇華の結晶の対象: 品質で値が動く層がある。固定値だけの素材・特殊アイテムは {@code false}。
+     * {@code itemStats} 未配線のテストでは {@code true}。
+     */
+    public boolean qualityVaries(ItemStack stack) {
+        if (itemStats == null) {
+            return true;
+        }
+        if (stack == null || stack.getType().isAir()) {
+            return false;
+        }
+        // Vanilla-material drops are born as a bare ItemStack with no custom meta. They still need
+        // the item-stats profile lookup so death-time mob quality can be stamped before pickup; treat
+        // absent meta as an unset CustomModelData rather than silently declaring the item ineligible.
+        Integer cmd = stack.hasItemMeta()
+                ? DerivedItemStats.customModelDataOf(stack.getItemMeta()) : null;
+        return itemStats.profileFor(stack.getType(), cmd)
+                .map(ItemStatProfile::qualityApplies)
+                .orElse(false);
     }
 }

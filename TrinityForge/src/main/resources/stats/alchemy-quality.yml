@@ -2,16 +2,13 @@
 # TrinityForge — ポーション品質(stat: potion_quality_bonus)の効果換算設定
 # ----------------------------------------------------------------------------
 # スキルツリー(alchemy.yml)の「品質+N」ノードで蓄積する stat "potion_quality_bonus" を、
-# 醸造したポーションの効果時間・強度(amplifier)へ換算するための係数。
-# 強度は切り捨てで整数キャストするため、amplifier-per-quality を 0.5 に設定すると
-# 「品質2ポイントごとに強度+1」という運用になる。
+# 醸造したポーションの効果時間へ換算するための係数。
+# 強度(ポーションレベル / amplifier)は品質では動かさない。グロウストーンによるバニラ強化はそのまま。
+# 時間は品質 0.1pt あたり duration-percent-per-tenth-point %（既定 1%）伸びる。
+# 0 を下回った分は同じ割合で持続時間が短くなる。
 # ============================================================================
 
-# 品質1ポイントあたりの効果時間加算(tick、20tick=1秒)。
+# 品質 0.1 ポイントあたりの持続時間変化(%)。1.0 なら 0.1pt で +1%、1.0pt で +10%。
 # 設定リファレンス(本文コメント移設先): docs/config-reference/stats/alchemy-quality.md
 
-duration-ticks-per-quality: 20.0
-
-amplifier-per-quality: 0.5
-
-lingering-splash-duration-ticks-per-quality: 10.0
+duration-percent-per-tenth-point: 1.0

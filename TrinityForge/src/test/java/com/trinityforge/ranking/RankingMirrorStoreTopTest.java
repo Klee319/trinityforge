@@ -25,6 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       許可リストで解決しており、リストに無い文字列を SQL へ埋めてはいけない
  *       （＝ SQL インジェクション）。</li>
  *   <li><b>limit の境界</b> — 0 以下は空、上限で頭打ち。</li>
+ *   <li><b>プレステージが順位に効く</b> — プレステージはレベルを 0 へ戻すので、生のレベルで
+ *       並べると最も育っているプレイヤーが順位表から消える。</li>
  * </ol>
  */
 class RankingMirrorStoreTopTest {
@@ -215,6 +217,101 @@ class RankingMirrorStoreTopTest {
         try (RankingMirrorStore store = new RankingMirrorStore(jdbcUrl())) {
             assertTrue(store.topSkillLevel("MINING", 10).isEmpty());
             assertTrue(store.topTotalSkillLevel(10).isEmpty());
+        }
+    }
+
+    // ---- プレステージ --------------------------------------------------------------
+
+    @Test
+    @DisplayName("プレステージ 1 段は上限レベル 1 周ぶんとして数える（Lv0 でも最上位に残る）")
+    void topSkillLevelCountsPrestigeAsAFullLevelCap() throws Exception {
+        UUID prestiged = UUID.randomUUID();
+        UUID nearCap = UUID.randomUUID();
+        String url = jdbcUrl();
+        try (SqliteProgressionRepository repository = new SqliteProgressionRepository(url)) {
+            // プレステージ直後の実際の状態: レベルも累計 EXP も 0 に戻り、段だけが 1 上がる。
+            repository.saveSkillProgress(prestiged, "MINING", new SkillProgress(0, 0, 0, 1, 100));
+            repository.saveSkillProgress(nearCap, "MINING", new SkillProgress(99, 0, 12345, 0, 100));
+
+            try (RankingMirrorStore store = new RankingMirrorStore(url)) {
+                List<RankingEntry> ranking = store.topSkillLevel("MINING", 10);
+
+                assertEquals(2, ranking.size(),
+                        "プレステージ直後(Lv0)の行が順位表から消えないこと");
+                assertEquals(prestiged, ranking.get(0).uuid(), "1 段(=100) > Lv99");
+                assertEquals(100L, ranking.get(0).value(), "値は実効レベル");
+                assertEquals(nearCap, ranking.get(1).uuid());
+                assertEquals(99L, ranking.get(1).value());
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("実効レベルが同じなら、プレステージ段の多いほうを上にする")
+    void topSkillLevelBreaksTiesByPrestigeBeforeTotalExp() throws Exception {
+        UUID prestiged = UUID.randomUUID();
+        UUID atCap = UUID.randomUUID();
+        String url = jdbcUrl();
+        try (SqliteProgressionRepository repository = new SqliteProgressionRepository(url)) {
+            // どちらも実効レベル 100。プレステージ側は累計 EXP まで 0 に戻っているため、
+            // 累計 EXP だけで割ると未プレステージの Lv100 に必ず負ける。
+            repository.saveSkillProgress(prestiged, "MINING", new SkillProgress(0, 0, 0, 1, 100));
+            repository.saveSkillProgress(atCap, "MINING", new SkillProgress(100, 0, 999999, 0, 100));
+
+            try (RankingMirrorStore store = new RankingMirrorStore(url)) {
+                List<RankingEntry> ranking = store.topSkillLevel("MINING", 10);
+
+                assertEquals(2, ranking.size());
+                assertEquals(prestiged, ranking.get(0).uuid());
+                assertEquals(100L, ranking.get(0).value());
+                assertEquals(atCap, ranking.get(1).uuid());
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("スキル合計もプレステージを足す（プレステージした瞬間に合計が下がらない）")
+    void topTotalSkillLevelIncludesPrestige() throws Exception {
+        UUID prestiged = UUID.randomUUID();
+        UUID generalist = UUID.randomUUID();
+        String url = jdbcUrl();
+        try (SqliteProgressionRepository repository = new SqliteProgressionRepository(url)) {
+            // 採掘を 1 回プレステージし、他は育てていないプレイヤー: 実効合計 100。
+            repository.saveSkillProgress(prestiged, "MINING", new SkillProgress(0, 0, 0, 1, 100));
+            // 生のレベル合計だと 21 対 0 でこちらが勝ってしまう。
+            repository.saveSkillProgress(generalist, "MINING", new SkillProgress(10, 0, 0, 0, 100));
+            repository.saveSkillProgress(generalist, "FARMING", new SkillProgress(11, 0, 0, 0, 100));
+
+            try (RankingMirrorStore store = new RankingMirrorStore(url)) {
+                List<RankingEntry> ranking = store.topTotalSkillLevel(10);
+
+                assertEquals(2, ranking.size(), "合計 0 扱いで消えないこと");
+                assertEquals(prestiged, ranking.get(0).uuid());
+                assertEquals(100L, ranking.get(0).value());
+                assertEquals(generalist, ranking.get(1).uuid());
+                assertEquals(21L, ranking.get(1).value());
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("上限レベルはスキル行の値を使う（上限が違えば 1 段の重みも変わる）")
+    void effectiveLevelUsesEachRowsOwnLevelCap() throws Exception {
+        UUID small = UUID.randomUUID();
+        UUID large = UUID.randomUUID();
+        String url = jdbcUrl();
+        try (SqliteProgressionRepository repository = new SqliteProgressionRepository(url)) {
+            repository.saveSkillProgress(small, "MINING", new SkillProgress(5, 0, 0, 1, 50));
+            repository.saveSkillProgress(large, "MINING", new SkillProgress(5, 0, 0, 1, 100));
+
+            try (RankingMirrorStore store = new RankingMirrorStore(url)) {
+                List<RankingEntry> ranking = store.topSkillLevel("MINING", 10);
+
+                assertEquals(105L, ranking.get(0).value());
+                assertEquals(large, ranking.get(0).uuid());
+                assertEquals(55L, ranking.get(1).value());
+                assertEquals(small, ranking.get(1).uuid());
+            }
         }
     }
 }

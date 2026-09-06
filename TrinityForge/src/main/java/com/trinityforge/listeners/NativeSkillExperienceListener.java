@@ -1211,10 +1211,9 @@ public final class NativeSkillExperienceListener implements Listener {
         int light = 0;
         int heavy = 0;
         for (ItemStack armor : player.getInventory().getArmorContents()) {
-            if (armor == null || armor.getType().isAir()) continue;
-            String name = armor.getType().name();
-            if (name.startsWith("LEATHER_") || name.startsWith("CHAINMAIL_")) light++;
-            else if (isArmor(armor.getType())) heavy++;
+            if (armor == null || armor.getType().isAir() || !isArmor(armor.getType())) continue;
+            if (com.trinityforge.stats.ArmorSkillClassifier.isLight(armor)) light++;
+            else heavy++;
         }
         if (light == 0 && heavy == 0) return;
         Entity attacker = armorExpAttackerEntity(event);
@@ -1364,8 +1363,8 @@ public final class NativeSkillExperienceListener implements Listener {
         try {
             return nonNegativeFinite(
                     aggregator.equippedArmorStatTotal(player, "defense-rate", stack ->
-                            heavy ? isArmor(stack.getType()) && !isLightArmor(stack.getType())
-                                    : isLightArmor(stack.getType())));
+                            heavy ? isArmor(stack.getType()) && !com.trinityforge.stats.ArmorSkillClassifier.isLight(stack)
+                                    : com.trinityforge.stats.ArmorSkillClassifier.isLight(stack)));
         } catch (RuntimeException ignored) {
             // Invalid/unresolved equipment must not break the damage event. The base Valhalla
             // multiplier remains 1.0, so the hit can still award its configured base EXP.
@@ -1431,11 +1430,6 @@ public final class NativeSkillExperienceListener implements Listener {
         String n = material.name();
         return n.endsWith("_HELMET") || n.endsWith("_CHESTPLATE")
                 || n.endsWith("_LEGGINGS") || n.endsWith("_BOOTS");
-    }
-
-    private static boolean isLightArmor(Material material) {
-        String name = material.name();
-        return isArmor(material) && (name.startsWith("LEATHER_") || name.startsWith("CHAINMAIL_"));
     }
 
     private static boolean excluded(Player p) {

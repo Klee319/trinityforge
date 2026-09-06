@@ -14,11 +14,6 @@ import java.util.logging.Logger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * {@link AlchemyQualityConfig}: {@code stats/alchemy-quality.yml} schema defaults + config-driven
- * overrides, consumed by {@link com.trinityforge.listeners.PotionQualityListener}. Also fixes the
- * "0.5 == +1 every 2 quality points" design decision at the config-default level.
- */
 class AlchemyQualityConfigTest {
 
     private static Plugin fakePlugin(File dataFolder) {
@@ -44,19 +39,15 @@ class AlchemyQualityConfigTest {
     @Test
     void schemaDefaultsMatchBundledYaml() {
         AlchemyQualityConfig config = new AlchemyQualityConfig();
-        assertEquals(20.0, config.durationTicksPerQuality());
-        assertEquals(0.5, config.amplifierPerQuality());
-        assertEquals(10.0, config.lingeringSplashDurationTicksPerQuality());
+        assertEquals(1.0, config.durationPercentPerTenthPoint());
     }
 
     @Test
-    void defaultAmplifierPerQualityYieldsPlusOneEveryTwoQualityPoints() {
-        AlchemyQualityConfig config = new AlchemyQualityConfig();
-        double perQuality = config.amplifierPerQuality();
-        assertEquals(0, (int) Math.floor(perQuality * 1), "1 quality point: floor(0.5*1)=0, no amplifier yet");
-        assertEquals(1, (int) Math.floor(perQuality * 2), "2 quality points: floor(0.5*2)=1, +1 amplifier");
-        assertEquals(1, (int) Math.floor(perQuality * 3), "3 quality points: floor(0.5*3)=1, still +1");
-        assertEquals(2, (int) Math.floor(perQuality * 4), "4 quality points: floor(0.5*4)=2, +2 amplifier");
+    void durationMultiplierIsOnePercentPerTenthPoint() {
+        assertEquals(1.01, AlchemyQualityConfig.durationMultiplier(0.1, 1.0), 1e-9);
+        assertEquals(1.10, AlchemyQualityConfig.durationMultiplier(1.0, 1.0), 1e-9);
+        assertEquals(0.90, AlchemyQualityConfig.durationMultiplier(-1.0, 1.0), 1e-9);
+        assertEquals(1.0, AlchemyQualityConfig.durationMultiplier(0.0, 1.0), 1e-9);
     }
 
     @Test
@@ -67,20 +58,19 @@ class AlchemyQualityConfigTest {
         Files.copy(source.toPath(), dest.toPath());
 
         AlchemyQualityConfig config = new AlchemyQualityConfig();
-        assertTrue(config.domain().load(fakePlugin(tempDir)), "bundled alchemy-quality.yml must parse without validation issues");
-        assertEquals(20.0, config.durationTicksPerQuality());
+        assertTrue(config.domain().load(fakePlugin(tempDir)),
+                "bundled alchemy-quality.yml must parse without validation issues");
+        assertEquals(1.0, config.durationPercentPerTenthPoint());
     }
 
     @Test
     void valuesAreConfigDriven(@TempDir File tempDir) throws IOException {
         File file = new File(tempDir, AlchemyQualityConfig.PATH);
-        write(file, "duration-ticks-per-quality: 40.0\namplifier-per-quality: 1.0\n"
-                + "lingering-splash-duration-ticks-per-quality: 5.0\n");
+        write(file, "duration-percent-per-tenth-point: 2.0\n");
 
         AlchemyQualityConfig config = new AlchemyQualityConfig();
         assertTrue(config.domain().load(fakePlugin(tempDir)));
-        assertEquals(40.0, config.durationTicksPerQuality());
-        assertEquals(1.0, config.amplifierPerQuality());
-        assertEquals(5.0, config.lingeringSplashDurationTicksPerQuality());
+        assertEquals(2.0, config.durationPercentPerTenthPoint());
+        assertEquals(1.20, AlchemyQualityConfig.durationMultiplier(1.0, config.durationPercentPerTenthPoint()), 1e-9);
     }
 }

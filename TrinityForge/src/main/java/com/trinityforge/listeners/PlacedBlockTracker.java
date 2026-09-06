@@ -3,15 +3,21 @@ package com.trinityforge.listeners;
 import org.bukkit.Chunk;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.BlockState;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockPistonExtendEvent;
+import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.world.StructureGrowEvent;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -75,6 +81,73 @@ public final class PlacedBlockTracker implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent event) {
         markPlaced(event.getBlock());
+    }
+
+    /**
+     * 苗木が木へ成長したあと、植えた座標の設置印を消す。
+     *
+     * <p>苗木の設置は {@link BlockPlaceEvent} を通るので根元座標が「置いたブロック」になる。
+     * 成長はブロック種別が変わるだけで印は残る。一括伐採は設置印のある原木を木から外すため、
+     * 根元を叩くと走査対象が空になり伐採自体が発火しない。ダークオークは苗木4本なので
+     * 根元4本すべてが印付きになり、症状が特に分かりやすい。
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onStructureGrow(StructureGrowEvent event) {
+        clearGrownStructureMarks(event.getLocation().getBlock(), event.getBlocks());
+    }
+
+    /**
+     * 成長で置き換わるブロックの設置印を消す。原点(成長の起点になった苗木)と、
+     * 生成される幹・葉の座標の両方を対象にする。2×2の苗木は起点が1本でも、
+     * 残りの3本は生成ブロック側に入る。
+     */
+    void clearGrownStructureMarks(Block origin, List<BlockState> grown) {
+        if (origin != null) {
+            clearIfPlaced(origin);
+        }
+        if (grown == null || grown.isEmpty()) {
+            return;
+        }
+        for (BlockState state : grown) {
+            if (state != null) {
+                clearIfPlaced(state.getBlock());
+            }
+        }
+    }
+
+    /**
+     * ピストンで押した／引いたブロックは、元が自然生成でも「置いたもの」として扱う。
+     * マークが移動元に残ると置いてけぼりになり、移動先を壊すと採取EXPが入る（2026-08-29）。
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPistonExtend(BlockPistonExtendEvent event) {
+        relocateMarks(event.getBlocks(), event.getDirection());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPistonRetract(BlockPistonRetractEvent event) {
+        relocateMarks(event.getBlocks(), event.getDirection().getOppositeFace());
+    }
+
+    /**
+     * 動くブロックを遠い側から順に処理する（手前からだと行き先のマークを踏み潰す）。
+     * 行き先は常に設置扱い —— ピストンで運んだ丸石ジェネレータも EXP 対象にしない。
+     */
+    void relocateMarks(List<Block> moving, BlockFace direction) {
+        if (moving == null || moving.isEmpty() || direction == null || direction == BlockFace.SELF) {
+            return;
+        }
+        for (int i = moving.size() - 1; i >= 0; i--) {
+            Block from = moving.get(i);
+            if (from == null) {
+                continue;
+            }
+            Block to = from.getRelative(direction);
+            if (isPlaced(from)) {
+                clearIfPlaced(from);
+            }
+            markPlaced(to);
+        }
     }
 
     public void markPlaced(Block block) {

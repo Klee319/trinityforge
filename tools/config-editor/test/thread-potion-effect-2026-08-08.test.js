@@ -290,7 +290,7 @@ test("buildThreadEffectsBox: 「+ 効果追加」に数値効果6種+ポーシ�
   window.buildThreadEffectsBox(model, () => {});
   assert.equal(selects.length, 1, "「+ 効果追加」セレクトが1つだけ描画されるはず");
   const optionValues = selects[0].children.map((o) => o.attrs.value).filter((v) => v !== "");
-  const expected = [...window.ARS_FORMS.THREAD_EFFECT_KEYS, "potion-effect", "flight", "slots"];
+  const expected = [...window.ARS_FORMS.THREAD_EFFECT_KEYS, "potion-effect", "flight", "slots", "max-inventory-slots"];
   assert.deepEqual(optionValues.slice().sort(), expected.slice().sort());
 });
 
@@ -310,7 +310,9 @@ test("buildThreadEffectsBox: セレクトから選ぶと、数値効果・ポー
   assert.equal(model.flight, true);
   sel.fire("change", { target: { value: "slots" } });
   assert.equal(model.hasSlots, true);
-  assert.equal(changed, 4, "onChange が4回呼ばれていない");
+  sel.fire("change", { target: { value: "max-inventory-slots" } });
+  assert.equal(model.hasMaxInventorySlots, true);
+  assert.equal(changed, 5, "onChange が5回呼ばれていない");
 });
 
 test("buildThreadEffectsBox: 一度追加した効果は「+ 効果追加」の候補から消える(二重追加を防ぐ)", () => {
@@ -322,6 +324,7 @@ test("buildThreadEffectsBox: 一度追加した効果は「+ 効果追加」の�
   assert.ok(!optionValues.includes("flight"), "既に追加済みの flight が候補に残っている");
   assert.ok(optionValues.includes("potion-effect"), "未追加の potion-effect が候補から消えている");
   assert.ok(optionValues.includes("slots"), "未追加の slots が候補から消えている");
+  assert.ok(optionValues.includes("max-inventory-slots"), "未追加の max-inventory-slots が候補から消えている");
 });
 
 test("buildThreadEffectsBox: ×ボタンで削除すると threads.yml のキーごと消える(0/\"\"を書き残さない)", () => {

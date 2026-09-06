@@ -387,11 +387,11 @@ items:
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300039:
-    # 浮遊(woodcutting-extra-drop-chance): 高所=樹上での作業
+    # 浮遊(break-vanilla-exp-bonus): 空中に留まりながら壊す=破壊EXP
     per-quality:
-      woodcutting-extra-drop-chance: 0.004
+      break-vanilla-exp-bonus: 0.004
     random:
-      woodcutting-extra-drop-chance:
+      break-vanilla-exp-bonus:
         min: 0.007
         max: 0.094
     offhand-stats-apply: false
@@ -411,7 +411,7 @@ items:
     random:
       mana-regen:
         min: 0.4
-        max: 9
+        max: 5
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300003:
@@ -461,24 +461,26 @@ items:
     socketed-only-stats: true
   STRING#300018:
     per-quality:
-      mana-regen: 0.4
+      mana-regen: 0.1
     random:
       mana-regen:
-        min: 0.8
-        max: 12.6
+        min: 0.1
+        max: 3
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300016:
-    # バックパック(material-refund-chance): 物を無駄にしない
+    # バックパック(food-save-chance): 常用の荷物=食料の持ち
     per-quality:
-      material-refund-chance: 0.004
+      food-save-chance: 0.004
     random:
-      material-refund-chance:
+      food-save-chance:
         min: 0.007
         max: 0.094
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300019:
+    fixed:
+      source-cost-reduction: 0.02
     per-quality:
       source-cost-reduction: 0.004
     random:
@@ -488,6 +490,8 @@ items:
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300022:
+    fixed:
+      material-refund-chance: 0.02
     per-quality:
       material-refund-chance: 0.004
     random:
@@ -497,6 +501,8 @@ items:
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300023:
+    fixed:
+      disassembly-return-bonus: 0.05
     per-quality:
       disassembly-return-bonus: 0.004
     random:
@@ -506,6 +512,8 @@ items:
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300024:
+    fixed:
+      mining-fortune: 0.036
     per-quality:
       mining-fortune: 0.005
     random:
@@ -515,6 +523,8 @@ items:
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300026:
+    fixed:
+      harvest-extra-drop-chance: 0.035
     per-quality:
       harvest-extra-drop-chance: 0.005
       planted-crop-growth-bonus: 0.1
@@ -528,6 +538,8 @@ items:
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300027:
+    fixed:
+      woodcutting-extra-drop-chance: 0.024
     per-quality:
       woodcutting-extra-drop-chance: 0.005
     random:
@@ -537,6 +549,8 @@ items:
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300029:
+    fixed:
+      skill-exp-bonus: 0.024
     per-quality:
       skill-exp-bonus: 0.004
     random:
@@ -546,6 +560,8 @@ items:
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300033:
+    fixed:
+      hunger-save-chance: 0.036
     per-quality:
       hunger-save-chance: 0.005
     random:
@@ -555,6 +571,8 @@ items:
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300034:
+    fixed:
+      food-restore-bonus: 0.12
     per-quality:
       food-restore-bonus: 0.02
     random:
@@ -564,6 +582,8 @@ items:
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300028:
+    fixed:
+      mob-drop-bonus: 0.03
     per-quality:
       mob-drop-bonus: 0.006
     random:
@@ -573,6 +593,8 @@ items:
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300030:
+    fixed:
+      vanilla-exp-bonus: 0.045
     per-quality:
       vanilla-exp-bonus: 0.006
     random:
@@ -582,6 +604,8 @@ items:
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300042:
+    fixed:
+      hive-harvest-fortune: 0.024
     per-quality:
       hive-harvest-fortune: 0.005
     random:
@@ -591,6 +615,8 @@ items:
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300043:
+    fixed:
+      breeding-extra-child-chance: 0.05
     per-quality:
       breeding-extra-child-chance: 0.005
       bred-animal-growth-bonus: 0.1
@@ -604,6 +630,8 @@ items:
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300045:
+    fixed:
+      gathering-efficiency: 1
     per-quality:
       gathering-efficiency: 0.06
     random:
@@ -613,33 +641,41 @@ items:
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300020:
+    fixed:
+      workbench-quality-bonus: 0.5
     per-quality:
-      workbench-quality-bonus: 0.12
+      workbench-quality-bonus: 0.1
     random:
       workbench-quality-bonus:
-        min: 0.2
-        max: 3.8
+        min: 0.1
+        max: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300021:
+    fixed:
+      ritual-quality-bonus: 0.5
     per-quality:
-      ritual-quality-bonus: 0.12
+      ritual-quality-bonus: 0.1
     random:
       ritual-quality-bonus:
-        min: 0.2
-        max: 3.8
+        min: 0.1
+        max: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300031:
+    fixed:
+      enchant-luck: 0.5
     per-quality:
-      enchant-luck: 0.2
+      enchant-luck: 0.1
     random:
       enchant-luck:
-        min: 0.4
-        max: 5.6
+        min: 0.1
+        max: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300025:
+    fixed:
+      fishing-luck: 0.024
     per-quality:
       fishing-luck: 0.005
     random:
@@ -649,32 +685,36 @@ items:
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300041:
+    fixed:
+      potion-quality-bonus: 0.5
     per-quality:
-      potion-quality-bonus: 0.12
+      potion-quality-bonus: 0.1
     random:
       potion-quality-bonus:
-        min: 0.2
-        max: 3.8
+        min: 0.1
+        max: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300044:
+    fixed:
+      mob-drop-quality: 0.5
     per-quality:
-      mob-drop-quality: 0.06
+      mob-drop-quality: 0.1
     random:
       mob-drop-quality:
         min: 0.1
-        max: 2
+        max: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#100023:
     fixed:
-      loot-luck: 1
+      loot-luck: 0.5
     per-quality:
       loot-luck: 0.1
     random:
       loot-luck:
-        min: 1
-        max: 5
+        min: 0.1
+        max: 1
   STRING#100024:
     fixed:
       gacha-rate-bonus: 0.01
@@ -686,23 +726,25 @@ items:
         max: 0.1
   STRING#100025:
     fixed:
-      craft-roll-up-bonus: 1
+      craft-roll-up-bonus: 3
     per-quality:
-      craft-roll-up-bonus: 1
+      craft-roll-up-bonus: 0.4
     random:
       craft-roll-up-bonus:
         min: 1
         max: 5
   STRING#100026:
     fixed:
-      craft-roll-down-reduction: 5
+      craft-roll-down-reduction: 3
     per-quality:
-      craft-roll-down-reduction: 2
+      craft-roll-down-reduction: 0.4
     random:
       craft-roll-down-reduction:
-        min: -10
-        max: 10
+        min: 1
+        max: 5
   STRING#300032:
+    fixed:
+      health-regen-bonus: 0.03
     per-quality:
       health-regen-bonus: 0.0069
     random:
@@ -716,9 +758,12 @@ items:
       randomize-grants: true
       grant-chances:
         phys-flat-defense: 0.45
+        health-regen-bonus: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300035:
+    fixed:
+      reflect-percent: 0.03
     per-quality:
       reflect-percent: 0.0069
     random:
@@ -732,9 +777,12 @@ items:
       randomize-grants: true
       grant-chances:
         bleed-chance: 0.45
+        reflect-percent: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300036:
+    fixed:
+      stun-chance: 0.015
     per-quality:
       stun-chance: 0.00345
     random:
@@ -748,9 +796,12 @@ items:
       randomize-grants: true
       grant-chances:
         crit-chance: 0.45
+        stun-chance: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300037:
+    fixed:
+      cooldown-reduction: 0.03
     per-quality:
       cooldown-reduction: 0.0069
     random:
@@ -764,9 +815,12 @@ items:
       randomize-grants: true
       grant-chances:
         crit-damage: 0.45
+        cooldown-reduction: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300038:
+    fixed:
+      ammo-save-chance: 0.045
     per-quality:
       ammo-save-chance: 0.0069
     random:
@@ -780,6 +834,7 @@ items:
       randomize-grants: true
       grant-chances:
         distance-damage-bonus: 0.45
+        ammo-save-chance: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300001:
@@ -791,6 +846,14 @@ items:
   STRING#300080:
     offhand-stats-apply: false
     socketed-only-stats: true
+    fixed:
+      move-speed: 0.1
+    per-quality:
+      move-speed: 0.005
+    random:
+      move-speed:
+        min: -0.05
+        max: 0.05
   # ===========================================================================
   # スレッドの組み立て規約 【2026-08-25 (W-254) にサブ4種 → サブ1種へ】
   # ---------------------------------------------------------------------------
@@ -839,6 +902,7 @@ items:
       randomize-grants: true
       grant-chances:
         crit-chance: 0.45
+        percent-bonus-damage: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300047:
@@ -855,6 +919,7 @@ items:
       randomize-grants: true
       grant-chances:
         power-attack-damage: 0.45
+        crit-damage: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300048:
@@ -871,6 +936,7 @@ items:
       randomize-grants: true
       grant-chances:
         crit-chance: 0.45
+        penetration: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300049:
@@ -887,6 +953,7 @@ items:
       randomize-grants: true
       grant-chances:
         crit-damage: 0.45
+        bleed-chance: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300050:
@@ -903,6 +970,7 @@ items:
       randomize-grants: true
       grant-chances:
         phys-flat-defense: 0.45
+        armor-strength: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300051:
@@ -919,6 +987,7 @@ items:
       randomize-grants: true
       grant-chances:
         crit-damage: 0.45
+        crit-chance: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300052:
@@ -935,6 +1004,7 @@ items:
       randomize-grants: true
       grant-chances:
         phys-flat-defense: 0.45
+        dodge-chance: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300053:
@@ -951,6 +1021,7 @@ items:
       randomize-grants: true
       grant-chances:
         power-attack-damage: 0.45
+        percent-bonus-damage: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300054:
@@ -967,6 +1038,7 @@ items:
       randomize-grants: true
       grant-chances:
         phys-flat-defense: 0.45
+        damage-reduction: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300055:
@@ -983,6 +1055,7 @@ items:
       randomize-grants: true
       grant-chances:
         distance-damage-bonus: 0.45
+        crit-damage: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300056:
@@ -999,6 +1072,7 @@ items:
       randomize-grants: true
       grant-chances:
         magic-flat-defense: 0.45
+        magic-resistance: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300057:
@@ -1015,6 +1089,7 @@ items:
       randomize-grants: true
       grant-chances:
         aoe-damage-rate: 0.45
+        percent-bonus-damage: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300058:
@@ -1031,6 +1106,7 @@ items:
       randomize-grants: true
       grant-chances:
         arrow-piercing: 0.45
+        penetration: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300059:
@@ -1047,6 +1123,7 @@ items:
       randomize-grants: true
       grant-chances:
         magic-flat-defense: 0.45
+        percent-bonus-damage: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300060:
@@ -1063,6 +1140,7 @@ items:
       randomize-grants: true
       grant-chances:
         crit-damage: 0.45
+        percent-bonus-damage: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300061:
@@ -1079,6 +1157,7 @@ items:
       randomize-grants: true
       grant-chances:
         bow-accuracy: 0.45
+        crit-chance: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300062:
@@ -1095,6 +1174,7 @@ items:
       randomize-grants: true
       grant-chances:
         crit-chance: 0.45
+        crit-damage: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300063:
@@ -1111,6 +1191,7 @@ items:
       randomize-grants: true
       grant-chances:
         crit-damage: 0.45
+        penetration: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300064:
@@ -1127,6 +1208,7 @@ items:
       randomize-grants: true
       grant-chances:
         bleed-damage-rate: 0.45
+        bleed-chance: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300065:
@@ -1143,6 +1225,7 @@ items:
       randomize-grants: true
       grant-chances:
         phys-flat-defense: 0.45
+        damage-reduction: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300066:
@@ -1159,6 +1242,7 @@ items:
       randomize-grants: true
       grant-chances:
         magic-flat-defense: 0.45
+        magic-resistance: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300067:
@@ -1175,6 +1259,7 @@ items:
       randomize-grants: true
       grant-chances:
         phys-flat-defense: 0.45
+        phys-resistance: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300068:
@@ -1191,6 +1276,7 @@ items:
       randomize-grants: true
       grant-chances:
         magic-flat-defense: 0.45
+        dodge-chance: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   STRING#300069:
@@ -1207,6 +1293,7 @@ items:
       randomize-grants: true
       grant-chances:
         magic-flat-defense: 0.45
+        armor-strength: 1
     offhand-stats-apply: false
     socketed-only-stats: true
   # ==========================================================================
@@ -1268,6 +1355,7 @@ items:
       randomize-grants: true
       grant-chances:
         power-attack-damage: 0.45
+        aoe-damage-rate: 1
     # 渦動のスレッド ── 主軸: aoe-damage-rate
     offhand-stats-apply: false
     socketed-only-stats: true
@@ -1285,6 +1373,7 @@ items:
       randomize-grants: true
       grant-chances:
         bleed-chance: 0.45
+        bleed-damage-rate: 1
     # 瀉血のスレッド ── 主軸: bleed-damage-rate
     offhand-stats-apply: false
     socketed-only-stats: true
@@ -1302,6 +1391,7 @@ items:
       randomize-grants: true
       grant-chances:
         aoe-damage-rate: 0.45
+        power-attack-damage: 1
     # 墜撃のスレッド ── 主軸: power-attack-damage
     offhand-stats-apply: false
     socketed-only-stats: true
@@ -1319,6 +1409,7 @@ items:
       randomize-grants: true
       grant-chances:
         arrow-velocity: 0.45
+        distance-damage-bonus: 1
     # 遠見のスレッド ── 主軸: distance-damage-bonus
     offhand-stats-apply: false
     socketed-only-stats: true
@@ -1336,6 +1427,7 @@ items:
       randomize-grants: true
       grant-chances:
         arrow-piercing: 0.45
+        bow-accuracy: 1
     # 精射のスレッド ── 主軸: bow-accuracy
     offhand-stats-apply: false
     socketed-only-stats: true
@@ -1353,6 +1445,7 @@ items:
       randomize-grants: true
       grant-chances:
         distance-damage-bonus: 0.45
+        arrow-velocity: 1
     # 疾矢のスレッド ── 主軸: arrow-velocity
     offhand-stats-apply: false
     socketed-only-stats: true
@@ -1370,6 +1463,7 @@ items:
       randomize-grants: true
       grant-chances:
         bow-accuracy: 0.45
+        arrow-piercing: 1
     # 貫矢のスレッド ── 主軸: arrow-piercing
     offhand-stats-apply: false
     socketed-only-stats: true
@@ -1387,6 +1481,7 @@ items:
       randomize-grants: true
       grant-chances:
         phys-flat-defense: 0.45
+        defense-rate: 1
     # 城塞のスレッド ── 主軸: defense-rate
     offhand-stats-apply: false
     socketed-only-stats: true
@@ -1404,6 +1499,7 @@ items:
       randomize-grants: true
       grant-chances:
         magic-flat-defense: 0.45
+        phys-flat-defense: 1
     # 鉄壁のスレッド ── 主軸: phys-flat-defense
     offhand-stats-apply: false
     socketed-only-stats: true
@@ -1421,6 +1517,7 @@ items:
       randomize-grants: true
       grant-chances:
         phys-flat-defense: 0.45
+        magic-flat-defense: 1
     # 護法のスレッド ── 主軸: magic-flat-defense
     offhand-stats-apply: false
     socketed-only-stats: true
@@ -2265,15 +2362,14 @@ items:
         max: 0.299
   CHAINMAIL_HELMET:
     fixed:
-      defense-rate: 0.0176
+      defense-rate: 0.01936
       durability: 99
-      phys-resistance: 0.0106
-      phys-flat-defense: 0.353
-      magic-flat-defense: 0.235
-      armor-strength: 0.1
-      dodge-chance: 0.012
+      phys-resistance: 0.01166
+      phys-flat-defense: 0.3883
+      magic-flat-defense: 0.2585
+      armor-strength: 0.11
       max-health: 0.64
-      move-speed: -0.002
+      move-speed: -0.05
     per-quality:
       durability: 17
     use-level-requirement: 10
@@ -2288,14 +2384,13 @@ items:
         max: 0.32
   CHAINMAIL_CHESTPLATE:
     fixed:
-      defense-rate: 0.0353
+      defense-rate: 0.03883
       durability: 144
-      phys-resistance: 0.0282
-      phys-flat-defense: 1.06
-      magic-flat-defense: 0.588
-      dodge-chance: 0.008
+      phys-resistance: 0.03102
+      phys-flat-defense: 1.166
+      magic-flat-defense: 0.6468
       max-health: 1.68
-      move-speed: -0.004
+      move-speed: -0.05
     per-quality:
       durability: 24
     use-level-requirement: 10
@@ -2310,12 +2405,12 @@ items:
         max: 0.64
   CHAINMAIL_LEGGINGS:
     fixed:
-      defense-rate: 0.0353
+      defense-rate: 0.03883
       durability: 135
-      phys-resistance: 0.0212
-      phys-flat-defense: 0.705
-      magic-flat-defense: 0.47
-      move-speed: -0.004
+      phys-resistance: 0.02332
+      phys-flat-defense: 0.7755
+      magic-flat-defense: 0.517
+      move-speed: -0.05
       max-health: 1.2
     per-quality:
       durability: 23
@@ -2331,13 +2426,13 @@ items:
         max: 0.48
   CHAINMAIL_BOOTS:
     fixed:
-      defense-rate: 0.0176
+      defense-rate: 0.01936
       durability: 117
-      phys-resistance: 0.0106
-      phys-flat-defense: 0.47
-      magic-flat-defense: 0.235
-      armor-strength: 0.1
-      move-speed: -0.002
+      phys-resistance: 0.01166
+      phys-flat-defense: 0.517
+      magic-flat-defense: 0.2585
+      armor-strength: 0.11
+      move-speed: -0.05
       max-health: 0.64
     per-quality:
       durability: 20
@@ -2353,15 +2448,14 @@ items:
         max: 0.32
   COPPER_HELMET:
     fixed:
-      defense-rate: 0.0324
+      defense-rate: 0.03564
       durability: 105
-      phys-resistance: 0.0194
-      phys-flat-defense: 0.216
-      magic-flat-defense: 0.108
-      armor-strength: 0.05
-      dodge-chance: 0.006
+      phys-resistance: 0.02134
+      phys-flat-defense: 0.2376
+      magic-flat-defense: 0.1188
+      armor-strength: 0.055
       max-health: 0.32
-      move-speed: -0.002
+      move-speed: -0.05
     per-quality:
       durability: 18
     use-level-requirement: 0
@@ -2376,14 +2470,13 @@ items:
         max: 0.08
   COPPER_CHESTPLATE:
     fixed:
-      defense-rate: 0.0648
+      defense-rate: 0.07128
       durability: 153
-      phys-resistance: 0.0508
-      phys-flat-defense: 0.54
-      magic-flat-defense: 0.324
-      dodge-chance: 0.004
+      phys-resistance: 0.05588
+      phys-flat-defense: 0.594
+      magic-flat-defense: 0.3564
       max-health: 0.96
-      move-speed: -0.004
+      move-speed: -0.05
     per-quality:
       durability: 26
     use-level-requirement: 0
@@ -2398,12 +2491,12 @@ items:
         max: 0.32
   COPPER_LEGGINGS:
     fixed:
-      defense-rate: 0.0486
+      defense-rate: 0.05346
       durability: 144
-      phys-resistance: 0.0378
-      phys-flat-defense: 0.432
-      magic-flat-defense: 0.216
-      move-speed: -0.004
+      phys-resistance: 0.04158
+      phys-flat-defense: 0.4752
+      magic-flat-defense: 0.2376
+      move-speed: -0.05
       max-health: 0.72
     per-quality:
       durability: 24
@@ -2419,13 +2512,13 @@ items:
         max: 0.24
   COPPER_BOOTS:
     fixed:
-      defense-rate: 0.0324
+      defense-rate: 0.03564
       durability: 124
-      phys-resistance: 0.0194
-      phys-flat-defense: 0.216
-      magic-flat-defense: 0.108
-      armor-strength: 0.05
-      move-speed: -0.002
+      phys-resistance: 0.02134
+      phys-flat-defense: 0.2376
+      magic-flat-defense: 0.1188
+      armor-strength: 0.055
+      move-speed: -0.05
       max-health: 0.4
     per-quality:
       durability: 21
@@ -2441,15 +2534,14 @@ items:
         max: 0.16
   IRON_HELMET:
     fixed:
-      defense-rate: 0.0329
+      defense-rate: 0.03619
       durability: 99
-      phys-resistance: 0.0318
-      phys-flat-defense: 0.439
-      magic-flat-defense: 0.22
-      armor-strength: 0.15
-      dodge-chance: 0.018
+      phys-resistance: 0.03498
+      phys-flat-defense: 0.4829
+      magic-flat-defense: 0.242
+      armor-strength: 0.165
       max-health: 0.88
-      move-speed: -0.002
+      move-speed: -0.05
     per-quality:
       durability: 17
     use-level-requirement: 15
@@ -2464,14 +2556,13 @@ items:
         max: 0.24
   IRON_CHESTPLATE:
     fixed:
-      defense-rate: 0.0988
+      defense-rate: 0.10868
       durability: 144
-      phys-resistance: 0.0856
-      phys-flat-defense: 1.21
-      magic-flat-defense: 0.549
-      dodge-chance: 0.012
+      phys-resistance: 0.09416
+      phys-flat-defense: 1.331
+      magic-flat-defense: 0.6039
       max-health: 2.24
-      move-speed: -0.004
+      move-speed: -0.05
     per-quality:
       durability: 24
     use-level-requirement: 15
@@ -2486,12 +2577,12 @@ items:
         max: 0.72
   IRON_LEGGINGS:
     fixed:
-      defense-rate: 0.0659
+      defense-rate: 0.07249
       durability: 135
-      phys-resistance: 0.0648
-      phys-flat-defense: 0.878
-      magic-flat-defense: 0.549
-      move-speed: -0.004
+      phys-resistance: 0.07128
+      phys-flat-defense: 0.9658
+      magic-flat-defense: 0.6039
+      move-speed: -0.05
       max-health: 1.68
     per-quality:
       durability: 23
@@ -2507,13 +2598,13 @@ items:
         max: 0.56
   IRON_BOOTS:
     fixed:
-      defense-rate: 0.0329
+      defense-rate: 0.03619
       durability: 117
-      phys-resistance: 0.0318
-      phys-flat-defense: 0.439
-      magic-flat-defense: 0.22
-      armor-strength: 0.15
-      move-speed: -0.002
+      phys-resistance: 0.03498
+      phys-flat-defense: 0.4829
+      magic-flat-defense: 0.242
+      armor-strength: 0.165
+      move-speed: -0.05
       max-health: 0.88
     per-quality:
       durability: 20
@@ -2529,14 +2620,14 @@ items:
         max: 0.32
   GOLDEN_HELMET:
     fixed:
-      defense-rate: 0.0339
+      defense-rate: 0.03729
       durability: 46
-      phys-resistance: 0.0362
-      phys-flat-defense: 0.791
-      magic-flat-defense: 0.339
-      armor-strength: 0.163
+      phys-resistance: 0.03982
+      phys-flat-defense: 0.8701
+      magic-flat-defense: 0.3729
+      armor-strength: 0.1793
       max-health: 1.76
-      move-speed: -0.002
+      move-speed: -0.05
     per-quality:
       durability: 8
     use-level-requirement: 35
@@ -2551,13 +2642,13 @@ items:
         max: 0.64
   GOLDEN_CHESTPLATE:
     fixed:
-      defense-rate: 0.102
+      defense-rate: 0.1122
       durability: 67
-      phys-resistance: 0.0972
-      phys-flat-defense: 2.04
-      magic-flat-defense: 1.02
+      phys-resistance: 0.10692
+      phys-flat-defense: 2.244
+      magic-flat-defense: 1.122
       max-health: 4.8
-      move-speed: -0.004
+      move-speed: -0.05
     per-quality:
       durability: 11
     use-level-requirement: 35
@@ -2572,12 +2663,12 @@ items:
         max: 1.44
   GOLDEN_LEGGINGS:
     fixed:
-      defense-rate: 0.0678
+      defense-rate: 0.07458
       durability: 63
-      phys-resistance: 0.0724
-      phys-flat-defense: 1.47
-      magic-flat-defense: 0.791
-      move-speed: -0.004
+      phys-resistance: 0.07964
+      phys-flat-defense: 1.617
+      magic-flat-defense: 0.8701
+      move-speed: -0.05
       max-health: 3.6
     per-quality:
       durability: 11
@@ -2593,13 +2684,13 @@ items:
         max: 1.12
   GOLDEN_BOOTS:
     fixed:
-      defense-rate: 0.0339
+      defense-rate: 0.03729
       durability: 54
-      phys-resistance: 0.0362
-      phys-flat-defense: 0.791
-      magic-flat-defense: 0.339
-      armor-strength: 0.163
-      move-speed: -0.002
+      phys-resistance: 0.03982
+      phys-flat-defense: 0.8701
+      magic-flat-defense: 0.3729
+      armor-strength: 0.1793
+      move-speed: -0.05
       max-health: 1.76
     per-quality:
       durability: 9
@@ -2615,14 +2706,14 @@ items:
         max: 0.64
   DIAMOND_HELMET:
     fixed:
-      defense-rate: 0.0344
+      defense-rate: 0.03784
       durability: 217
-      phys-resistance: 0.0401
-      phys-flat-defense: 1.03
-      magic-flat-defense: 0.573
-      armor-strength: 0.175
+      phys-resistance: 0.04411
+      phys-flat-defense: 1.133
+      magic-flat-defense: 0.6303
+      armor-strength: 0.1925
       max-health: 2.4
-      move-speed: -0.002
+      move-speed: -0.05
     per-quality:
       durability: 36
     use-level-requirement: 45
@@ -2637,13 +2728,13 @@ items:
         max: 0.72
   DIAMOND_CHESTPLATE:
     fixed:
-      defense-rate: 0.103
+      defense-rate: 0.1133
       durability: 316
-      phys-resistance: 0.107
-      phys-flat-defense: 2.64
-      magic-flat-defense: 1.37
+      phys-resistance: 0.1177
+      phys-flat-defense: 2.904
+      magic-flat-defense: 1.507
       max-health: 6.48
-      move-speed: -0.004
+      move-speed: -0.05
     per-quality:
       durability: 53
     use-level-requirement: 45
@@ -2658,12 +2749,12 @@ items:
         max: 1.84
   DIAMOND_LEGGINGS:
     fixed:
-      defense-rate: 0.0687
+      defense-rate: 0.07557
       durability: 297
-      phys-resistance: 0.0802
-      phys-flat-defense: 2.06
-      magic-flat-defense: 1.03
-      move-speed: -0.004
+      phys-resistance: 0.08822
+      phys-flat-defense: 2.266
+      magic-flat-defense: 1.133
+      move-speed: -0.05
       max-health: 4.96
     per-quality:
       durability: 50
@@ -2679,13 +2770,13 @@ items:
         max: 1.36
   DIAMOND_BOOTS:
     fixed:
-      defense-rate: 0.0344
+      defense-rate: 0.03784
       durability: 257
-      phys-resistance: 0.0401
-      phys-flat-defense: 1.03
-      magic-flat-defense: 0.573
-      armor-strength: 0.175
-      move-speed: -0.002
+      phys-resistance: 0.04411
+      phys-flat-defense: 1.133
+      magic-flat-defense: 0.6303
+      armor-strength: 0.1925
+      move-speed: -0.05
       max-health: 2.4
     per-quality:
       durability: 43
@@ -2701,15 +2792,14 @@ items:
         max: 0.72
   NETHERITE_HELMET:
     fixed:
-      defense-rate: 0.0341
+      defense-rate: 0.03751
       durability: 244
-      phys-resistance: 0.0444
-      phys-flat-defense: 1.25
-      magic-flat-defense: 0.683
-      armor-strength: 0.188
-      dodge-chance: 0.012
+      phys-resistance: 0.04884
+      phys-flat-defense: 1.375
+      magic-flat-defense: 0.7513
+      armor-strength: 0.2068
       max-health: 3.36
-      move-speed: -0.002
+      move-speed: -0.05
     per-quality:
       durability: 41
     use-level-requirement: 60
@@ -2724,15 +2814,14 @@ items:
         max: 1.04
   NETHERITE_CHESTPLATE:
     fixed:
-      defense-rate: 0.102
+      defense-rate: 0.1122
       durability: 355
-      phys-resistance: 0.118
-      magic-resistance: 0.114
-      phys-flat-defense: 3.41
-      magic-flat-defense: 1.71
-      dodge-chance: 0.008
+      phys-resistance: 0.1298
+      magic-resistance: 0.1254
+      phys-flat-defense: 3.751
+      magic-flat-defense: 1.881
       max-health: 9.6
-      move-speed: -0.004
+      move-speed: -0.05
     per-quality:
       durability: 59
     use-level-requirement: 60
@@ -2747,12 +2836,12 @@ items:
         max: 2.88
   NETHERITE_LEGGINGS:
     fixed:
-      defense-rate: 0.0853
+      defense-rate: 0.09383
       durability: 333
-      phys-resistance: 0.0887
-      phys-flat-defense: 2.5
-      magic-flat-defense: 1.25
-      move-speed: -0.004
+      phys-resistance: 0.09757
+      phys-flat-defense: 2.75
+      magic-flat-defense: 1.375
+      move-speed: -0.05
       max-health: 6.72
     per-quality:
       durability: 56
@@ -2768,13 +2857,13 @@ items:
         max: 2.16
   NETHERITE_BOOTS:
     fixed:
-      defense-rate: 0.0341
+      defense-rate: 0.03751
       durability: 288
-      phys-resistance: 0.0444
-      phys-flat-defense: 1.25
-      magic-flat-defense: 0.683
-      armor-strength: 0.188
-      move-speed: -0.002
+      phys-resistance: 0.04884
+      phys-flat-defense: 1.375
+      magic-flat-defense: 0.7513
+      armor-strength: 0.2068
+      move-speed: -0.05
       max-health: 3.52
     per-quality:
       durability: 48
@@ -8282,15 +8371,14 @@ items:
         max: 0.77
   NETHERITE_HELMET#150:
     fixed:
-      defense-rate: 0.051
+      defense-rate: 0.0561
       durability: 348
-      phys-resistance: 0.0578
-      phys-flat-defense: 1.25
-      magic-flat-defense: 0.567
-      armor-strength: 0.225
-      dodge-chance: 0.006
+      phys-resistance: 0.06358
+      phys-flat-defense: 1.375
+      magic-flat-defense: 0.6237
+      armor-strength: 0.2475
       thread-slots: 2
-      move-speed: -0.002
+      move-speed: -0.05
       max-health: 5.12
     per-quality:
       durability: 58
@@ -8329,14 +8417,14 @@ items:
         max: 4.92
   NETHERITE_HELMET#148:
     fixed:
-      defense-rate: 0.0621
+      defense-rate: 0.06831
       durability: 540
-      phys-resistance: 0.029
-      phys-flat-defense: 1.38
-      magic-flat-defense: 0.69
-      armor-strength: 0.263
+      phys-resistance: 0.0319
+      phys-flat-defense: 1.518
+      magic-flat-defense: 0.759
+      armor-strength: 0.2893
       max-health: 7.52
-      move-speed: -0.002
+      move-speed: -0.05
     per-quality:
       durability: 90
     use-level-requirement: 100
@@ -8373,15 +8461,14 @@ items:
         max: 2.21
   NETHERITE_CHESTPLATE#153:
     fixed:
-      defense-rate: 0.119
+      defense-rate: 0.1309
       durability: 504
-      phys-resistance: 0.153
-      magic-resistance: 0.113
-      phys-flat-defense: 3.17
-      magic-flat-defense: 1.59
-      dodge-chance: 0.004
+      phys-resistance: 0.1683
+      magic-resistance: 0.1243
+      phys-flat-defense: 3.487
+      magic-flat-defense: 1.749
       thread-slots: 2
-      move-speed: -0.004
+      move-speed: -0.05
       max-health: 13.6
     per-quality:
       durability: 84
@@ -8419,13 +8506,13 @@ items:
         max: 13.51
   NETHERITE_CHESTPLATE#151:
     fixed:
-      defense-rate: 0.166
+      defense-rate: 0.1826
       durability: 780
-      phys-resistance: 0.0773
-      phys-flat-defense: 3.59
-      magic-flat-defense: 1.79
+      phys-resistance: 0.08503
+      phys-flat-defense: 3.949
+      magic-flat-defense: 1.969
       max-health: 20.18
-      move-speed: -0.004
+      move-speed: -0.05
     per-quality:
       durability: 130
     use-level-requirement: 100
@@ -8462,13 +8549,13 @@ items:
         max: 1.67
   NETHERITE_LEGGINGS#156:
     fixed:
-      defense-rate: 0.085
+      defense-rate: 0.0935
       durability: 474
-      phys-resistance: 0.116
-      magic-resistance: 0.113
-      phys-flat-defense: 2.38
-      magic-flat-defense: 1.25
-      move-speed: -0.004
+      phys-resistance: 0.1276
+      magic-resistance: 0.1243
+      phys-flat-defense: 2.618
+      magic-flat-defense: 1.375
+      move-speed: -0.05
       thread-slots: 2
       max-health: 10.4
     per-quality:
@@ -8507,12 +8594,12 @@ items:
         max: 10.75
   NETHERITE_LEGGINGS#154:
     fixed:
-      defense-rate: 0.124
+      defense-rate: 0.1364
       durability: 732
-      phys-resistance: 0.0579
-      phys-flat-defense: 2.76
-      magic-flat-defense: 1.38
-      move-speed: -0.004
+      phys-resistance: 0.06369
+      phys-flat-defense: 3.036
+      magic-flat-defense: 1.518
+      move-speed: -0.05
       max-health: 14.67
     per-quality:
       durability: 122
@@ -8551,13 +8638,13 @@ items:
         max: 0.971
   NETHERITE_BOOTS#159:
     fixed:
-      defense-rate: 0.051
+      defense-rate: 0.0561
       durability: 408
-      phys-resistance: 0.0578
-      phys-flat-defense: 1.25
-      magic-flat-defense: 0.567
-      armor-strength: 0.225
-      move-speed: -0.002
+      phys-resistance: 0.06358
+      phys-flat-defense: 1.375
+      magic-flat-defense: 0.6237
+      armor-strength: 0.2475
+      move-speed: -0.05
       thread-slots: 2
       max-health: 5.12
     per-quality:
@@ -8597,13 +8684,13 @@ items:
         max: 4.92
   NETHERITE_BOOTS#157:
     fixed:
-      defense-rate: 0.0621
+      defense-rate: 0.06831
       durability: 630
-      phys-resistance: 0.029
-      phys-flat-defense: 1.38
-      magic-flat-defense: 0.69
-      armor-strength: 0.263
-      move-speed: -0.002
+      phys-resistance: 0.0319
+      phys-flat-defense: 1.518
+      magic-flat-defense: 0.759
+      armor-strength: 0.2893
+      move-speed: -0.05
       max-health: 7.52
     per-quality:
       durability: 105
@@ -8619,16 +8706,15 @@ items:
         max: 2.57
   LEATHER_HELMET#200001:
     fixed:
-      defense-rate: 0.0259
+      defense-rate: 0.02849
       durability: 108
-      armor-strength: 0.15
-      dodge-chance: 0.018
+      armor-strength: 0.165
       thread-slots: 0
       mana-bonus: 2.3
-      magic-resistance: 0.0173
-      magic-flat-defense: 3.89
+      magic-resistance: 0.01903
+      magic-flat-defense: 4.279
       mana-regen: 1.2
-      move-speed: -0.002
+      move-speed: -0.05
       max-health: 0.845
     per-quality:
       durability: 18
@@ -8647,15 +8733,14 @@ items:
         max: 0.244
   LEATHER_CHESTPLATE#200002:
     fixed:
-      defense-rate: 0.0778
+      defense-rate: 0.08558
       durability: 156
-      dodge-chance: 0.012
       thread-slots: 0
       mana-bonus: 6
-      magic-resistance: 0.045
-      magic-flat-defense: 10.38
+      magic-resistance: 0.0495
+      magic-flat-defense: 11.418
       mana-regen: 1.2
-      move-speed: -0.004
+      move-speed: -0.05
       max-health: 2.21
     per-quality:
       durability: 26
@@ -8674,13 +8759,13 @@ items:
         max: 0.699
   LEATHER_LEGGINGS#200003:
     fixed:
-      defense-rate: 0.0519
+      defense-rate: 0.05709
       durability: 147
-      move-speed: -0.004
+      move-speed: -0.05
       thread-slots: 0
       mana-bonus: 4.5
-      magic-resistance: 0.0337
-      magic-flat-defense: 7.61
+      magic-resistance: 0.03707
+      magic-flat-defense: 8.371
       mana-regen: 1.2
       max-health: 1.66
     per-quality:
@@ -8700,14 +8785,14 @@ items:
         max: 0.536
   LEATHER_BOOTS#200004:
     fixed:
-      defense-rate: 0.0259
+      defense-rate: 0.02849
       durability: 126
-      armor-strength: 0.15
-      move-speed: -0.002
+      armor-strength: 0.165
+      move-speed: -0.05
       thread-slots: 0
       mana-bonus: 2.3
-      magic-resistance: 0.0173
-      magic-flat-defense: 3.89
+      magic-resistance: 0.01903
+      magic-flat-defense: 4.279
       mana-regen: 1.2
       max-health: 0.845
     per-quality:
@@ -8727,16 +8812,15 @@ items:
         max: 0.309
   LEATHER_HELMET#200011:
     fixed:
-      defense-rate: 0.0271
+      defense-rate: 0.02981
       durability: 180
-      armor-strength: 0.15
-      dodge-chance: 0.018
+      armor-strength: 0.165
       thread-slots: 1
       mana-bonus: 6
-      magic-resistance: 0.0317
-      magic-flat-defense: 5.25
+      magic-resistance: 0.03487
+      magic-flat-defense: 5.775
       mana-regen: 2.4
-      move-speed: -0.002
+      move-speed: -0.05
       max-health: 1.67
     per-quality:
       durability: 30
@@ -8755,15 +8839,14 @@ items:
         max: 0.552
   LEATHER_CHESTPLATE#200012:
     fixed:
-      defense-rate: 0.0814
+      defense-rate: 0.08954
       durability: 264
-      dodge-chance: 0.012
       thread-slots: 1
       mana-bonus: 16
-      magic-resistance: 0.0851
-      magic-flat-defense: 14.48
+      magic-resistance: 0.09361
+      magic-flat-defense: 15.928
       mana-regen: 2.4
-      move-speed: -0.004
+      move-speed: -0.05
       max-health: 4.53
     per-quality:
       durability: 44
@@ -8782,13 +8865,13 @@ items:
         max: 1.33
   LEATHER_LEGGINGS#200013:
     fixed:
-      defense-rate: 0.0543
+      defense-rate: 0.05973
       durability: 246
-      move-speed: -0.004
+      move-speed: -0.05
       thread-slots: 1
       mana-bonus: 12
-      magic-resistance: 0.0633
-      magic-flat-defense: 10.86
+      magic-resistance: 0.06963
+      magic-flat-defense: 11.946
       mana-regen: 2.4
       max-health: 3.43
     per-quality:
@@ -8808,14 +8891,14 @@ items:
         max: 1.01
   LEATHER_BOOTS#200014:
     fixed:
-      defense-rate: 0.0271
+      defense-rate: 0.02981
       durability: 210
-      armor-strength: 0.15
-      move-speed: -0.002
+      armor-strength: 0.165
+      move-speed: -0.05
       thread-slots: 1
       mana-bonus: 6
-      magic-resistance: 0.0317
-      magic-flat-defense: 5.25
+      magic-resistance: 0.03487
+      magic-flat-defense: 5.775
       mana-regen: 2.4
       max-health: 1.67
     per-quality:
@@ -8835,16 +8918,15 @@ items:
         max: 0.552
   LEATHER_HELMET#200021:
     fixed:
-      defense-rate: 0.0285
+      defense-rate: 0.03135
       durability: 288
-      armor-strength: 0.15
-      dodge-chance: 0.018
+      armor-strength: 0.165
       thread-slots: 1
       mana-bonus: 14
-      magic-resistance: 0.0523
-      magic-flat-defense: 6.37
+      magic-resistance: 0.05753
+      magic-flat-defense: 7.007
       mana-regen: 3.6
-      move-speed: -0.002
+      move-speed: -0.05
       max-health: 2.73
     per-quality:
       durability: 48
@@ -8863,15 +8945,14 @@ items:
         max: 0.845
   LEATHER_CHESTPLATE#200022:
     fixed:
-      defense-rate: 0.0856
+      defense-rate: 0.09416
       durability: 420
-      dodge-chance: 0.012
       thread-slots: 1
       mana-bonus: 36
-      magic-resistance: 0.139
-      magic-flat-defense: 17.13
+      magic-resistance: 0.1529
+      magic-flat-defense: 18.843
       mana-regen: 3.6
-      move-speed: -0.004
+      move-speed: -0.05
       max-health: 7.8
     per-quality:
       durability: 70
@@ -8890,13 +8971,13 @@ items:
         max: 2.34
   LEATHER_LEGGINGS#200023:
     fixed:
-      defense-rate: 0.0571
+      defense-rate: 0.06281
       durability: 393
-      move-speed: -0.004
+      move-speed: -0.05
       thread-slots: 1
       mana-bonus: 27
-      magic-resistance: 0.104
-      magic-flat-defense: 13.32
+      magic-resistance: 0.1144
+      magic-flat-defense: 14.652
       mana-regen: 3.6
       max-health: 5.46
     per-quality:
@@ -8916,14 +8997,14 @@ items:
         max: 1.76
   LEATHER_BOOTS#200024:
     fixed:
-      defense-rate: 0.0285
+      defense-rate: 0.03135
       durability: 336
-      armor-strength: 0.15
-      move-speed: -0.002
+      armor-strength: 0.165
+      move-speed: -0.05
       thread-slots: 1
       mana-bonus: 14
-      magic-resistance: 0.0523
-      magic-flat-defense: 6.37
+      magic-resistance: 0.05753
+      magic-flat-defense: 7.007
       mana-regen: 3.6
       max-health: 2.86
     per-quality:
@@ -9791,16 +9872,15 @@ items:
         max: 1.62
   LEATHER_HELMET#200201:
     fixed:
-      defense-rate: 0.0236
+      defense-rate: 0.02596
       durability: 461
-      armor-strength: 0.15
-      dodge-chance: 0.018
+      armor-strength: 0.165
       thread-slots: 1
       mana-bonus: 30
-      magic-resistance: 0.0512
-      magic-flat-defense: 6.22
+      magic-resistance: 0.05632
+      magic-flat-defense: 6.842
       mana-regen: 4.8
-      move-speed: -0.002
+      move-speed: -0.05
       max-health: 5.93
     per-quality:
       durability: 77
@@ -9819,15 +9899,14 @@ items:
         max: 2.04
   LEATHER_CHESTPLATE#200202:
     fixed:
-      defense-rate: 0.0709
+      defense-rate: 0.07799
       durability: 672
-      dodge-chance: 0.012
       thread-slots: 1
       mana-bonus: 81
-      magic-resistance: 0.135
-      magic-flat-defense: 17.32
+      magic-resistance: 0.1485
+      magic-flat-defense: 19.052
       mana-regen: 4.8
-      move-speed: -0.004
+      move-speed: -0.05
       max-health: 15.76
     per-quality:
       durability: 112
@@ -9846,13 +9925,13 @@ items:
         max: 5.93
   LEATHER_LEGGINGS#200203:
     fixed:
-      defense-rate: 0.0472
+      defense-rate: 0.05192
       durability: 629
-      move-speed: -0.004
+      move-speed: -0.05
       thread-slots: 1
       mana-bonus: 61
-      magic-resistance: 0.102
-      magic-flat-defense: 12.6
+      magic-resistance: 0.1122
+      magic-flat-defense: 13.86
       mana-regen: 4.8
       max-health: 12.05
     per-quality:
@@ -9872,14 +9951,14 @@ items:
         max: 4.17
   LEATHER_BOOTS#200204:
     fixed:
-      defense-rate: 0.0236
+      defense-rate: 0.02596
       durability: 538
-      armor-strength: 0.15
-      move-speed: -0.002
+      armor-strength: 0.165
+      move-speed: -0.05
       thread-slots: 1
       mana-bonus: 30
-      magic-resistance: 0.0512
-      magic-flat-defense: 6.22
+      magic-resistance: 0.05632
+      magic-flat-defense: 6.842
       mana-regen: 4.8
       max-health: 5.93
     per-quality:
@@ -9899,16 +9978,15 @@ items:
         max: 2.13
   LEATHER_HELMET#200211:
     fixed:
-      defense-rate: 0.0156
+      defense-rate: 0.01716
       durability: 738
-      armor-strength: 0.15
-      dodge-chance: 0.018
+      armor-strength: 0.165
       thread-slots: 1
       mana-bonus: 68
-      magic-resistance: 0.0384
-      magic-flat-defense: 4.82
+      magic-resistance: 0.04224
+      magic-flat-defense: 5.302
       mana-regen: 6
-      move-speed: -0.002
+      move-speed: -0.05
       max-health: 8.86
     per-quality:
       durability: 123
@@ -9927,15 +10005,14 @@ items:
         max: 3.03
   LEATHER_CHESTPLATE#200212:
     fixed:
-      defense-rate: 0.0467
+      defense-rate: 0.05137
       durability: 1075
-      dodge-chance: 0.012
       thread-slots: 1
       mana-bonus: 182
-      magic-resistance: 0.102
-      magic-flat-defense: 12.96
+      magic-resistance: 0.1122
+      magic-flat-defense: 14.256
       mana-regen: 6
-      move-speed: -0.004
+      move-speed: -0.05
       max-health: 23.78
     per-quality:
       durability: 179
@@ -9954,13 +10031,13 @@ items:
         max: 8.32
   LEATHER_LEGGINGS#200213:
     fixed:
-      defense-rate: 0.0311
+      defense-rate: 0.03421
       durability: 1006
-      move-speed: -0.004
+      move-speed: -0.05
       thread-slots: 1
       mana-bonus: 137
-      magic-resistance: 0.0762
-      magic-flat-defense: 9.85
+      magic-resistance: 0.08382
+      magic-flat-defense: 10.835
       mana-regen: 6
       max-health: 17.29
     per-quality:
@@ -9980,14 +10057,14 @@ items:
         max: 6.59
   LEATHER_BOOTS#200214:
     fixed:
-      defense-rate: 0.0156
+      defense-rate: 0.01716
       durability: 861
-      armor-strength: 0.15
-      move-speed: -0.002
+      armor-strength: 0.165
+      move-speed: -0.05
       thread-slots: 1
       mana-bonus: 68
-      magic-resistance: 0.0384
-      magic-flat-defense: 4.82
+      magic-resistance: 0.04224
+      magic-flat-defense: 5.302
       mana-regen: 6
       max-health: 8.86
     per-quality:
@@ -11053,15 +11130,15 @@ items:
         max: 0.15
   NETHERITE_HELMET#5611:
     fixed:
-      defense-rate: 0.0523
+      defense-rate: 0.05753
       durability: 540
-      phys-resistance: 0.0244
-      phys-flat-defense: 1.28
-      magic-flat-defense: 0.697
-      armor-strength: 0.338
+      phys-resistance: 0.02684
+      phys-flat-defense: 1.408
+      magic-flat-defense: 0.7667
+      armor-strength: 0.3718
       max-health: 7.44
-      damage-reduction: 0.0349
-      move-speed: -0.002
+      damage-reduction: 0.03839
+      move-speed: -0.05
     per-quality:
       durability: 90
     use-level-requirement: 100
@@ -11076,15 +11153,15 @@ items:
         max: 2.56
   NETHERITE_CHESTPLATE#5611:
     fixed:
-      defense-rate: 0.139
+      defense-rate: 0.1529
       durability: 780
-      phys-resistance: 0.0651
-      phys-flat-defense: 3.49
-      magic-flat-defense: 1.74
+      phys-resistance: 0.07161
+      phys-flat-defense: 3.839
+      magic-flat-defense: 1.914
       max-health: 20
-      damage-reduction: 0.0349
-      armor-strength: 0.075
-      move-speed: -0.004
+      damage-reduction: 0.03839
+      armor-strength: 0.0825
+      move-speed: -0.05
     per-quality:
       durability: 130
     use-level-requirement: 100
@@ -11099,15 +11176,15 @@ items:
         max: 7.04
   NETHERITE_LEGGINGS#5611:
     fixed:
-      defense-rate: 0.105
+      defense-rate: 0.1155
       durability: 732
-      phys-resistance: 0.0488
-      phys-flat-defense: 2.67
-      magic-flat-defense: 1.39
-      move-speed: -0.004
+      phys-resistance: 0.05368
+      phys-flat-defense: 2.937
+      magic-flat-defense: 1.529
+      move-speed: -0.05
       max-health: 15.2
-      damage-reduction: 0.0349
-      armor-strength: 0.075
+      damage-reduction: 0.03839
+      armor-strength: 0.0825
     per-quality:
       durability: 122
     use-level-requirement: 100
@@ -11122,15 +11199,15 @@ items:
         max: 5.28
   NETHERITE_BOOTS#5611:
     fixed:
-      defense-rate: 0.0523
+      defense-rate: 0.05753
       durability: 630
-      phys-resistance: 0.0244
-      phys-flat-defense: 1.28
-      magic-flat-defense: 0.697
-      armor-strength: 0.338
-      move-speed: -0.002
+      phys-resistance: 0.02684
+      phys-flat-defense: 1.408
+      magic-flat-defense: 0.7667
+      armor-strength: 0.3718
+      move-speed: -0.05
       max-health: 7.44
-      damage-reduction: 0.0349
+      damage-reduction: 0.03839
     per-quality:
       durability: 105
     use-level-requirement: 100
@@ -12001,16 +12078,16 @@ items:
         max: 0.15
   NETHERITE_HELMET#5720:
     fixed:
-      defense-rate: 0.0534
+      defense-rate: 0.05874
       durability: 1620
       thread-slots: 2
-      damage-reduction: 0.0237
-      phys-resistance: 0.0249
-      phys-flat-defense: 1.19
-      magic-flat-defense: 0.593
-      armor-strength: 0.19
+      damage-reduction: 0.02607
+      phys-resistance: 0.02739
+      phys-flat-defense: 1.309
+      magic-flat-defense: 0.6523
+      armor-strength: 0.209
       max-health: 7.52
-      move-speed: -0.002
+      move-speed: -0.05
     per-quality:
       durability: 270
     use-level-requirement: 100
@@ -12025,15 +12102,15 @@ items:
         max: 2.57
   NETHERITE_CHESTPLATE#5720:
     fixed:
-      defense-rate: 0.142
+      defense-rate: 0.1562
       durability: 2340
       thread-slots: 2
-      damage-reduction: 0.0237
-      phys-resistance: 0.0664
-      phys-flat-defense: 3.08
-      magic-flat-defense: 1.54
+      damage-reduction: 0.02607
+      phys-resistance: 0.07304
+      phys-flat-defense: 3.388
+      magic-flat-defense: 1.694
       max-health: 20.18
-      move-speed: -0.004
+      move-speed: -0.05
     per-quality:
       durability: 390
     use-level-requirement: 100
@@ -12048,14 +12125,14 @@ items:
         max: 7.06
   NETHERITE_LEGGINGS#5720:
     fixed:
-      defense-rate: 0.107
+      defense-rate: 0.1177
       durability: 2196
       thread-slots: 2
-      damage-reduction: 0.0237
-      phys-resistance: 0.0498
-      phys-flat-defense: 2.37
-      magic-flat-defense: 1.19
-      move-speed: -0.004
+      damage-reduction: 0.02607
+      phys-resistance: 0.05478
+      phys-flat-defense: 2.607
+      magic-flat-defense: 1.309
+      move-speed: -0.05
       max-health: 14.67
     per-quality:
       durability: 366
@@ -12071,15 +12148,15 @@ items:
         max: 5.59
   NETHERITE_BOOTS#5720:
     fixed:
-      defense-rate: 0.0534
+      defense-rate: 0.05874
       durability: 1890
       thread-slots: 2
-      damage-reduction: 0.0237
-      phys-resistance: 0.0249
-      phys-flat-defense: 1.19
-      magic-flat-defense: 0.593
-      armor-strength: 0.19
-      move-speed: -0.002
+      damage-reduction: 0.02607
+      phys-resistance: 0.02739
+      phys-flat-defense: 1.309
+      magic-flat-defense: 0.6523
+      armor-strength: 0.209
+      move-speed: -0.05
       max-health: 7.52
     per-quality:
       durability: 315
@@ -12153,13 +12230,13 @@ items:
         max: 0.918
   NETHERITE_CHESTPLATE#5741:
     fixed:
-      defense-rate: 0.06
+      defense-rate: 0.066
       durability: 480
-      phys-resistance: 0.048
-      phys-flat-defense: 2.3
-      magic-flat-defense: 1.2
+      phys-resistance: 0.0528
+      phys-flat-defense: 2.53
+      magic-flat-defense: 1.32
       max-health: 10
-      move-speed: -0.004
+      move-speed: -0.05
       thread-slots: 1
       food-save-chance: 0.08
     per-quality:
@@ -12253,16 +12330,16 @@ items:
     quality-mode-offset: -3
   NETHERITE_BOOTS#5740:
     fixed:
-      defense-rate: 0.03
+      defense-rate: 0.033
       durability: 400
-      phys-resistance: 0.032
-      phys-flat-defense: 0.7
-      magic-flat-defense: 0.3
-      armor-strength: 0.163
-      move-speed: -0.002
+      phys-resistance: 0.0352
+      phys-flat-defense: 0.77
+      magic-flat-defense: 0.33
+      armor-strength: 0.1793
+      move-speed: -0.05
       max-health: 2.2
       thread-slots: 1
-      knockback-resistance: 0.1
+      knockback-resistance: 0.11
     per-quality:
       durability: 67
     use-level-requirement: 35
@@ -12307,16 +12384,16 @@ items:
     use-role: mage
   NETHERITE_CHESTPLATE#5760:
     fixed:
-      defense-rate: 0.06
+      defense-rate: 0.066
       durability: 316
-      phys-resistance: 0.048
-      phys-flat-defense: 2.3
-      magic-flat-defense: 1.2
+      phys-resistance: 0.0528
+      phys-flat-defense: 2.53
+      magic-flat-defense: 1.32
       max-health: 6.6
-      move-speed: -0.004
+      move-speed: -0.05
       thread-slots: 1
-      damage-reduction: 0.02
-      knockback-resistance: 0.05
+      damage-reduction: 0.022
+      knockback-resistance: 0.055
     per-quality:
       durability: 53
     use-level-requirement: 45
@@ -13047,6 +13124,7 @@ _editor:
           - STRING#300039
           - STRING#300040
           - STRING#300016
+          - STRING#300080
       - id: cat_20260802_thread_mana
         label: マナ系
         itemIds:
@@ -13116,6 +13194,16 @@ _editor:
           - STRING#300067
           - STRING#300068
           - STRING#300069
+          - STRING#300070
+          - STRING#300071
+          - STRING#300072
+          - STRING#300073
+          - STRING#300074
+          - STRING#300075
+          - STRING#300076
+          - STRING#300077
+          - STRING#300078
+          - STRING#300079
           - STRING#300032
           - STRING#300035
           - STRING#300036
@@ -13151,6 +13239,16 @@ _editor:
     STRING#300067: thread
     STRING#300068: thread
     STRING#300069: thread
+    STRING#300070: thread
+    STRING#300071: thread
+    STRING#300072: thread
+    STRING#300073: thread
+    STRING#300074: thread
+    STRING#300075: thread
+    STRING#300076: thread
+    STRING#300077: thread
+    STRING#300078: thread
+    STRING#300079: thread
     DIAMOND_SWORD#1111: weapon
     NETHERITE_SWORD#112: weapon
     NETHERITE_SWORD#5720: weapon
@@ -14078,4 +14176,14 @@ _editor:
       - STRING#300036
       - STRING#300037
       - STRING#300038
+      - STRING#300070
+      - STRING#300071
+      - STRING#300072
+      - STRING#300073
+      - STRING#300074
+      - STRING#300075
+      - STRING#300076
+      - STRING#300077
+      - STRING#300078
+      - STRING#300079
       - STRING#300001

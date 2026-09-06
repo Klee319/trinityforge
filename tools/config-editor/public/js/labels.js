@@ -326,11 +326,11 @@
     ,"disassembly-return-bonus": "装備解体(dismantle-unlock)の戻り量に乗る追加倍率(%)。既存のグローバル設定値(解体%/ルール倍率)の上に乗算で加算される。"
     ,"ocean-fishing-bonus": "釣り位置が海洋系バイオームのときだけ fishing-bonus の期待値へ加算される追加分(%)。"
     // ---- エンチャント/ポーション品質 (2026-07-25、実行者限定ステ反映: 新規4キー) ----
-    ,"enchant-luck": "エンチャントテーブル使用時、確定したエンチャントのレベルを格上げ抽選する確率(luck1.0あたり)に使うポイント。overenchant系を解放していれば上限突破側の出現率にも乗る。"
+    ,"enchant-luck": "エンチャントテーブル使用時の補正ポイント。パリティ未満では確定結果を弱め、以上では格上げ・追加・上限突破の抽選に使う。overenchant系を解放していれば上限突破側の出現率にも乗る。"
     // 2026-08-14: enchant-exp-gain-bonus は廃止した。ENCHANTING への EXP 付与点は onEnchant の
     // 1箇所しかなく、職業EXP増加(エンチャント)=enchanting-exp-bonus と同じ量に別経路で掛かる
     // 重複だったため。エンチャントの消費経験値レベルを減らすのは別キーの enchant-cost-reduction。
-    ,"potion-quality-bonus": "醸造したポーションの効果時間・強度(amplifier)へ換算されるポイント。強度は切り捨てで整数化される(alchemy-quality.yml)。"
+    ,"potion-quality-bonus": "醸造したポーションの持続時間へ換算されるポイント。0.1ptあたり+1%（0未満は短くなる）。強度は品質では変わらない。換算係数は stats/alchemy-quality.yml（yml 直編集）。"
     ,"brew-speed-bonus": "醸造時間を割合で短縮する(%)。ホッパー式の自動醸造には alchemy.auto_mult で減衰した値が適用される。"
     // ---- 2026-07-26 新規2キー ----
     ,"enchant-cost-reduction": "エンチャントテーブルの提示/実消費レベルコストと、金床の修理コスト(経験値レベル)を"
@@ -411,6 +411,9 @@
     // 2026-08-04: ars-smithing.exp-per-source (スキルEXP画面ではAr鍛冶カードで
     // tf-forms.js SECTION_FIELD_OVERRIDES による専用説明に上書きされる。ここは中立な説明)。
     "exp-per-source": { label: "消費ソース1あたりの追加EXP", desc: "儀式で実際に消費したソース量に比例して加算する追加EXP。0で無効。" },
+    // 2026-09-04: ars-smithing.max-source-exp-per-craft (スキルEXP画面ではAr鍛冶カードで
+    // tf-forms.js SECTION_FIELD_OVERRIDES による専用説明に上書きされる。ここは中立な説明)。
+    "max-source-exp-per-craft": { label: "消費ソース由来EXPの上限(1回)", desc: "消費ソース1あたりの追加EXPを掛けた結果にだけ効く、儀式1回あたりの上限。0で上限なし。" },
     // power.levels-per-skill-point (スキルEXP画面ではページ上部の専用カードで描画、専用説明あり)。
     "levels-per-skill-point": { label: "1スキルポイントあたりの総合レベル", desc: "総合(POWER)がこの値だけレベルアップするごとにスキルツリーのポイントを1点付与する。" },
     "exp-per-material": { label: "素材別EXP", desc: "クラフト盤面に置いた素材1個あたりの鍛冶EXP。3x3の全マスを合計し、完成品の使用可能レベル倍率を掛ける。ここに無い素材は0。完成品に使用可能レベルが設定されていない場合はEXPを付与しない(解体で素材へ戻せるアイテムの作り直しによる無限EXP対策)。" },
@@ -493,14 +496,15 @@
     "base_material": { label: "ベース素材", desc: "アイテムの元になるバニラMaterialのID。例: PRISMARINE_SHARD" },
     "custom_model_data": { label: "カスタムモデルデータ(CMD)", desc: "リソースパックのテクスチャを割り当てる整数ID。0以上。" },
     "display_name": { label: "表示名", desc: "アイテムの表示名。&色コードが使えます。" },
-    "enchant_glow": { label: "エンチャント光沢", desc: "エンチャントしていなくても光らせるか。" },
+    "enchant_glow": { label: "エンチャント光沢", desc: "エンチャントしていなくても光らせるか。見た目のみ（テーブル・金床・砥石は通る）。" },
     // threads.yml (ars-threads)
     "stackable": { label: "重複可能", desc: "同じ防具に同じスレッドを複数セットできるか。" },
     "regen-bonus": { label: "マナ回復速度ボーナス", desc: "マナ回復速度への加算(/tick)。" },
     "mana-bonus": { label: "最大マナボーナス", desc: "最大マナへの加算。" },
     "recovery": { label: "マナ回復量", desc: "被弾/攻撃時のマナ回復量。" },
     "cost-reduction": { label: "スペルコスト軽減率", desc: "スペルコスト軽減率(%)。全装備合計は内部で上限あり。" },
-    "slots": { label: "収納スロット数", desc: "バックパックのスロット数。" },
+    "slots": { label: "収納スロット数(1本あたり)", desc: "バックパック1本あたりの枠数。装着本数を掛けて容量になる。" },
+    "max-inventory-slots": { label: "収納スロット総上限", desc: "1装備あたりのバックパック総枠上限。54を超える分はページ送り。" },
     // ---- P4: lore.yml (tf-lore) bind (所有者・使用制限行) ----
     "show-owner": { label: "所有者行を表示", desc: "アイテムのlore に所有者行を表示するか。" },
     "owner-line": { label: "所有者行テンプレート", desc: "MiniMessage文字列。<owner>=所有者名。" },
@@ -602,6 +606,7 @@
     "crit-chance": { label: "クリティカル率", desc: "0.0〜1.0。" },
     "crit-damage": { label: "クリティカル倍率", desc: "1.0以上。クリ時のダメージ倍率。" },
     "damage-modifier": { label: "ダメージ補正", desc: "最終段の乗算補正。" },
+    "ability-damage-scale": { label: "技ダメージ倍率", desc: "このダンジョンの特殊攻撃だけに掛かる倍率。通常攻撃には効かない。省略時は等倍。0より大きく2以下。" },
     "fixed-damage": { label: "固定ダメージ", desc: "計算を経ず加算される固定値。" },
     "attack": { label: "攻撃", desc: "モブの物理攻撃ステ。プレイヤーへの近接/飛び道具命中に適用。" },
     "chance": { label: "ドロップ確率", desc: "1死亡あたり[0,1]。" },
@@ -692,6 +697,7 @@
     "mob-ability-type": {
       "ground_slam": "全方位AoE (ground_slam)",
       "projectile_volley": "扇状の投射 (projectile_volley)",
+      "projectile_rain": "頭上からの投射 (projectile_rain)",
       "charge": "突進 (charge)",
       "aura": "持続オーラ (aura)",
       "teleport_strike": "背後へ転移して斬る (teleport_strike)",
@@ -700,7 +706,8 @@
       // 2026-08-16 追加(Java の MobAbility.Type と 1:1)
       "repulse": "強ノックバック (repulse)",
       "vortex_pull": "引き寄せ (vortex_pull)",
-      "delayed_zone": "予告設置 (delayed_zone)"
+      "delayed_zone": "予告設置 (delayed_zone)",
+      "fixed_zone": "固定領域 (fixed_zone)"
     },
     "mob-ability-damage-type": { "physical": "物理", "magical": "魔法" }
     // "rarity-color"(スレッド厳選専用のレア度カラー辞書)は 2026-08-02 に専用UI(p5-forms.js の

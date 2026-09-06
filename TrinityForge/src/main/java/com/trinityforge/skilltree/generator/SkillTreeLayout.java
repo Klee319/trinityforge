@@ -95,9 +95,10 @@ public final class SkillTreeLayout {
      * 深さ順だと<b>どの主軸の扇も、下から伸びてきたチェーンの続きより先に</b>レーンを取る。
      * 取られた続きは外側へ押し出され、親との間に 4〜6 セルの<b>斜めの経路</b>が生まれる。
      * 通路の行はノード行の間に1本しか無いので、その斜めの線と扇の線が同じ行で合流し、
-     * {@code GridConnectorRouting#merge} が T 字・十字へ描き替える ―― これが実サーバ報告
-     * 「エンチャントと総合のノードのつながり方がおかしい」の正体（付呪では1本の通路の行に
-     * 5本のコネクタが載っていた）。
+     * 隣り合う横線が1本に見える ―― これが実サーバ報告
+     * 「エンチャントと総合のノードのつながり方がおかしい」の列ずれ側の正体（付呪では1本の通路の行に
+     * 5本のコネクタが載っていた）。同じセルで縦の続きと横の扇が十字になる件は
+     * {@link GridConnectorRouting#merge(String, String, boolean)} 側で別途潰す。
      *
      * <p>行を下から埋め、同じ行では続きを先に置くと、チェーンは<b>1列を保って真上へ伸びる</b>
      * ので線は縦1セルになり、横に長く走る線は「主軸の扇」だけになる。
@@ -269,10 +270,34 @@ public final class SkillTreeLayout {
     /** Returns a deterministic Manhattan route including both endpoint nodes and avoiding other nodes. */
     public List<Coord> route(Coord from, Coord to) {
         // 2026-07-29: 探索そのものは GridConnectorRouting へ集約した(アチーブメントGUIと共有)。
-        // ここは「何を障害物とみなすか」= 配置済みノード + ルートノード だけを決める。
+        // ここは「何を障害物とみなすか」= 配置済みノード + ルートノード + ノード行の左右の隙間。
+        return GridConnectorRouting.route(from, to, routingObstacles(from, to), 8);
+    }
+
+    /**
+     * ノード行の左右1セルは経路に使わせない。
+     *
+     * <p>次の主軸が「一段上の枝と同じ行」に居る（総合では {@code B} が {@code A-1} と同じ y）と、
+     * BFS が北を先に試すため通路行からノード行の隙間へ落ち、兄弟ノードの間に L 字が残る。
+     * 横線は通路行だけに置くのが読み方の前提なので、ノードの東西は端点以外ブロックする。
+     */
+    private Set<Coord> routingObstacles(Coord from, Coord to) {
         Set<Coord> blocked = new HashSet<>(occupied);
         blocked.add(rootCoord());
-        return GridConnectorRouting.route(from, to, blocked, 8);
+        for (Coord node : occupied) {
+            addNodeRowShoulders(blocked, node, from, to);
+        }
+        addNodeRowShoulders(blocked, rootCoord(), from, to);
+        return blocked;
+    }
+
+    private static void addNodeRowShoulders(Set<Coord> blocked, Coord node, Coord from, Coord to) {
+        for (int dx : new int[] {-1, 1}) {
+            Coord side = new Coord(node.x() + dx, node.y());
+            if (!side.equals(from) && !side.equals(to)) {
+                blocked.add(side);
+            }
+        }
     }
 
     public Coord coordOf(String id) {

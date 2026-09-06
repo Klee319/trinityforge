@@ -2,6 +2,7 @@ package com.trinityforge.listeners;
 
 import com.trinityforge.integration.ars.ArsProgressionBridge;
 import com.trinityforge.config.domains.ItemCatalogConfig;
+import com.trinityforge.pdc.ItemData;
 import com.trinityforge.stats.CatalogIdentity;
 import com.trinityforge.stats.ItemFactory;
 import com.trinityforge.stats.ItemTemplate;
@@ -26,11 +27,8 @@ import java.util.concurrent.ThreadLocalRandom;
  * Catalog {@code recipe.method: combine} on the anvil (金床).
  *
  * <p>Left (first) = {@code source-item} (合成元), right (second) = {@code addition-item} (合成対象),
- * result = the catalog entry that owns the recipe (合成先). Quality inherits the source when
- * {@code inherit-source-quality}, otherwise the average of both inputs.
- *
- * <p><b>増殖バグ — {@code setItemOnCursor} を呼んではいけない</b>:
- * {@link CatalogSmithingListener} W-140 と同型。結果枠({@code setCurrentItem})だけ差し替える。
+ * result = the catalog entry that owns the recipe (合成先). 品質と rollSeed は合成元（左枠）から
+ * 引き継ぐ。プレビューも同じタネで見せる（確定時に引き直すと品質ptが必ず変わる）。
  */
 public final class CatalogAnvilListener implements Listener {
 
@@ -55,8 +53,10 @@ public final class CatalogAnvilListener implements Listener {
             return;
         }
         int quality = resolveQuality(match);
-        ItemStack result = itemFactory.create(match.resultTemplate(), PreviewRollSeeds.ANVIL, quality);
+        long seed = resolveRollSeed(match);
+        ItemStack result = itemFactory.create(match.resultTemplate(), seed, quality);
         CatalogIdentity.ensure(result, itemCatalog);
+        ArsSocketCarryOver.copy(match.first(), result);
         event.setResult(result);
         if (event.getView() instanceof AnvilView anvilView) {
             anvilView.setRepairCost(COMBINE_REPAIR_COST);
@@ -80,16 +80,16 @@ public final class CatalogAnvilListener implements Listener {
         }
 
         int quality = resolveQuality(match);
-        long seed = ThreadLocalRandom.current().nextLong();
+        long seed = resolveRollSeed(match);
         ItemStack stamped = itemFactory.create(match.resultTemplate(), seed, quality);
         CatalogIdentity.ensure(stamped, itemCatalog);
-        // 結果枠だけを差し替える。カーソルには絶対に触らない — CraftBukkit の
-        // handleContainerClick はイベント発火のあとバニラ clicked() を走らせるので、
-        // ここで setItemOnCursor すると「カーソルが埋まっている」扱いになり
-        // ResultSlot#onTake が呼ばれず素材が消費されない(=増殖)。W-140 の鍛冶台と同型。
+        ArsSocketCarryOver.copy(match.first(), stamped);
         event.setCurrentItem(stamped.clone());
+        if (!event.isShiftClick()) {
+            player.setItemOnCursor(stamped.clone());
+        }
         plugin.getServer().getScheduler().runTask(plugin,
-                () -> restampAnvilPreviews(player, match.resultTemplate(), quality));
+                () -> restampAnvilPreviews(player, match.resultTemplate(), quality, seed));
 
         if (match.recipe().combineExp() > 0) {
             ArsProgressionBridge.grantSmithingExpForResult(
@@ -97,34 +97,36 @@ public final class CatalogAnvilListener implements Listener {
         }
     }
 
-    private void restampAnvilPreviews(Player player, ItemTemplate resultTemplate, int quality) {
+    private void restampAnvilPreviews(Player player, ItemTemplate resultTemplate, int quality, long seed) {
         var inv = player.getInventory();
         for (int i = 0; i < inv.getSize(); i++) {
             ItemStack stack = inv.getItem(i);
-            if (restampIfAnvilPreview(stack, resultTemplate, quality)) {
+            if (restampIfAnvilPreview(stack, resultTemplate, quality, seed)) {
                 inv.setItem(i, stack);
             }
         }
         ItemStack cursor = player.getItemOnCursor();
-        if (restampIfAnvilPreview(cursor, resultTemplate, quality)) {
+        if (restampIfAnvilPreview(cursor, resultTemplate, quality, seed)) {
             player.setItemOnCursor(cursor);
         }
     }
 
-    private boolean restampIfAnvilPreview(ItemStack stack, ItemTemplate resultTemplate, int quality) {
+    private boolean restampIfAnvilPreview(ItemStack stack, ItemTemplate resultTemplate, int quality, long seed) {
         if (stack == null || stack.getType().isAir() || !stack.hasItemMeta()) {
             return false;
         }
         if (!CatalogItemMatch.matchesTemplate(stack, resultTemplate)) {
             return false;
         }
-        var data = com.trinityforge.pdc.ItemData.of(stack.getItemMeta());
-        var seed = data.rollSeed();
-        if (seed.isEmpty() || seed.get() != PreviewRollSeeds.ANVIL) {
+        var data = ItemData.of(stack.getItemMeta());
+        var stampedSeed = data.rollSeed();
+        // 旧プレビュー固定シードだけ引き直す。合成元のタネで作った個体は触らない。
+        if (stampedSeed.isEmpty() || stampedSeed.get() != PreviewRollSeeds.ANVIL) {
             return false;
         }
-        ItemStack stamped = itemFactory.create(resultTemplate, ThreadLocalRandom.current().nextLong(), quality);
+        ItemStack stamped = itemFactory.create(resultTemplate, seed, quality);
         CatalogIdentity.ensure(stamped, itemCatalog);
+        ArsSocketCarryOver.copy(stack, stamped);
         stack.setItemMeta(stamped.getItemMeta());
         return true;
     }
@@ -156,12 +158,12 @@ public final class CatalogAnvilListener implements Listener {
     }
 
     private static int resolveQuality(Match match) {
-        int sourceQ = CatalogItemMatch.qualityOf(match.first());
-        if (match.recipe().inheritSourceQuality()) {
-            return sourceQ;
-        }
-        int additionQ = CatalogItemMatch.qualityOf(match.second());
-        return (sourceQ + additionQ) / 2;
+        return CatalogItemMatch.qualityOf(match.first());
+    }
+
+    private static long resolveRollSeed(Match match) {
+        return CatalogItemMatch.rollSeedOf(match.first())
+                .orElseGet(ThreadLocalRandom.current()::nextLong);
     }
 
     private record Match(ItemTemplate resultTemplate, RecipeSpec recipe, ItemStack first, ItemStack second) {

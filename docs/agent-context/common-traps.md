@@ -61,9 +61,13 @@
 
 | 場所 | 用途 |
 |---|---|
-| `EquipmentDurabilityService#damageSlot`（TF） | 死亡ペナルティ等の装備劣化 |
-| `ChainBreakSupport#damageHeldTool`（TF） | 一括伐採／鉱脈採掘の連鎖分 |
-| `SpellCaster#consumeCastDurability`（ArsPaper） | 詠唱ごとの杖の消耗 |
+| `EquipmentDurabilityService#damageSlot`（TF） | 死亡ペナルティ等の装備劣化。壊すときは `ItemBreakSignal#fire` |
+| `ChainBreakSupport#damageHeldTool`（TF） | 一括伐採／鉱脈採掘の連鎖分。壊すときは `ItemBreakSignal#fire` |
+| `SpellCaster#consumeCastDurability`（ArsPaper） | 詠唱ごとの杖の消耗。壊すときは `PlayerItemBreakEvent` |
+
+**壊してスロットを空にするときはバニラと同じ `PlayerItemBreakEvent` を撃つ。**
+`damageItemStack` を使わない手書き経路はイベントを飛ばない。装着スレッドは装備 PDC にしか無く、
+Ars の `ThreadBreakDropListener` はこのイベントだけで返す。撃たないと挿したスレッドが装備と一緒に消える。
 
 ### ⚠️ 頭上表示の高さは「バニラのどこに何があるか」を**サーバ jar から確かめて**書く（2026-08-20 W-174）
 
@@ -444,6 +448,16 @@ JDBC の `setAutoCommit(false)` は既定で `BEGIN DEFERRED` を発行する。
    `PlayerJoinEvent` より後で、`PersistentData#apply` が `clearNBT()` → merge、
    `Attributes#apply` が属性を入れ直す（W-138 で職業バフが消えたのと同じ順序問題）
 
+### ⚠️⚠️ `JUMP_BOOST` amplifier 128 は 1.21 では空へ飛ばす（拘束 snare、2026-08-29）
+
+1.8 では amplifier を signed byte に詰めて 128 → -128 とし、Jump Boost -1 で跳躍を潰していた。
+Paper 1.21 の `PotionEffect` amplifier は **int のまま**なので 128 = Jump Boost 129 になり、
+`jump_strength` が加算されて対象が打ち上げられる。`SLOWNESS` 255 も同じ溢れる。
+
+拘束は属性 `JUMP_STRENGTH` / `MOVEMENT_SPEED` を乗算 -1 で 0 にし、ポーションは
+妥当な鈍足と採掘低下だけにする。属性修飾子は NBT 保存なので W-191 と同じく PDC 終了時刻＋参加時の読み直し
+（`SnareEffect` / `SnareRestoreListener`）。
+
 ## 権利・レシピの設計原理
 
 ### ⚠️⚠️ かまどの結果を `FurnaceSmeltEvent#setResult` で差し替えると **2個目から焼けなくなる**（2026-08-23 W-190）
@@ -470,6 +484,15 @@ CraftBukkit の `RecipeManager#getRecipeFor` が `list.getLast()` を返すた�
 Paper のサーバ実装ソースは Gradle キャッシュに `.java` のまま入っている（推測せずここを読む）:
 `~/.gradle/caches/paperweight-userdev/v2/work/applyDevBundlePatches_*/output.jar` の中の
 `net/minecraft/world/level/block/entity/*.java`。
+
+### ⚠️ `ShapedRecipe#getIngredientMap()` はマスではなく文字キー1件（解体の革が6個、2026-08-29）
+
+`getIngredientMap().values()` は shape のスロット数ではなく **キーの種類** を返す。革チェスト
+`X X / XXX / XXX` はキー `X` が1件なので 8 ではなく 1。加えて `Bukkit.getRecipesFor` は
+**material だけ**でマッチし、カタログの `LEATHER_CHESTPLATE`（骨の守護の革2枠など）も混ざる。
+unique-key 1 をカタログ4種と足すと 5、`floor(5×60%×2)=6` が実測と一致する。
+数えるときは shape を歩く。バニラ未刻印の解体は `minecraft:` 名前空間だけを見る
+（`DisassemblyListener#countShapedSlots` / `#isVanillaRecipeForUnstampedItem`）。
 
 ### ⚠️ ArsPaper の materials.yml 素材は「かまどへ入れる経路が3つとも塞がっている」（W-132）
 
@@ -679,6 +702,17 @@ TF カタログ品も魔法の側で守る必要がある。**「どちらかが
 「消費だけ拒否して、カスタム防具のアーマートリムなど正当な用途は通す」判断をしており、
 一律遮断へ足すとその判断ごと潰れる。
 
+### ⚠️ 金床の「コストが高すぎます」はクライアントが 40 で決め打ちする
+
+`AnvilView#setMaximumRepairCost` はサーバが結果を空にする上限だけを動かす。Java 版
+`AnvilScreen` は送られてきたコストが **40 以上**なら、クリエイティブ以外では必ず
+`container.repair.expensive` を出す（`maximumRepairCost` は見ない）。バニラ自身も改名専用のとき
+コストを 39 に落とす同じ逃げを使う。表示を消すにはクライアントへ 39 以下を送るが、
+**Prepare の最中にコストを 39 へ落とすと Paper がハンドラ後に実コストと上限40を再比較して
+結果を空にする**。上限解除はイベント中、表示の 39 と空になった結果の復元は次tick
+（`AnvilClientCost` / `EnchantCostReductionListener#onAnvilClientDisplay`）。取り出し直前に
+実コストを戻して課金する。
+
 **直し方は「変換先を用意する」ではなく「変換しない」。**「焼き圧縮ジャガイモ」を全ベース材質ぶん
 定義しないと成立せず、定義漏れがまた無言の喪失に化ける。
 
@@ -860,10 +894,16 @@ alpha を1ピクセルも変えずに RGB だけ写像する**。`resourcepack/b
 editor の `labels.js`・`tf-base-stats.js`・`tf-lore.js` ＋ `test/tf-stat-caps-tab.test.js` の件数。
 1つでも漏らすと drift テストが落ちる（＝落ちたら「テストが古い」ではなく登録漏れを疑う）。
 
-### 使用要件のゲートは `UseRequirementsConfig.enforce` の【コード上の既定が false】
-`true` にしているのは出荷 `progression/use-requirements.yml` のほう。
-テストが自前の一時ディレクトリに yml を書く場合、`enforce: true` を書かないと
-**ゲートが素通りして、そのテストが何も検証しないまま緑になる**。
+### ⚠️ エンチャント光沢はダミー Unbreaking + `HIDE_ENCHANTS` で出してはいけない
+
+`ItemFlag.HIDE_ENCHANTS` は **all-or-nothing**。光沢用の隠しエンチャントを付けると:
+
+1. エンチャント台が「既にエンチャント済み」と見なして拒否する
+2. 金床の本合成にダミー耐久力が混ざる
+3. 砥石が本物のエンチャントとして剥がす
+4. カタログで glow を切ったあともフラグが残り、後付けエンチャントがツールチップに出ない
+
+Paper 1.21 は `ItemMeta#setEnchantmentGlintOverride(true)` がある。ArsPaper は 2026-08-14 に移行済み。TF カタログの `enchant-glow:` も同じ入口（`ItemFactory#applyEnchantGlow`）。旧個体は assemble / 砥石 / 持ち替えでダミーとフラグを落とす。
 
 ## モブ・ブロックのバニラ挙動の罠（2026-08-03 追加）
 
@@ -1089,3 +1129,9 @@ PY
 
 粒子は per-viewer 送信なので、**先読みは本人の視点にだけ掛ける** ―― 他人から見た本体は逆に
 補間で遅れて描かれるため、同じ先読みを他人にも掛けると今度は体より前に出る。
+
+**称号には先読みを掛けない**（2026-08-29 W-299）。W-263 で本人には称号を出さなくなったので、
+見るのは他人だけ。他人のクライアントは本体も称号もサーバ位置を補間する。先読みすると
+称号だけがネームタグより前へ出て中心がずれる。ジャンプの縦速度は等速ではないので、
+縦の先読みは隙間を伸ばす。スニークはオフセットが姿勢パケットで即変わるのに、称号だけ
+`teleport_duration=3` で滑らせると隙間が伸びる → オフセットが変わった tick は補間を切る。

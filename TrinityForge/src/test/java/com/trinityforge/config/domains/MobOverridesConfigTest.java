@@ -890,4 +890,95 @@ class MobOverridesConfigTest {
                 "magic-ratio は 0.45 を超えてはならない");
     }
 
+    // --- ability-damage-scale (2026-08-29: エンチャント試練の技だけ弱める) ---
+
+    @Test
+    void abilityDamageScaleReadsTheWorldScopeAndInstanceSuffix(@TempDir File dir) throws Exception {
+        MobOverridesConfig config = loadedConfig(dir, """
+                overrides:
+                  default:
+                    ability-damage-scale: 0.50
+                    mobs:
+                      goblin_chief:
+                        stats:
+                          max-health: 1
+                  em_id_enchantment_challenge_2:
+                    ability-damage-scale: 0.70
+                    stats:
+                      attack:
+                        magic-ratio: 0.1
+                    mobs:
+                      bunny:
+                        stats:
+                          max-health: 1
+                  other_dungeon:
+                    mobs:
+                      goblin_chief:
+                        stats:
+                          max-health: 1
+                """);
+        assertEquals(0.70, config.abilityDamageScale("em_id_enchantment_challenge_2"), 1e-9);
+        assertEquals(0.70, config.abilityDamageScale("em_id_enchantment_challenge_2_1"), 1e-9,
+                "インスタンスワールドは設計図名へ照合する");
+        assertEquals(1.0, config.abilityDamageScale("other_dungeon"), 1e-9,
+                "default の 0.50 は他ワールドへカスケードしない");
+        assertEquals(1.0, config.abilityDamageScale("default"), 1e-9);
+        assertEquals(1.0, config.abilityDamageScale(null), 1e-9);
+        assertEquals(1.0, config.abilityDamageScale("unknown_world"), 1e-9);
+    }
+
+    @Test
+    void missingAbilityDamageScaleIsOne(@TempDir File dir) throws Exception {
+        MobOverridesConfig config = loadedConfig(dir, """
+                overrides:
+                  my_dungeon:
+                    mobs:
+                      goblin_chief:
+                        stats:
+                          max-health: 1
+                """);
+        assertEquals(1.0, config.abilityDamageScale("my_dungeon"), 1e-9);
+    }
+
+    @Test
+    void quotedAbilityDamageScaleIsIgnored() throws Exception {
+        ParseResult result = parse("""
+                overrides:
+                  my_dungeon:
+                    ability-damage-scale: "0.70"
+                    mobs:
+                      goblin_chief:
+                        stats:
+                          max-health: 1
+                """);
+        assertTrue(result.skipped() > 0);
+        assertTrue(result.scopeAbilityDamageScales().isEmpty());
+    }
+
+    @Test
+    void abilityDamageScaleAboveTwoIsIgnored() throws Exception {
+        ParseResult result = parse("""
+                overrides:
+                  my_dungeon:
+                    ability-damage-scale: 2.5
+                    mobs:
+                      goblin_chief:
+                        stats:
+                          max-health: 1
+                """);
+        assertTrue(result.skipped() > 0);
+        assertTrue(result.scopeAbilityDamageScales().isEmpty());
+    }
+
+    @Test
+    void abilityDamageScaleAloneStillMatchesInstanceWorlds(@TempDir File dir) throws Exception {
+        // stats も mobs も無くても、技倍率だけの scope がインスタンスワールドに当たること。
+        MobOverridesConfig config = loadedConfig(dir, """
+                overrides:
+                  em_scale_only_dungeon:
+                    ability-damage-scale: 0.70
+                """);
+        assertEquals(0.70, config.abilityDamageScale("em_scale_only_dungeon_3"), 1e-9);
+    }
+
 }

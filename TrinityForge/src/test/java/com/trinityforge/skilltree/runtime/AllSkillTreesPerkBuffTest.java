@@ -25,6 +25,8 @@ import java.util.HashSet;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -142,6 +144,26 @@ class AllSkillTreesPerkBuffTest {
         assertTrue(Math.abs(fishingBonus - 0.25) < 1e-9,
                 "A:5% + C:10% + prestige:10% = 0.25 のはずだが " + fishingBonus
                         + " ── パーセント矯正が効いていないと 25.0(=追加ドロップ25個)になる");
+    }
+
+    @Test
+    @DisplayName("鍛冶とArs鍛冶のプレステージ品質基準は作業台と儀式に分離されている")
+    void prestigeQualityBonuses_areSeparatedBetweenWorkbenchAndRitual(@TempDir File dataFolder) throws IOException {
+        Collection<SkillTree> trees = loadAll(dataFolder);
+
+        PerkBuffs smithing = PerkBuffResolver.compute(
+                Set.of(PerkNaming.prestigePerkId("SMITHING", 1)), trees);
+        PerkBuffs arsSmithing = PerkBuffResolver.compute(
+                Set.of(PerkNaming.prestigePerkId("ARS_SMITHING", 1)), trees);
+
+        assertEquals(2.0, smithing.general().get("workbench_quality_bonus"), 1e-9,
+                "鍛冶プレステージは作業台品質基準を+2する");
+        assertFalse(smithing.general().containsKey("ritual_quality_bonus"),
+                "鍛冶プレステージは儀式品質基準を変えない");
+        assertEquals(2.0, arsSmithing.general().get("ritual_quality_bonus"), 1e-9,
+                "Ars鍛冶プレステージは儀式品質基準を+2する");
+        assertFalse(arsSmithing.general().containsKey("workbench_quality_bonus"),
+                "Ars鍛冶プレステージは作業台品質基準を変えない");
     }
 
     /** Shipped skill trees must not retain legacy dedicated-effect ids. */

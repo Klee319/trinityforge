@@ -8,8 +8,7 @@ import com.trinityforge.stats.GatheringPolicy;
 import com.trinityforge.stats.StatKeys;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
-import org.bukkit.NamespacedKey;
-import org.bukkit.Registry;
+import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Item;
@@ -29,6 +28,10 @@ import java.util.concurrent.ThreadLocalRandom;
  * 対象鉱石/作物ブロック({@code stats/mining-gimmick.yml} {@code fortune.fortune-blocks})を壊した際のドロップを
  * 追加スポーンする。整数部は確定、小数部は確率で+1する期待値方式({@link GatheringPolicy#expectedExtra})。
  *
+ * <p>シルクタッチ装備中は追加ドロップしない（主ドロップが鉱石ブロックになるため）。
+ * 設置済みブロックは、ドロップから同じブロックを戻せる循環（GTH-01: グロウストーン等）だけ弾く。
+ * 鉱石はシルク→再設置→砕くが一方通行なので、設置済みでも幸運(採掘)を乗せる。
+ *
  * <p><strong>ランタイム検証必須</strong>: {@link org.bukkit.World#dropItemNaturally} によるブロック破壊時の
  * 追加ドロップスポーンは、実サーバーでの動作確認が必要。
  */
@@ -40,7 +43,6 @@ public final class MiningFortuneListener implements Listener {
     private final SkillLevelSource skillLevelSource;
     private final PlayerStatAggregator aggregator;
     private final PlacedBlockTracker placedBlockTracker;
-    private final Enchantment silkTouch;
 
     public MiningFortuneListener(MiningGimmickConfig gathering,
                                  SkillLevelSource skillLevelSource, PlayerStatAggregator aggregator,
@@ -49,7 +51,6 @@ public final class MiningFortuneListener implements Listener {
         this.skillLevelSource = Objects.requireNonNull(skillLevelSource, "skillLevelSource");
         this.aggregator = Objects.requireNonNull(aggregator, "aggregator");
         this.placedBlockTracker = Objects.requireNonNull(placedBlockTracker, "placedBlockTracker");
-        this.silkTouch = Registry.ENCHANTMENT.get(NamespacedKey.minecraft("silk_touch"));
     }
 
     /**
@@ -116,14 +117,12 @@ public final class MiningFortuneListener implements Listener {
         Block brokenBlock = event.getBlock();
         boolean placedViaCache = brokenBlock.getLocation().equals(pendingPlacedBreakLocation);
         pendingPlacedBreakLocation = null; // consume regardless of match — see field javadoc
-        if (placedViaCache || placedBlockTracker.isPlaced(brokenBlock)) {
-            // GTH-01 exploit fix (2026-07-25): every sibling extra-drop implementation
-            // (VeinMiningListener#onBlockBreakDropTables, TreeFellingListener, DiggingGimmickListener,
-            // GatheringExtraDropListener) excludes player-placed blocks from bonus drops; this listener was
-            // the one gap. Without it, a craftable-and-placeable fortune-block (e.g. GLOWSTONE: 4 dust ->
-            // 1 block via vanilla recipe) can be placed and re-broken in a loop, and this listener's
-            // uncapped expected-extra bonus (up to GatheringPolicy.MAX_EXTRA) pushes the yield-per-break
-            // above vanilla's break-even point, making the resource increase without bound.
+        Material brokenType = event.getBlockState().getType();
+        boolean placed = placedViaCache || placedBlockTracker.isPlaced(brokenBlock);
+        if (placed && !isOneWayCrushOre(brokenType)) {
+            // GTH-01: ドロップから同じブロックへ戻せる循環（グロウストーン 4粉→1塊 等）は
+            // 設置済みを弾く。鉱石は原石/鉱石を精錬する一方通行なので、シルク採取→再設置→砕きに
+            // 幸運(採掘)を乗せる。
             return;
         }
 
@@ -169,12 +168,32 @@ public final class MiningFortuneListener implements Listener {
         }
     }
 
-    private boolean hasSilkTouch(ItemStack tool) {
-        if (tool == null || !tool.hasItemMeta()) {
+    private static boolean hasSilkTouch(ItemStack tool) {
+        if (tool == null || tool.getType().isAir()) {
             return false;
         }
-        var meta = tool.getItemMeta();
-        return silkTouch != null && meta.getEnchantLevel(silkTouch) > 0;
+        return tool.getEnchantmentLevel(Enchantment.SILK_TOUCH) > 0;
+    }
+
+    /**
+     * ドロップから同じブロックをクラフト／再設置できない鉱石。シルクで取って置き、砕く経路。
+     * 古代の残骸はドロップがブロックそのものなので循環になり、ここには入れない。
+     */
+    static boolean isOneWayCrushOre(Material type) {
+        return switch (type) {
+            case COAL_ORE, DEEPSLATE_COAL_ORE,
+                    IRON_ORE, DEEPSLATE_IRON_ORE,
+                    COPPER_ORE, DEEPSLATE_COPPER_ORE,
+                    GOLD_ORE, DEEPSLATE_GOLD_ORE,
+                    NETHER_GOLD_ORE,
+                    DIAMOND_ORE, DEEPSLATE_DIAMOND_ORE,
+                    EMERALD_ORE, DEEPSLATE_EMERALD_ORE,
+                    LAPIS_ORE, DEEPSLATE_LAPIS_ORE,
+                    REDSTONE_ORE, DEEPSLATE_REDSTONE_ORE,
+                    NETHER_QUARTZ_ORE,
+                    GILDED_BLACKSTONE -> true;
+            default -> false;
+        };
     }
 
     /**

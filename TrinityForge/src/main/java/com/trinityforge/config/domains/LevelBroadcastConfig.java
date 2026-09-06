@@ -40,13 +40,22 @@ public final class LevelBroadcastConfig implements LoadableConfig {
             "<gold><bold>[祝!]</bold></gold> <yellow>%player%</yellow><gray> が </gray>"
                     + "<aqua>%skill%</aqua><gray> で </gray><green>Lv%level%</green>"
                     + "<gray> に到達しました!</gray>";
+    /** プレステージ(NG+)段が1以上のときに使う書式。{@code %prestige%} が段番号。 */
+    private static final String DEFAULT_MESSAGE_PRESTIGE =
+            "<gold><bold>[祝!]</bold></gold> <yellow>%player%</yellow><gray> が </gray>"
+                    + "<aqua>%skill%</aqua><gray>（</gray><white>%prestige%</white><gray>周目）で </gray>"
+                    + "<green>Lv%level%</green><gray> に到達しました!</gray>";
     private static final String DEFAULT_SOUND = "UI_TOAST_CHALLENGE_COMPLETE";
+    private static final int DEFAULT_MIN_INTERVAL_SECONDS = 30;
+    private static final int MIN_INTERVAL_SECONDS_CEILING = 3600;
 
     private volatile boolean enabled = true;
     private volatile int multipleOf = DEFAULT_MULTIPLE_OF;
     private volatile String message = DEFAULT_MESSAGE;
+    private volatile String messagePrestige = DEFAULT_MESSAGE_PRESTIGE;
     private volatile boolean includePower = false;
     private volatile int maxAnnouncementsPerBatch = DEFAULT_MAX_PER_BATCH;
+    private volatile int minIntervalSeconds = DEFAULT_MIN_INTERVAL_SECONDS;
     private volatile boolean soundEnabled = true;
     private volatile String sound = DEFAULT_SOUND;
     private volatile float soundVolume = 1.0f;
@@ -68,6 +77,15 @@ public final class LevelBroadcastConfig implements LoadableConfig {
         return message;
     }
 
+    /**
+     * プレステージ(NG+)段が1以上のときに使う書式。{@code %prestige%}(段番号)が追加で使える。
+     * プレステージ後は上限レベル到達時にしかアナウンスしない(呼び出し側リスナーの判定)
+     * ため、こちらは常に「上限到達」の行になる。
+     */
+    public String messagePrestige() {
+        return messagePrestige;
+    }
+
     /** 総合(POWER)のレベルアップもアナウンスするか。既定 false。 */
     public boolean includePower() {
         return includePower;
@@ -76,6 +94,16 @@ public final class LevelBroadcastConfig implements LoadableConfig {
     /** 1 回のフラッシュで流す最大行数。常に 1 以上。 */
     public int maxAnnouncementsPerBatch() {
         return maxAnnouncementsPerBatch;
+    }
+
+    /**
+     * 同一プレイヤーの全体放送を、この秒数の間に1行までへ絞る。0 で無効。常に 0〜3600。
+     *
+     * <p>プレステージの登り直し・EXP異常・管理コマンドの一括付与など、原因が何であれ
+     * 「チャットが埋まる」こと自体を止める最後の砦（W-313）。
+     */
+    public int minIntervalSeconds() {
+        return minIntervalSeconds;
     }
 
     public boolean soundEnabled() {
@@ -160,9 +188,15 @@ public final class LevelBroadcastConfig implements LoadableConfig {
         this.multipleOf = rawMultiple;
 
         this.message = trimOrDefault(yaml.getString("message"), DEFAULT_MESSAGE);
+        this.messagePrestige = trimOrDefault(yaml.getString("message-prestige"), DEFAULT_MESSAGE_PRESTIGE);
         this.includePower = yaml.getBoolean("include-power", false);
         this.maxAnnouncementsPerBatch = Math.max(1,
                 yaml.getInt("max-announcements-per-batch", DEFAULT_MAX_PER_BATCH));
+        // 範囲外(負数・巨大値)は警告せず丸める。0 は「無効」という正当な設定値なので既定へは戻さない
+        // (multiple-of の 0 とは意味が違う: あちらは 0 除算で壊れるが、こちらの 0 は単に制限なしを表す)。
+        this.minIntervalSeconds = (int) clamp(
+                yaml.getInt("min-interval-seconds", DEFAULT_MIN_INTERVAL_SECONDS),
+                0, MIN_INTERVAL_SECONDS_CEILING);
 
         this.soundEnabled = yaml.getBoolean("sound.enabled", true);
         this.sound = trimOrDefault(yaml.getString("sound.key"), DEFAULT_SOUND);

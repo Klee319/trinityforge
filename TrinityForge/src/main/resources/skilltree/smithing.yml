@@ -42,15 +42,17 @@ prestige:
   enabled: true
   at-level: 100
   name: 鍛冶王の栄光
-  effect-text: 全ての品質 永続+3・ランダムステータスの上振れ率 永続+15%
+  effect-text: 作業台品質基準+2・ランダムステータス抽選の上振れ+2%・下振れ軽減+2%・中心寄せ+2%・鍛冶EXP+10%
   buffs:
     workbench-quality-bonus: 2
     craft-roll-up-bonus: 2
     craft-roll-down-reduction: 2
     craft-roll-inset: 2
+    smithing-exp-bonus: 0.1
   description: |-
-    作業台品質+2
-    ロールステータスの品質up
+    作業台品質基準+2
+    ランダムステータス抽選の上振れ+2%・下振れ軽減+2%・中心寄せ+2%
+    鍛冶EXP増加+10%
   max-times: 5
 nodes:
   A:
@@ -60,9 +62,9 @@ nodes:
     parent:
     icon: LEATHER_CHESTPLATE
     cost: 1
-    effect-text: 作業台品質+2
+    effect-text: 作業台品質基準+1
     effects:
-      - 作業台クラフトの品質基準+2
+      - 作業台クラフトの品質基準+1
     buffs:
       workbench-quality-bonus: 1
     description: 作業台品質+1
@@ -73,15 +75,13 @@ nodes:
     parent: A
     icon: CHAINMAIL_CHESTPLATE
     cost: 1
-    effect-text: 作業台品質+2・ロール上振れ+1%
+    effect-text: 作業台品質基準+1
     effects:
-      - 作業台クラフトの品質基準+2
-      - クラフト品のランダムステータス上振れ幅+1%
+      - 作業台クラフトの品質基準+1
     buffs:
       workbench-quality-bonus: 1
     description: |-
-      作業台品質+1
-      ロール効率+5%
+      作業台品質基準+1
   C:
     name: 鉄金の鍛冶師
     level: 50
@@ -89,11 +89,9 @@ nodes:
     parent: B
     icon: IRON_CHESTPLATE
     cost: 1
-    effect-text: 作業台品質+1・上振れ拡大+0.1・ロール上振れ+2%
+    effect-text: 作業台品質基準+1
     effects:
       - 作業台クラフトの品質基準+1
-      - クラフト品質の上振れ幅+0.1
-      - クラフト品のランダムステータス上振れ幅+2%
     buffs:
       workbench-quality-bonus: 1
     description: |-
@@ -110,11 +108,9 @@ nodes:
     parent: C
     icon: DIAMOND_CHESTPLATE
     cost: 1
-    effect-text: 作業台品質+1・上振れ拡大+0.15・ロール上振れ+3%
+    effect-text: 作業台品質基準+1
     effects:
       - 作業台クラフトの品質基準+1
-      - クラフト品質の上振れ幅+0.15
-      - クラフト品のランダムステータス上振れ幅+3%
     buffs:
       workbench-quality-bonus: 1
     description: |-
@@ -130,9 +126,9 @@ nodes:
     parent: D
     icon: NETHERITE_CHESTPLATE
     cost: 1
-    effect-text: 作業台品質+1・鍛冶師解放
+    effect-text: 作業台品質基準+2・鍛冶師解放
     effects:
-      - 作業台クラフトの品質基準+1
+      - 作業台クラフトの品質基準+2
       - 鍛冶師を解放
     buffs:
       workbench-quality-bonus: 2
@@ -255,25 +251,25 @@ nodes:
     group: B-greek
     icon: QUARTZ
     cost: 1
-    effects:
-      - ランダムステータスの品質で下振れが減少
     buffs:
       workbench-downswing-reduction: 0.4
-    description: 品質効率up Lv1
+    effect-text: "作業台品質運: 下振れ幅-0.4"
+    effects:
+      - "作業台品質の下振れ幅-0.4"
+    description: "作業台品質運: 下振れ幅-0.4"
   B-alpha-2:
     name: 下振れ軽減II
     level: 60
     role: greek
     parent: B-alpha-1
-    group: B-greek
     icon: QUARTZ
     cost: 1
-    effect-text: ランダムステータスの品質で下振れが減少
+    effect-text: "作業台品質運: 下振れ幅-0.4"
     effects:
-      - ランダムステータスの品質で下振れが減少
+      - "作業台品質の下振れ幅-0.4"
     buffs:
       workbench-downswing-reduction: 0.4
-    description: 品質効率up Lv2
+    description: "作業台品質運: 下振れ幅-0.4"
   B-beta-1:
     name: 品質上限I
     level: 40
@@ -282,23 +278,22 @@ nodes:
     group: B-greek
     icon: AMETHYST_SHARD
     cost: 1
-    effect-text: クラフト品質+1
+    effect-text: "作業台品質運: 上振れ幅+0.7"
     effects:
-      - クラフト品質+1
+      - "作業台品質の上振れ幅+0.7"
     buffs:
       workbench-upswing-bonus: 0.7
-    description: 品質運up Lv1
+    description: "作業台品質運: 上振れ幅+0.7"
   B-beta-2:
     name: 品質上限II
     level: 60
     role: greek
     parent: B-beta-1
-    group: B-greek
     icon: AMETHYST_SHARD
     cost: 1
-    effect-text: クラフト品質+1
+    effect-text: "作業台品質運: 上振れ幅+0.7"
     effects:
-      - クラフト品質+1
+      - "作業台品質の上振れ幅+0.7"
     buffs:
       workbench-upswing-bonus: 0.7
-    description: 品質運up Lv1
+    description: "作業台品質運: 上振れ幅+0.7"

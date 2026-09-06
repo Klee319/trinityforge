@@ -64,6 +64,11 @@ public final class DailyExpWindowPersistence {
         } catch (SQLException | RuntimeException ex) {
             warn.accept("[daily-exp] 逓減の蓄積を読み込めませんでした: " + playerId + " / " + ex);
         }
+        try {
+            store.loadImmunity(playerId).ifPresent(until -> diminishing.restoreImmunity(playerId, until));
+        } catch (SQLException | RuntimeException ex) {
+            warn.accept("[daily-exp] 逓減無効化を読み込めませんでした: " + playerId + " / " + ex);
+        }
     }
 
     /** メモリ上の蓄積を書き出す（状態は捨てない。定期保存とサーバ停止時に使う）。 */
@@ -72,16 +77,23 @@ public final class DailyExpWindowPersistence {
             return;
         }
         Collection<DailyExpDiminishing.WindowSnapshot> rows = diminishing.snapshot(playerId);
-        if (rows.isEmpty()) {
-            return;
-        }
         DailyExpDiminishing.Settings current = currentSettings();
         try {
-            // 解除時間も渡す。渡さないと期限切れの行が「大きい方」として生き残り、
-            // 新しい発動時刻がそこへ引き戻されて逓減が二度と掛からなくなる。
-            store.save(playerId, rows, current.windowMillis(), current.lockReleaseMillis());
+            if (!rows.isEmpty()) {
+                store.save(playerId, rows, current.windowMillis(), current.lockReleaseMillis());
+            }
         } catch (SQLException | RuntimeException ex) {
             warn.accept("[daily-exp] 逓減の蓄積を保存できませんでした: " + playerId + " / " + ex);
+        }
+        try {
+            java.util.Optional<Long> until = diminishing.immuneUntil(playerId);
+            if (until.isPresent()) {
+                store.saveImmunity(playerId, until.get());
+            } else {
+                store.clearImmunity(playerId);
+            }
+        } catch (SQLException | RuntimeException ex) {
+            warn.accept("[daily-exp] 逓減無効化を保存できませんでした: " + playerId + " / " + ex);
         }
     }
 
@@ -130,5 +142,66 @@ public final class DailyExpWindowPersistence {
     private DailyExpDiminishing.Settings currentSettings() {
         DailyExpDiminishing.Settings current = settings.get();
         return current == null ? DailyExpDiminishing.Settings.DISABLED : current;
+    }
+
+    /**
+     * 減衰量の割合削減のあと、メモリの各スキル蓄積を DB へ切り下げる。
+     * 単一の目標倍率ではスキルごとに段が違うので {@link #capStored} は使えない。
+     */
+    public int persistRelievedAmounts(UUID playerId) {
+        if (playerId == null) {
+            return 0;
+        }
+        DailyExpDiminishing.Settings current = currentSettings();
+        try {
+            return store.capToSnapshots(playerId, diminishing.snapshot(playerId),
+                    current.windowMillis(), current.lockReleaseMillis());
+        } catch (SQLException | RuntimeException ex) {
+            warn.accept("[daily-exp] 逓減の切り下げを保存できませんでした: " + playerId + " / " + ex);
+            return 0;
+        }
+    }
+
+    public void persistImmunity(UUID playerId) {
+        if (playerId == null) {
+            return;
+        }
+        try {
+            java.util.Optional<Long> until = diminishing.immuneUntil(playerId);
+            if (until.isPresent()) {
+                store.saveImmunity(playerId, until.get());
+            } else {
+                store.clearImmunity(playerId);
+            }
+        } catch (SQLException | RuntimeException ex) {
+            warn.accept("[daily-exp] 逓減無効化を保存できませんでした: " + playerId + " / " + ex);
+        }
+    }
+
+    /**
+     * 運営リセットの非同期側。DB だけ消す。メモリは触らない。
+     *
+     * <p>{@link #resetPlayer} はメモリも消すので、コマンドがメインスレッドで
+     * {@link DailyExpDiminishing#clearPlayer} したあとにこれを非同期で呼ぶこと。
+     * 非同期側でも clear すると、完了までの間に稼いだ分まで消える。
+     */
+    public void wipeStored(UUID playerId) {
+        if (playerId == null) {
+            return;
+        }
+        try {
+            store.delete(playerId);
+        } catch (SQLException | RuntimeException ex) {
+            warn.accept("[daily-exp] 逓減のリセットを保存できませんでした: " + playerId + " / " + ex);
+        }
+    }
+
+    /** 運営リセット。メモリと DB の蓄積・無効化を全部消す（同期呼び出し用）。 */
+    public void resetPlayer(UUID playerId) {
+        if (playerId == null) {
+            return;
+        }
+        diminishing.clearPlayer(playerId);
+        wipeStored(playerId);
     }
 }

@@ -57,6 +57,7 @@ import java.util.function.Supplier;
  *
  * <p>Bind: vanilla {@code minecraft:} recipes and crafts without a catalog id stay
  * {@link BindType#TRADEABLE} (no owner). Catalog-matched results keep template bind / SOULBOUND stamp.
+ * 革防具の染色は同じ個体の続きなので {@link CatalogCosmeticPreserve} が扱い、ここは stamp しない。
  */
 public final class CraftQualityListener implements Listener {
 
@@ -90,6 +91,7 @@ public final class CraftQualityListener implements Listener {
         ItemStack result = inventory.getResult();
         if (event.isRepair()
                 || isVanillaSameItemRepair(inventory.getMatrix(), result)
+                || CatalogCosmeticPreserve.isLeatherDyeCraft(inventory.getMatrix(), result)
                 || !isStampableCraftResult(result)
                 || (!hasStatsProfile(result) && !isArsQualityStamped(result))) {
             return;
@@ -144,6 +146,7 @@ public final class CraftQualityListener implements Listener {
         if (producesCraftedItem(event.getAction(), event.getCursor())
                 && isStampableCraftResult(source)
                 && !isVanillaSameItemRepair(event.getInventory().getMatrix(), source)
+                && !CatalogCosmeticPreserve.isLeatherDyeCraft(event.getInventory().getMatrix(), source)
                 && (hasStatsProfile(source) || isArsQualityStamped(source))) {
             Set<String> candidates = candidatesFor(source);
             int rolled = craftQualityService.rollQuality(player, candidates, qualityModeOffsetFor(source));

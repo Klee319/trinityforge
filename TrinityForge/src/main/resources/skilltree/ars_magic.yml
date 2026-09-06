@@ -21,20 +21,22 @@ icon: LECTERN
 starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 3
+  max-times: 5
   at-level: 100
   name: 大魔導師の栄光
   effect-text: 利用可能なTierが 永続+1・マナ回復速度 永続+10%・マナ最大値+50・グリフの配置数が 永続+1
   buffs:
-    mana-idle-bonus-percent: 0.1
+    mana-regen: 1
     mana-bonus: 50
     ars-tier-bonus: 1
     glyph-slot-bonus: 1
+    ars-magic-exp-bonus: 0.1
   description: |-
-    待機マナ回復+10%
+    マナ回復量+2
     マナ上限+50
     詠唱レベル+1
     グリフ配置数+1
+    Ars魔法EXP増加+10%
 nodes:
   A:
     name: 魔法の探求者

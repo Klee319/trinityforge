@@ -134,6 +134,8 @@ public final class NativeCombatPerkListener implements Listener {
             victim.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, ticks, 5, false, true, true));
             victim.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, ticks, 2, false, true, true));
             victim.setFreezeTicks(Math.max(victim.getFreezeTicks(), ticks));
+            // 予告機構の中断(機構8、2026-09-04): 殴ってスタンを与えたら、詠唱中の敵はそこで中断する。
+            com.trinityforge.combat.MobAbilityInterrupts.notifyStun(victim);
         }
 
     }
