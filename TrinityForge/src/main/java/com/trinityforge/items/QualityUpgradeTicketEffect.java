@@ -68,9 +68,17 @@ public final class QualityUpgradeTicketEffect implements EquipmentTicketEffect {
             return false;
         }
         ItemData data = ItemData.of(stack.getItemMeta());
-        return data.hasRollSeed()
-                && data.quality() < qualityConfig.maxQuality()
-                && itemFactory.qualityVaries(stack);
+        if (!data.hasRollSeed() || data.quality() >= qualityConfig.maxQuality()) {
+            return false;
+        }
+        // Ars のスレッドは専用 lore を持つ完成品。item-stats の Material#CMD 引きが
+        // 外れる(CustomModelData コンポーネント差・薄い profile)と qualityVaries が false になり、
+        // 候補にすら出ず昇華できない。マーカーと rollSeed がある個体は品質対象として扱う。
+        // 空スレッドは rollSeed を持たない(W-53)ので、この分岐には入らない。
+        if (PickupQualityListener.hasArsThreadMarker(stack.getItemMeta())) {
+            return true;
+        }
+        return itemFactory.qualityVaries(stack);
     }
 
     @Override

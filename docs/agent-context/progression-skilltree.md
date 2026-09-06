@@ -351,6 +351,23 @@ SWEET_BERRY_BUSH/TORCHFLOWER_CROP/PITCHER_CROP/MELON_STEM/PUMPKIN_STEM）は必�
 `CropMaturity.isMaturityGated` で確認すること。確認せずに掘削/採掘/伐採と同じ `isPlaced`/
 `clearIfPlaced` を素で使うと、そのブロックの主経路が恒久的に無効化される。
 
+### ⚠️ 苗木の設置印が成長後の根元に残ると、一括伐採が根元から発火しない
+
+**症状**: 植えた木、特にダークオークで、根元から切ると一括伐採がかからない。上のほうから切ると
+幹は倒れるが根元4本が切り株として残る。自然生成の木では起きない。
+
+**機構**: 苗木の設置は `BlockPlaceEvent` を通るので `PlacedBlockTracker` が座標を記録する。
+成長はブロック種別が sapling→log に変わるだけで印は消えない。`TreeFellingListener` の走査述語は
+設置印のある原木を木から除外し、`TreeScan#wholeTree` は起点自身も述語で落とす。根元を叩くと
+起点が空扱いになり連鎖 0 本で終わる。ダークオークは苗木 2×2 なので根元4本すべてが印付きになり、
+どの根元を叩いても同じ症状になる。
+
+**修正**: `PlacedBlockTracker#onStructureGrow` が成長成功時に、起点苗木と生成ブロックの印を消す。
+丸太を直接置いた建築の印は `StructureGrowEvent` を通らないので残る。既存ワールドでは印がチャンクに
+残ったままなので、走査は「真上に印のない同じ原木がある設置原木」だけを幹に含める（横に自然木が
+接している家は巻き込まない）。回帰は `PlacedBlockTrackerGrowthTest` と
+`TreeFellingListenerTest` のダークオーク根元ケース。
+
 ### ⚠️ 縦積み植物（サトウキビ/竹/コンブ等）の根元を壊すと、上に育った段のEXPが連鎖破壊ごと消える
 
 **症状**: 「サトウキビの根元を壊すとEXPが入らない」報告（2026-08-03）。根元1段だけなら

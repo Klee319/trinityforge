@@ -58,7 +58,6 @@ categories:
         - infinity_axe_tool
         - infinity_boots
         - infinity_bow
-        - infinity_catalyst
         - infinity_chestplate
         - infinity_crossbow
         - infinity_dagger
@@ -75,6 +74,7 @@ categories:
         - infinity_spear
         - infinity_sword
         - infinity_trident
+        - infinity_wand
         - infinity_warhammer
     dungeon:
       display-name: 踏破の証

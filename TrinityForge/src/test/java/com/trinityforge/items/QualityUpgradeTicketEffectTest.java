@@ -162,4 +162,25 @@ class QualityUpgradeTicketEffectTest {
         verify(assembler, never()).assemble(any(), any(), anyLong(), anyInt());
         verify(assembler, never()).assemble(any(), any(), anyLong(), anyInt(), anyBoolean());
     }
+
+    @Test
+    void markedArsThreadIsEligibleEvenWhenItemStatsProfileLookupMisses() {
+        ItemStatsConfig stats = mock(ItemStatsConfig.class);
+        when(stats.profileFor(eq(Material.STRING), nullable(Integer.class))).thenReturn(Optional.empty());
+        QualityUpgradeTicketEffect gated =
+                new QualityUpgradeTicketEffect(new ItemFactory(assembler, stats), qualityConfig);
+
+        ItemStack thread = new ItemStack(Material.STRING);
+        ItemMeta meta = thread.getItemMeta();
+        ItemData data = ItemData.of(meta);
+        data.setRollSeed(ORIGINAL_ROLL_SEED);
+        data.setQuality(5);
+        meta.getPersistentDataContainer().set(
+                new NamespacedKey("arspaper", "thread_item_type"),
+                PersistentDataType.STRING, "circulation");
+        thread.setItemMeta(meta);
+
+        assertTrue(gated.eligible(thread),
+                "スレッドは item-stats の CMD 引きが外れても品質昇華の候補に出ること");
+    }
 }
